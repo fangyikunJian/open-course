@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS224R 第五讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:#e7eef7;margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,rgba(185,143,230,.07),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs224r-2025-l05">
+
+<div id="bar">
+  <h1>CS224R 第五讲 · <span>离策略 Actor-Critic 与 PPO</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 30</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/05_cs224r_offpolicy_actor_critic_2025.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs224r-2025</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L05-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "本讲标题里的 off-policy，指的是什么？", "o": ["只能用别人采的数据、不能自己采", "一类全新的算法，与 actor-critic 无关", "同一批数据能被用来走几步梯度的「程度」", "不需要值函数的方法"], "a": 2, "why": "本讲把 on-policy 与 off-policy 当作一个连续的旋钮：完全在策略 = 一批数据走一步（L04），PPO = 走几百步，SAC = 所有历史数据反复用。"}],
+3: [{"q": "离策略的策略梯度公式，相比在策略版本多了什么？", "o": ["多了一个因子 π_θ′(a|s)/π_θ(a|s)", "把回报换成了优势", "多了一个基线项", "把 log 换成了平方"], "a": 0, "why": "课件 p3 的两个式子并排放着，差别只有那一个比值因子，其余结构完全一样。"}, {"q": "第一次梯度步时，重要性权重的值是多少？", "o": ["1", "0", "取决于 ε", "等于优势的大小"], "a": 0, "why": "第一步时 θ′ 还等于 θ，比值恒为 1，此时离策略公式与在策略公式完全一致。麻烦是从第二步以后才开始长出来的。"}],
+4: [{"q": "优势函数 A^π(s,a) 的含义是？", "o": ["在 s 下选 a，比照策略办好多少", "策略的熵", "值函数的梯度", "从 s 出发的未来回报总和"], "a": 0, "why": "A = Q − V，读作「选 a 相对于『照策略办』的增量」。它的符号直接决定该加大还是压低这个动作的概率。"}],
+7: [{"q": "在这套五步算法里，优势 Â 是什么时候算的？", "o": ["由环境直接给出", "在第 5 步之后算", "每走一步梯度都重算一次", "采样后算一次，之后走多少步梯度都不再更新"], "a": 3, "why": "第 2、3 步只在采样后各做一次，V̂ 与 Â 都是对着旧策略算的。这正是「优势是旧的」这个麻烦的来源。"}],
+9: [{"q": "代理目标 J̃(θ′) = Σ (π_θ′/π_θ)·Â 里，被优化的变量是哪个？", "o": ["优势 Â", "基线 b", "折扣因子 γ", "那个比值 π_θ′/π_θ"], "a": 3, "why": "Â 是旧策略算完就冻住的常数，唯一能动的是比值。所以「最大化这个目标」在实质上就是「把正优势动作的比值推得越大越好」，而它没有上限。"}, {"q": "为什么走太多步梯度会过拟合？", "o": ["重要性权重会变成负数", "Â 只来自一批数据、本身是估计值，把比值推到极端等于全力拟合这批数据的估计误差", "梯度会数值溢出", "学习率会自动变大"], "a": 1, "why": "症状是奖励先涨得很快、然后不稳、最后可能崩掉。老师举的画面是：策略学会了「往右走是好的」但没学会「到这里要停」，于是一直走到撞进角落。"}],
+10: [{"q": "课件说 Idea 2（卡住比值）「doesn't directly constrain policy, but removes incentives」。这句话的意思是？", "o": ["它不禁止策略偏离，只是让继续偏离不再有收益", "它要求两个策略完全相同", "它比 KL 约束更严格", "它把策略参数直接投影回可行域"], "a": 0, "why": "一个是加围栏（KL 约束），一个是撤奖励（截断）。PPO 选后者，因为不用算 KL、也不用解带约束的优化。"}],
+11: [{"q": "只做 trick #1（截断）而不做 trick #2（取 min），会漏掉什么情况？", "o": ["比值恰好等于 1 时会除以 0", "折扣因子接近 1 时会发散", "优势为负且比值很大时，截断反而把目标抬高，等于替很糟的动作开脱", "优势为正且比值很小时，梯度会消失"], "a": 2, "why": "讲稿的数字：Â = −1000、比值 9，不截断是 −9000，截到 1.2 是 −1200 —— 后者更大，看起来更好。取 min 让截断在此失效，保留原来的重惩罚。"}, {"q": "取 min 之后，PPO 的代理目标与原代理目标是什么关系？", "o": ["是原目标的一个上界", "两者无关", "是原目标的一个下界", "相等"], "a": 2, "why": "老师的原话是「这个 min 保证了截断永远不会让目标变得更好，它确保这是原代理目标的一个下界」，于是训练在做的事是「最大化一个下界」。"}, {"q": "关于截断，下面哪种说法是对的？", "o": ["它只在优势为正时起作用", "它等价于把学习率调小", "比值走出区间后，那一项的梯度变成 0", "它保证策略一定不会变差"], "a": 2, "why": "截断改的是目标函数的形状而不是步长。出界之后梯度不是变小而是没了 —— 「继续往这个方向推不再有任何回报」。"}]
+};
+
+var N = [
+{"r": [1, 1], "t": "这一讲要解决的是「一批数据只能走一步梯度」这件浪费事", "star": 2, "quote": "CS 224R — Off-Policy Actor Critic Methods", "one": "标题里的 <b>off-policy</b> 不是一个新算法，而是一个<span class='k'>程度</span>：同一批数据，你敢用它走几步梯度。", "pts": ["上一讲（L04）的 actor-critic 是<b>完全在策略（on-policy）</b>的：采一批数据 → 走<span class='w'>一步</span>梯度 → 数据作废 → 重采。", "这件事很浪费。真机上采 2000 个时间步可能要跑几分钟，换来的却只是一次参数更新。", "这一讲沿着「能不能多用几次」这条线走到底，中间会经过两个落脚点：<b>PPO</b>（同一批走几百步）与 <b>SAC</b>（把<span class='k'>所有历史数据</span>都留着反复用）。", "所以本讲的结构不是「两个并列的算法」，而是<b>同一个旋钮拧到两个刻度</b>：拧得越狠，数据效率越高，但越难调、越不稳。", "读之前先记住一个判据，后面每一页都能用它检查自己有没有跟上：<b>「这一页在讨论的，是怎么让旧数据还能用，还是在讨论用旧数据会坏在哪」</b>。本讲几乎每一页都落在这两类里的一类。"], "tbl": {"cap": "这条线在本课里的三个刻度", "head": ["", "L04 actor-critic", "PPO（本讲前半）", "SAC（本讲后半）"], "rows": [["一批数据走几步梯度", "1 步", "约 300 步", "全部历史数据反复用"], ["旧数据留多久", "用完即弃", "本批用完即弃", "永久留在回放缓冲里"], ["靠什么撑住", "不需要", "重要性权重 + 截断", "拟合 Q 而不是 V"], ["数据效率", "最低", "中", "最高"], ["调参难度", "最低", "中", "最高"]]}, "say": "这一讲在整门课里的位置值得先说清楚：L03 讲策略梯度、L04 讲 actor-critic，都还在「采一批、更一次」的框架里。<b>PPO 是这条线的终点，也是你在 LLM 训练里最常撞见的那个名字</b>——本讲 p28 专门有一页讲这件事，而 L09、L10 两讲会把它真正用到语言模型上。<br><br>另外提醒一句阅读顺序：<b>本讲的两半可以分开读</b>。前半（p7–p13）自成一体，读完就能看懂任何一份 PPO 实现；后半（p14–p23）是另一条独立的线，卡住了不影响前半。", "link": {"t": "你学过的对应：CS234 L08 策略梯度（似然比技巧、REINFORCE、因果性降方差）", "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}},
+{"r": [3, 3], "t": "重要性权重：让「别人采的样」能算出「我的梯度」", "star": 3, "quote": "Importance weights for off-policy policy gradient: Do more of the above average stuff, less of the below average stuff.", "one": "在策略梯度的每一项前面乘一个比值 <code>π_θ′(a|s) / π_θ(a|s)</code>，就把「旧策略采的数据」换算成了「新策略下的期望」。", "eq": "在策略：∇_θ J(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) · ( Σ_{t'≥t} r(s_{i,t'}, a_{i,t'}) − b )\n\n离策略：∇_θ′ J(θ′) ≈ (1/N) Σ_i Σ_t [ π_θ′(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t}) ] · ∇_θ′ log π_θ′(a_{i,t}|s_{i,t}) · ( Σ_{t'≥t} r − b )", "pts": ["课件把在策略公式的四个部件都标了名字：<b>policy log likelihood</b>（策略对数似然）、<b>reward to go</b>（往后的回报）、<b>baseline</b>（基线）、<b>samples from policy</b>（从策略采的样）。", "离策略版本只多了<span class='k'>一个因子</span>——那个比值。其余结构一字未动。", "<b>θ 与 θ′ 要分清</b>：θ 是<span class='w'>采数据时</span>的参数（采完就冻住），θ′ 是<span class='k'>此刻正在被更新</span>的参数。第一次梯度步时两者相等，比值恒为 1。", "所以「多走几步梯度」在数学上是免费的吗？不是——免费的只有<b>第一步</b>。往后每走一步，θ′ 离 θ 越远，比值离 1 越远，问题就从这里长出来。"], "tbl": {"head": ["", "在策略（L04）", "离策略（本讲）"], "rows": [["数据来自", "当前策略 π_θ", "旧策略 π_θ，θ 已冻住"], ["每批数据走几步", "1 步", "M 步（PPO 里约 300）"], ["公式差别", "—", "每项乘 π_θ′/π_θ"], ["第一步时", "—", "比值 = 1，与在策略完全一样"], ["走得越多", "—", "比值越偏离 1，越危险"]]}, "say": "老师被问到「为什么非要用重要性权重来算梯度」时的回答很干脆：<b>「这个重要性权重项，正是让你能走不止一步梯度的东西。没有它，你就没法在旧的那批数据上准确估计梯度。」</b>换句话说，重要性权重不是一个优化技巧，而是<span class='k'>离策略这件事本身的入场券</span>。<br><br>课件右下角那句 <b>“Do more of the above average stuff, less of the below average stuff.”</b>（多做高于平均的事，少做低于平均的事）说的是括号里那一坨——<b>减去基线之后，正负号才有「高于/低于平均」的含义</b>。没有基线，回报全是正的，公式就变成了「所有做过的事都多做一点」。", "tip": {"t": "这个比值的方向别记反", "v": "分子是<b>新</b>策略、分母是<b>旧</b>策略：<code>π_θ′(a|s) / π_θ(a|s)</code>。记法是「<b>我现在多想做这件事 ÷ 我当时多想做这件事</b>」。比值 &gt; 1 表示新策略比旧策略更青睐这个动作。写反了整个更新方向都是错的，而且不会报错，只会训不出来。", "w": 1}, "link": {"t": "你学过的对应：CS234 L15 批量离线 RL（重要性采样、覆盖条件、加权 IS 的偏差-方差取舍）", "href": "../../reinforcement learning/theater/影片/L15-批量离线强化学习与安全策略改进.html"}},
+{"r": [4, 4], "t": "V、Q、A：三个对象，一句话各自说清", "star": 1, "quote": "advantage Aπ(s, a) - how much better it is to take a than to follow policy π at state s", "one": "优势 <code>A^π(s,a) = Q^π(s,a) − V^π(s)</code>：<b>在状态 s 下选 a，比「照策略办」好多少</b>。", "eq": "V^π(s)   = 从 s 出发、之后一直按 π 走，未来回报的期望\nQ^π(s,a) = 从 s 出发、先执行 a、之后按 π 走，未来回报的期望\nA^π(s,a) = Q^π(s,a) − V^π(s)", "pts": ["课件用两张小图把 V 与 Q 的差别画得很直白：V 是「从 s 直接 run π」，Q 是「take action a, then run π」。", "A 的符号就是<b>该不该多做这个动作</b>的判据：A &gt; 0 就加大它的概率，A &lt; 0 就压低。", "为什么要减掉 V：<span class='k'>V 是一个与动作无关的量</span>，减掉它不改变梯度的期望（这就是基线），却能大幅降低方差。", "本讲后面会出现一个反转：到了 SAC 那一侧，<span class='w'>反而故意不减 V</span>，直接用 Q——理由在 p20。", "三者都带上标 π：<b>它们是「跟着某个特定策略走」才有定义的量</b>。换一个策略，同一个 (s,a) 的 Q 与 A 就是另外的数。本讲后半「回放缓冲里的数据来自好多个旧策略」之所以是个问题，根子就在这个上标上。"], "tbl": {"cap": "三个量的定义、用途，以及本讲在哪里动它们", "head": ["量", "一句话定义", "本讲在哪动它"], "rows": [["V^π(s)", "从 s 起、之后按 π 走的未来回报期望", "p16：回放缓冲里它到底是谁的 V？"], ["Q^π(s,a)", "从 s 起、先做 a、之后按 π 走", "p17–p18：改成拟合它，因为 a 是输入"], ["A^π(s,a)", "Q − V，选 a 比照策略办好多少", "p20：故意不用它，直接用 Q̂"]]}, "say": "这一页是纯回顾，课上一带而过。但它是后面所有讨论的记号底座：<b>p9 说「优势是基于旧策略估的」、p17 说「改成拟合 Q 而不是 V」、p20 说「用 Q̂ 代替 Â」，讲的都是这一页上的三个符号在打架</b>。看不懂后面时，多半是回到这页就能解开。<br><br>老师复述 A 的来源时用的是这句话：<b>「它来自回报的和——也就是 Q 函数——减去平均的回报和——也就是值函数」</b>。把 V 读成「平均意义上的回报」，A 的符号含义就自然了：正的就是「比平均好」。", "link": {"t": "你学过的对应：CS234 L09 策略梯度 II（基线不改变期望的六步证明、折扣占用测度）", "href": "../../reinforcement learning/theater/影片/L09-策略梯度II.html"}},
+{"r": [5, 5], "t": "Actor-Critic：把「往后的回报」换成「优势的估计」", "star": 2, "quote": "Estimate what is good and bad, then do more of the good stuff.", "one": "Actor-critic 与 REINFORCE 的<b>唯一</b>差别，是把括号里那坨蒙特卡洛回报换成了 <code>Â^π(s_t, a_t)</code>。", "eq": "∇_θ J(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) · A^π(s_{i,t}, a_{i,t})\n\n拟合 V̂ 的目标（n 步自举）：\ny_{i,t} = Σ_{t'=t}^{t+n−1} r(s_{i,t'}, a_{i,t'}) + γⁿ · V̂^π_φ(s_{i,t+n})", "pts": ["<b>actor</b> 是策略 π_θ，<b>critic</b> 是值函数 V̂_φ。两套参数，两个损失。", "critic 的训练就是<span class='k'>一个回归问题</span>：把 V̂_φ(s) 拟合到目标 y 上。", "n 的取值是一条连续谱：n=1 是纯自举（偏差大、方差小），n→T 是纯蒙特卡洛（无偏、方差大）。<b>这条谱到 p12 的 GAE 会被再用一次</b>——GAE 做的就是把不同 n 的估计加权平均起来。", "老师一句话总结了它与策略梯度的分野：策略梯度用「这条轨迹的回报」，actor-critic 用「<b>我们估计出来的好坏</b>」，然后「多做我们认为好的事」。", "<span class='w'>这里有一个容易滑过去的前提</span>：第 3 步算优势用的 V̂ 是<b>拟合出来的</b>，不是真值。它不准，优势就不准；优势不准，p9 讲的过拟合就更严重。<b>critic 的质量是整条链的上游。</b>"], "tbl": {"cap": "同一个 ∇log π 前面乘什么 —— 三代方法的分水岭", "head": ["方法", "乘的是", "偏差 / 方差"], "rows": [["REINFORCE", "整条轨迹的回报", "无偏 / 方差最大"], ["带基线的 PG", "回报 − b", "无偏 / 方差小一些"], ["Actor-Critic", "Â（critic 估的优势）", "有偏 / 方差小"], ["本讲（离策略）", "重要性权重 × Â", "再加一层权重方差"]]}, "say": "这一页与 p4 合起来是本讲的记号底座。值得留意的是<b>方差在本讲里被加了一层</b>：actor-critic 用 critic 换掉蒙特卡洛回报，本来是为了降方差；而离策略又在前面乘上一个重要性权重，那个权重自己是有方差的，走得越远方差越大。<b>p11 的截断，同时也是在压这个方差</b>——虽然课件是从「拆掉动机」的角度讲的。", "link": {"t": "你学过的对应：CS234 L09 actor-critic 与 n 步回报", "href": "../../reinforcement learning/theater/影片/L09-策略梯度II.html"}},
+{"r": [6, 6], "t": "今天的路线图：一个旋钮，两个刻度", "star": 1, "quote": "Key learning goals: All of the key concepts for practical algorithms like PPO and SAC", "one": "课件把本讲切成两半：<b>前半</b>让同一批数据走多步梯度（→ PPO），<b>后半</b>把所有历史数据都留着用（→ SAC）。", "tbl": {"head": ["", "前半（→ PPO）", "后半（→ SAC）"], "rows": [["做法", "同一批数据走 M 步梯度", "留一个回放缓冲，全部历史数据反复用"], ["关键技术", "重要性权重 + 截断", "拟合 Q 而不是 V"], ["课件页", "p7–p13", "p14–p23"], ["离策略程度", "轻", "重"], ["代价", "几乎不增加不稳定", "更难调、更不稳"]]}, "pts": ["课件的小标题层次有一处排版错误：第二个大项写成了「b. Even more off-policy algorithm」，按顺序应当是 <b>2.</b>（p6 与 p29 两页都是这么印的）。", "「Key learning goals」那一行点名了两个算法：<b>PPO 与 SAC</b>。这是本讲要交付的东西。", "读的时候心里带一个问题：<span class='k'>这两个刻度之间的取舍到底是什么</span>？p23 会正面回答。", "前半的三个小步（重要性权重 → 约束步长 → 实用 PPO）是<b>严格递进</b>的：每一步都在补上一步留下的洞。后半的两个小步也一样（拟合 Q → 实用 SAC）。<b>跳着读会丢掉「为什么需要这一步」</b>，而那恰恰是本讲最值钱的部分。", "把这条递进写成一串因果，读起来会顺很多：<b>想省数据 ⇒ 一批走多步 ⇒ 得用重要性权重 ⇒ 权重没有上限、优势又是旧的 ⇒ 会过拟合 ⇒ 要么约束策略（KL）要么拆掉动机（截断）⇒ PPO 选截断 ⇒ 截断偶尔帮倒忙 ⇒ 再取个 min</b>。九个箭头，就是 p7 到 p11 的全部。", "后半的因果链同样短：<b>想更省数据 ⇒ 留一个回放缓冲 ⇒ 缓冲里的数据来自好多个旧策略 ⇒ V 不知道该是谁的 V ⇒ 改成拟合 Q（动作是输入，所以不怕）⇒ SAC</b>。"], "say": "这一页与 p29 是同一张幻灯（课末重复一遍）。<b>它不是新内容，看到 p29 时可以直接跳过</b>——本精读也不会在 p29 重复一遍讲解。<br><br>课件把整讲的两个大项写成了「1.」和「b.」，层次记号不一致（p6 与 p29 两页都是这么印的）。<b>按内容它应该是 1. 与 2.</b>，本精读按后者理解。这种排版小错不影响内容，但读的时候容易让人以为漏了一项。"},
+{"r": [7, 8], "t": "把重要性权重插进 actor-critic：五步算法里只动了第 4 步", "star": 3, "quote": "<- use importance weights here … What can go wrong?", "one": "整套算法五步，离策略化只改<b>第 4 步那一行</b>——在梯度里乘上重要性权重。", "eq": "1. 从 π_θ 采一批数据 {(s₁,ᵢ, a₁,ᵢ, …, s_T,ᵢ, a_T,ᵢ)}\n2. 把 V̂^{π_θ}_φ 拟合到数据里的回报和\n3. 算优势  Â^{π_θ}(s_t,ᵢ, a_t,ᵢ) = r(s_t,ᵢ, a_t,ᵢ) + γ V̂_φ(s_{t+1},ᵢ) − V̂_φ(s_t,ᵢ)\n4. 算梯度  ∇_θ′ J(θ′) ≈ Σ_{t,i} [ π_θ′(a|s) / π_θ(a|s) ] · ∇_θ′ log π_θ′(a_t,ᵢ|s_t,ᵢ) · Â^{π_θ}(s_t,ᵢ, a_t,ᵢ)\n5. 更新  θ ← θ + α ∇_θ J(θ)", "pts": ["p7 与 p8 是<b>同一张幻灯的两个阶段</b>：p7 只标了「&lt;- use importance weights here」，p8 把那个带权重的梯度式子写了出来，并抛出问题「What can go wrong?」。", "第 3 步的优势用的是<span class='w'>一步 TD 残差</span>：<code>r + γV̂(s′) − V̂(s)</code>。这个选择到 p12 会被 GAE 换掉。", "注意第 2、3 步<b>只在采样后做一次</b>：V̂ 与 Â 都是<span class='w'>对着旧策略</span>算的，之后无论走多少步梯度，它们都不再更新。", "上面这一条就是全部麻烦的根源。下一页正面讲。", "顺带认一下第 4 步式子里的两个下标：<code>π_θ′(a_{i,t}|s_{i,t})</code> 的 <b>i 是第几条轨迹、t 是第几个时间步</b>。求和号 Σ_{t,i} 把一批数据里<span class='k'>所有时间步</span>都算进来——这就是 p13 说「一批 2000 个时间步」的那个 2000。", "还有一个实现上的细节：算比值需要 <b>π_θ 在这批数据上的概率</b>。所以采完数据后不能把旧策略直接扔掉，<span class='w'>要么留着旧模型，要么把当时算出的概率存下来</span>。"], "tbl": {"head": ["步骤", "算一次还是每步算", "基于哪个策略"], "rows": [["1 采数据", "一次", "π_θ（旧）"], ["2 拟合 V̂", "一次", "π_θ（旧）"], ["3 算优势 Â", "一次", "π_θ（旧）"], ["4 算梯度", "每步都算", "π_θ′（新，在变）"], ["5 更新 θ′", "每步都做", "—"]]}, "say": "老师在这里插了一句实现层面的话，对读代码很有用：<b>真正写进 PyTorch 的不是梯度式子，而是一个「代理目标」（surrogate objective），让自动微分把梯度免费求出来</b>。所以你在代码里看到的形状会和这一页的公式不一样——下一页就把那个代理目标写出来。<br><br>被问到「为什么要看代理目标而不是原来的梯度式子」时，老师的回答是：<b>「看代理目标更直观一点，能看出这些重要性权重真的是在让『提高概率』变得非常容易。」</b>而且他补了一句实话：<b>「PPO 如果你看梯度会显得复杂一些，看代理目标就简单些。」</b>——这是选择表述方式的理由，不是数学上的差别。<br><br>还有一句关于语言模型的旁注，与 L09、L10 直接相关：<b>「这在大语言模型上并不少见——你得把旧语言模型的整套权重留着才能做这件事。不过也有办法缓存：可以只把那一批数据上各处分配的概率存下来。」</b>", "tip": {"t": "读代码时的对应", "v": "任何一份 PPO 实现里，你会看到的是 <code>ratio = torch.exp(logp_new - logp_old)</code> 而不是一个除法 —— <b>因为概率在对数空间里算更稳</b>（尤其是语言模型，一个 token 的概率可能极小，直接相除会下溢）。<code>logp_old</code> 就是上面说的「存下来的旧概率」。"}},
+{"r": [9, 9], "t": "会坏在哪：优势是旧的，而策略被鼓励跑得越远越好", "star": 3, "quote": "Advantages based on old policy. Policy is incentivized to differ significantly from old policy, can easily overfit.", "one": "代理目标里，比值 <code>π_θ′/π_θ</code> 对一个正优势的动作<b>没有上限</b>——谁把它推得越高，目标就越大。于是策略被<span class='w'>制度性地鼓励</span>跑离旧策略。", "eq": "代理目标（写进 PyTorch 的那个）：\n\nJ̃(θ′) ≈ Σ_{t,i} [ π_θ′(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t}) ] · Â^{π_θ}(s_t,ᵢ, a_t,ᵢ)\n\n课件把这一步标注为 “a convenient identity”（一个方便的恒等变形）", "pts": ["把它当成一个优化问题看：<b>Â 是常数</b>（旧策略算的，不再变），唯一的变量是那个比值。", "对 Â &gt; 0 的项，最大化目标 = 把比值推到<span class='w'>要多大有多大</span>；对 Â &lt; 0 的项，= 把比值压到 0。", "问题在于 <b>Â 本身是估计值，而且只来自一批数据</b>。把比值推到极端，等于对这一批数据的估计误差全力拟合——这就是<span class='w'>过拟合</span>。", "症状是可预测的：奖励一开始<span class='k'>涨得很快</span>，然后不稳，最后可能<span class='w'>崩掉</span>。", "<b>注意这不是「学习率太大」。</b>学习率太大是每一步都跳得太远；这里是每一步都规规矩矩，但<span class='w'>被优化的目标本身指向一个错的地方</span>——它奖励「偏离」，而偏离越远，那个旧的 Â 越不可信。<b>把学习率调小只是让崩溃来得慢一点。</b>", "课件在代理目标旁边标了一句 <b>“a convenient identity”</b>。它的意思是：这个代理目标<span class='k'>不是</span>真正要最大化的目标，只是一个「对它求梯度正好等于我们要的梯度」的表达式。<b>所以它的绝对数值没有意义，别拿它当性能指标看。</b>"], "say": "老师讲了一个很具体的过拟合画面，比「会不稳定」有用得多：<b>「一个过拟合的策略可能给某一个优势很高的动作分配极高的概率……比方说它学会了『往右走是好的』，但没学会『到这里要停』。于是它会走一条直线，然后一直朝那个方向走下去，最后撞进角落里——因为它过拟合了那一批告诉它往这边走的数据。」</b>", "tip": {"t": "一个能自己验的小推论", "v": "把 ε 设成很大（比如 100），PPO 就<b>退化回没有截断的版本</b>——因为比值几乎永远落在区间内，截断从不生效。反过来把 ε 设成 0，那么第一步之后所有梯度都是 0，策略<span class='w'>一步也走不动</span>。<b>ε 控制的不是步长，是「允许目标函数在多大范围内还讲道理」。</b>课件用的 0.2 意味着：概率比值在 0.8 到 1.2 之间时目标正常，出了这个区间就平掉。", "w": 1}, "res": {"tag": "推断", "v": "这一页的结构和你论文里那个问题同构：<b>用一批昂贵样本估出来的分数，被一个搜索过程反复最大化</b>。AFlow 的选择规则是对已评估 workflow 的分数做 Boltzmann 采样，分数同样来自有限次评估（D_V 上跑 5 次）。区别在于 PPO <span class='k'>明确承认</span>「目标是估计值、优化它会过拟合」并为此加了截断，而工作流搜索那一侧通常不设这道闸。「对估计出来的目标最大化到什么程度才停」——这正是 cost-efficiency bound 要回答的问题之一。", "ref": "本讲 p9；AFlow (arXiv:2410.10762) §3.2 与 Algorithm 1"}},
+{"r": [10, 10], "t": "两条路：约束策略本身，还是拆掉偏离的动机", "star": 3, "quote": "💡Idea 1: Use KL constraint on policy. / 💡Idea 2: Can we bound the importance weights? Doesn't directly constrain policy, but removes incentives", "one": "两个办法解决同一件事。<b>Idea 1 直接管住策略</b>（KL 约束），<b>Idea 2 只拆掉动机</b>（把比值卡住）——PPO 走的是第二条。", "eq": "Idea 1（KL 约束）：  E_{s∼π_θ} [ D_KL( π_θ′(·|s) ‖ π_θ(·|s) ) ] ≤ δ\n\nIdea 2（卡住比值）：  把 π_θ′/π_θ 限制在 [1−ε, 1+ε] 之内", "pts": ["课件对 Idea 2 的定性非常准确：<b>“Doesn't directly constrain policy, but removes incentives”</b>——它没有禁止策略偏离，只是让「继续偏离」<span class='k'>不再有收益</span>。", "这是两种完全不同的干预：一个是<b>加围栏</b>，一个是<b>撤奖励</b>。PPO 选后者，因为它更便宜——不用算 KL，也不用解带约束的优化。", "课件在 Idea 1 旁边写着 “Very common. Will see in LLM preference optimization”——<span class='k'>KL 这条路在 L09 的 RLHF 里会回来</span>。", "两条路都需要保留旧策略：算比值要 π_θ，算 KL 也要 π_θ。"], "tbl": {"head": ["", "Idea 1 · KL 约束", "Idea 2 · 卡住比值（PPO）"], "rows": [["管的是", "策略之间的距离", "目标函数里的那个比值"], ["机制", "加围栏：不许走远", "撤奖励：走远也没好处"], ["实现代价", "要算 KL，要调惩罚系数", "一个 clip，一个 ε"], ["课件评价", "Very common", "PPO 的关键思想"], ["后面在哪再见", "L09 RLHF / 偏好优化", "本讲 p11–p13"]]}, "say": "两处讲稿值得记。其一，老师明说 <b>「确实有一个用 KL 约束的 PPO 版本，但那不是最常见的版本」</b>——所以你在代码里看到的 PPO 基本都是截断版。其二，关于 KL 惩罚系数：<b>「你常常会在 KL 散度前面放一个需要调的超参数……用 KL 约束时，这往往是个相当重要的超参数。」</b>这正是 PPO 宁可用截断的现实理由。", "link": {"t": "你学过的对应：CS234 L10 TRPO（把「不变差」变成可优化的下界，再把惩罚变成硬约束）", "href": "../../reinforcement learning/theater/影片/L10-策略梯度III与TRPO.html"}, "tip": {"t": "与 CS234 L10 的接口", "v": "CS234 L10 走的正是 Idea 1 那条线：从 CPI 下界出发，惩罚项系数大到没法用（γ=0.99 时是 39600ε），于是把惩罚<b>变成硬约束</b>——这就是信赖域。<b>PPO 可以看成同一个问题的「便宜做法」</b>：不解带约束的优化，只把目标函数改成一个再怎么偏离也不会继续变大的形状。"}},
+{"r": [11, 11], "t": "PPO 的两个 trick：截断，再取 min", "star": 3, "quote": "Trick #1: Clip the importance weights: Policy no longer incentivized to deviate significantly. Trick #2: Take minimum w.r.t. original objective (in rare event where clipping makes objective better). This is the final PPO surrogate objective!", "one": "<b>trick #1 截断</b>拆掉了偏离的动机；<b>trick #2 取 min</b> 堵住截断反而帮倒忙的那个漏洞。两个合起来才是 PPO。", "eq": "只截断（trick #1）：\nJ̃(θ′) ≈ Σ_{t,i} clip( π_θ′/π_θ , 1−ε , 1+ε ) · Â^{π_θ}\n\n最终的 PPO 代理目标（trick #1 + #2）：\nJ̃(θ′) ≈ Σ_{t,i} min( (π_θ′/π_θ)·Â^{π_θ} ,  clip(π_θ′/π_θ, 1−ε, 1+ε)·Â^{π_θ} )", "pts": ["<b>只有 trick #1 是不够的。</b>课件自己标了原因：<span class='w'>in rare event where clipping makes objective better</span>——在少数情况下，截断会把目标<span class='k'>抬高</span>。", "什么时候会抬高：当优势是<b>负</b>的、而新策略给这个动作的概率<b>高</b>（比值很大）时，截断把一个很大的比值压小，乘上负优势后乘积反而<span class='w'>变大了</span>。", "取 min 的作用是：在这种情况下<b>不让截断生效</b>，保留原来那个更狠的惩罚。", "老师把它的意义拔到了一句话：<b>取 min 保证了这个代理目标是原目标的一个下界</b>，于是「我们是在最大化一个下界」。"], "say": "老师给了一组具体数字，把 trick #2 讲透了，<b>建议照着算一遍</b>：某个 (s,a) 的优势是 <b>−1000</b>，新策略给它的概率是 <b>0.9</b>，旧策略给的是 <b>0.1</b>，比值 = <b>9</b>。不截断：9 × (−1000) = <b>−9000</b>。截到 1+ε = 1.2：1.2 × (−1000) = <b>−1200</b>。−1200 比 −9000 大，<span class='w'>目标看起来更好了</span>——也就是说，截断在这里等于替一个很糟的动作开脱。取 min(−9000, −1200) = <b>−9000</b>，截断失效，惩罚照旧。老师的评语是：这样「就不会做这种意外了，这是件好事」。", "tbl": {"cap": "讲稿里那个例子的完整算式（Â = −1000，ε = 0.2）", "head": ["量", "值", "说明"], "rows": [["旧策略概率 π_θ(a|s)", "0.1", "采数据时的策略"], ["新策略概率 π_θ′(a|s)", "0.9", "已经被推得很高"], ["比值 w", "9", "0.9 / 0.1"], ["w · Â（原目标）", "−9000", "惩罚很重"], ["clip(w,0.8,1.2) · Â", "−1200", "截断后反而更大"], ["min(两者)", "−9000", "取 min ⇒ 截断在此不生效"]]}, "tip": {"t": "最容易记反的一点", "v": "截断<b>不是</b>「把步长调小」。它改的是<span class='k'>目标函数的形状</span>，不是学习率：比值一旦走出 [1−ε, 1+ε]，那一项对参数的梯度就<b>变成 0</b>——不是变小，是没了。所以它的效果是「继续往这个方向推，不再有任何回报」，而不是「推得慢一点」。", "w": 1}}
+];
+
+var TH = null;
+
+(function(){
+  var PDF="../corpus/slides/05_cs224r_offpolicy_actor_critic_2025.pdf", MAX=30;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l05quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l05p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l05quiz");
+      localStorage.removeItem("l05p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
