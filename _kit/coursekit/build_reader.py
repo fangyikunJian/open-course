@@ -161,6 +161,36 @@ def check_link(notes):
     return out
 
 
+def check_quiz_leak(quiz):
+    """两层泄题都要拦。这条闸门有**三个产物**同样适用（精读 / 放映厅 / 备考包）——
+    当初只修了精读，放映厅和模拟卷一模一样地中招，所以判据写在这里共用。
+
+    第一层：**选项里加粗**。写题时习惯把正确答案加粗好自己核对，结果直接印在
+    页面上。ML 那边 50 题全中，用户一眼看穿：「你的正确答案和错误答案相比
+    加粗了，那我直接就可以知道什么是正确答案」。题干与解析里的加粗是正常的。
+
+    第二层：**答案位置集中**。清掉加粗之后一查，50 题里 48 题答案在 B ——
+    闭眼选 B 就满分，等于没修。题数少时不判：4 题全在 B 只是巧合。
+
+    修法是 `quizfix.fix_quiz(q, key)`，固定种子打散并按下标搬运 a。
+    """
+    bad, pos, n = [], {}, 0
+    for page in sorted(quiz, key=lambda k: int(k)):
+        for i, q in enumerate(quiz[page]):
+            for j, o in enumerate(q.get("o") or []):
+                if "<b>" in o or "</b>" in o:
+                    bad.append("p%s 第 %d 题的第 %d 个选项里有 <b>"
+                               % (page, i + 1, j + 1))
+            pos[q["a"]] = pos.get(q["a"], 0) + 1
+            n += 1
+    if n >= 8:
+        for k in sorted(pos):
+            if pos[k] > n * 0.5:
+                bad.append("答案位置集中：%d/%d 题都在第 %d 项 —— 跑 quizfix 打散"
+                           % (pos[k], n, k + 1))
+    return bad
+
+
 def check(co, L, d):
     """把能机械检查的都查掉。放过去的错，在页面上只表现为『那道题不见了』。
 
@@ -278,6 +308,12 @@ def check(co, L, d):
     bad += check_link(notes)
     nlink = sum(1 for n in notes if n.get("link"))
     print("   %s  你学过的对应 %d 条" % (tag, nlink))
+
+    # 防泄题。这一条**不许**因为「这讲题少」而跳过 —— 它防的正是作者的习惯。
+    qz = d.get("quiz") or {}
+    bad += check_quiz_leak(qz)
+    nq = sum(len(v) for v in qz.values())
+    print("   %s  自测 %d 题" % (tag, nq))
 
     if bad:
         print("!! %s" % tag)

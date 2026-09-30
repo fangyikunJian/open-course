@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 24
+TOTAL = 29
 
 
 def run():
@@ -90,6 +90,28 @@ def run():
         "t": "CS234 L08 策略梯度",
         "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}}])) == 0)
     ok += (len(br.check_link([{"r": [1, 1], "one": "没有 link"}])) == 0)
+
+    # ── 防泄题：两侧自证。两层泄题都要拦 ──
+    # 必须报：选项里有加粗（写题时把答案加粗好自己核对，结果印在页面上）
+    ok += (len(br.check_quiz_leak(
+        {"3": [{"q": "问", "o": ["<b>对的</b>", "错一", "错二"],
+                "a": 0, "why": "因为"}]})) >= 1)
+    # 必须报：答案位置集中（ML 那边 50 题有 48 题在 B，闭眼选 B 就满分）
+    ok += (len(br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["错", "对", "错"], "a": 1, "why": "因为"}]
+         for i in range(1, 9)})) >= 1)
+    # 必须不报：无加粗、位置分散
+    ok += (len(br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": i % 3, "why": "因为"}]
+         for i in range(1, 9)})) == 0)
+    # 必须不报：题太少时不判位置（4 题全在 B 只是巧合，不是泄题）
+    ok += (len(br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": 1, "why": "因为"}]
+         for i in range(1, 5)})) == 0)
+    # 必须不报：题干与解析里的加粗是正常的，只有选项里不许有
+    ok += (len(br.check_quiz_leak(
+        {"3": [{"q": "<b>问</b>", "o": ["甲", "乙", "丙"],
+                "a": 2, "why": "<b>因为</b>"}]})) == 0)
 
     print("selftest_gates %d/%d" % (ok, TOTAL))
     return ok == TOTAL
