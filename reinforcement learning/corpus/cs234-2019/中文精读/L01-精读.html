@@ -5,12 +5,50 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CS234 第一讲 · 中文精读</title>
 <style>
+/* 浅色纸感为默认，暗色一键切换。色值沿用 ML 版 精读/theme.py（用户调过的）。
+   放映厅的片子不用这套（它们保持暗场）—— 只有阅读页要。
+   另补三个 ML 那边漏定义的变量：--warnline（.tip.w2 边框，ML 映射了却没
+   定义，浅色下警示边框会失效）、--violetline（科研格边框）、--tintamber。 */
 :root{
-  --bg:#0b0f15; --panel:#121823; --line:#212c3c; --ink:#e7eef7; --dim:#8b9ab0;
-  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff; --mark:#16202e;
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0; --warnline:#D9B4B4;
+  --dot:#DDD8CE; --dot2:#B9B1A2;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33;
+  --violet:#6A4BA3; --violetline:#C9BCE0; --tintviolet:rgba(106,75,163,.07);
+  --tintamber:rgba(132,88,8,.07);
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
   --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
   --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
   --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f; --warnline:#4a2b2e;
+  --dot:#18212e; --dot2:#2c3c52;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede;
+  --violet:#B48BF5; --violetline:#3b2f4f; --tintviolet:rgba(180,139,245,.08);
+  --tintamber:rgba(242,189,99,.07);
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden}
@@ -20,20 +58,20 @@ body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px
   border-bottom:1px solid var(--line);background:var(--panel)}
 #bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
 #bar h1 span{color:var(--acc)}
-.btn{background:#0a0e14;border:1px solid var(--line);border-radius:7px;color:var(--dim);
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
   font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
 .btn:hover{color:var(--acc);border-color:var(--acc)}
-#pnum{width:48px;background:#0a0e14;border:1px solid var(--line);border-radius:7px;
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
   color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
 #bar .sp{flex:1}
 #tot{font:12px var(--mono);color:var(--dim)}
 
 #strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
-  background:#0a0e14;border-bottom:1px solid var(--line);overflow-x:auto}
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
 #strip::-webkit-scrollbar{height:0}
-#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:#18212e;
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
   cursor:pointer;font:0/0 a}
-#strip b.has{background:#2c3c52}
+#strip b.has{background:var(--dot2)}
 #strip b.on{background:var(--acc2)}
 #strip b:hover{background:var(--acc)}
 
@@ -42,11 +80,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px
    幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
    这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
    而不是一个能上下滚、还露出半张下一页的阅读器。 */
-#left{width:50%;min-width:280px;position:relative;background:#070a0f;
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
   display:flex;align-items:center;justify-content:center;padding:14px}
 #stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
   border-radius:8px;overflow:hidden;background:#fff;
-  box-shadow:0 10px 34px rgba(0,0,0,.55)}
+  box-shadow:var(--shadow)}
 #stage iframe{width:100%;height:100%;border:0;display:block}
 #drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
 #drag:hover{background:var(--acc)}
@@ -58,33 +96,33 @@ body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px
 h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
 /* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
    14px，低于讲解正文 15px —— 它是引文，不是结论。 */
-.quote{font-size:14px;line-height:1.65;color:#c3d2e3;font-style:normal;
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
   border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
-  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+  background:linear-gradient(90deg,var(--tintamber),transparent)}
 .quote em{font-style:italic;color:var(--acc2)}
-.quote b{color:#f4f8fd}
-.one{font-size:16.5px;line-height:1.7;color:#f4f8fd;border-left:3px solid var(--acc);
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
   padding:9px 0 9px 14px;margin:0 0 16px;
-  background:linear-gradient(90deg,rgba(111,211,187,.09),transparent)}
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
 ul{margin:0 0 16px;padding-left:0;list-style:none}
 ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
 ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
   border-radius:50%;background:var(--acc)}
-b{font-weight:650;color:#fff}
+b{font-weight:650;color:var(--ink2)}
 .k{color:var(--acc);font-weight:650}
 .w{color:var(--warn);font-weight:650}
 code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
-  border-radius:4px;color:#cfe3f5}
+  border-radius:4px;color:var(--codeink)}
 .eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
-  margin:14px 0;font-family:var(--mono);font-size:14px;color:#dbe8f7;overflow-x:auto}
-.say{border:1px solid #2a3b4f;border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
-  padding:11px 15px;margin:14px 0;background:rgba(127,184,255,.055);font-size:14px;line-height:1.72}
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
 .say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
   letter-spacing:.5px}
 .tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
-  background:rgba(255,255,255,.025);font-size:14px;line-height:1.72}
+  background:var(--lift2);font-size:14px;line-height:1.72}
 .tip .t{font-weight:700;color:var(--acc);margin-right:7px}
-.tip.w2{border-color:#4a2b2e;background:rgba(255,120,120,.055)}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
 .tip.w2 .t{color:var(--warn)}
 
 /* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
@@ -96,14 +134,14 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
 .tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
   line-height:1.6;vertical-align:top}
 .tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
-.tbl td b{color:#fff}
+.tbl td b{color:var(--ink2)}
 
 /* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
    tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
-.res{border:1px solid #3b2f4f;border-left:3px solid #b98fe6;border-radius:0 8px 8px 0;
-  padding:11px 15px;margin:14px 0;background:rgba(185,143,230,.06);
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
   font-size:14px;line-height:1.72}
-.res .t{color:#b98fe6;font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
   letter-spacing:.5px}
 .res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
   border:1px solid currentColor;letter-spacing:0}
@@ -115,7 +153,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
 .nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
 .nav .btn{flex:1;text-align:center;padding:9px}
 .empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
-#miss{position:absolute;inset:0;background:rgba(10,14,20,.97);z-index:5;display:none;
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
   padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
 #miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
 
@@ -123,7 +161,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
 .qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
   margin-left:9px;border:1px solid var(--line);border-radius:999px;
   padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
-  background:#0a0e14;transition:border-color .12s}
+  background:var(--sunken);transition:border-color .12s}
 .qbadge:hover{border-color:var(--acc)}
 
 /* ── 自测 ── */
@@ -132,18 +170,18 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
   display:flex;align-items:center;gap:8px}
 .quiz>h3 b{color:var(--acc2);font-weight:700}
 .qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
-  background:rgba(255,255,255,.022)}
+  background:var(--lift)}
 .qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
-.opt{display:block;width:100%;text-align:left;background:#0a0e14;border:1px solid var(--line);
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
   border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
   cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
-.opt:hover:not(:disabled){border-color:var(--acc);background:#0d141c}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
 .opt:disabled{cursor:default}
-.opt.ok{border-color:var(--acc);background:rgba(111,211,187,.13);color:#d8fff4}
-.opt.no{border-color:var(--warn);background:rgba(255,143,143,.12);color:#ffdede}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
 .opt .m{float:right;font-weight:700;margin-left:10px}
-.why{font-size:13.5px;line-height:1.7;color:#c3d2e3;border-left:3px solid var(--acc);
-  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,rgba(111,211,187,.07),transparent)}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
 .qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
   text-decoration:underline;padding:0;margin-left:auto}
 .qagain:hover{color:var(--acc2)}
@@ -151,17 +189,17 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
 
 /* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
    这套交互已经验过，换的是内容不是机制。 */
-#threadPanel{position:fixed;inset:0;background:rgba(6,9,13,.82);z-index:80;display:none;
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
   align-items:center;justify-content:center;padding:28px}
 #threadPanel.on{display:flex}
 #threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
   width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
 #threadBox h3{margin:0 0 4px;font-size:18px}
-#threadBox h3 .tag{font:11.5px var(--mono);color:#b98fe6;border:1px solid #b98fe6;
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
   border-radius:999px;padding:1px 8px;margin-left:8px}
-#threadBox .arc{font-size:14.5px;line-height:1.8;color:#e7eef7;margin:12px 0 18px;
-  border-left:3px solid #b98fe6;padding-left:14px;
-  background:linear-gradient(90deg,rgba(185,143,230,.07),transparent)}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
 #threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
 #threadBox ol{margin:0;padding-left:20px}
 #threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
@@ -175,7 +213,42 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
   #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
   #right{padding:16px 16px 30px}
 }
+
+/* ══ 浅色下的可读性与质感 ══════════════════════════════════════════
+   必须放在 <style> 末尾：同级选择器写在前面会被后面的原规则盖掉。
+   暗色靠「提亮」分层（rgba(255,255,255,.02) 那类），浅色下提亮是反的，
+   要靠**投影**分层 —— 所以这几条只在非暗色时生效。 */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .qq,
+:root:not([data-theme="dark"]) .tip,
+:root:not([data-theme="dark"]) .say,
+:root:not([data-theme="dark"]) .res,
+:root:not([data-theme="dark"]) .tbl,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+/* .pg 是彩底上的字，浅色下底仍是 --acc2，所以字要白而不是跟 --bg 走 */
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
 </style>
+<script>
+/* 主题必须在**页面绘制之前**定下来，否则存了暗色的人每次打开都会先闪一下浅色。
+   所以这一段放在 <head> 里、只碰 documentElement，不碰任何 DOM 节点
+   （此刻 body 还不存在）。按钮的接线在下面的主脚本里。
+
+   存档键**故意不带课程前缀**：file:// 下所有本地页面共用一个 origin，
+   而主题是一个跨课程的阅读偏好 —— 设一次，所有课都跟着。
+   这和自测记录的规矩正好相反（那个必须带前缀，否则两门课互相覆盖）。 */
+(function(){
+  try{
+    var t = localStorage.getItem("reader-theme");
+    if(t === "dark") document.documentElement.setAttribute("data-theme","dark");
+  }catch(e){}
+})();
+</script>
 </head>
 <body data-key="cs234-2019-l01">
 
@@ -187,6 +260,7 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
   <button class="btn" id="next">下一页 →</button>
   <div class="sp"></div>
   <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
   <button class="btn" id="help">打不开？</button>
 </div>
 
@@ -528,6 +602,23 @@ var TH = {"title": "L01 接上课题的哪一段：形式化是待检验的假�
       function(){ tp.classList.remove("on"); };
     tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
   }
+
+  /* ── 主题切换按钮。属性已由 <head> 里那段先设好，这里只负责接线与图标 ── */
+  (function(){
+    var root = document.documentElement, btn = document.getElementById("themeBtn");
+    function paint(){
+      var dark = root.getAttribute("data-theme") === "dark";
+      btn.textContent = dark ? "☀" : "☾";
+      btn.title = dark ? "切到浅色" : "切到暗色";
+    }
+    paint();
+    btn.onclick = function(){
+      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try{ localStorage.setItem("reader-theme", next); }catch(e){}
+      paint();
+    };
+  })();
 
   var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
   go(s);

@@ -270,6 +270,54 @@ async function run(cdp, file, tag) {
      await ev("(function(){var b=document.getElementById('threadBtn');" +
               "return b?(b.hidden?'hidden':'visible'):'absent';})()"));
 
+// ⚠ 这里用字符类 [0-9] 而不是 \d —— 这些片段是**字符串里的正则**，
+// 而 JS 字符串字面量会吃掉一层反斜杠："\d" 退化成 "d"，于是正则去找字母 d，
+// 对 "rgb(245, 243, 238)" 返回 null。实测撞过一次（浅色主题断言）。
+// 见 PROJECT-SKILL 规矩 D 与 coursekit/README「踩过的坑」。
+  // ── 双主题：浅色默认 · 能切 · 记得住 · 浅色下文字对比度够 ──
+  ok("默认是浅色（没有 data-theme=dark），且背景确实是浅的",
+     (await ev("(function(){var d=document.documentElement.getAttribute('data-theme');" +
+               "if(d==='dark')return 'defaults-dark';" +
+               "var bg=getComputedStyle(document.body).backgroundColor;" +
+               "var m=bg.match(/[0-9]+/g); if(!m) return 'no-bg';" +
+               "var lum=(+m[0]*0.299 + +m[1]*0.587 + +m[2]*0.114);" +
+               "return lum>200;})()")) === true,
+     await ev("getComputedStyle(document.body).backgroundColor"));
+
+  ok("点一下切到暗色，背景真的变暗",
+     (await ev("(function(){document.getElementById('themeBtn').click();" +
+               "var d=document.documentElement.getAttribute('data-theme');" +
+               "var bg=getComputedStyle(document.body).backgroundColor;" +
+               "var m=bg.match(/[0-9]+/g);" +
+               "var lum=(+m[0]*0.299 + +m[1]*0.587 + +m[2]*0.114);" +
+               "return d==='dark' && lum<60;})()")) === true,
+     await ev("getComputedStyle(document.body).backgroundColor"));
+
+  await load();
+  ok("重新打开页面，主题选择还记得（存的是不带课程前缀的 reader-theme）",
+     (await ev("document.documentElement.getAttribute('data-theme')")) === "dark",
+     await ev("localStorage.getItem('reader-theme')"));
+
+  // 切回浅色，并在浅色下量对比度 —— 浅色最容易翻车的就是「暗色下够亮的字，
+  // 浅色下变成浅灰压在米色纸上」。正文与次级文字都要量。
+  await ev("document.getElementById('themeBtn').click()"); await sleep(120);
+  await ev(GO(+first)); await sleep(200);
+  const contrast = JSON.parse(await ev(
+    "(function(){" +
+    "function L(c){var m=c.match(/[0-9]+/g).slice(0,3).map(function(v){" +
+    "  v=v/255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4);});" +
+    "  return 0.2126*m[0]+0.7152*m[1]+0.0722*m[2];}" +
+    "function R(fg,bg){var a=L(fg),b=L(bg);var hi=Math.max(a,b),lo=Math.min(a,b);" +
+    "  return Math.round(((hi+0.05)/(lo+0.05))*100)/100;}" +
+    "var page=getComputedStyle(document.getElementById('right')).backgroundColor;" +
+    "var g=function(sel){var e=document.querySelector(sel);return e?" +
+    "  R(getComputedStyle(e).color,page):null;};" +
+    "return JSON.stringify({正文:g('#card ul li'),一句话:g('.one')," +
+    "  讲稿:g('.say'),科研格:g('.res'),解释:g('.why'),加粗:g('#card b')});})()"));
+  console.log("      浅色对比度", JSON.stringify(contrast));
+  ok("浅色下正文类文字对比度全部 ≥ 4.5（WCAG AA）",
+     Object.values(contrast).every((v) => v === null || v >= 4.5), contrast);
+
   // ── 版面：题面不许比讲解正文大 ──
   await ev(GO(+first)); await sleep(200);
   const f = JSON.parse(await ev(
