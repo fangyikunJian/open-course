@@ -224,23 +224,25 @@ def check(co, L, d):
             qmin = tg.get("quote覆盖", QUOTE_COVER_MIN)
             tper = tg.get("表格每N页", TBL_PER_PAGES)
             need = max(1, gcov // tper)
-            print("   %s  %-14s %2d页 %5d词 %4.0f词/页%s  quote %3.0f%%%s  表格 %d/%d%s  [已声明目标]"
+            # 一位小数：四舍五入到整数会打印出「400 ✗ 低于 400」这种
+            # 自相矛盾的行（实测 399.69），让人怀疑检查器本身。
+            print("   %s  %-14s %2d页 %5d词 %6.1f词/页%s  quote %5.1f%%%s  表格 %d/%d%s  [已声明目标]"
                   % (tag, sh, gcov, gw, gper, "✓" if gper >= dmin else "✗",
                      gqc * 100, "✓" if gqc >= qmin else "✗",
                      gtbl, need, "✓" if gtbl >= need else "✗"))
             if gper < dmin:
-                bad.append("%s 密度 %.0f 词/页 低于自己声明的 %d" % (sh, gper, dmin))
+                bad.append("%s 密度 %.1f 词/页 低于自己声明的 %d" % (sh, gper, dmin))
             if gqc < qmin:
                 bad.append("%s quote 覆盖 %.0f%% 低于自己声明的 %.0f%%"
                            % (sh, gqc * 100, qmin * 100))
             if gtbl < need:
                 bad.append("%s 表格 %d 张，%d 页至少要 %d 张" % (sh, gtbl, gcov, need))
         else:
-            print("   %s  %-14s %2d页 %5d词 %4.0f词/页   quote %3.0f%%   表格 %d"
+            print("   %s  %-14s %2d页 %5d词 %6.1f词/页   quote %5.1f%%   表格 %d"
                   "   [未声明目标，只报数]" % (tag, sh, gcov, gw, gper, gqc * 100, gtbl))
 
     w, cov, per = density(notes)
-    print("   %s  ── 整讲 %d 页 %d 词 %.0f 词/页 ──" % (tag, cov, w, per))
+    print("   %s  ── 整讲 %d 页 %d 词 %.1f 词/页 ──" % (tag, cov, w, per))
 
     # 表格结构错误（列数对不上表头）一律硬拦：页面上它表现为「最后一格空着」
     # 而不是报错，所以只能机械查。
