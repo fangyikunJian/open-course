@@ -1,0 +1,1804 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS234 L1 · 强化学习导论 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+
+var CFG={
+  title:"CS234 · Lecture 1 · 强化学习导论",
+  subtitle:"9 个知识点 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=FgzM3zpZ55o&t="
+};
+
+// Mars rover 值函数：V(s7)=10/(1-g)，V(si)=(r_i+0.5g V(si+1))/(1-0.5g)
+function rover(g){var v=[];v[6]=10/(1-g);
+  for(var i=5;i>=0;i--)v[i]=((i===0?1:0)+0.5*g*v[i+1])/(1-0.5*g);return v;}
+
+KP("开场",function(){
+  S(0,function(){clearScene();setEq(null);setBig(null);setCap(null);
+    setTitle("CS234 · Lecture 1","强化学习导论",
+      "Emma Brunskill · Winter 2019 · 每个知识点都先说出你可能持有的错误模型，再回去杀掉它");},
+    "这一讲本身不证明任何东西 —— 它建立词汇表。但本片的结构不是照搬讲座：每个知识点都按六拍走，其中第二拍会<b>同情地说出一个貌似合理的错误模型</b>，第五拍再回去指名杀掉它。这么做有实证依据：在教学研究里，正面撞击学习者的错误模型带来的效应（d≈0.79–0.83）大约是「用动画而非静态图」（d≈0.37）的两倍。干净的讲解会让人觉得更清楚、更省力，而这恰恰是问题 —— 没有碰撞，新解释会被归档在旧模型旁边，而不是替换掉它。");
+});
+
+
+KP("1 · 三个承重词：序贯 · 好 · 学",function(){
+  /* 钩子 */
+  S(101,function(){
+      clearScene();
+      boxNode(205,150,230,84,"序贯","y");
+      boxNode(525,150,230,84,"好","y");
+      boxNode(845,150,230,84,"学","y");
+      note("决策互相耦合",320,268,"sm");
+      note("有最优性判据",640,268,"sm");
+      note("动力学与奖励事先未知",960,268,"sm");
+      note("loss = CE( ŷ , y )",640,340,"sm");
+      arrow(640,356,640,398,"y");
+      note("loss = − r",640,424,"y");
+      setCap("强化学习：智能体<b>学</b>会做出一<b>序列</b><b>好</b>的决策。那么——把监督学习的 loss 换成 <b>− reward</b>，是不是就得到 RL 了？");
+    },"这句定义 Brunskill 在开场第二分钟就给了，看上去像客套话，其实每个词都在划边界：删掉「学」剩下规划——模型已知，难的只是算；删掉「序贯」剩下赌博机——动作不影响下一个观测；删掉「好」就没有优化问题。真正麻烦的是第四种删法：三个词一个不删，只把监督信号从标签换成分数。它看起来什么也没破坏，本片要查的就是它到底破坏了什么。");
+  /* 错误答案 */
+  S(113,function(){
+      clearScene();setBig(null);setEq(null);
+      note("loss = CE(ŷ, y)",455,232,"sm");
+      arrow(575,227,690,227,"");
+      note("loss = − r",800,232,"");
+      link(260,340,1020,340);
+      dots([[260,340],[1020,340]],"",7);
+      dots([[640,340]],"y",11);
+      note("监督学习",260,306,"");
+      note("真标签 y",260,376,"sm");
+      note("强化学习",640,306,"y");
+      note("一个分数 r",640,376,"sm");
+      note("无监督学习",1020,306,"");
+      note("没有标签",1020,376,"sm");
+      setCap("监督学习给<b>真标签</b>，无监督学习<b>什么都不给</b>，RL 给的是<b>你那个动作值几分</b>——正好落在中间。所以 RL 就是监督信号更弱的监督学习：把 CE 换成 − r，其余照旧。");
+    },"这个模型有课本级的出处：Brunskill 自己在这一讲里说，RL 拿到的东西「介于监督与无监督之间」——你交出一个标签，世界回你一个效用分。顺着这句往下推，结论几乎不可抗拒：既然只是监督信号变弱了，那 RL 无非是更难的监督学习，把交叉熵换成负奖励、多采样、再想办法降方差，其余照旧。做过 SFT 再上 RLHF 的人尤其容易停在这里，因为两边的训练循环看上去确实一模一样。");
+  /* 铺陈 */
+  S(125,function(){
+      clearScene();setBig(null);setEq(null);
+      mdpChain({n:5,x:340,gap:150,y:240,r:34,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===2?"y":"";},
+      rew:function(i){return i===0?"+1":(i===4?"+10":null);}});
+      arrow(600,318,505,318,"b");
+      note("左",552,346,"b");
+      arrow(680,318,775,318,"b");
+      note("右",728,346,"b");
+      note("H = 4 步 · 起点 s3",640,420,"sm");
+      setCap("先把要用的东西<b>命名</b>：五格走廊、起点 s3、两个动作、两个确定性策略 π_L / π_R、奖励 <b>r(s)</b>、访问频率 <b>d(s)</b>（4 步里停在 s 的时间比例）。它们还什么都没做。");
+    },"五个格子、一个起点、两个动作，够用了。两点先讲明。其一，奖励挂在<b>所处的状态</b>上，写作 r(s)，这是 CS234 的约定；Sutton&Barto 把转移之后那个奖励记成 R<sub>t+1</sub>，两套记号每个下标都差一（<b>记号</b>）。其二，d(s) 是<b>访问频率</b>而不是转移概率：它是策略跑完 4 步后各格子被占用的时间比例，五个数加起来等于 1。这两样东西下一镜才开始动。");
+  /* 主体 */
+  S(137,function(){
+      clearScene();setBig(null);setEq(null);
+      mdpChain({n:5,x:340,gap:150,y:240,r:34,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===2?"y":"";},
+      rew:function(i){return i===0?"+1":(i===4?"+10":null);}});
+      note("π_L：s3→s2→s1→s1",640,360,"b");
+      note("π_R：s3→s4→s5→s5",640,410,"y");
+      setCap("同一个世界、同一套 <b>r(s)</b>，只是换了策略。<b>除了共同的起点 s3，两条轨迹没有一个格子重合。</b>");
+    },"先不谈分布，只看两条路。π_L 两步撞上左墙，剩下的时间全耗在 s1；π_R 两步到达右端，剩下的时间全停在 s5。注意除了共同的起点 s3，这两条轨迹<b>没有一个格子重合</b>。这就是「序贯」的全部内容：第一个动作本身没给你任何奖励，它做的是把你送进一片完全不同的区域，而你之后能看见什么、能拿到什么，全由那片区域决定。");
+  /* 主体 */
+  S(149,function(){
+      clearScene();setBig(null);setEq(null);
+      mdpChain({n:5,x:340,gap:150,y:220,r:34,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===2?"y":"";},
+      rew:function(i){return i===0?"+1":(i===4?"+10":null);}});
+      morphBars({from:[0.50,0.25,0.25,0,0],to:[0,0,0.25,0.25,0.50],
+      x:265,y:430,w:750,h:140,max:0.55,
+      cls:function(i){return "b";},
+      fmt:function(v){return v.toFixed(2);},dur:1600});
+      setCap("每根柱子 = 正上方那个状态被访问的时间比例。把策略从 π_L 拨到 π_R —— <b>数据本身</b>就换了。监督学习里换掉参数，这排柱子一根都不会动。");
+    },"<b>看什么：</b>盯住最左和最右那两根：策略一拨过去，s1 那根要从 0.50 塌到 0.00、s5 那根要从 0.00 涨到 0.50，而中间 s3 那根必须全程钉在 0.25 一动不动——看到「四根重排、起点不动」，就等于看见了「除了起点，你站在哪里全由 θ 说了算」。　—— 把两条轨迹折成频率，得到的不是同一个分布的两次采样，而是<b>两个不同的分布</b>，挑选它们的正是策略本身。这就是真正的分界线：监督学习里数据分布 D 是外生的，你换模型、换初始化、换优化器，D 一根柱子都不会动；RL 里 θ 同时干两件事——决定在给定状态怎么选，以及决定你会站到哪些状态上去。第二件事在监督学习里根本不存在。");
+  /* 主体 */
+  S(161,function(){
+      clearScene();setBig(null);
+      setEq("$$\\begin{aligned}\\text{SL}:\\quad & J(\\theta)=\\sum_{z} D(z)\\,\\ell(z,\\theta)\\\\ \\text{RL}:\\quad & J(\\theta)=\\sum_{s} d_{\\theta}(s)\\,r(s)\\end{aligned}$$","top");
+      note("r(s) 一个字都没改",640,320,"sm");
+      bars({vals:[0,0,0.25,0.25,0.50],x:265,y:420,w:750,h:62,max:0.55,
+      cls:function(i){return "b";},
+      fmt:function(v){return v.toFixed(2);},
+      label:function(i){return "s"+(i+1);}});
+      setCap("d^π_L=(0.50,0.25,0.25,0,0) 给 Σd·r = <b>0.50</b>；d^π_R=(0,0,0.25,0.25,0.50) 给 <b>5.00</b>。r(s)=(+1,0,0,0,+10) 两边完全相同 —— 监督学习把 θ 放进<b>被加项</b>，RL 把 θ 放进<b>权重</b>。");
+    },"所以这个例子里 J 从 0.50 变到 5.00，不是因为奖励改了——r(s)=(+1,0,0,0,+10) 一个字没动——而是因为求和的<b>权重整个换掉了</b>。这也解释了「好」为什么不能删：没有 J 就没法说 π_R 比 π_L 好。顺带一提，这里用的是每步平均奖励 Σd(s)r(s)，γ 尚未登场；折扣回报 V<sup>π</sup> 是后面的知识点，别把两者混起来。");
+  /* 反驳 */
+  S(173,function(){
+      clearScene();setBig(null);
+      setEq("$$\\begin{aligned}\\text{SL}:\\quad & \\nabla_{\\theta} J=\\sum_{z} D(z)\\,\\nabla_{\\theta}\\ell(z,\\theta)\\\\ \\text{RL}:\\quad & \\nabla_{\\theta} J=\\sum_{z} p_{\\theta}(z)\\,r(z)\\,\\nabla_{\\theta}\\log p_{\\theta}(z)\\end{aligned}$$","top");
+      link(260,410,1020,410);
+      dots([[260,410],[1020,410]],"",7);
+      dots([[640,410]],"b",11);
+      note("监督学习",260,444,"");
+      note("无监督学习",1020,444,"");
+      note("你以为 RL 在这",640,444,"r");
+      arrow(640,402,640,326,"g");
+      dots([[640,300]],"c",12);
+      note("RL 真正在这",640,276,"g");
+      setCap("那条谱系是真的，但它只有<b>一根轴</b>。分界线在另一根轴上 —— <b>只有 RL 的 d 会随 θ 移动</b>，沿谱系走再远也跨不过去。");
+    },"「RL 只是监督信号更弱的监督学习」错在把二维的事画成了一维：谱系那根轴量的是信号强弱，分界线却在另一根轴上——D 不含 θ，d<sub>θ</sub> 含 θ。后果直接落到梯度上：测度不含 θ 时导数可以钻进求和号（上行）；含 θ 时唯一的梯度来源是 ∇log p<sub>θ</sub>（下行）。而 r 不含 θ，照上行去算<b>恰好是 0</b>——你只要真写出一个非零的 loss，就不得不请出 log π<sub>θ</sub>，那正是 REINFORCE：它不是技巧，是链式法则打在会移动的测度上（<b>补课</b>）。");
+  SUM(101,1,{h:"三个承重词，与那条真正的分界线",
+    k:"<b>θ 不在被加项里，它在求和的权重里</b>：监督学习 J=Σ D(z)ℓ(z,θ)，D 与 θ 无关；RL 的 J=Σ d<sub>θ</sub>(s)r(s)。",
+    m:"走廊那一例 J 从 0.50 变到 5.00，而 r(s)=(+1,0,0,0,+10) 一个字没改 —— 变的是权重。",
+    w:"<s>误解</s>：把 RL 放进「监督→RL→无监督」的信号强弱谱系中间。谱系是真的，但它只有一根轴。",
+    e:"删「学」→规划，删「序贯」→赌博机，删「好」→没有优化问题。"});
+  QUIZ(101,1,{t:"你把一批 LLM agent 的执行轨迹（由策略 π_b 采集）冻成数据集，用 − reward 当 loss 跑 SGD 训出 π_θ。训练 loss 一路下降，但把 π_θ 放回环境真跑，回报反而低于 π_b。最可能的原因是哪一条？",
+    o:["奖励只是标量，比标签携带的信息少，所以需要更多样本才学得动","你降的期望是在 π_b 诱导的分布上取的，你要的却是在 π_θ 自己诱导的分布上取的","reward 的方差远大于交叉熵，梯度噪声把有效步长压没了","轨迹长度不固定，batch 里要 padding，梯度被无效位置稀释了"],
+    a:1,
+    w:"<em>正确</em>：训练指标下降而真实表现下降，是<b>方向性</b>背离，只可能来自<i>测度错配</i>——你降的是 Σ d<sub>π_b</sub>(z)·c(z,θ)，要的是 Σ d<sub>π_θ</sub>(z)·c(z,θ)；θ 一动，π_b 采的那批数据就不再是正确的权重，梯度里缺的正是 r·∇log p<sub>θ</sub> 那一项。<s>其余三项</s>（标量信息少、方差大、变长轨迹）都是真困难，但它们只让训练<b>更慢更吵</b>，不会让指标与真实表现反向。这也正是行为克隆的复合误差 O(εT²) 与 DAgger 的动机（<b>补课</b>）。"});
+});
+
+KP("2 · 四要素坐标系",function(){
+  /* 钩子 */
+  S(472,function(){
+      clearScene();setBig(null);setEq(null);
+      lamps({y:280,gap:262,items:[
+      {label:"优化",sub:"有最优策略",state:"on"},
+      {label:"延迟后果",sub:"回报很久才揭晓",state:"on"},
+      {label:"探索",sub:"行动才有数据",state:"on"},
+      {label:"泛化",sub:"策略要学出来",state:"on"}]});
+      setCap("这四个要素<b>同时出现</b>才叫 RL。但它们的<i>难度并不相等</i> —— 如果只能放弃一个，放弃哪个损失最小？");
+    },"四盏灯是这一讲的坐标系，后面所有范式的区别都是灭掉其中某几盏。但坐标系本身不告诉你哪个轴更难走。这一集只问一件事：这四个里哪一个是真正的理论难点？先说结论的形状——大多数人会挑错，而挑错的那个恰好是四个里看起来最简单的。");
+  /* 错误答案 */
+  S(484,function(){
+      clearScene();setEq(null);
+      setBig("探索是四者里最便宜的","ε-greedy 三行代码，退火一下就完事");
+      setCap("ε-greedy：以 1−ε 选当前最好的，以 ε 随机挑一个；ε 从 0.1 退火到 0.01 —— 探索这件事就算办完了。<b>难的是优化。</b>");
+    },"这个判断很难避免，因为它有教科书作依据：介绍探索时第一个例子几乎总是 ε-greedy，而 ε-greedy 确实只有三行——以 1−ε 的概率选当前估计最好的，以 ε 的概率随机挑一个，再让 ε 随时间衰减。相比之下优化那一栏要面对高维非凸、要调学习率、要处理方差，看起来才是硬骨头。于是很自然地把探索归进「工程细节」。下面用两条臂检验一下这个判断。");
+  /* 铺陈 */
+  S(496,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(280,200,240,96,"臂 A","b");
+      boxNode(760,200,240,96,"臂 B","g");
+      note("μ_A = 0.50",400,330,"sm lg");
+      note("μ_B = 0.60",880,330,"g lg");
+      note("策略：纯贪心",640,420,"y lg");
+      setCap("只有两个数字要记：估计值 <b>Q̂</b>（至今观测到的平均收益）与样本数 <b>n</b>（区间宽度 ∝ 1/√n）。<b>B 才是好臂 —— 但智能体不知道，它只有 Q̂。</b>");
+    },"设定尽量简单：两条臂，真实均值 0.50 与 0.60，所以 B 是好臂。但智能体看不见 μ，它只有自己算出来的 Q̂ 和样本数 n。策略取最极端的一端——纯贪心，ε=0，每步都选 Q̂ 更大的那条。这样做不是为了让它失败得难看，而是为了把「探索不足」这一个变量单独隔离出来：优化没有难度（就两个数取最大），泛化没有难度（就两条臂），延迟后果也没有（拉一次结算一次）。四盏灯里只剩探索这一盏在起作用。");
+  /* 主体 */
+  S(508,function(){
+      clearScene();setBig(null);setEq(null);
+      errbar({items:[
+      {label:"臂 A n=1",mean:1.00,lo:0.00,hi:1.00,cls:"y",tag:"Q̂ = 1.00"},
+      {label:"臂 B n=1",mean:0.00,lo:0.00,hi:1.00,cls:"r",tag:"Q̂ = 0.00"}],
+      x:340,y:200,w:600,h:245,ymin:-0.1,ymax:1.15});
+      setCap("热身各拉一次：<b>Q̂(A)=1.00，Q̂(B)=0.00</b>，区间都还很宽。A 恰好得 1、B 恰好得 0 —— 在 μ=0.5 / 0.6 下这是很平常的一次运气。");
+    },"先给两条臂各一次机会。A 这次得了 1，B 这次得了 0。这不是刻意构造的坏运气——在均值 0.5 和 0.6 的伯努利臂上，这个结果出现的概率是 0.5×0.4 = 0.2，五次里有一次。注意此刻两条臂的置信区间都很宽：一个样本几乎什么都不能确定。真正的问题出在下一步：纯贪心会怎么用这两个数字。");
+  /* 主体 */
+  S(520,function(){
+      clearScene();setBig(null);setEq(null);
+      var EB=errbar({items:[
+      {label:"臂 A n=9999",mean:0.50,lo:0.49,hi:0.51,cls:"y",tag:"Q̂ → 0.50"},
+      {label:"臂 B n=1 冻结",mean:0.00,lo:0.00,hi:1.00,cls:"r",tag:"Q̂ = 0.00"}],
+      x:340,y:166,w:600,h:266,ymin:-0.1,ymax:1.15});
+      arrow(300,EB.Y(0.60),980,EB.Y(0.60),"g");
+      note("μ_B = 0.60",1000,EB.Y(0.60)+5,"g","start");
+      arrow(300,EB.Y(0.50),980,EB.Y(0.50),"");
+      note("μ_A = 0.50",1000,EB.Y(0.50)+5,"sm","start");
+      setCap("此后一万步纯贪心每步都选 A：它的区间收缩到 0.49–0.51 正压在自己的真值线上，<s>而 B 那根一动不动</s> —— n(B) 永远是 1。");
+    },"上一镜两根区间一样宽，这一镜看它们的<b>宽度差</b>：A 那根已经收到 0.49–0.51 的一条细线（n 从 1 涨到 9999），B 那根仍然贯穿全图——因为 n(B) 还是 1。两镜对照就是这一集的全部论证：贪心收敛了，收敛到了错的臂，而且它手上没有任何数据显示 B 更好。注意 A 这一半在统计上完全正常、无可指责；问题全在另一半。");
+  /* 主体 */
+  S(532,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,220,280,74,"Q̂(B) 偏低","r");
+      boxNode(500,220,280,74,"贪心不选 B","r");
+      boxNode(820,220,280,74,"B 没有新数据","r");
+      arrow(460,257,500,257,"r");
+      arrow(780,257,820,257,"r");
+      arrow(960,294,320,294,"r",-78);
+      note("闭环，自我维持",640,400,"r");
+      setCap("探索的真正困难：<b>删失方式由你自己决定</b>，错误的估计阻止了纠正它所需的数据。<b>这不是采样效率问题 —— 给它一亿步也不会好转。</b>");
+    },"把机制画成回路就清楚了：Q̂(B) 偏低 → 贪心不选 B → B 拿不到新数据 → Q̂(B) 保持偏低。这是一个闭环，而且它自我维持——**增加步数不解决**，因为多出来的每一步都落在 A 上。这就是探索与其它三个要素在性质上的差别：优化不足可以用更多算力补，泛化不足可以用更多数据补，而探索不足会让「更多数据」这件事本身失效，因为你拿不到需要的那部分数据。回到 KP1 的结论：策略决定数据分布，而数据分布又决定策略学到什么。");
+  /* 反驳 */
+  S(544,function(){
+      clearScene();setBig(null);setEq(null);
+      lamps({y:290,gap:340,items:[
+      {label:"ε-greedy",sub:"随机挑，不看区间",state:"dead"},
+      {label:"UCB",sub:"越不确定越该试",state:"on"}]});
+      note("死锁在机制上不可能",640,420,"g");
+      setCap("那句话错的不是「三行代码」，而是<s>把探索当成噪声问题</s>。ε-greedy 对「哪条臂更该被试」一无所知（<b>Q̂ 差 0.001 和差 0.5，它给的探索概率一模一样</b>）；UCB 让<b>区间宽度参与决策</b>，于是「n=1 的臂区间宽」直接变成「去拉它」的理由。");
+    },"现在指名回去。「探索三行代码就办了」这句话，错的不是说 ε-greedy 简单——它确实简单，也确实能打破上面那个死锁，因为每一步都有 ε 的概率去碰 B。错的是它背后的模型：把探索当成**给决策加噪声**。加噪声的方案对「哪条臂更值得试」毫无判断力——两条臂估计值差 0.001 还是差 0.5，它给的探索概率完全一样，于是既在明显该利用的地方浪费，也在明显该探索的地方不够。真正的解法是让**不确定性本身参与决策**：UCB 选的是「估计值 + 置信半径」最大的那条，于是「B 只有一个样本、区间很宽」这件事直接成为去拉它的理由。死锁在机制上就不可能出现。这条线是 L11–13 三整讲的内容——如果探索真是工程细节，它不会占三讲。");
+  SUM(472,2,{h:"四要素里最贵的是探索，而它看起来最便宜",
+    k:"探索的困难不是「多试几次」，而是<b>删失方式由你自己决定</b>：错的估计会阻止你拿到纠正它的数据。",
+    m:"死锁：Q̂(B) 偏低 → 不选 B → B 无新数据 → Q̂(B) 保持偏低。本例 n(B) 永久冻结在 1。",
+    w:"<s>误解</s>：把探索当成给决策加噪声。加噪声降低死锁概率，但对「哪个动作更值得试」没有判断力。",
+    e:"正解是让不确定性参与决策（UCB / Thompson）—— L11–13 三整讲。"});
+  QUIZ(472,2,{t:"本例中纯贪心跑一万步后，它对臂 B 的<b>置信区间宽度</b>会怎样？",
+    o:["随总步数增加而收缩，只是比 A 慢","<b>完全不变——n(B) 永久冻结在 1</b>","先收缩后发散","收缩到与 A 相同，因为总样本数相同"],
+    a:1,
+    w:"区间宽度只取决于<b>那条臂自己的样本数</b> n(B)，与总步数无关。贪心永远不选 B，所以 n(B) 一直是 1，区间宽度一万步后与第一步<em>完全相同</em>。这正是「探索不足会让『更多数据』失效」的含义——多出来的一万个样本全部落在 A 上。"});
+});
+
+KP("3 · 用四盏灯划清边界",function(){
+  /* 钩子 */
+  S(666,function(){
+      clearScene();
+      note("强化学习：四盏灯全亮",640,130,"y");
+      lamps({y:196,gap:252,r:32,items:[
+      {label:"优化",sub:"有最优性判据",state:"on"},
+      {label:"延迟后果",sub:"回报可能很久才揭晓",state:"on"},
+      {label:"探索",sub:"必须行动才有数据",state:"on"},
+      {label:"泛化",sub:"策略只能学，不能穷举",state:"on"}]});
+      boxNode(150,362.2,300,72,"规划 = RL − ?","");
+      boxNode(490,362.2,300,72,"监督学习 = RL − ?","");
+      boxNode(830,362.2,300,72,"模仿学习 = RL − ?","");
+      note("这一集只追问第三个盒子",640,465,"sm");
+      setCap("三个相邻范式，各自是 <b>RL 减去某几盏灯</b>。模仿学习<i>只减掉一盏</i>——那省下来的困难，<s>去哪儿了</s>？");
+    },"四盏灯是上一拍建立的坐标系。Brunskill 用整整五张 slide 做这件事：同样的四条，每张划掉不同的几条，分别用来分开规划、监督学习、无监督学习和模仿学习——那本来就是一个动画，被拆成了五张静态图。但分类本身不值钱，值钱的是它能不能预测代价。模仿学习只灭掉一盏灯，是四个范式里最像 RL 的那一个。那么它省下的那部分困难，是真的消失了，还是换了个地方冒出来？");
+  /* 错误答案 */
+  S(678,function(){
+      clearScene();setBig(null);
+      setEq("$$\\varepsilon T \\;=\\; 0.1 \\times 10 \\;=\\; 1$$","top");
+      boxNode(120,250,250,70,"专家示范 π*","g");
+      arrow(378,274,462,274,"g");
+      boxNode(470,250,320,70,"数据集 {(s, π*(s))}","b");
+      arrow(798,274,882,274,"b");
+      boxNode(890,250,270,70,"分类器 π","y");
+      bars({vals:[1,1,1,1,1,1,1,1,1,1],x:250,y:420,w:760,h:100,max:10,
+      label:function(i){return "t="+(i+1);},
+      cls:function(i){return "r";},
+      fmt:function(v){return "1";}});
+      setCap("模仿学习把 RL <i>约化成</i>监督学习，探索问题被绕开了。既然是监督学习，就<b>按分类问题结账</b>：错一步赔一步，总和 = T = 10。");
+    },"这条推理链每一步都站得住，官方 slide 第 26 页写的原话就是「Reduces RL to supervised learning」和「Avoids exploration problem」。把专家轨迹上的每个「状态→动作」当成一个带标签的样本，训练一个分类器，探索问题确实不存在了：数据是现成的，不用自己去采。既然现在它是标准分类问题，那就按分类问题结账——每步错误率 ε，走 T 步，期望错 ε·T 步，ε=0.1、T=10 就是 1 步。训练时 90% 准确，测试时也该差不多，监督学习的泛化理论一向是这么用的。");
+  /* 铺陈 */
+  S(690,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["✓","✓","✓","✓"],["✓","✓","✕","✓"],["✓","✕","✕","✓"],["✓","✓","✕","✓"]];
+      matrix({rows:4,cols:4,cw:152,ch:50,x:400,y:200,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return G[i][j]==="✕"?"hl3":"";}});
+      note("优化",474,182,"sm lg");
+      note("延迟后果",626,182,"sm lg");
+      note("探索",778,182,"sm lg");
+      note("泛化",930,182,"sm lg");
+      note("强化学习",380,225,"y lg","end");
+      note("规划",380,275,"ink lg","end");
+      note("监督学习",380,325,"ink lg","end");
+      note("模仿学习",380,375,"ink lg","end");
+      setCap("一张表代替五张 slide：<i>规划灭一盏</i>，<i>监督学习灭两盏</i>，<b>模仿学习也只灭一盏</b>。记号：π* 专家 · π 学到的 · ε 每步分类误差 · T 时域 · t 首次偏离时刻 · J 期望总代价（每步 ∈ [0,1]）。");
+    },"把牌摊开：列是四盏灯，行是四个范式。规划只灭「探索」——动力学和奖励已经给你（围棋规则就是模型），难点全在算，所以 L2 整讲都在做规划。监督学习灭两盏，而且反馈更强，它给的是正确标签。无监督学习那一行和监督学习一模一样，区别只在连标签也没有。模仿学习也只灭一盏，但灭法不同：探索被「别人的示范」顶替了。表下那句话是第一条真正的分界——RL 的反馈是评估性的，只告诉你所选动作得几分；监督学习的反馈是指导性的，直接告诉你正确答案是什么。");
+  /* 主体 */
+  S(702,function(){
+      clearScene();setBig(null);setEq(null);
+      var X=[210,304,398,492,586,680,774,868,962,1056];
+      var ex=[];for(var i=0;i<10;i++)ex.push([X[i],250]);
+      curve(ex,"fit g");
+      dots(ex,"c",6);
+      var dr=[];for(var k=2;k<10;k++){var u=(k-2)/7;dr.push([X[k],250+u*u*220]);}
+      curve(dr,"fit r");
+      dots(dr,"b",6);
+      dots([[398,250]],"y",9);
+      note("t = 3 首次偏离",398,200,"y lg");
+      note("π* 示范",250,215,"g lg");
+      note("π 偏离后",850,400,"r lg");
+      setCap("T = 10，每步正确率 90%（ε = 0.1）。<b>从 t = 3 起，剩下的 8 步全部落在示范没覆盖的状态里 —— 那里没有任何监督信号。</b>");
+    },"把 T=10、ε=0.1 这条具体轨迹画出来。绿线是专家示范，绿点是示范数据覆盖到的状态；监督学习的泛化保证只在这些状态构成的分布上成立。假设第一次分类错误发生在 t=3，智能体落到了一个专家从未去过的状态。要紧的不是这一步错了，而是从这一步起，它每一步的输入都来自训练时没见过的分布——那里的分类器保证是空的。剩下的 8 步不是「有可能错」，而是「没有任何理由认为它对」。");
+  /* 主体 */
+  S(714,function(){
+      clearScene();setBig(null);setEq(null);
+      morphBars({from:[1,1,1,1,1,1,1,1,1,1],to:[10,9,8,7,6,5,4,3,2,1],
+      x:250,y:400,w:760,h:181,max:10,dur:1600,
+      label:function(i){return "t="+(i+1);},
+      cls:function(i){return "r";},
+      fmt:function(v){return v.toFixed(0);}});
+      note("柱高 = T − t + 1",640,450,"y");
+      setCap("同一批柱子、同一个坐标轴，只换了「一次错误值多少」的定义：监督记账总和 = T = <b>10</b>，轨迹记账总和 = 10+9+…+1 = <b>55</b> = T(T+1)/2。");
+    },"<b>看什么：</b>盯住最左边 t=1 那根柱子和最右边 t=10 那根：如果 t=1 从 1 格长到满格 10、而 t=10 始终停在 1 格不动，就说明「代价取决于错在什么时候」这件事被看到了；如果十根一起等比例长高，那就说明什么也没发生。　—— 于是必须换一种记账。柱高不再是「错一步赔一步」，而是「首次偏离发生在 t 时，之后还剩多少步处在无保证区」，也就是 T−t+1。柱子的位置一根没动，只有高度在变：t=1 那根从 1 涨到 10，t=10 那根纹丝不动——早错致命，晚错便宜。把柱子加起来，10+9+…+1 = 55 = T(T+1)/2。监督记账的总和是 T，轨迹记账的总和是 T²/2 的量级。多出来的那个 T，就是「一次错误会污染整条剩余轨迹」的价格。");
+  /* 主体 */
+  S(726,function(){
+      clearScene();
+      setEq("$$J(\\pi)-J(\\pi^{*}) \\;\\approx\\; \\varepsilon \\sum_{t=1}^{T}(T-t+1) \\;=\\; \\varepsilon\\,\\frac{T(T+1)}{2}$$","top");
+      bars({vals:[10,9,8,7,6,5,4,3,2,1],x:250,y:420,w:760,h:125,max:10,
+      label:function(i){return "t="+(i+1);},
+      cls:function(i){return "r";},
+      fmt:function(v){return v.toFixed(0);}});
+      setCap("三角形的面积就是那个 <b>T²</b>。<em>补课</em>：课上只讲了直升机漂移的故事，没给这个界。");
+    },"具体实例还在屏上，现在写成一般式。乘上首次偏离的概率 ε，得到 ε·T(T+1)/2；ε=0.1、T=10 时是 5.5 步（这是小 ε 下的一阶估计，精确值 4.14——已经偏离过就不再重复计入）。【补课】定理形式来自 Ross–Bagnell 2010：J(π) ≤ J(π*) + εT²，并且有构造使这个二次项紧，所以它不是分析放松的产物。L01 只讲了直升机漂移的故事，L07 才给这个界。DAgger 的做法是在学生自己走到的状态上查询专家，把它拉回 O(εT)。　具体：ε = 0.1、T = 10 → 0.1 × 55 = 5.5 步（小 ε 下的一阶估计，精确值 4.14）　定理形式（Ross–Bagnell 2010）：J(π) ≤ J(π*) + εT²，且二次项是紧的　换成 T = 100、每步 99% 正确：εT 仍是 1 步，而 εT² = 100 步 = 整条轨迹　DAgger（2011）把它拉回 O(εT)：代价是训练时要能在学生走到的状态上查询专家");
+  /* 反驳 */
+  S(738,function(){
+      clearScene();setBig(null);setEq(null);
+      lamps({y:230,gap:236,r:24,items:[
+      {label:"优化",state:"on"},
+      {label:"延迟后果",state:"on"},
+      {label:"探索",state:"dead"},
+      {label:"泛化",state:"on"}]});
+      bars({vals:[10,9,8,7,6,5,4,3,2,1],x:390,y:420,w:500,h:90,max:10,
+      label:function(i){return "t="+(i+1);},
+      cls:function(i){return "r";},
+      fmt:function(v){return v.toFixed(0);}});
+      setCap("<s>账表用错了</s> —— 监督学习的灯表里「延迟后果」是灭的，<b>而模仿学习这盏还亮着</b>，它的标价正好是多出来的那个 T：εT 少乘了一个 T。");
+    },"回到第二拍：那条推理错在哪一步？不在「约化成监督学习」，这一步是对的。错在下一步——它顺手把监督学习那一整张灯表也搬了过来。可模仿学习的灯表里「延迟后果」还亮着，灭掉的只有「探索」。εT 恰恰是在延迟后果灭掉的前提下成立的：样本独立，一次错误只弄坏这一个样本。延迟后果亮着，就意味着一次错误改变了之后所有样本的分布，单次错误的代价从 1 变成 T−t+1，于是多乘了一个 T。对做 LLM agent 的人：在专家轨迹上做 SFT 就是行为克隆，工作流越深，这个二次项越咬人。");
+  SUM(666,3,{h:"相邻范式 = RL 减去某几盏灯",
+    k:"<b>规划</b>=RL−探索；<b>监督学习</b>=RL−探索−延迟后果，且反馈是标签；<b>模仿学习</b>=RL−探索（用示范替代）。",
+    m:"RL 收到的是所选动作的<i>评估性</i>分数，监督学习收到的是<i>指导性</i>的正确答案。",
+    w:"<s>误解</s>：以为模仿学习绕开了 RL 的困难。它保留延迟后果，困难转成分布偏移，误差近似按深度平方累积。",
+    e:"四灯表就是课程地图：L2 规划 · L7 模仿 · L3 起才真正开始「学」。"});
+  QUIZ(666,3,{t:"同一个行为克隆策略，每步分类误差固定为 ε = 0.001（99.9% 正确）。任务时域从 T = 10 拉长到 T = 100。按第二拍那笔监督学习的账，期望损失变成 10 倍。按本集的三角形记账，它变成多少倍？",
+    o:["还是 10 倍 —— ε 没变，每步的代价也没变","<b>100 倍</b> —— 代价随 T² 走","1000 倍 —— 单步代价也跟着 T 一起涨","不变 —— 分类器一样好，表现就该一样"],
+    a:1,
+    w:"三角形面积 ε·T(T+1)/2 随 T <b>二次</b>增长：T 从 10 到 100 是 10 倍，T² 就是 <b>100 倍</b>（0.05 步 → 5 步）。<s>「还是 10 倍」</s>正是第二拍那笔账，它假定每次错误只赔一步——那是延迟后果灭掉时才成立的记账。<s>「1000 倍」</s>把单步代价也算成随 T 增长了，但单步代价上界是 1，不随时域变。还要记住饱和：损失不可能超过整条轨迹，诚实的写法是 <em>min(εT², T)</em>——这解释了为什么 ε 大时二次律被压平看不出来，只有在 <i>ε 小、T 大</i>的长时域任务上它才突然咬人。"});
+});
+
+KP("4 · 交互回路、历史、智能体状态",function(){
+  /* 钩子 */
+  S(1445,function(){
+      clearScene();
+      boxNode(150,150,290,120,"智能体 agent","b");
+      boxNode(840,150,290,120,"世界 world","");
+      arrow(440,188,840,188,"y");
+      note("aₜ",640,174,"y");
+      arrow(840,240,440,240,"g");
+      note("oₜ , rₜ",640,266,"g");
+      boxNode(500,330,280,80,"sₜ = ?","r");
+      arrow(560,330,350,276,"");
+      arrow(720,330,930,276,"");
+      note("它属于哪一侧？",640,432,"r");
+      setCap("回路上来回运的只有 <b>aₜ</b> 出去、<em>oₜ 与 rₜ</em> 回来。那 MDP 五元组 ⟨<s>S</s>,A,P,R,γ⟩ 里那个 S，是谁写下来的？");
+    },"这个回路是整门课唯一的数据来源：算法能拿到的每一个比特，都从这两条线上过。可是翻开任何一本教材，MDP 的第一个符号就是状态空间 S，而 S 从来没有出现在这两条线上——世界发出的是观测，不是状态。这一集就补这个缺口：S 从哪来、谁有权定它、定错了要付什么价。");
+  /* 错误答案 */
+  S(1457,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(650,170,530,170,"","");
+      note("世界",915,198,"sm");
+      mdpChain({n:5,x:720,y:270,r:24,gap:95,
+      label:function(i){return "s"+["₁","₂","₃","₄","₅"][i];},
+      arcs:[[0,1,"","b"],[1,2,"","b"],[2,3,"","b"],[3,4,"","b"]]});
+      note("S 住在这一侧",915,326,"b");
+      boxNode(110,220,270,110,"智能体","");
+      arrow(650,275,380,275,"b");
+      note("环境把状态交给我",515,256,"b");
+      setCap("最自然的读法：<i>状态是环境的一部分</i>。⟨S,A,P,R,γ⟩ 把 S 与 A 并列写在最前面；obs, info = env.reset() 一行就把状态递到手上；画转移图时状态圆圈也画在环境那侧。我的活儿是在<b>给定的 S</b> 上学 π。");
+    },"这个读法几乎每个人第一次都会采用，而且它有很好的理由：MDP 的定义把 S 和 A 并列写在最前面，看上去都属于问题本身；Gym 里一行 env.reset() 就把状态递到手上；教科书画转移图时，状态圆圈也确实画在环境那一侧。顺着这条读法往下走，「状态空间多大」就成了一个客观事实——你只能去查，不能去选。Brunskill 在课上也说，早期讨论里状态常被当成某种不可变的东西。");
+  /* 铺陈 */
+  S(1469,function(){
+      clearScene();setBig(null);
+      setEq("$$h_t=(a_1,o_1,r_1,\\;a_2,o_2,r_2,\\;\\ldots,\\;a_t,o_t,r_t)$$","top");
+      matrix({rows:3,cols:7,cw:74,ch:38,x:180,y:225,
+      cell:function(i,j){
+      if(j===5)return "⋯";
+      var s=(j===6)?"ₜ":["₁","₂","₃","₄","₅"][j];
+      return (i===0?"a":i===1?"o":"r")+s;}});
+      arrow(700,280,760,280,"v");
+      boxNode(760,248,110,64,"f","v");
+      arrow(870,280,930,280,"g");
+      boxNode(930,248,190,64,"sₜ","g");
+      note("你选的压缩",815,337,"v");
+      note("智能体状态",1025,337,"g");
+      setCap("<b>hₜ</b> 是记录，<i>f</i> 是你挑的压缩，<em>sₜ = f(hₜ)</em> 是结果。aₜ 由你发出、oₜ 与 rₜ 由世界发出，<b>真实世界状态从不出现在这条带子上</b>。slide 46：sₜ 还可装算法自身的元信息。<b>记号</b>：hₜ 从 a₁ 起没有 o₀；slide 47 把 f 漏印成 sₜ = (hₜ)。");
+    },"三个符号各就各位。hₜ 是到 t 为止的完整交互记录，一条只增不减的带子；f 是任意一个把带子映成某个对象的函数，它不受世界约束，是你写在智能体里的代码；sₜ = f(hₜ) 才是算法真正读到的东西。slide 46 还多说了一句关键的话：sₜ 可以包含算法自身的元信息，比如已经花掉多少计算、还剩几步决策。这一条先记下，最后一拍要用它做刀。");
+  /* 主体 */
+  S(1481,function(){
+      clearScene();setBig(null);setEq(null);
+      var g=gridworld({rows:3,cols:6,cs:68,x:270,y:150,
+      wall:function(i,j){return i!==1;},
+      cls:function(i,j){return (i===1&&j>=1&&j<=4)?"hl":"";},
+      val:function(i,j){return i===1?("c"+["₁","₂","₃","₄","₅","₆"][j]):null;}});
+      var rd=["1011","1010","1010","1010","1010","1110"];
+      for(var j=0;j<6;j++)note(rd[j],g.cx(j),372,(j>=1&&j<=4)?"y":"sm");
+      trace({pts:[[g.cx(0),g.cy(1)],[g.cx(5),g.cy(1)]],dur:2.8,cls:"y",r:13});
+      setCap("一条 6 格走廊，只有四面墙感（读数位序 上右下左）：|O| = 2⁴ = 16，动作上下左右 |A| = 4，撞墙原地不动。<b>c₂ 到 c₅ 读数完全相同</b>，可它们在世界里是四个不同的位置。");
+    },"<b>看什么：</b>看黄色 token 从 c₁ 一格一格走到 c₆：位置在变，而它脚下 c₂..c₅ 那四格的读数始终是同一串 1010 —— 位置动了、观测纹丝不动，这就算是看到了 f₁ = oₜ 分不清它们。　—— 把数字钉死：观测是 4 比特，名义上 |O| = 2⁴ = 16（这条走廊里实际只出现三种读数）；动作四个，撞墙原地不动。c₁ 左侧有墙读 1011，c₆ 右侧有墙读 1110，中间四格上下有墙、左右通行，一律读 1010。取 sₜ = oₜ 的智能体在这四格里收到的输入完全一致，却处在四个不同位置上——它没有任何办法知道自己离出口还有几步。");
+  /* 主体 */
+  S(1493,function(){
+      clearScene();setBig(null);
+      setEq("$$s_t=f(h_t)\\qquad f_1=o_t\\quad f_2=(o_{t-1},a_t,o_t)\\quad f_3=h_t\\ (t=10)$$","top");
+      bars({vals:[4,10,60],x:210,y:420,w:860,h:120,max:66,
+      label:function(i){return ["f₁","f₂","f₃"][i];},
+      cls:function(i){return ["b","v","g"][i];},
+      fmt:function(v){return v+" bit";}});
+      setCap("同一条 6 格走廊、同一条 hₜ，|O| = 16、|A| = 4，<b>世界侧一个比特都没改</b>。变的只有 f —— |S| 从 <b>16</b>（只留最近读数）到 <b>1024</b>（两次读数 + 中间那个动作）再到 <b>1.15×10¹⁸</b>（整条带子一个字不丢）。");
+    },"三个 f 都作用在同一条 hₜ 上，世界侧一个比特都没改。位宽这样算：f₁ 只留 4 比特；f₂ 留两次读数加中间那个动作，4+2+4 = 10 比特；f₃ 取 t = 10 的整条带子，每步 2+4 比特（把 rₜ 当作 oₜ 的函数，否则再乘 |R|¹⁰），共 60 比特。于是 |S| 从 16 到 1024 再到 2⁶⁰ ≈ 1.15×10¹⁸——同一个世界，三个完全不同的 MDP。写下这些差别的只有 f。");
+  /* 主体 */
+  S(1505,function(){
+      clearScene();setBig(null);
+      setEq("$$f:H\\to S,\\quad |S|=|f(H)|$$","top");
+      bars({vals:[4,10,60],x:140,y:420,w:520,h:112,max:66,
+      label:function(i){return ["f₁","f₂","f₃"][i];},
+      cls:function(i){return ["b","v","g"][i];},
+      fmt:function(v){return v+" bit";}});
+      note("太小 → 混叠",880,300,"r");
+      note("太大 → 每状态只访问一次",880,360,"r");
+      setCap("同一条走廊的三个 f 仍在屏上：|S| ≤ <b>16</b> / <b>1024</b> / <b>1.15×10¹⁸</b>。<b>|S| = |f(H)|</b> 是 f 的值域大小，<i>属于你</i>；<em>充分性</em>才是你和世界共同决定的。<b>补课</b>：样本复杂度 ~ |S||A| / ((1−γ)³ε²) —— <b>|S| 线性进入，所以全历史不是保守选择</b>。");
+    },"抽象只有一句：f : H → S，S = f(H) 是 f 的值域，所以 |S| 是你的属性，不是世界的属性。两端都会失败。太小则不充分：f₁ 连 c₂..c₅ 都分不清，Markov 条件当场破掉。太大则学不动——【补课】表格式 RL 拿到 ε-最优策略的样本复杂度约为 |S||A|/((1-γ)³ε²)（Azar 等 2013 的下界，Sidford 等 2018 达到），|S| 线性进入；把 10⁶ 条长度 10 的轨迹撒进 1.15×10¹⁸ 个状态，重复访问几乎不会发生，这就是「无从泛化」的确切含义。");
+  /* 反驳 */
+  S(1517,function(){
+      clearScene();setBig(null);setEq(null);
+      link(640,170,640,320);
+      note("智能体侧",320,188,"b");
+      note("世界侧",960,188,"sm");
+      arrow(500,234,780,234,"y");
+      note("aₜ",572,220,"y");
+      arrow(780,286,500,286,"g");
+      note("oₜ , rₜ",716,308,"g");
+      note("sₜ 从未跨过这条线",640,350,"y");
+      setCap("同一条走廊，三个 f 给出 |S| ≤ <b>16 / 1024 / 1.15×10¹⁸</b>（f₃ 取 t = 10）。回到那句 <s>「S 是环境的一部分」</s> —— 这条线上只运 aₜ 与 (oₜ, rₜ) 两样。sₜ 由你在自己这侧组装 —— 最近读数、前几步的记忆，还有<b>已用计算量、还剩几步决策（世界不发这两个数）</b>。环境定的是 <i>O</i>，定 <em>f</em> 的人是你：<b>S = f(H)</b>。");
+    },"错误模型断在一个可以逐字检查的地方：Gym 的接口属性叫 observation_space，从来没有叫 state_space——这个命名是准确的，是我们把它读成了状态。五元组里的 S 也不是环境自带的：换一个 f，P 和 R 全部跟着换，最优策略跟着换，而世界一个比特都没动。最锋利的一刀在左下第三行——「还剩几步决策」根本不是世界里的物理量，可它明明白白写在 slide 46 的 sₜ 里。");
+  SUM(1445,4,{h:"回路 → 历史 → 智能体状态：S 是设计出来的",
+    k:"<b>sₜ = f(hₜ) 是你选定的压缩</b>。环境定的是观测空间 O，定 f 的人是你。",
+    m:"选 f 同时定下两件反向变动的事：充分性与 |S|。而 |S| 线性进入表格式 RL 的样本复杂度。",
+    w:"<s>误解</s>：把 sₜ 当成世界的真实状态。回路上只运 aₜ 出去、oₜ 与 rₜ 回来，sₜ 从未跨过那条线。",
+    e:"f 的现代形式就是递归序列模型：RNN 是它，LLM agent 的 context window 也是它。"});
+  QUIZ(1445,4,{t:"把这条走廊从 6 格加长到 60 格（中间 58 格读数全是 1010），f₂（保留最近两次读数与中间那个动作）会怎么变？",
+    o:["|S| 随走廊长度线性变大，充分性不变","<b>|S| 一点不变，仍 ≤ 1024；而充分性更差了</b>","|S| 指数增长，并且变得充分","|S| 与充分性都不变"],
+    a:1,
+    w:"<b>|S| 只由 f 决定</b>：位宽 = 4 + 2 + 4 = 10 比特，走廊多长都一样。<s>充分性</s>却由 f 与世界共同决定：读数相同的内部格从 4 个变成 58 个，f₂ 反而更分不清。这正是本集的结论——|S| 属于你，充分性属于「你 + 世界」的组合。<em>要救回来</em>：给 sₜ 加一个「向右净位移」计数器，60 格只需 6 比特，位置就唯一确定了——这正是 slide 46 说 sₜ 可以携带元信息的用处。"});
+});
+
+KP("5 · Markov 条件 = 充分统计量",function(){
+  /* 钩子 */
+  S(1560,function(){
+      clearScene();setBig(null);
+      setEq("$$p(s_{t+1}\\mid s_t,a_t)\\;=\\;p(s_{t+1}\\mid h_t,a_t)$$","top");
+      boxNode(360,340,560,60,"「这个问题是不是马尔可夫的？」","y");
+      note("这一集只查这一句",640,440,"y lg");
+      setCap("Markov 条件说：把 hₜ 换成 sₜ，对下一步的预测<b>一点都不变</b>。它是一个关于「条件分布相等」的断言。");
+    },"先把条件本身读准。它不是「未来只依赖现在」这种口号，而是一个精确的断言：两个条件分布相等。左边只给 sₜ 和 aₜ，右边给整段历史 hₜ 和 aₜ，两者对 s_{t+1} 的预测完全一样。用统计学的话说，sₜ 是历史关于未来的**充分统计量**。这一集要查的不是这个条件本身，而是人们拿它去问的那句话：「这个问题是不是马尔可夫的？」");
+  /* 错误答案 */
+  S(1572,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(150,220,420,74,"下棋 —— 天生是马尔可夫的","g");
+      note("局面包含一切",360,330,"sm lg");
+      boxNode(710,220,420,74,"四向墙感机器人 —— 天生不是","r");
+      note("只看得到身边四面",920,330,"sm lg");
+      note("于是成了一道关于世界的判断题",640,420,"ink lg");
+      setCap("<b>有些问题天生是马尔可夫的，有些天生不是</b> —— 判断它，就是在判断这个世界。");
+    },"这个模型几乎是被术语本身诱导出来的：我们说「马尔可夫决策过程」，把 Markov 当成 process 的形容词，于是它听起来像在描述那个过程。配上两个例子更是天衣无缝——下棋，当前局面显然包含一切；只有四向墙感的机器人，显然看不到全局。于是「这个问题是不是马尔可夫的」看起来是一道关于世界的判断题，答案由世界给定，你只能接受。下面做一件很小的事就能检验它：不动世界，只换表示。");
+  /* 铺陈 */
+  S(1584,function(){
+      clearScene();setBig(null);setEq(null);
+      var g=gridworld({rows:1,cols:5,cs:89.3,y:220,
+      cls:function(i,j){return (j===1||j===3)?"hl":"";},
+      tag:function(i,j){return j===1?"A":(j===3?"B":null);}});
+      note("A 与 B 读数都是 1010",640,340,"y");
+      note("最优动作却不同",640,400,"ink");
+      setCap("先<b>命名</b>：一个世界、两处混叠的格子（A 该向左、B 该向右）、三种表示（f₁ = oₜ · f₂ = hₜ · f₃ = b(s) 对位置的后验信念）、两个判据（① 是否充分 ② 状态空间多大）。都还没开始检验。");
+    },"世界固定下来：一条五格走廊，机器人只有四向墙感。格 A 和格 B 的读数都是 1010——上下有墙、左右无墙，一模一样；但它们在世界里位置不同，最优动作也不同。接下来不动这个世界，只换三种把历史压缩成状态的方式 f，并对每一种问两个问题：它充分吗？它的状态空间有多大？两个判据都要问，因为只问第一个会得出「取全历史就完事了」这种没用的答案。");
+  /* 主体 */
+  S(1596,function(){
+      clearScene();setBig(null);
+      setEq("$$p(s_{t+1}\\mid o_t,a_t)\\;\\neq\\;p(s_{t+1}\\mid h_t,a_t)$$","top");
+      var g=gridworld({rows:1,cols:5,cs:73.4,y:280,
+      cls:function(i,j){return (j===1||j===3)?"r":"";},
+      tag:function(i,j){return j===1?"A":(j===3?"B":null);}});
+      note("都映到状态 1010",640,400,"r");
+      setCap("<b>f₁ = oₜ 不充分</b>：Markov 条件在此失效 —— 历史确实多知道一件事（从左边进来 → 我在 A；从右边进来 → 我在 B）。② 状态空间 |S| = 16。");
+    },"第一种表示：直接令 sₜ = oₜ，也就是只看最近一次观测。此时 A 与 B 被压到同一个状态，而从它们出发的转移不同，于是屏上那个不等号成立——给定 oₜ 的预测与给定 hₜ 的预测不一样，Markov 条件失效。注意失效的原因说得很具体：历史里有一条 oₜ 没有的信息，就是「我是从哪边走进这条走廊的」。状态空间倒是很小，四位墙感一共 16 种。所以 f₁ 在判据②上满分，在判据①上不及格。");
+  /* 主体 */
+  S(1608,function(){
+      clearScene();setBig(null);setEq(null);
+      flip(T("s","s<sub>t</sub>","hl")+T("def","&nbsp;&nbsp;:=&nbsp;&nbsp;")+T("h","h<sub>t</sub>","hl"));
+      note("代入定义，自动成立",640,330,"g lg");
+      note("任何过程都能这样做成 Markov",640,400,"y lg");
+      setCap("<b>f₂ = hₜ 充分，而且是平凡地充分</b> —— 等式两边成为同一个条件分布，无需任何假设。代价：② |S| 随 t <b>指数增长</b>，实践中不可用。");
+    },"第二种表示：令 sₜ := hₜ。此时 Markov 条件的证明是平凡的——把定义代进去，等式两边字面上就是同一个条件分布，无需对世界做任何假设。这个平凡性正是整集的转折点：**它说明任何过程都可以被做成 Markov 的**。代价当然是状态空间随时间步指数增长，一条 t 步的历史有指数多种，没法拿它做算法。所以 f₂ 在判据①上满分，在判据②上不及格——恰好和 f₁ 相反。【补课】课上只是断言「取全历史就是 Markov 的」，没有给出这个代入证明，也没有点出它的推论。");
+  /* 主体 */
+  S(1620,function(){
+      clearScene();
+      setEq("$$b_t(s)\\;=\\;p(s_t=s\\mid h_t)$$","top");
+      var vals=[0.05,0.45,0.05,0.40,0.05];
+      morphBars({from:[0.20,0.20,0.20,0.20,0.20],to:vals,
+      x:340,y:355,w:600,h:150,max:0.5,
+      cls:function(i){return (i===1||i===3)?"g":"";},
+      fmt:function(v){return v.toFixed(2);},
+      label:function(i){return "格"+(i+1);},dur:1500});
+      setCap("f₃ 兼顾两条：信念<em>充分</em>，且维度<b>不随时间增长</b>。");
+    },"<b>看什么：</b>盯住五根柱子的<b>形状变化</b>：起始是五格等概率（都是 0.20 的平顶），观测进来之后概率必须集中到 A 与 B 两格上、其余三格塌到接近 0。看到「平顶变成两个尖峰」，就等于看见了「观测把信念收窄了」；如果五根一起等比例升降，那说明观测没有携带信息，这一镜的论点不成立。　—— 第三种表示：不记全部历史，只记它蕴含的那件事——我现在在哪的后验概率分布 b(s)。走进走廊之前，五个格子等可能；观测到 1010 并结合「我是从左边进来的」之后，概率集中到 A 上。【补课】课上顺口提过「维护一个信念分布就能决策」但没证——这就是**信念状态 MDP 归约**：b 是 POMDP 的充分统计量，于是原问题化为一个以信念为状态的 MDP。代价是状态空间从有限集变成了连续单纯形，但关键在于它的**维度不随 t 增长**，这是它与 f₂ 的根本差别。深度 RL 里用 RNN 隐状态当 sₜ，是这条路线的近似版本。　表示三： f₃ = b(s)  对自己位置的后验信念　① 充分？  充分（信念是 POMDP 的充分统计量）　② 状态空间？  连续单纯形，但不随 t 增长");
+  /* 反驳 */
+  S(1632,function(){
+      clearScene();setBig(null);setEq(null);
+      matrix({rows:4,cols:3,cw:300,ch:57.3,x:140,y:200,
+      cell:function(i,j){
+      var t=[["表示 f","① 是否充分","② 状态空间"],
+      ["f₁ = oₜ","不充分","|S| = 16"],
+      ["f₂ = hₜ","充分（平凡）","随 t 指数增长"],
+      ["f₃ = b(s)","充分","连续，但不随 t 增长"]];
+      return t[i][j];},
+      dim:function(i,j){return i===0;},
+      hl:function(i,j){return i===1?"hl3":(i===2?"hl":(i===3?"hl2":""));}});
+      setCap("世界一个字都没改，变的只有这一列。所以「这个问题是不是马尔可夫的」<b>问错了对象</b> —— 它问的是表示，不是世界。真问题：能否找到一个<b>既充分、又足够小</b>的表示。");
+    },"现在指名回去。开头那个模型说「有些问题天生马尔可夫，有些天生不是」。但这张表里，世界从头到尾是同一条走廊、同一套墙感，一个字都没改，而「是否充分」这一列却随着 f 的选择在变。f₂ 的平凡证明更是把话说死了：任何过程都能被做成 Markov 的。所以那句问话问错了对象——它以为在问世界，实际在问你选的表示。至于下棋为什么感觉「天生 Markov」：那不是棋的属性，而是**棋盘这个表示恰好既充分又紧凑**，好到你根本没意识到自己做了一次选择。真正的问题因此变成了一个设计问题：能否找到既充分又足够小的 f。这个问题贯穿整门课——函数逼近就是在挑 f，而 POMDP 的困难就是 f 必须自己从历史里攒信息。");
+  /* 反驳 */
+  S(1644,function(){
+      clearScene();setBig(null);
+      setEq("$$\\underbrace{p(s_{t+1}\\mid s_t,a_t)=p(s_{t+1}\\mid h_t,a_t)}_{\\text{slide 上写了}}\\qquad\\underbrace{p(r_t\\mid s_t,a_t)=p(r_t\\mid h_t,a_t)}_{\\text{课上没写，但必需}}$$","top");
+      boxNode(230,340,820,60,"反例：奖励取决于「这是第几次到访本状态」","r");
+      setCap("<s>补课</s>：完整的 Markov 假设是<b>两条</b>，课上只写了转移那一条。少了右边这条，V(s) 作为「s 的函数」就没有良好定义 —— 上面那个反例里转移完全 Markov，而 V 却不是 s 的函数。Sutton&Barto 直接写联合分布 p(s′,r | s,a) 更干净。");
+    },"【补课】顺手补掉这一讲的一个真实漏洞。slide 上的 Markov 条件只约束了**转移**，而后面所有内容都默认 V(s)、Q(s,a) 是状态的函数——要让这个成立，奖励也必须只依赖 (sₜ,aₜ)。屏上那个反例就够说明问题：设想奖励取决于你是第几次到访某个状态，那么转移可以完全 Markov，而 V 却不是 s 的函数，因为同一个 s 在不同时刻值不同。所以完整的假设是转移 + 奖励两条。Sutton&Barto 第 3 章的处理更干净：直接写一个联合分布 p(s′,r|s,a)，两条一次说完（【记号】这也是两套记号的又一处差别）。");
+  SUM(1560,5,{h:"Markov 性是表示的性质，不是世界的性质",
+    k:"<b>sₜ 是历史关于未来的充分统计量</b>，而「是否充分」取决于你选的 f:H→S。",
+    m:"取 sₜ:=hₜ 平凡满足 Markov（代入定义即得），代价是 |S| 随 t 指数增长。信念 b(s) 充分且维度不随 t 增长。",
+    w:"<s>误解</s>：去问「这个问题是不是马尔可夫的」。下棋之所以像天生 Markov，是棋盘这个表示恰好又充分又紧凑。",
+    e:"【补课】完整假设是<b>转移 + 奖励</b>两条，slide 只写了转移。"});
+  QUIZ(1560,5,{t:"「任何过程取 sₜ := hₜ 都满足 Markov 条件」—— 这个平凡事实说明了什么？",
+    o:["说明大多数现实问题本来就是马尔可夫的","<b>说明 Markov 性是表示的性质，真问题是找到既充分又紧凑的表示</b>","说明 Markov 条件是空洞的假设，可以忽略","说明全历史表示在实践中是最好的选择"],
+    a:1,
+    w:"平凡构造对<em>任何</em>过程都成立，所以「是否 Markov」问的从来不是世界，而是<b>你选的那个 f</b>。它当然不是空洞假设——一旦不充分，Bellman 方程、值迭代、Q-learning 的收敛保证全部失效。至于全历史表示：它充分但 |S| 随 t 指数增长，<s>实践中不可用</s>，这恰恰是为什么要费力去找紧凑表示。"});
+});
+
+KP("6 · MDP / POMDP / 赌博机",function(){
+  /* 钩子 */
+  S(1780,function(){
+      clearScene();setBig(null);setEq(null);
+      var g=gridworld({rows:4,cols:7,cs:54.8,y:180,
+      wall:function(i,j){return !(i===0||j===6);},
+      cls:function(i,j){return (i===0&&(j===2||j===4))?"hl":"";}});
+      note("A",g.cx(2),g.cy(0)+6,"y");
+      note("B",g.cx(4),g.cy(0)+6,"y");
+      note("两处读数逐位相同",640,440,"r");
+      setCap("四位墙感（上/下/左/右 各有没有墙），别的什么都不知道。<i>A</i> 与 <i>B</i> 是两个不同的位置，读数却<em>逐位相同</em>（上墙·下墙·左通·右通）。<b>多读几次，能不能把它们分开？</b>");
+    },"这个例子是 Brunskill 在黑板上现画的，她自己说后排大概看不清——它是全讲唯一一个真正的<b>反例论证</b>，值得画清楚。机器人的观测空间只有 16 个取值（四边各有无墙），而横向走廊里第 1 到第 5 格的读数完全一样，A、B 只是其中两格。注意问题问的不是「能不能猜对」，而是「多读几次能不能分开」：这两件事在噪声下是同一件事，在这里不是。");
+  /* 错误答案 */
+  S(1792,function(){
+      clearScene();setBig(null);setEq(null);
+      errbar({x:280,y:210,w:720,h:189,ymin:0,ymax:1.1,items:[
+      {label:"k = 1",mean:0.62,lo:0.16,hi:1.08,cls:"g"},
+      {label:"k = 4",mean:0.55,lo:0.32,hi:0.78,cls:"g"},
+      {label:"k = 16",mean:0.52,lo:0.40,hi:0.64,cls:"g"},
+      {label:"k = 64",mean:0.505,lo:0.445,hi:0.565,cls:"g",tag:"→ 真值 0.50"}]});
+      setCap("重复测量同一个量，半宽 0.46 → 0.23 → 0.12 → 0.06：噪声是「围绕真值的抖动」，而抖动<em>能被平均掉</em>。所以 <i>POMDP 不过是 MDP 外面套了一层测量误差</i>：观测模型照写、算法照用，只把 k 加大。");
+    },"这个说法在你自己的领域里几乎是条件反射：LLM 输出不稳定就多采几条、投票或自一致性聚合；估计量有噪声就加样本，标准误按 1/√k 往下掉。它在噪声下是<em>完全正确</em>的，屏上那组收缩的区间就是它的机制，货真价实。而且它给出的工程建议非常省事：观测模型照写、算法照用，只把采样次数加大——多数 POMDP 的实际处理确实是从这里起步的。");
+  /* 铺陈 */
+  S(1804,function(){
+      clearScene();setBig(null);
+      setEq("$$b_t(s) = p(s_t = s \\mid h_t)$$","top");
+      boxNode(150,230,240,88,"世界状态 s","");
+      boxNode(520,230,240,88,"观测 o","b");
+      boxNode(890,230,240,88,"信念 b(s)","v");
+      arrow(390,274,520,274,"b");
+      note("p(o|s)",455,258,"b");
+      arrow(760,274,890,274,"v");
+      note("贝叶斯更新",825,258,"v");
+      setCap("四个对象：<i>s</i> 世界状态（不可见）· <i>o</i> 观测（四位墙感）· <b>Λ = p(o|A)/p(o|B)</b> 似然比 · <em>b(s)</em> 对 s 的后验。k = 站在原地重复读到同一个 o 的次数。全片只有这四个东西在动。");
+    },"【记号】课上只说了一句「maintain a belief state over what the other cards are」，没给符号。本片沿用标准 POMDP 记号 bₜ(s) = p(sₜ = s | hₜ)。【补课】完整的信念更新要同时用观测模型与转移模型：b′(s′) ∝ p(o|s′,a) · Σ_s p(s′|s,a) b(s)——这就是课上提了却没证的<b>信念状态 MDP 归约</b>，b 是 POMDP 的充分统计量，代价是状态空间从有限集变成概率单纯形。为把话说干净，下面让机器人站在原地重复读数，转移那一项冻住，只剩似然。");
+  /* 主体 */
+  S(1816,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[268,320],[1010,320]],"guide");
+      note("先验 0.50",1028,335,"sm","start");
+      bars({vals:[0.5,0.8,0.9412,0.9846,0.9961,0.9990],x:280,y:430,w:720,h:182,max:1,
+      cls:function(i){return i===0?"":"g";},
+      label:function(i){return "k = "+i;},
+      fmt:function(v){return v.toFixed(3);}});
+      setCap("先把那个说法<b>当真算一遍</b>：设 p(o|A) = 0.8、p(o|B) = 0.2，于是 Λ = 4；先验 b₀(A) = b₀(B) = 0.50（k = 0 那根就是先验）。b(A) 以 4^k 压向 1 —— <b>读五次就到 0.999</b>。");
+    },"数字是精确的：b_k(A) = 0.8^k / (0.8^k + 0.2^k)。k=1 → 0.800，k=2 → 0.941，k=3 → 0.985，k=5 → 0.999。指数收敛，快得几乎不用讨论。这一镜的作用是把第 2 拍那个说法<em>当真算一遍</em>：只要两格的读数分布确实不同，重复读数就真的能把它们分开，而且极快。请记住这排柱子的形状——下一镜只改一个数字。");
+  /* 主体 */
+  S(1828,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[268,320],[1010,320]],"guide");
+      note("先验 0.50",1028,335,"sm","start");
+      morphBars({from:[0.5,0.8,0.9412,0.9846,0.9961,0.9990],
+      to:[0.5,0.5,0.5,0.5,0.5,0.5],
+      x:280,y:430,w:720,h:181,max:1,dur:1800,
+      cls:function(i){return i===0?"":"r";},
+      label:function(i){return "k = "+i;},
+      fmt:function(v){return v.toFixed(3);}});
+      setCap("唯一的改动：把两格读数分布改成相同，p(o|A) = p(o|B)，于是 Λ 从 4 变成 <b>1</b>。先验没动、k 没动、贝叶斯公式没动 —— 六根柱子全部<s>塌回先验 0.50</s>。<b>1^k ≡ 1</b>，k 再大也不动。");
+    },"<b>看什么：</b>看 k=1 到 k=5 这五根柱子是否全部落回 0.50 那条灰线上——只把似然比 Λ 从 4 改成 1，后验就退回先验，看到这一点才算数。　—— 这就是全片那一步。<b>混叠的精确含义不是「这次读数碰巧一样」，而是 p(·|A) 与 p(·|B) 作为分布完全相同</b>。于是任何观测序列的似然比都是 1×1×…×1 = 1，后验比值恒等于先验比值——不是这一次分不开，而是<s>任何数据都分不开</s>。统计学里这有名字：A 与 B 在这个观测模型下<s>不可识别</s>（non-identifiable）。不可识别不是「估计得慢」，是「数据里根本没有这条信息」。");
+  /* 主体 */
+  S(1840,function(){
+      clearScene();
+      setEq("$$\\frac{b_k(A)}{b_k(B)} = \\left(\\frac{p(o \\mid A)}{p(o \\mid B)}\\right)^{k} \\cdot \\frac{b_0(A)}{b_0(B)}$$","top");
+      bars({vals:[0.999,0.500],x:390,y:420,w:500,h:125,max:1,
+      cls:function(i){return i===0?"g":"r";},
+      label:function(i){return i===0?"Λ = 4（可分）":"Λ = 1（混叠）";},
+      fmt:function(v){return v.toFixed(3);}});
+      setCap("一般形式是<b>比值形式的贝叶斯更新</b>：采样次数 k 进的是<i>指数</i>，观测模型的区分度 Λ 是<em>底数</em>。");
+    },"把前两镜合成一个式子：b_k(A)/b_k(B) = Λ^k · b₀(A)/b₀(B)。采样次数 k 只能进到<i>指数</i>上，观测模型的区分度 Λ 是<em>底数</em>。加样本就是把指数拉大，这对 Λ>1 有效、对 Λ=1 完全无效——1 的任何次幂都是 1。于是「观测是否充分」有了定量版本：不是问观测有多准，而是问<b>是否存在一对状态使 Λ ≡ 1</b>。屏上那两根柱子是同一个 k、同一个先验、同一个公式算出来的。　k 只出现在指数上。底数是 1 的时候，指数再大也没有用。　同一个 k = 5 · 同一个先验 0.50 · 同一个更新公式");
+  /* 主体 */
+  S(1852,function(){
+      clearScene();setBig(null);setEq(null);
+      note("观测充分",575,234,"g lg");
+      note("观测不充分",905,234,"r lg");
+      note("动作影响未来",412,293,"ink lg","end");
+      note("动作不影响",412,394,"ink lg","end");
+      boxNode(430,259,290,80,"MDP","g");
+      boxNode(760,259,290,80,"POMDP","r");
+      boxNode(430,360,290,80,"赌博机 bandit","b");
+      boxNode(760,360,290,80,"潜变量赌博机","v");
+      setCap("判据一：p(o′|oₜ,aₜ) = p(o′|hₜ,aₜ)（能把 hₜ 缩成 oₜ 吗）。判据二：p(o′|hₜ,aₜ) = p(o′|hₜ)（能把 aₜ 划掉吗）。两条<b>互相独立</b>，所以真正的表格是 2×2；课上讲的三分法只占<i>三格</i>。");
+    },"两条判据形式上是同一句话：某个条件分布里，能不能划掉一个参数。判据一划掉 hₜ（留 oₜ 就够，这就是 sₜ = oₜ 的 Markov 条件），判据二划掉 aₜ（动作不影响下一个观测）。它们互相独立，所以真正的表格是 2×2，右下那格课上没提但确实存在。【补课】课上说赌博机是 MDP 的「简单版本」却没给归约：判据二成立时 aₜ 对 o′ 无影响，逐步最大化即时奖励即最优，问题退化成 H=1——这才是「没有延迟后果」的准确说法。");
+  /* 反驳 */
+  S(1864,function(){
+      clearScene();setBig(null);setEq(null);
+      errbar({x:120,y:180,w:440,h:190,ymin:0,ymax:1.1,items:[
+      {label:"k=1",mean:0.62,lo:0.16,hi:1.08,cls:"g"},
+      {label:"k=4",mean:0.55,lo:0.32,hi:0.78,cls:"g"},
+      {label:"k=16",mean:0.52,lo:0.40,hi:0.64,cls:"g"},
+      {label:"k=64",mean:0.505,lo:0.445,hi:0.565,cls:"g"}]});
+      bars({vals:[0.5,0.5,0.5,0.5],x:700,y:370,w:440,h:190,max:1,
+      cls:function(i){return "r";},
+      label:function(i){return ["k=1","k=4","k=16","k=64"][i];},
+      fmt:function(v){return v.toFixed(2);}});
+      setCap("左：噪声，标准误 ∝ 1/√k。右：混叠，b(A) 与 k <b>完全无关</b>。<s>POMDP 只是噪声大一点的 MDP</s> 断在 <b>Λ = 1</b> —— 底数是 1，样本量进不了式子。1/√k 压的是<b>方差</b>，混叠丢的是<b>可识别性</b>；补救办法也不同：噪声加样本，混叠只能改表示。");
+    },"指名说清：<s>POMDP 只是噪声大一点的 MDP，多采样就好</s>，断点在 Λ=1。左边那组区间是这个说法自己的机制，1/√k，压的是<em>方差</em>；右边丢的是<b>可识别性</b>，与样本量无关。补救办法因此完全不同：噪声加数据，混叠只能改表示——全历史、信念分布、RNN 隐状态，或者对你手上的 LLM agent 来说，就是 context 里到底带了什么。带不进 context 的那部分信息，采样再多、投票再多也拿不回来。");
+  SUM(1780,6,{h:"三分法与它的两条判据",
+    k:"判据只有两条：<b>观测是否充分</b>、<b>动作是否影响未来</b>。",
+    m:"感知混叠是 POMDP 的典型成因：不同世界状态给出相同观测，只有累积历史能区分。",
+    w:"<s>误解</s>：以为 POMDP 只是噪声大一点的 MDP。不可区分是<b>系统性</b>的，加采样无用，只能改表示。",
+    e:"赌博机不是玩具：去掉延迟后果，才能把探索问题分析干净（L11–13）。"});
+  QUIZ(1780,6,{t:"把走廊 A、B 的观测模型改成 p(o|A) = 0.51、p(o|B) = 0.49（几乎混叠，但不完全）。先验各 0.50，站在原地连续读到同一个 o。要让 b(A) ≥ 0.99，k 大约要多大？先算，再看选项。",
+    o:["约 5 次","约 20 次","<b>约 115 次</b>","任何有限的 k 都做不到"],
+    a:2,
+    w:"用比值形式：(0.51/0.49)^k · 1 ≥ 99，取对数得 k ≥ ln 99 / ln(51/49) ≈ 4.595 / 0.0400 ≈ <b>115</b>。<em>只要 Λ > 1，任何精度都在有限步内可达</em>，Λ 越接近 1 只是越慢（k 与 ln Λ 成反比）。<s>「任何有限 k 都做不到」</s>只有在 Λ 恰好等于 1 时才成立——这正是混叠与噪声的分界：混叠不是「更难的噪声」，而是判据的另一侧，中间没有连续过渡。"});
+});
+
+KP("7 · 三大部件与折扣和的收敛性",function(){
+  /* 钩子 */
+  S(2360,function(){
+      clearScene();setEq(null);
+      setBig("γ = 1","右边这个和还是一个数吗");
+      setCap("价值函数是一个<b>无穷项</b>的和：V^π(s) = E[r_t + γr_{t+1} + γ²r_{t+2} + γ³r_{t+3} + ⋯]。课上原话是「折扣因子 γ 在 0 和 1 之间」，官方 slides 上连这句都没写 —— 那么真的取到 <s>1</s> 的时候呢？");
+    },"CS234 第一讲把价值函数定义成一个无穷项的加权和，然后一句带过：折扣因子在 0 和 1 之间；官方 slides 连这句都没写。可是「V^π 等于某个无穷和」本身是有前提的——无穷多项相加未必等于任何一个数。整门课后面的一切（比较策略、Bellman 方程、样本复杂度界）都建立在「V^π 是良定义的有界函数」之上，而这件事在第一讲里从未被验证。这一集补这个洞。");
+  /* 错误答案 */
+  S(2372,function(){
+      clearScene();
+      var SUP=["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"];
+      var w=[1,1,1,1,1,1,1,1,1,1];
+      note("γ = 1 的权重：每一项都是 1",640,130,"y");
+      bars({vals:w,x:340,y:284,w:600,h:120,max:1,
+      label:function(q){return "γ"+SUP[q];},
+      fmt:function(){return "1";}});
+      link(260,384,1020,384);
+      link(260,378,260,390);link(640,378,640,390);link(1020,378,1020,390);
+      note("0",260,412,"sm");note("0.5",640,412,"sm");note("1",1020,412,"sm");
+      note("完全短视",260,438,"sm");
+      note("越来越有耐心",640,438,"sm");
+      note("一视同仁",1020,438,"y");
+      note("γ",1060,390,"sm");
+      setCap("很自然的读法：γ 是一把<b>耐心旋钮</b>，0 和 1 是它的两端 —— 一端极端近视，另一端<b>一视同仁</b>。");
+    },"于是很自然地这样读它：γ 是一个偏好旋钮。调到 0，智能体只在乎眼前这一步；往上调，未来越来越算数；调到 1，未来和现在同等重要——每一项的权重都是 1，谁也不吃亏。按这个读法，[0,1] 是一把均匀的刻度，两端各是一种极端偏好：极端近视与极端远视。γ=1 听上去甚至更公平，因为它不歧视未来。多数人第一次学 MDP 时就是这么理解的，而闭区间的写法本身也在鼓励这种理解。");
+  /* 铺陈 */
+  S(2384,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(120,180,300,100,"模型 model","b");
+      boxNode(490,180,300,100,"策略 policy","y");
+      boxNode(860,180,300,100,"价值 value","g");
+      arrow(420,230,490,230,"b");
+      arrow(790,230,860,230,"y");
+      note("本集主角",1010,320,"g");
+      setCap("三件东西，<b>先只命名不使用</b>：<i>模型</i> p(s′|s,a)、r(s,a)（智能体自己的，可以是错的）· <b>策略</b> π(s)=a 或 π(a|s) · <em>价值</em> V^π(s)。要用到的量：γ 折扣因子 · R_max 奖励的一致上界（|r| ≤ R_max）· Σγᵏ 几何级数 · S_K 前 K 项部分和。");
+    },"三件东西，先只命名不使用。模型是智能体自己的表示：转移 p(s′|s,a) 与奖励 r(s,a)=E[r_t|s,a]——它可以是错的，rover 那页的智能体就相信奖励处处为 0。【补课】「错模型仍可用」的定量版本是 simulation lemma，误差按 1/(1−γ) 的幂放大。策略是 π(s)=a 或 π(a|s)。价值是本集主角。还要两个符号：γ，以及奖励的一致上界 R_max。【记号】CS234 的回报从 r_t 起算，Sutton&amp;Barto 从 R_{t+1} 起算，下标差一位。");
+  /* 主体 */
+  S(2396,function(){
+      clearScene();setBig(null);setEq(null);
+      var v=[],q;
+      for(q=0;q<10;q++)v.push(Math.pow(0.8,q));
+      bars({vals:v,x:340,y:380,w:600,h:170,max:1,
+      label:function(k){return "k="+k;},
+      fmt:function(x){return x.toFixed(2);}});
+      note("第 k 项 = γᵏ·R_max",640,440,"sm");
+      setCap("最坏情形，真实数字：r ≡ R_max = 1，γ = 0.8 —— 1 + 0.80 + 0.64 + 0.51 + 0.41 + 0.33 + 0.26 + 0.21 + 0.17 + 0.13 + ⋯。每项都在缩小，但<b>每项缩小并不保证和有限</b>（调和级数就是反例）。");
+    },"先给一个能算的具体情形，而且是最坏的那个：每一步的奖励都顶到上限 1，γ 取 0.8，于是第 k 项恰好是 0.8ᵏ。前十项是 1、0.80、0.64、0.51、0.41、0.33、0.26、0.21、0.17、0.13。单看每一项都在缩小——但「每项都在缩小」并不保证它们的和有限：调和级数 1+1/2+1/3+… 每项也在缩小，和却发散。所以真正要看的不是项，是部分和。");
+  /* 主体 */
+  S(2408,function(){
+      clearScene();setBig(null);setEq(null);
+      var A=[],B=[],s=0,q;
+      for(q=0;q<10;q++){s+=Math.pow(0.8,q);A.push(s);B.push(q+1);}
+      var ord=[0,1,2,3,4,5,6,7,8,9];
+      note("γ = 0.8",385,200,"g");
+      note("γ = 1",895,200,"r");
+      fillBars({vals:A,order:ord,x:150,y:420,w:470,h:207,max:12,step:280,
+      label:function(k){return ""+(k+1);},
+      cls:function(){return "g";},
+      fmt:function(){return "";}});
+      fillBars({vals:B,order:ord,x:660,y:420,w:470,h:207,max:12,step:280,
+      label:function(k){return ""+(k+1);},
+      cls:function(){return "r";},
+      fmt:function(x){return ""+x;}});
+      link(150,345,620,345);
+      note("5",140,349,"g","end");
+      setCap("部分和 S_K（横轴 = 加到第 K 项）：同一台机器，只换 γ。左边被一条线卡住在 <b>5</b>，右边<s>没有任何东西拦它</s>。");
+    },"<b>看什么：</b>盯住每一根比前一根高出多少：左边这个增量一根比一根小，最后三根几乎一样高，且始终没顶到那条线；右边的增量永远是同一格，第 10 根之后还会照这个步子一直走下去。　—— 这就是全集的那一步。两边都是部分和 S_K，即前 K 项之和，唯一的差别是 γ。γ=0.8 时增量按 0.8 的幂衰减，部分和被一条线卡住——那条线是 5，而且永远够不到；γ=1 时每一项都是 1，增量不衰减，S_K=K 一路线性上升，没有任何东西拦它。收敛不是「打折多打少」的问题，是「这个和存不存在」的问题：γ &lt; 1 让级数绝对收敛，γ=1 连收敛都谈不上。");
+  /* 主体 */
+  S(2420,function(){
+      clearScene();setBig(null);setEq(null);
+      flip(T("v","|V<sup>π</sup>(s)|")+T("le1","&nbsp;≤&nbsp;")+T("t1","∑<sub>k≥0</sub>&nbsp;γ<sup>k</sup>&nbsp;|r<sub>t+k</sub>|")+T("le2","&nbsp;≤&nbsp;")+T("t2","R<sub>max</sub>&nbsp;∑<sub>k≥0</sub>&nbsp;γ<sup>k</sup>","hl"));
+      note("R_max → 1",470,320,"y lg");
+      note("γ → 0.8",810,320,"y lg");
+      setCap("把 0.8 和 1 换成符号。<b>第 1 步</b>逐项取绝对值（三角不等式），<b>第 2 步</b> |r| ≤ R_max 一致有界、常数提出求和号。<b>到这里为止，还完全没有用到 γ &lt; 1。</b>");
+    },"现在把 0.8 和 1 换成符号。第一步：期望的绝对值不超过绝对值的期望，再逐项拆开，得到 |V^π(s)| ≤ Σγᵏ|r_{t+k}|。第二步引入本集唯一的额外假设：奖励一致有界 |r| ≤ R_max，于是这个常数可以提出求和号。这个假设几乎总成立，但必须写出来——它和 γ &lt; 1 是收敛性的两个前提，缺一不可。注意到这里为止还完全没用到 γ &lt; 1：前两步对 γ=1 同样成立。");
+  /* 主体 */
+  S(2432,function(){
+      clearScene();setBig(null);setEq(null);
+      flip(T("v","|V<sup>π</sup>(s)|")+T("le1","&nbsp;≤&nbsp;")+T("t2","R<sub>max</sub>&nbsp;∑<sub>k≥0</sub>&nbsp;γ<sup>k</sup>")+T("eq","&nbsp;=&nbsp;")+T("res","R<sub>max</sub>&nbsp;/&nbsp;(1−γ)","res"));
+      note("1/(1−0.8) = 5",640,320,"y lg");
+      setCap("<b>第 3 步</b>：几何级数 Σγᵏ = 1/(1−γ) 收尾 —— <b>这一步要求 γ &lt; 1</b>。得 <em>|V^π| ≤ R_max/(1−γ)</em>，V^π 是良定义的有界函数；奖励恒为 R_max 时取等号，<b>这个界是紧的</b>。5 正是上一镜左边那条天花板。");
+    },"第三步才是几何级数：Σ_{k≥0}γᵏ = 1/(1−γ)，于是 |V^π(s)| ≤ R_max/(1−γ)，级数绝对收敛，V^π 是良定义的有界函数。代回具体情形：R_max=1、γ=0.8，上界是 1/0.2=5——正是上一镜左边那条天花板。而且这个界是紧的：奖励恒等于 R_max 时取等号，不能再改进。【补课】这三步课上一句没提，官方 slides 上也没有。");
+  /* 反驳 */
+  S(2444,function(){
+      clearScene();setBig(null);
+      setEq("$$|V^\\pi(s)|\\le R_{\\max}/(1-\\gamma)$$","top");
+      axes({l:260,r:1020,t:180,b:430});
+      var pts=[],k,g,vv;
+      for(k=0;k<=198;k++){g=k*0.005;vv=1/(1-g);pts.push([260+g*760,430-Math.min(250,vv/100*250)]);}
+      curve(pts,"fit r");
+      dots([[944,405],[1012,180]],"y",5);
+      note("1/(1−γ) = 有效时域",320,264,"r","start");
+      arrow(1020,422,1020,214,"r");
+      note("γ = 1 ⇒ ∞",1010,205,"r");
+      link(260,419,260,428);link(640,419,640,428);link(1020,419,1020,428);
+      note("0",260,448,"sm");note("0.5",640,448,"sm");note("1",1020,448,"sm");
+      note("γ",1060,428,"sm");
+      setCap("回到那把旋钮：γ=0.9 ⇒ 10 步，γ=0.99 ⇒ 100 步（左端完全短视，右端一视同仁？）。Σγᵏ = 1/(1−γ) <b>只在 γ &lt; 1 成立</b>。<s>「γ=1 只是不打折」</s> —— 它<b>不在这把尺子上</b>，它是尺子的渐近线。");
+    },"回到第二镜那把刻度。它断在第三步：Σγᵏ=1/(1−γ) 只在 γ &lt; 1 成立；γ=1 时 Σ1=∞，上界发散，V^π 不再保证是有限数，甚至可能没有定义——于是「哪个策略更好」这个问题本身失去意义。换成 1/(1−γ) 这个坐标就清楚了：0.9 是 10 步，0.99 是 100 步，γ=1 是无穷。γ=1 不是刻度的端点，是刻度的渐近线。安全区间是 [0,1)；γ=1 要能用，必须分幕且以概率 1 终止，或改用平均回报判据。");
+  SUM(2360,7,{h:"三大部件 + 值函数的良定性",
+    k:"<b>|V^π| ≤ R_max/(1−γ)</b>，前提是 γ<1 且奖励一致有界。",
+    m:"1/(1−γ) 是<b>有效时域</b>，贯穿全课：值的量级、压缩系数的倒数、样本复杂度里的那个因子。",
+    w:"<s>课上的口误</s>：γ∈[0,1] 含了 γ=1，但那时无穷和可能发散、V^π 未必有定义。安全区间是 [0,1)。",
+    e:"【记号】CS234 回报从 rₜ 起算，Sutton&Barto 从 R<sub>t+1</sub> 起算，差一位。"});
+  QUIZ(2360,7,{t:"一个任务每步奖励恒为 +1（所以 R_max=1）。你把 γ 从 0.99 调到 1，理由是「只是不再打折而已」。<b>先自己推一遍</b>：这一步之后<em>最先</em>出问题的是什么？",
+    o:["值仍然是有限的，只是不再随距离衰减 —— 未来和现在一样重要","Σγᵏ 变成 Σ1 = ∞，V^π 不再保证是有限数、甚至可能没有定义 —— 于是「哪个策略更好」这个问题本身失效","V^π 仍然良定，但 Bellman 方程的解不再唯一","只有当奖励里出现负数、正负项相消时才会出问题"],
+    a:1,
+    w:"第三步几何级数 Σγᵏ = 1/(1−γ) 要求 γ &lt; 1；γ=1 时 Σ1=∞，上界 R_max/(1−γ) 发散。<s>「只是不再衰减」</s>正是本集要杀的那个想法——不打折不是一种偏好设置，而是让被定义的那个对象消失。<b>唯一性那一条</b>方向对但顺序错：γ=1 时 Bellman 算子确实不再是 γ-压缩，可那是收敛性垮掉之后的第二重后果，不是第一重。<i>正负号无关</i>：奖励恒为 +1 就已经发散了。γ=1 要能用，必须分幕式且以概率 1 终止，或改用平均回报判据。"});
+});
+
+KP("8 · Mars rover：γ 是问题定义的一部分",function(){
+  /* 钩子 */
+  S(2760,function(){
+      clearScene();setBig(null);setEq(null);
+      var pos=mdpChain({n:7,y:240,w:840,r:32,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===0?"y":(i===6?"g":"");},
+      rew:function(i){return i===0?"+1":(i===6?"+10":null);}});
+      boxNode(300,392,680,58,"γ 是可调的超参数，还是问题定义的一部分？","y");
+      setCap("七状态链：左端小奖 <b>+1</b>，右端大奖 <b>+10</b>。π = 一直向右，每次尝试以概率 0.5 成功、否则原地（教学用设定，动力学写死以便精确求解）。这一集只查 γ 的身份。");
+    },"一条七状态链，左端 +1、右端 +10，策略固定为一直向右、每次尝试以概率 0.5 成功。动力学在这里明确写死，是为了能精确求解——讲座对细节说得较松，所以本集的数字是按这个设定算出来的，不是讲座数字的逐字复刻。要查的问题只有一个：γ 到底是什么身份的量。");
+  /* 错误答案 */
+  S(2772,function(){
+      clearScene();setEq(null);
+      setBig("γ 只是尺度","它改变多在乎未来，不改变哪个状态更好");
+      setCap("V^π(s) = E[r_t + γr_{t+1} + γ²r_{t+2} + ⋯]。理由听起来很硬：奖励结构 r(s) 一个字都没改，γ 调小只是<b>所有值一起缩小</b> —— 就像把一张图等比缩放，图上各点的高低次序不会因缩放而颠倒。");
+    },"这个模型有相当强的说服力，而且它的理由是可以说出口的：奖励结构没变，γ 又只是给未来打折，那它顶多整体拉伸或压缩值函数，不该颠倒次序——就像等比缩放一张图，各点的高低关系保持不变。很多人调 γ 时确实是这么想的：把它和学习率、batch size 摆在同一个格子里，属于「求解器的旋钮」。下面用这条链上的真实数字检验一下。");
+  /* 铺陈 */
+  S(2784,function(){
+      clearScene();setBig(null);
+      setEq("$$V(s_i)=r(s_i)+\\gamma\\big[0.5\\,V(s_{i+1})+0.5\\,V(s_i)\\big]$$","top");
+      note("V(s₇) = 10/(1−γ)",640,320,"y lg");
+      note("再从右往左回代",640,380,"ink lg");
+      setCap("先<b>命名</b>：Bellman 一致性方程、右端点闭式解（撞墙原地，方程只含自己：V(s₇) = 10 + γV(s₇)）、回代顺序 V(sᵢ) = ( r(sᵢ) + 0.5γV(sᵢ₊₁) ) / ( 1 − 0.5γ )。都还没代入数字。");
+    },"在动数字之前，把怎么算的说清楚。每个状态的值等于当步奖励加上折扣后的下一步期望值；因为策略是「向右，成功率 0.5」，下一步期望里一半概率到 sᵢ₊₁、一半留在 sᵢ 自己。右端点撞墙原地，它的方程里只含自己，可以直接解出闭式 10/(1−γ)。其余状态从右往左逐个回代。这个「必须从右往左」的顺序不是技巧，而是方程结构决定的——L2 会把它正式建立成动态规划。");
+  /* 主体 */
+  S(2796,function(){
+      clearScene();setBig(null);
+      setEq("$$\\gamma=0$$","top");
+      fillBars({vals:[1.000,0.000,0.000,0.000,0.000,0.000,10.000],y:390,x:220,w:840,h:150,max:10,step:300,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===0?"y":(i===6?"g":"");}});
+      setCap("<b>γ = 0</b>：折扣和只剩第一项，于是 V = r = (1, 0, 0, 0, 0, 0, 10)。s₂…s₆ 全是 0 —— 从它们出发<b>确实能走到 +10，但完全短视的智能体看不见</b>。先建立一个基准。");
+    },"<b>看什么：</b>看柱子出现的<b>顺序</b>：必须从最右边 s₇ 开始、一个一个往左冒出来，而不是一起出现。看到「从右往左依次」，就等于看见了回代顺序——每个 V(sᵢ) 都依赖 V(sᵢ₊₁)，所以右边那个不算完，左边这个根本无从下手。　—— 先取最极端的 γ=0 当基准。折扣和只剩第一项，于是值就等于当前状态的即时奖励，得到 (1,0,0,0,0,0,10)——这也是讲座里唯一给出的一帧。值得停一下的是中间那五个 0：从 s₂ 到 s₆ 出发明明都能走到 +10，可完全短视的智能体对此视而不见。柱子是按回代顺序从右往左一个个出现的，因为每个值都要等它右边那个算完。");
+  /* 主体 */
+  S(2808,function(){
+      clearScene();setBig(null);
+      setEq("$$\\gamma:\\;0.72\\;\\rightarrow\\;0.82$$","top");
+      morphBars({from:[2.694,2.011,3.575],to:[7.951,9.003,12.956],
+      x:400,y:400,w:480,h:140,max:13,dur:2200,
+      label:function(i){return "s"+(i+1);},
+      cls:function(i){return i===0?"y":(i===1?"g":"");},
+      fmt:function(v){return v.toFixed(2);}});
+      setCap("同一个 MDP、同一个策略、同一套 r(s) —— <b>只有 γ 变了</b>。只画论证涉及的三个状态（s₄…s₇ 与这个论断无关）。γ*≈0.7737 就落在这个窗口内，<b>所以翻转发生在推进过程中</b>。");
+    },"<b>看什么：</b>盯住最左两根<b>谁更高</b>：起始 V(s₁)=2.69 明显高于 V(s₂)=2.01，推完之后必须反过来——V(s₁)=7.95 低于 V(s₂)=9.00。看到「两根交换了高低」，就等于看见了 γ 能重排状态的好坏；如果三根只是一起长高而次序不变，那么开头那个「等比缩放」的模型就是对的。　—— 把 γ 从 0.72 推到 0.82。这个窗口是特意选的：临界值 γ*≈0.7737 落在里面，所以翻转会在推进过程中当场发生；而且两端的柱高都在可读范围内，不会出现「论证的前提只有几个像素高」这种情况。只画 s₁、s₂、s₃ 三根，因为这个论断只关于它们——s₄ 到 s₇ 与它无关，画上去只会挤占注意力。起始时 s₁ 比 s₂ 高 0.683，结束时 s₂ 比 s₁ 高 1.052。");
+  /* 主体 */
+  S(2820,function(){
+      clearScene();setBig(null);setEq(null);
+      var P={l:240,r:1040,t:170,b:470};axes(P);
+      var p1=[],p2=[];
+      for(var k=0;k<=120;k++){var g=k/120*0.95,v=rover(g),X=240+g/0.95*800;
+      p1.push([X,470-Math.min(300,v[0]/25*300)]);
+      p2.push([X,470-Math.min(300,v[1]/25*300)]);}
+      curve(p1,"fit y");curve(p2,"fit g");
+      note("V(s₁)",330,257,"y");note("V(s₂)",330,376,"g");
+      var Xc=240+0.7737/0.95*800, Yc=470-4.419/25*300;
+      arrow(Xc,143,Xc,Yc,"r");
+      note("γ* ≈ 0.7737",Xc,130,"r");
+      note("γ",1052,440,"sm");
+      setCap("把 γ 连续扫过去：两条曲线<b>相交</b>于 V(s₁)=V(s₂)=4.419，交点就是决策易主的临界折扣。左侧守着 +1 更划算，右侧奔向 +10 更划算。");
+    },"把刚才那一段放进全局来看。V(s₁) 与 V(s₂) 作为 γ 的函数是两条曲线，它们在 γ*≈0.7737 处相交，交点值 4.419（把递推式解出来后二分求得）。交点左边守着 +1 更划算，右边奔向 +10 更划算。讲座只展示了 γ=0 那一帧，然后口头承诺「下次再看更多」——但整个道理恰恰在这条交叉上：γ 是决定近处小奖与远处大奖谁说了算的旋钮，而且这个转换点是精确的、可以算出来的。");
+  /* 反驳 */
+  S(2832,function(){
+      clearScene();
+      setEq("$$V^\\pi(s)=\\sum_{k\\ge 0}\\gamma^{k}\\,\\mathbb{E}[r_{t+k}]$$","top");
+      boxNode(150,295,440,60,"等比缩放：所有项乘同一个常数","");
+      note("次序确实不变",370,379,"sm lg");
+      boxNode(690,295,440,60,"折扣：第 k 项乘 γ^k，k 因状态而异","r");
+      setCap("所以错的不是「γ 影响远期」，而是<s>把它当成一个整体比例因子</s>。");
+    },"现在指名回去。开头那个模型说 γ 只改变尺度、不改变排序，理由是「奖励结构没变」。奖励结构确实没变——但折扣不是乘一个常数，而是给第 k 项乘 γ^k，**而 k 是到奖励的距离，它因状态而异**。s₁ 离 +10 有六步，s₂ 只有五步，两者被压缩的倍数根本不同，所以这不是等比缩放，次序当然可以翻转。那个「等比缩放不改变次序」的直觉本身是对的，用错了地方：折扣不是等比缩放。结论是 γ 属于**问题设定**，和 R_max、时域放在一起，而不是求解器的调参项——写论文报数字时，改 γ 等于换了一个问题，不是换了一组超参。　回到那句「γ 只是尺度，不改变排序」　关键在指数上那个 k —— 它是到奖励的距离　离奖励越远，压得越狠 —— 于是次序可以翻转　s₁ 离 +10 有六步（γ⁶），s₂ 只有五步（γ⁵）—— 它们受到的压缩根本不同");
+  SUM(2760,8,{h:"γ 是问题定义的一部分，不是超参数",
+    k:"同一 MDP、同一策略、同一套 r(s)：<b>γ=0.72 时 V(s₁)>V(s₂)，γ=0.82 时反过来</b>，临界 γ*≈0.7737。",
+    m:"γ^k 的指数 k 是<b>到奖励的距离</b>，因状态而异 —— 所以折扣不是整体比例因子，可以重排好坏。",
+    w:"<s>误解</s>：「奖励没改所以排序不变」。这个直觉本身没错，只是<b>折扣不是等比缩放</b>。",
+    e:"求解顺序：V(s₇)=10/(1−γ) 先出，再从右往左回代 —— 这就是动态规划的扫描方向。"});
+  QUIZ(2760,8,{t:"把本例的 γ 从 0.72 提到 0.82，会发生什么？",
+    o:["所有状态的值等比放大，好坏排序不变","<b>V(s₂) 反超 V(s₁)，状态的好坏排序被改变</b>","V(s₁) 保持 2.694 不变，只有右侧几个状态变大","策略从「一直向右」自动变成「一直向左」"],
+    a:1,
+    w:"γ=0.72 时 V(s₁)=2.69>V(s₂)=2.01；γ=0.82 时 V(s₁)=7.95<V(s₂)=9.00，<b>排序翻转</b>，临界点 γ*≈0.7737。<s>「等比放大」是错的</s>——折扣按 γ^k 作用而 k 是到奖励的距离，s₁ 离 +10 六步、s₂ 五步，受到的压缩不同。至于策略：本例的 π 是<em>固定</em>的（一直向右），γ 改变的是各状态的<b>值</b>，不是这个给定策略本身。"});
+});
+
+KP("9 · 三组分野与有限时域的非平稳性",function(){
+  /* 钩子 */
+  S(3300,function(){
+      clearScene();setBig(null);setEq(null);
+      mdpChain({n:2,x:380,y:266,gap:520,r:48,
+      label:function(i){return "s0";},
+      lcls:function(i){return "ink";},
+      rew:function(i){return i===0?"剩 5 步":"剩 1 步";}});
+      boxNode(270,352,220,56,"π*(s0) = ?","");
+      boxNode(790,352,220,56,"π*(s0) = ?","");
+      note("相等吗",640,440,"y");
+      setCap("同一个状态、同样的信息、同一套动作。在<i>完全相同的状态</i>里，最优动作会因为「今天是最后一天」而改变吗？");
+    },"这是全讲里唯一一处只用嘴讲、slides 上完全没有的实质性论断。它出现在一个学生追问之后：「如果我只在这城里待五天，算出来的策略和永远住下去一样吗？」Brunskill 的回答是 very different。为什么值得为它单开一集：你做的 workflow 是<i>有限时域</i>的——节点数有限、预算有限。如果这个论断成立，那么一个只看 query 特征、不看还剩几个节点的路由策略，就不是<s>调得不够好</s>，而是结构性写错了。");
+  /* 错误答案 */
+  S(3312,function(){
+      clearScene();setBig(null);
+      setEq("$$\\pi:\\ \\mathcal{S}\\to\\mathcal{A},\\qquad \\pi(s)=a$$","top");
+      matrix({rows:2,cols:7,cw:110,ch:48,x:255,y:250,
+      cell:function(i,j){return i===0?("s"+(j+1)):"→";}});
+      note("π 的全部内容",640,400,"b lg");
+      setCap("策略的定义式里<i>本来就没有时间</i> —— π: S→A，定义域 = S，「学到最优策略」就是把这一行填对。表是有限的、存得下、查得快、梯度也好回传。");
+    },"这个模型不是外行的错，它是 slides 第 60 页的定义直接读出来的：π: S→A，从状态映到动作，定义域里既没有 t，也没有「还剩几步」。整个监督学习的直觉都站在它这一边——策略就是一个函数，学习就是把这个函数拟合对。它还有非常实际的好处：表是有限的，存得下、查得快、梯度也好回传。真正微妙的地方是，这张表连「同一个状态在不同时刻可能不同」这句话都无法表达，因为它没有那个格子。");
+  /* 铺陈 */
+  S(3324,function(){
+      clearScene();setBig(null);setEq(null);
+      var L=[["规划","学习"],["探索","利用"],["评估","控制"]];
+      for(var i=0;i<3;i++){
+      var y=200+82*i, hot=(i===1);
+      boxNode(330,y,180,54,L[i][0],hot?"y":"");
+      note("vs",540,y+32,(hot?"y":"sm")+" lg");
+      boxNode(570,y,180,54,L[i][1],hot?"y":"");
+      }
+      setCap("三组分野是整门课的骨架：<b>规划 vs 学习</b>（有没有模型 · L2）· <b>探索 vs 利用</b>（要不要为信息付代价 · L11–13）· <b>评估 vs 控制</b>（给定 π 求 V^π / 求最优 π · L3–4、L15）。本集只钻第二条，自变量是 <b>k = 剩余决策步数</b>（steps-to-go，不是绝对时刻 t）。");
+    },"三组分野是课程后续的骨架：<i>规划 vs 学习</i>——有没有模型，L2 讲有模型怎么算；<b>探索 vs 利用</b>——要不要为信息付代价，L11–13；<em>评估 vs 控制</em>——给定 π 求 V^π，还是求最优 π，L3–4 与 L15。本集只钻第二条，但结论会反过来改写另外两条。整集只有一个自变量：k，剩余决策步数。【记号】k 是 steps-to-go，不是绝对时刻 t，二者由 k = H − t 换算；Sutton&Barto 的有限时域章节多用 t，且奖励下标比 Brunskill 晚一格。");
+  /* 主体 */
+  S(3336,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(210,200,300,86,"菜 A（已知）","b");
+      note("确定得 5",360,312,"b lg");
+      boxNode(770,200,300,86,"菜 B（未知）","v");
+      note("等概率 8 或 0",920,312,"v lg");
+      note("探测代价 c = 1",640,400,"r lg");
+      setCap("你在城里待 H 夜，每夜在<i>确定的 A</i> 与<b>未知的 B</b> 之间选一个。状态 s0 =「B 还没试过」· γ = 1。B 的期望 4，尝一次即永久已知；<b>c = 5 − 4 = 1</b>，期权价值 <b>λ = E[max(5,B)] − 5 = 6.5 − 5 = 1.5</b>，信息价值 <b>VOI(k) = λ(k−1)</b>。");
+    },"这是课上「只在城里待五天、有五家菜可点」那个例子，收紧成两个动作、给定数字，好让每一笔账都对得上。设定的关键不是 B 的期望更低，而是<b>B 的不确定性一次就能消掉</b>——尝一次，好坏永久已知，于是探索的收益能写成封闭式。6.5 是 E[max(5,B)] = 0.5×8 + 0.5×5：知道 B 之后你每夜都能挑更好的那个。【补课】严格说 s0 是一个<i>信念状态</i>，这问题是 Bayes-adaptive MDP；课上跳过了 POMDP 的信念状态归约，这里正好是它最小的实例。");
+  /* 主体 */
+  S(3348,function(){
+      clearScene();setBig(null);
+      setEq("$$\\Delta(k)=-c+\\lambda(k-1)\\qquad\\Rightarrow\\qquad \\Delta(1)=-1+1.5\\times 0=-1$$","top");
+      tree({nodes:[{id:"r",parent:null,x:640,y:290,label:"k=1",cls:"hl"},
+      {id:"a",parent:"r",x:450,y:400,label:"A",sub:"5（最优）",cls:"g"},
+      {id:"b",parent:"r",x:830,y:400,label:"B",sub:"4",cls:""}],r:34});
+      setCap("Δ(k) ≡ 探索账 − 利用账。最后一夜：今夜之后不再有任何决策 ⇒ 学到的东西无处可用 ⇒ <b>VOI(1) = 0</b>，探索的收益项被 <b>(k−1) = 0</b> 乘掉，账面上只剩下<s>探测代价</s>。");
+    },"把最后一夜的两笔账摆开：利用 A 得 5；试探 B 今夜期望 4，而此后没有任何一夜能用上学到的东西，Δ(1) = −c + λ·0 = −1，严格为负。【补课】课上说这件事「显然」，一般形式的证明也只有一行：k=1 时 Bayes 最优动作是最大化后验期望的即时奖励 max_a E_b[r(s,a)]，观测到什么都不再改变任何决策，所以信息价值<em>恰好是 0</em>，不是「很小」。注意它不等于「最后一夜要选试过的那个」——那是两件事。");
+  /* 主体 */
+  S(3360,function(){
+      clearScene();setBig(null);setEq(null);
+      fillBars({vals:[6,4.5,3,1.5,0],order:[4,3,2,1,0],x:270,y:380,w:740,h:170,max:6,
+      label:function(i){return "剩 "+(5-i)+" 夜";},
+      cls:function(i){return "g";},step:430});
+      curve([[270,352],[1010,352]],"fit r");
+      note("c = 1",1022,356,"r","start");
+      setCap("把<b>剩余步数 k</b> 从 1 扫到 5：<em>VOI(k) = 1.5(k−1)</em> 递减，而<s>探测代价 c = 1</s> 不动。<b>VOI 只在最右这一格低于 c</b> ⇒ 最优动作（前四格探索、最后一格利用）<b>只在这一格翻转</b>。");
+    },"<b>看什么：</b>看柱子从最右边那一格（剩 1 夜）开始向左依次出现——这就是后向归纳的方向；最右那根高度是 0、落在珊瑚线以下，而从右数第二根起全都高过珊瑚线，所以翻转点只可能在这两格之间。　—— λ 的含义是「知道 B 之后每夜多赚的期望」，本质上是一个期权的价值：0.5×(8−5) + 0.5×0 = 1.5。它必须乘上还能用上它的夜数 k−1，于是 VOI(k) = 1.5(k−1)，取 6 / 4.5 / 3 / 1.5 / 0；探测代价 c = 5 − 4 = 1 <b>不随 k 变化</b>。一条线性递减的量穿过一条水平线，代数上的穿越点是 k = 5/3；因为 k 只取整数，翻转就恰好落在 k=2 与 k=1 之间。填充方向不是随手挑的：每一格都要等它右边那格算完才有值可依。");
+  /* 主体 */
+  S(3372,function(){
+      clearScene();setBig(null);
+      setEq("$$V^*_k(s)=\\max_a\\left[r(s,a)+\\gamma\\sum_{s'}p(s'|s,a)V^*_{k-1}(s')\\right],\\quad V^*_0\\equiv 0$$","top");
+      var voi=[6,4.5,3,1.5,0];
+      for(var i=0;i<5;i++){
+      var x=170+210*i, cx=x+88, k=5-i;
+      boxNode(x,320,176,58,"剩 "+k+" 夜",k===1?"y":"");
+      note(k>=2?"探索":"利用",cx,406,(k===1?"y":"sm")+" lg");
+      }
+      setCap("一般形式是<b>后向归纳</b>：公式里的 k 就是上面这五格的「剩几夜」，每一格只依赖它右边那一格。k=1 这一层里 V*₀ ≡ 0 抹掉第二项、只剩即时奖励 —— 这就是「最后一步探索价值为零」的一般形式。π*_k(s) = 取到 max 的那个 a：<em>一层一张表</em>，共 H 张，不是一张表。");
+    },"一般形式就是有限时域 Bellman 递推，课上只说了「非平稳」和「后向归纳」，没写出式子【补课】。看两件事：k 出现在等式两边，所以解出来的是 H 张表而不是一张；k=1 时括号里的第二项因 V*<sub>0</sub>≡0 而消失，只剩即时奖励——「最后一步纯利用」于是成了递推的<em>边界条件</em>，不是额外的直觉。再澄清一点：非平稳性<b>与学习无关</b>。把 +10 放在 5 步之外、+1 放在 1 步之外，模型完全已知、什么都不用学，剩 1 步时最优往 +1、剩 5 步时最优往 +10，动作照样翻转。第一组分野在这里显形：规划里就已经有非平稳性，学习只是在它上面再叠一层探索。");
+  /* 反驳 */
+  S(3384,function(){
+      clearScene();setBig(null);setEq(null);
+      matrix({rows:2,cols:5,cw:100,ch:44,x:60,y:250,
+      cell:function(i,j){return i===0?("k="+(5-j)):"探索";},
+      hl:function(i,j){return (i===1&&(5-j)===1)?"hl3":"";}});
+      matrix({rows:2,cols:5,cw:100,ch:44,x:700,y:250,
+      cell:function(i,j){return i===0?("k="+(5-j)):((5-j)>=2?"探索":"利用");},
+      hl:function(i,j){return (i===1&&(5-j)===1)?"hl":"";}});
+      arrow(572,292,688,292,"y");
+      note("左：错误模型",300,400,"r");
+      note("右：后向归纳",940,400,"y");
+      setCap("同一个状态 s0、同样的信息，唯一的差别是剩余步数。<s>「最优策略就是每个状态一个固定动作」</s><b>在最后一步断掉</b>：π* 的定义域是 <b>S × {1,…,H}</b>，不是 S，被漏掉的自变量就是 k。同一漏洞的第二副面孔：覆盖条件里的「状态」也是 (s,k)。");
+    },"点名：那个「最优策略就是每个状态一个固定动作」的模型，断在最后一步。同一个 s0，k≥2 时最优是探索、k=1 时最优是利用；两者必须不同，而一张 S→A 的表没有地方安放这个差别——π* 的定义域是 S×{1,…,H}。【补课】同一个漏洞的第二副面孔：离策略评估的覆盖条件常被记成「每个状态都试过每个动作」，可有限时域下这里的状态是 (s,k)；你在 s 上采了海量数据，但若行为策略从未在「剩 1 步」时到达 s，π_e 在那一格就不可识别，加数据也没用。");
+  SUM(3300,9,{h:"三组分野",
+    k:"<b>规划 vs 学习</b>（有无模型）· <b>探索 vs 利用</b>（要不要为信息付代价）· <b>评估 vs 控制</b>。",
+    m:"有限时域最后一步探索价值为零 ⇒ <b>最优策略非平稳</b>，须后向归纳；无穷时域折扣则存在最优平稳策略。",
+    w:"<s>误解</s>：以为离策略评估「数据够多就行」。真前提是<b>覆盖条件</b>；不满足时估计量无定义。",
+    e:"这三组分野就是后续骨架：L2 规划 · L3–4 评估与控制 · L11–13 探索 · L15 离策略评估。"});
+  QUIZ(3300,9,{t:"把菜 B 改成等概率 <b>8 或 4</b>（期望 6），菜 A 仍是确定的 5，其余全部不变。<b>最后一夜（k=1）</b>的最优动作是什么？",
+    o:["仍选 A：最后一夜必须纯利用，而「利用」意味着选已经试过的那个","选 B，而这仍然算探索——它带来了关于 B 的信息","选 B，而且这是纯利用：B 的即时期望 6 > 5；最后一夜的信息价值仍然是 0，变的只是即时期望的排序","取决于 γ：只有 γ 足够大时才选 B"],
+    a:2,
+    w:"「利用」= 最大化<em>当步的后验期望奖励</em>，跟那个动作试过没试过无关。k=1 时 V*<sub>0</sub>≡0 抹掉递推的第二项，括号里只剩 r(s,a)，所以最后一夜永远是纯利用——但这句话并不指定选哪个动作，选哪个由即时期望决定，这里 6 > 5 就选 B。<s>选项 0</s> 把「利用」误读成「选熟悉的」；<s>选项 3</s> 混淆了折扣：k=1 只有一次决策，γ 根本不进账。再顺手看清一件事：改动后探测的即时代价是 5 − 6 = −1（不再有代价），期权价值 λ = E[max(5,B)] − 6 = 6.5 − 6 = 0.5 > 0，于是<b>每个 k 都选 B</b>——最优策略反而变成平稳的了。所以有限时域只是<i>允许</i>非平稳，不是必然非平稳。"});
+});
+
+
+KP("完",function(){
+  S(3600,function(){clearScene();setBig(null);setCap(null);setEq(null);
+    setTitle("CS234 · Lecture 1 · 完","词汇表已经建好，下一讲开始有定理",
+      "L2 · Given a Model of the World：Bellman 算子的 γ-压缩性 / 值迭代收敛速率 / 策略改进定理");},
+    "回头看这九集，每一集都是同一个形状：先抛出一个具体问题，再说出一个你很可能真的持有过的错误模型，然后用一个带真实数字的实例把它撞碎，最后指名回去宣告它错在哪里。<b>如果你读完只记住一件事，记住那九个错误模型</b> —— 它们比九条正确结论更难得，因为正确结论到处都能查到，而「你原本以为的那样为什么不成立」通常没人写出来。L2 开始就有真正要证的定理了。");
+});
+
+window.__startProjector(CFG);
+})();
+</script>

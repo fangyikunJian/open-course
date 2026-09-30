@@ -1,0 +1,110 @@
+{
+ "title": "L01 接上课题的哪一段：形式化是待检验的假设，不是起点",
+ "arc": "这一讲给出的东西看着像你课题的起点，其实是<b>一个待检验的假设</b>。<br><br>L01 的四要素（p14）恰好是你问题的一张检查表：<b>优化</b>成立（<code>G = Acc − λ·Cost</code>，而这正是真贡献——AFlow 的 Executor 同时返回 score 与 cost，但 cost 从不进入 score）；<b>探索</b>成立，但障碍不是试错贵而是日志没有随机化（p17 那格）；<b>泛化</b>成立，但方向是跨 workflow 迁移而非跨状态；<b>延迟后果</b>——<span class='w'>这一格是待证的</span>。<br><br>而「延迟后果」是否成立，决定了整篇论文的形式化：若节点效应近似可加，诚实的写法是「每节点代价敏感选择」，不是序贯决策。所以 L01 在你的阅读顺序里<b>不是第一讲，而是第二个决定</b>——第一个决定是跑可加性检验，拿到数据再回来选形式化。<b>两种结论都各写一份形式化，用数据选。</b><br><br>与本课其余部分的接法：p16 的功劳分配 → L03 / L08–L09 与你的 oracle 表；p17 的删失数据 → L15 的 OPE 与 deficient support；p18–p19 的「策略输入是过去的经验」→ 你的 P2/P3 消融。",
+ "pitfalls": [
+  {
+   "v": "<b>先设 MDP 再找证据。</b> 把「node-level fidelity assignment 形式化为 CMDP」当交付物是错的顺序。审稿人对 NLP 论文里进口 RL 形式化本来就警惕，理由正是「加了记号没加预测力」。<b>MDP 框架必须被实验挣得。</b>",
+   "tag": "已核",
+   "ref": "简报 §5"
+  },
+  {
+   "v": "<b>在没有 headroom 的 benchmark 上建 router。</b> 止损闸：若某 benchmark 上 <code>Acc(全强) − Acc(全弱) &lt; 约 4 个百分点</code>，该 benchmark 没有 headroom，应当<b>放弃</b>，而不是在上面建一个打不过噪声的 router。这条闸要在第 1 周就过。",
+   "tag": "已核",
+   "ref": "简报 §5"
+  },
+  {
+   "v": "<b>以为现有日志能做 OPE。</b> 日志是确定性的，π_b(a|h) ∈ {0,1}，违反 coverage。<span class='w'>这不是高方差的 IS，是 IS 无定义</span>（deficient support）——加再多数据也不会好转。诚实的答案是：就现有日志而言「不重跑就评估新策略」做不到。",
+   "tag": "推断",
+   "ref": "thread0 · 简报 §4a（基于 agent 对执行器的分析 + OPE 标准理论）"
+  },
+  {
+   "v": "<b>随机化了就以为万事大吉。</b> 均匀日志 + 确定性目标下，WIS <b>精确退化为拒绝采样</b>，<code>ESS = m</code>，<code>E[m] = n·2^(−k)</code>。k=10 时 ESS = n/1024。<b>必须先降有效时域再谈估计量</b>：一步偏离扫描 → 只留 top k=3~4 个随机化节点 → ESS 提升 64 倍。",
+   "tag": "已核",
+   "ref": "简报 §4b §4c"
+  },
+  {
+   "v": "<b>跟着 AFlow 叫它 MCTS。</b> AFlow 的选择规则是 top-k(k=3) + 混合分布 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，λ=0.2、α=0.4。<b>没有访问计数，没有置信上界，没有 expectimax/minimax 回传</b>；Backpropagation 只是把 (parent, modification, avgScore) 追加进父节点的经验日志。实为 Boltzmann + uniform 的爬山搜索。懂 RL 的审稿人会记账。正确叫法是 Boltzmann-greedy selection 或 LLM-guided evolutionary search。",
+   "tag": "已核",
+   "ref": "thread2 · 简报 §2（AFlow Algorithm 1，Appendix A.6，行 28–42）"
+  },
+  {
+   "v": "<b>用 OpenAI 价目表报成本。</b> 自托管 vLLM 上 72B/7B 的成本比取决于 batch 占用、TP 度、量化。要报 <b>token 数 + GPU-秒 + 峰值显存归一吞吐</b>，写明 TP 配置与量化；API 价格另列并<b>明确标注为假设值</b>。",
+   "tag": "已核",
+   "ref": "简报 §7 第 5 拳"
+  },
+  {
+   "v": "<b>提升落在种子方差内。</b> 这是最致命且<b>完全可预防</b>的评语。要给 n、种子数、对准确率差的 <b>paired bootstrap CI</b>，以及把 LLM 采样噪声与路由决策分开的方差分解。",
+   "tag": "已核",
+   "ref": "简报 §7 第 6 拳"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "为什么是 MDP 而不是 H 个独立决策？",
+   "a": "用<b>可加性检验</b>正面回答：比较 <code>Σ_h Δ_h^down</code> 与 <code>Acc(全强) − Acc(全弱)</code>；再配 <b>P2 vs P3 消融</b>（策略只看 (query, 节点 id) 还是也看部分轨迹）。<b>序贯信息带来的提升不到 2 个百分点就别用 MDP 框架。</b>两种结论各写一份形式化，用数据选。",
+   "tag": "已核",
+   "ref": "简报 §7 第 1 拳 · §5"
+  },
+  {
+   "q": "你的 bound 假设线性可实现性，请论证。",
+   "a": "<b>论证不了，也别试。</b> 写一小节「我们不主张什么」，明说现成 regret 界需要线性可实现或线性转移核，<b>二者在文本上都不可验证</b>。主动划出边界比被问住好。",
+   "tag": "已核",
+   "ref": "简报 §7 第 2 拳"
+  },
+  {
+   "q": "两个模型就是两条臂，决策问题在哪？",
+   "a": "这一拳打得对——|M|=2、H≤5 时构型空间 ≤32，可穷举，探索机制显得像表演。解法是<b>加宽保真度集合</b>：7B greedy / 7B self-consistency k=3 / 7B k=8 / 72B greedy / prune。<b>这也是更好的科学</b>，不只是防守。",
+   "tag": "已核",
+   "ref": "简报 §7 第 3 拳"
+  },
+  {
+   "q": "相对 LLMSelector / SCOPE / DAAO / MaAS 的新意在哪？",
+   "a": "可辩护的立足点是这几条的<b>交集</b>：<b>per-query 自适应 × 节点级 × 在自动搜索（非手工设计）的 workflow 内 × 带分布无关保证</b>。这个交集没人占。另一条 framing：把升级机制描述成「<b>FrugalGPT 在 workflow 内部的节点粒度版本</b>」，对 ACL 审稿人比 MCTS 叙事更易读。",
+   "tag": "已核",
+   "ref": "简报 §6 §7 第 4 拳"
+  },
+  {
+   "q": "开篇怎么把贡献从「主张」变成「引用」？",
+   "a": "AFlow §3.1 把节点定义为 <b>N(M, τ, P, F)</b>，搜索空间中 <b>M 是可变的</b>；§3.2 随即写道为了搜索效率<b>固定 M、τ、F</b>，空间塌缩为 {提示, 边, 算子}。<b>所以 node-level fidelity assignment 是 AFlow 形式化里本来就有、然后为了可解性被砍掉的那一维。</b>审稿人无法要求你证明这个 gap 存在——原作者自己写下了它。（README 还显示 Node 接口已暴露 LLM / temperature / format / prompt，代码里已经存在。）",
+   "tag": "已核",
+   "ref": "简报 §1（arXiv:2410.10762v4 / ICLR 2025 camera-ready，§3.1 与 §3.2）"
+  }
+ ],
+ "papers": [
+  {
+   "t": "ExTS — Exploit More, Explore Smarter for Budget-Constrained Agentic Search",
+   "id": "arXiv 2608.23848",
+   "why": "<b>最危险的一篇。</b> 论点与你的操作性主张几乎同构：评估昂贵时标准 MCTS 预算分配很差，且做了 workflow optimization。<b>既佐证你的批评，也部分占了你的地</b>——必须引用并明确定位差异。"
+  },
+  {
+   "t": "EvoFlow — Evolving Diverse Agentic Workflows On The Fly",
+   "id": "arXiv 2502.07373",
+   "why": "<b>范围风险，且是【待核】。</b> 声称用弱开源模型以 o1-preview 的 12.4% 成本超过它。需确认它的 \"heterogeneous\" 是指<b>每算子不同 LLM 骨干</b>还是仅指种群结构多样性。<span class='w'>写 novelty 之前务必读方法节</span>——简报把这条列为立刻要做的动作。"
+  },
+  {
+   "t": "ScoreFlow — 用 Score-DPO 梯度优化替代离散搜索",
+   "id": "arXiv 2502.04306",
+   "why": "说明这个领域<b>正在离开 MCTS 式搜索</b>。影响你的 framing 决策：若跟着讲 MCTS 叙事，可能在讲一个正在退场的故事。"
+  },
+  {
+   "t": "AFlow — Automating Agentic Workflow Generation",
+   "id": "arXiv 2410.10762v4",
+   "why": "你的基座。§3.1/§3.2 那处「定义了 M 可变、随即固定 M」是你开篇那句引用的出处；Algorithm 1 + Appendix A.6 行 28–42 是「它不是 UCT」的证据。"
+  },
+  {
+   "t": "FrugalGPT",
+   "id": "arXiv 2305.05176",
+   "why": "framing 用。把你的升级机制说成「FrugalGPT 的节点粒度版本」，对 ACL 审稿人比 RL 叙事易读得多。"
+  },
+  {
+   "t": "LLMSelector / SCOPE / DAAO / MaAS / neural-bandit pipeline",
+   "id": "2502.14815 · 2606.00774 · 2509.11079 · 2502.04180 · 2508.09958",
+   "why": "审稿人会拿这一串问 novelty。用四条交集定位（per-query × 节点级 × 自动搜索的 workflow 内 × 分布无关保证）逐个划清。"
+  },
+  {
+   "t": "ADAS / Meta Agent Search",
+   "id": "arXiv 2408.08435",
+   "why": "AFlow 对标的前身。你继承这个比较，不必重做。"
+  }
+ ]
+}

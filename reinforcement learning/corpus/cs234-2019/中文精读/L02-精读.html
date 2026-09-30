@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS234 第二讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#0b0f15; --panel:#121823; --line:#212c3c; --ink:#e7eef7; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff; --mark:#16202e;
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:#0a0e14;border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:#0a0e14;border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:#0a0e14;border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:#18212e;
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:#2c3c52}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:#070a0f;
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:0 10px 34px rgba(0,0,0,.55)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:#c3d2e3;font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:#f4f8fd}
+.one{font-size:16.5px;line-height:1.7;color:#f4f8fd;border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,rgba(111,211,187,.09),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:#fff}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:#cfe3f5}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:#dbe8f7;overflow-x:auto}
+.say{border:1px solid #2a3b4f;border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:rgba(127,184,255,.055);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:rgba(255,255,255,.025);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:#4a2b2e;background:rgba(255,120,120,.055)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:#fff}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+.res{border:1px solid #3b2f4f;border-left:3px solid #b98fe6;border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:rgba(185,143,230,.06);
+  font-size:14px;line-height:1.72}
+.res .t{color:#b98fe6;font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:rgba(10,14,20,.97);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:#0a0e14;transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:rgba(255,255,255,.022)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:#0a0e14;border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:#0d141c}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:rgba(111,211,187,.13);color:#d8fff4}
+.opt.no{border-color:var(--warn);background:rgba(255,143,143,.12);color:#ffdede}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:#c3d2e3;border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,rgba(111,211,187,.07),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:rgba(6,9,13,.82);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:#b98fe6;border:1px solid #b98fe6;
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:#e7eef7;margin:12px 0 18px;
+  border-left:3px solid #b98fe6;padding-left:14px;
+  background:linear-gradient(90deg,rgba(185,143,230,.07),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+</style>
+</head>
+<body data-key="cs234-2019-l02">
+
+<div id="bar">
+  <h1>CS234 第二讲 · <span>已知世界模型：MP / MRP / MDP，策略迭代与值迭代</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 60</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../slides/lecture2.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs234-2019</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/中文精读/L02-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "这一讲和下一讲的分界线是什么？", "o": ["有没有折扣因子", "知不知道世界怎么运作", "状态是不是有限", "策略是不是确定性的"], "a": 1, "why": "这一讲<b>给定模型</b>，只谈怎么算；下一讲开始「不知道模型」，那才是学习。"}],
+4: [{"q": "这一讲的四步路线，正确的顺序是？", "o": ["MDP → MRP → MP → 控制", "MP → MRP → MDP → 评估与控制", "MRP → MP → MDP → 评估", "MP → MDP → MRP → 控制"], "a": 1, "why": "一次只加一样：先只有状态，加奖励成 MRP，再加动作成 MDP。"}],
+5: [{"q": "按这一页，bandit 是什么？", "o": ["单状态的 MDP", "没有奖励的 MDP", "连续状态的 MDP", "状态取历史的 MDP"], "a": 0, "why": "连续状态的是最优控制，状态取历史的是 POMDP。"}],
+7: [{"q": "马尔可夫过程（马尔可夫链）里<b>没有</b>什么？", "o": ["状态", "转移概率", "奖励和动作", "随机性"], "a": 2, "why": "定义只有状态集 S 和转移模型 P。奖励要到 MRP 才加，动作要到 MDP 才加。"}],
+8: [{"q": "火星车链里，为什么 <code>P(s1|s1)=0.6</code> 而中间状态原地只有 0.2？", "o": ["s1 的马达坏了", "s1 在一端，本该往左的 0.4 没处去，只好留在原地", "s1 的奖励更高", "这是随机设定的"], "a": 1, "why": "0.2 + 0.4 = 0.6。两端都是这样，s7 同理。"}, {"q": "这一页的转移概率是谁决定的？", "o": ["agent 选的动作", "世界本身的动态，这里还没有动作", "奖励函数", "折扣因子"], "a": 1, "why": "老师说这就是「那个假火星车的世界」——马达就这么转，agent 还插不上手。"}],
+9: [{"q": "同一个起点 s4 为什么能跑出完全不同的三条轨迹？", "o": ["起点其实不同", "转移是随机的，每一步世界替你抽签", "策略在变", "奖励在变"], "a": 1, "why": "分布是你算出来的，实际发生的只有一条。agent 不可能同时在多个状态里。"}],
+10: [{"q": "MRP 比马尔可夫链多了什么？", "o": ["动作", "奖励函数和折扣因子", "状态", "策略"], "a": 1, "why": "MRP = (S, P, R, γ)。<b>仍然没有动作</b>——那要到 MDP。"}],
+12: [{"q": "回报 <code>G_t</code> 和值函数 <code>V(s)</code> 的关系是？", "o": ["完全一样", "V 是 G 的期望", "G 是 V 的期望", "两者无关"], "a": 1, "why": "G 是走一趟拿到的数，V 是无数趟的平均。过程确定时两者才相同。"}],
+13: [{"q": "课上问「γ 非得几何衰减吗」，老师的回答是？", "o": ["必须，否则无意义", "不是必须，但这个选择的数学性质特别好", "必须，否则不收敛", "取决于状态数"], "a": 1, "why": "后面证贝尔曼备份是压缩算子时，靠的正是这个几何衰减。"}, {"q": "什么时候可以放心用 <code>γ=1</code>？", "o": ["状态数有限时", "片段长度总是有限时", "动作数有限时", "任何时候"], "a": 1, "why": "γ 的一个主要作用是保证无限 horizon 下回报有界。horizon 本来就有限，这个顾虑就没了。"}],
+14: [{"q": "<code>s4,s5,s6,s7</code> 这条四步轨迹，γ=½ 时回报是 1.25。那个 <code>⅛</code> 是怎么来的？", "o": ["γ 的平方", "γ 的三次方——奖励在第 4 步才拿到", "1/10 的近似", "s7 的转移概率"], "a": 1, "why": "前三步奖励都是 0，只有最后一步的 +10 被折了三次：⅛ × 10 = 1.25。"}, {"q": "三条轨迹的回报分别是 1.25、0、0.125。这个差距说明了什么？", "o": ["课件算错了", "单次回报方差很大，所以才需要取期望", "γ 选得不对", "s4 不是好起点"], "a": 1, "why": "同一个起点差十倍。值函数就是为了把这种随机性平掉。"}],
+16: [{"q": "<code>V = [1.53 0.37 0.13 0.22 0.85 3.59 15.31]</code>，为什么中间的 s3 最低？", "o": ["s3 的奖励是负的", "s3 离两个奖励源都远，而右边的 +10 又压过左边的 +1", "s3 的转移概率特殊", "这是计算误差"], "a": 1, "why": "从 s3 往两边都升高，往右升得快得多——+10 比 +1 有吸引力得多。"}, {"q": "上一页那条走到 s7 的样本回报是 1.25，而 <code>V(s4)</code> 只有 0.22。矛盾吗？", "o": ["矛盾，肯定算错了", "不矛盾，1.25 是一次的运气，0.22 是所有可能的平均", "不矛盾，因为 γ 不同", "不矛盾，因为起点不同"], "a": 1, "why": "那条恰好一路向右，是三条里最好的一条。大部分轨迹没这么走运。"}],
+17: [{"q": "用模拟估 MRP 的值，最特别的优点是？", "o": ["收敛最快", "不需要马尔可夫假设", "不需要奖励模型", "精度最高"], "a": 1, "why": "它只是在求平均，压根没用到马尔可夫结构——代价是也<b>浪费</b>了这个结构。"}],
+18: [{"q": "<code>V(s) = R(s) + γ Σ P(s′|s) V(s′)</code>——等号两边都有 V，这是循环定义吗？", "o": ["是，所以这个式子有问题", "不是，这是一组方程，V 是它的解", "不是，因为右边的 V 是上一轮的", "是，所以只能用模拟"], "a": 1, "why": "后面三种解法（解析、迭代、模拟）都是在解这组方程。"}],
+20: [{"q": "解析解 <code>V=(I−γP)^{-1}R</code> 的代价主要在哪？", "o": ["要跑很多次模拟", "要求一次矩阵逆，N² 到 N³", "要知道策略", "要 γ=1"], "a": 1, "why": "而且只适用于状态有限的情形。"}, {"q": "<code>I − γP</code> 什么时候保证可逆？", "o": ["任何时候", "γ < 1 时（P 是随机矩阵，特征值 ≤1）", "γ = 1 时", "状态数是偶数时"], "a": 1, "why": "课上被问住了，老师回头才给的答案。这也是折扣因子的又一项好处。"}],
+21: [{"q": "动态规划算 MRP 值，每轮的复杂度是？", "o": ["O(|S|)", "O(|S|²)", "O(|S|³)", "O(1)"], "a": 1, "why": "对每个状态做一次，每次对所有可能的下一状态求和。比求逆便宜。"}, {"q": "三种算法里，<b>唯一</b>加上动作之后还能原样用下去的是？", "o": ["模拟", "解析解", "动态规划", "三种都能"], "a": 2, "why": "后面的策略评估、策略迭代、值迭代全是它的变体。"}],
+22: [{"q": "MDP 比 MRP 多了什么？", "o": ["折扣因子", "动作，且转移模型每个动作各有一份", "奖励", "状态"], "a": 1, "why": "MDP = (S, A, P, R, γ)。奖励也随之可以依赖动作。"}, {"q": "课上问「都指定动作了，转移为什么还是随机的」。老师的理由是？", "o": ["世界本质随机", "因为我们的模型不够好，用随机性兜住这份不确定", "随机算得快", "为了数学方便"], "a": 1, "why": "机器人在地毯上有时卡住、开车有时堵车。你也可以把更多变量塞进状态让它变确定。"}],
+25: [{"q": "「MDP + 策略 = MRP」这件事为什么重要？", "o": ["因为 MRP 更简单", "因为评估一个策略的值不需要新工具，MRP 那三种办法直接拿来用", "因为可以去掉奖励", "因为可以去掉折扣"], "a": 1, "why": "把策略定死，动作这一维被积掉。这是整讲的枢纽。"}],
+27: [{"q": "这道题老师说是「陷阱」，陷在哪？", "o": ["奖励写错了", "她没给转移模型，而答案根本不需要转移模型", "策略不是确定性的", "γ 写错了"], "a": 1, "why": "γ=0 把整个求和项乘没了，只剩即时奖励，转移模型用不上。"}],
+28: [{"q": "<code>V(s6)</code> 从 0 变成 2.5，这一步真正想演示的是？", "o": ["γ 的作用", "信息在往回流：s7 的 +10 开始向左渗", "随机动态更难算", "s6 是特殊状态"], "a": 1, "why": "第一次备份只铺开即时奖励，此后每一轮好消息往左传一格。"}, {"q": "<code>V_{k+1}(s6) = 0 + 0.5·0.5·0 + 0.5·0.5·10</code>。第一个 0.5 和第二个 0.5 分别是什么？", "o": ["都是转移概率", "γ 和转移概率", "都是 γ", "γ 和奖励"], "a": 1, "why": "γ=0.5，转移 p(s6|s6,a1)=p(s7|s6,a1)=0.5。别把两者混成一个数。"}],
+29: [{"q": "关于最优解，这一页断言的是？", "o": ["最优策略唯一", "最优值函数唯一", "两者都唯一", "两者都不唯一"], "a": 1, "why": "值函数唯一；策略可能有并列——两个动作的最优值打平就是。"}],
+30: [{"q": "7 个状态、2 个动作，确定性策略有多少个？", "o": ["14", "2⁷ = 128", "7² = 49", "7"], "a": 1, "why": "每个状态各自挑一个动作，挑法相乘：|A|^|S|。指数级，不是线性。"}],
+31: [{"q": "无限 horizon 下最优策略「平稳」，靠的是什么直觉？", "o": ["奖励不随时间变", "无论你在第几步，前面都还剩无穷多步，处境完全一样", "状态数有限", "γ < 1"], "a": 1, "why": "所以在 s7 该做什么，第 1 步和第 242 步是同一个答案。p56 会说有限 horizon 就不成立了。"}],
+32: [{"q": "什么时候穷举所有策略反而可能更划算？", "o": ["状态很多时", "你有非常多处理器、在乎的是墙钟时间时", "γ 很小时", "动作只有两个时"], "a": 1, "why": "策略之间互不依赖，天然可并行。策略迭代的优势是串行算得省。"}],
+33: [{"q": "策略迭代的停止条件是？", "o": ["值函数不再变", "策略不再变（L1 范数为 0）", "跑满固定轮数", "γ 衰减到 0"], "a": 1, "why": "PI 手里始终攥着一个策略；策略锁死了就停。"}],
+34: [{"q": "<code>Q^π(s,a)</code> 和 <code>V^π(s)</code> 的差别在哪？", "o": ["Q 不折扣", "Q 的第一步动作由你指定，之后才听 π 的", "Q 不需要模型", "Q 只对最优策略有定义"], "a": 1, "why": "只差第一步。正因为能「先换一个动作试试」，才问得出「改进有没有余地」。"}],
+37: [{"q": "策略改进那一步的「奇怪」之处是？", "o": ["Q 可能算不出来", "证明的是「只换第一步、之后回老路」，实际却是全程换新策略", "max 可能不存在", "π 可能不唯一"], "a": 1, "why": "老师说这件事应该让你觉得至少有点不清楚才对。p39–41 才补上这个缺口。"}],
+39: [{"q": "「单调改进」是什么意思？", "o": ["平均值更高", "在每一个状态上都不比旧策略差", "至少一个状态更好", "收敛更快"], "a": 1, "why": "V^{π_{i+1}}(s) ≥ V^{π_i}(s) 对所有 s 成立；π_i 非最优时严格更好。"}],
+42: [{"q": "策略迭代里，策略一旦不再变化，还可能再变吗？", "o": ["可能，取决于初始化", "不可能：π 不变 ⇒ Q 不变 ⇒ arg max 不变", "可能，如果 γ 很大", "只在有限 horizon 下不可能"], "a": 1, "why": "所以「策略不变」是个可靠的停止条件，不是启发式。"}, {"q": "策略迭代最多跑多少轮？", "o": ["|S|·|A|", "|A|^|S|（策略总数）", "无上界", "|S|²"], "a": 1, "why": "单调改进保证同一个策略不会出现两次（除非已最优），所以轮数被策略总数卡死。"}],
+44: [{"q": "值迭代和策略迭代，手里握着的东西有什么不同？", "o": ["VI 有策略、PI 有值", "PI 手里永远有个完整策略（可能不好），VI 手里永远是最优的（但只对 k 步有效）", "两者一样", "VI 不需要模型"], "a": 1, "why": "算的根本不是同一样东西，只是最终会收敛到同一处。"}],
+45: [{"q": "贝尔曼<b>备份算子</b> B 和策略评估的式子，差别在哪？", "o": ["差一个折扣因子", "B 多了 <code>max_a</code>", "B 不用转移模型", "没有差别"], "a": 1, "why": "策略评估照 π 指定的动作走；B 在所有动作里取最好的。"}],
+46: [{"q": "值迭代把 <code>V₀</code> 初始化成 0，最自然的理由是？", "o": ["0 计算方便", "一步都不能走时，值本来就是 0", "0 是下界", "习惯而已"], "a": 1, "why": "V_k 的含义是「还剩 k 步的最优值」，k=0 自然是 0。这也是 p54 那道题的关键。"}],
+49: [{"q": "值迭代里，策略是什么时候产生的？", "o": ["每一轮都在更新策略", "值迭代只算值，策略是最后用 arg max 单独取一次", "一开始就固定了", "不需要策略"], "a": 1, "why": "算值用 <code>max</code>，取策略用 <code>arg max</code>——同一个式子的两个出口。这正是和 PI 的分水岭。"}],
+50: [{"q": "「压缩算子」说的是？", "o": ["把值函数缩小", "施加之后两个东西之间的距离不会变大", "让 γ 变小", "减少状态数"], "a": 1, "why": "注意这里的两个 V 是任意的，和值迭代本身无关——是算子自己的性质。"}],
+51: [{"q": "值迭代收敛，根本依据是？", "o": ["状态有限", "γ<1 时贝尔曼备份是压缩算子，而压缩算子有唯一不动点", "V₀ 初始化成 0", "奖励有界"], "a": 1, "why": "压缩 ⇒ 距离逐轮缩小 ⇒ 必然收敛到那个唯一的不动点。"}],
+52: [{"q": "压缩性证明的最后一步，「概率分布求和等于 1」这件事起了什么作用？", "o": ["让式子变简洁", "把求和整个消掉，只留下系数 γ", "保证 V 有界", "保证 P 可逆"], "a": 1, "why": "于是 ‖BV_k − BV_j‖ ≤ γ·‖V_k − V_j‖。<b>γ 就是那个收缩比例。</b>"}],
+54: [{"q": "值迭代的初始值影响什么？", "o": ["影响收敛到哪个解", "只影响要跑多少轮；但若要拿 V_k 当「剩 k 步的最优值」用，初值必须是 0", "完全没有影响", "影响是否收敛"], "a": 1, "why": "压缩算子的不动点唯一，所以落点不变。但 V_k 的「剩 k 步」这层含义是靠 V₀=0 撑起来的。"}],
+56: [{"q": "有限 horizon 下，最优策略还平稳吗？", "o": ["还平稳", "一般不平稳——只剩 2 步和还剩 200 步该做的事可以完全不同", "取决于 γ", "取决于状态数"], "a": 1, "why": "p31 的「平稳」前提是无限 horizon：无论何时前面都还剩无穷多步。所以 π_k 带着下标。"}],
+57: [{"q": "一句话区分 VI 和 PI：", "o": ["VI 快、PI 慢", "VI 算「k 步的最优值」，PI 算「某个策略的无限 horizon 值」", "VI 要模型、PI 不要", "两者等价"], "a": 1, "why": "PI 这条路和策略梯度关系很近，后面几讲会接上。"}],
+58: [{"q": "课件最后问「哪一种策略评估方式不需要马尔可夫假设」，答案是？", "o": ["动态规划", "模拟", "解析解", "三种都需要"], "a": 1, "why": "见 p17。模拟只是在求平均，所以模型错了它也还站得住——代价是浪费了马尔可夫结构。"}]
+};
+
+var N = [
+{"r": [1, 2], "t": "这一讲要干什么", "one": "<b>已知世界模型</b>的情况下，怎么做出一串好决策。", "pts": ["上一讲：agent 的三个部件——模型、策略、值函数。", "这一讲：给定一个 MDP，怎么做好决策。", "下一讲：<span class='w'>不知道</span>世界怎么运作时怎么做策略评估。"], "say": "老师开宗明义：<b>今天不讲「学」，只讲「算」</b>——世界怎么动是给定的，问题只是「该怎么走」。"},
+{"r": [3, 3], "t": "复习：模型 / 策略 / 值函数", "one": "模型＝动态与奖励的数学描述；策略＝状态到动作的映射；值函数＝该策略下的未来回报。", "pts": ["这三个词第一讲已经给过，这一讲每一个都会被拆开写成式子。"]},
+{"r": [4, 4], "t": "今天的路线", "star": 2, "one": "MP → MRP → MDP → MDP 上的评估与控制。", "pts": ["<b>一次只加一样东西</b>：马尔可夫过程只有状态；加奖励成 MRP；再加动作成 MDP。", "整讲的骨架就是这四步，迷路了就回来看这一页。"], "tip": {"t": "为什么这么搭", "v": "老师说这个顺序的好处是：可以先想清楚「<b>你控制不了世界，但世界还在动</b>」是什么情形，再谈 agent 该怎么插手。"}},
+{"r": [5, 5], "t": "MDP 装得下什么", "one": "很多设定其实都是 MDP 的特例。", "pts": ["<b>bandit</b> = 单状态的 MDP。", "<b>最优控制</b>大多是连续状态的 MDP。", "<b>POMDP</b> = 把状态取成历史的 MDP。"], "tip": {"t": "接上一讲", "v": "第一讲说「把状态取成整段历史，马尔可夫假设总能满足」——这一页就是那句话的兑现：POMDP 并不是 MDP 之外的东西。"}},
+{"r": [6, 6], "t": "复习：马尔可夫性", "one": "状态是历史的<b>充分统计量</b>。", "eq": "p(s_{t+1} | s_t, a_t) = p(s_{t+1} | h_t, a_t)", "pts": ["给定现在，未来与过去无关。"]},
+{"r": [7, 7], "t": "马尔可夫过程 / 马尔可夫链", "star": 2, "one": "无记忆的随机过程：一串满足马尔可夫性的随机状态。", "pts": ["定义只有两样：状态集 <code>S</code>，转移模型 <code>P</code>（给定 s 下一步是 s′ 的概率）。", "<span class='w'>没有奖励，也没有动作。</span>", "状态有限时 <code>P</code> 就是一个矩阵。"], "say": "老师的例子：<b>股市</b>。你投不投钱它都在动，你可以只是旁观着它变。"},
+{"r": [8, 8], "t": "火星车的转移矩阵", "star": 2, "one": "七个状态排成一条线，每一步向左 0.4、向右 0.4、原地 0.2。", "eq": "P(s1|s1)=0.6   P(s2|s1)=0.4\n中间各状态：左 0.4 · 原地 0.2 · 右 0.4\nP(s7|s7)=0.6   P(s6|s7)=0.4", "pts": ["两端只有一侧可走，所以原地概率是 <b>0.6</b> 而不是 0.2。", "这里<span class='w'>还没有动作</span>——马达就是这么转的，不是 agent 选的。"], "say": "课上被追问「哪一维是初始状态」。老师的回答：这页不指定初始状态；要算下一步，就把初始状态写成 one-hot 向量去乘 <code>P</code>。"},
+{"r": [9, 9], "t": "从这个过程里采样", "one": "从 s4 出发，世界替你抽签，抽出一条轨迹。", "eq": "s4, s5, s6, s7, s7, s7, …\ns4, s4, s5, s4, s5, s6, …\ns4, s3, s2, s1, …", "pts": ["同一个起点、同一套动态，跑出来的<b>片段完全不同</b>——因为转移是随机的。", "记住这三条，p14 要拿它们算回报。"], "say": "老师强调：agent <b>不能同时在多个状态里</b>。分布是你算出来的，实际发生的只有一条。"},
+{"r": [10, 10], "t": "马尔可夫奖励过程（MRP）", "star": 2, "one": "MRP = 马尔可夫链 + 奖励 + 折扣因子。", "eq": "MRP = (S, P, R, γ)\nR(s_t = s) = E[r_t | s_t = s]", "pts": ["<span class='w'>仍然没有动作。</span>状态有限时 <code>R</code> 就是一个向量。"]},
+{"r": [11, 11], "t": "火星车 MRP", "one": "奖励：<code>s1</code> 给 +1，<code>s7</code> 给 +10，其余全是 0。", "pts": ["和第一讲用的是同一组数字。<b>整讲的算例都建在这三个数上。</b>"], "say": "有人问「奖励一定只跟当前状态绑定吗」。老师答：MDP 里奖励可以是 s、(s,a) 或 (s,a,s′) 的函数；但现在还在 MRP，<b>没有动作</b>，所以只能挂在状态（或状态对）上。"},
+{"r": [12, 12], "t": "回报与值函数", "star": 3, "one": "回报是<b>一次</b>的折扣奖励和；值函数是它的<b>期望</b>。", "eq": "G_t = r_t + γ·r_{t+1} + γ²·r_{t+2} + …\nV(s) = E[G_t | s_t = s]", "pts": ["<b>horizon</b>＝一个片段有几步，可以是无穷。", "过程若是确定性的，这两者<span class='k'>完全相同</span>；随机的话就不同了——这正是后面所有算法要处理的东西。"], "tip": {"t": "别混", "v": "<code>G</code> 是你走了一趟拿到的数，<code>V</code> 是无数趟的平均。下一页开始，三条样本轨迹算出来的三个 <code>G</code> 会和 <code>V</code> 差很远。"}},
+{"r": [13, 13], "t": "折扣因子 γ", "star": 2, "one": "既有数学上的方便，也确实像人的行为。", "pts": ["<b>数学上</b>：保证回报有界，不至于发散。", "<code>γ=0</code>：只看眼前这一步（短视）。<code>γ=1</code>：未来和现在一样重。", "片段长度总是有限时，<code>γ=1</code> 没问题。"], "say": "有人问「γ 非得是几何衰减吗」。老师答：<b>不是必须</b>，只是这个选择的数学性质特别好，后面证压缩性时就靠它。"},
+{"r": [14, 15], "t": "三条轨迹，三个回报", "star": 2, "one": "同一个起点 s4，四步为限，<code>γ=1/2</code>。", "eq": "s4,s5,s6,s7:  0 + ½·0 + ¼·0 + ⅛·10 = 1.25\ns4,s4,s5,s4:  0 + 0 + 0 + 0      = 0\ns4,s3,s2,s1:  0 + 0 + 0 + ⅛·1   = 0.125", "pts": ["同一个起点，回报能差十倍。<span class='k'>这就是为什么要取期望。</span>", "注意 <code>⅛</code> 是 <code>γ³</code>——奖励在第 4 步拿到，折三次。"], "say": "老师顺带解释了为什么用四步：很多真实场景 horizon 天然有界，比如「顾客跟网站平均就互动两三步」。"},
+{"r": [16, 16], "t": "值函数：把它们平均起来", "star": 3, "one": "对所有可能的轨迹取期望，就得到每个状态的值。", "eq": "V = [1.53  0.37  0.13  0.22  0.85  3.59  15.31]", "pts": ["<b>形状比数值更值得看</b>：从 s3（0.13）往两边都在升高，右边升得快得多——因为 s7 的 +10 压过了 s1 的 +1。", "s4 的值是 0.22，而上一页那条走到 s7 的样本回报是 1.25。<span class='w'>单次回报和期望差得很远，一点都不奇怪。</span>"]},
+{"r": [17, 17], "t": "算法一：模拟", "one": "反复跑，把回报平均起来。", "pts": ["精度大致按 <code>1/√N</code> 收敛（N 是跑的次数）。", "<span class='k'>它不需要马尔可夫假设</span>——压根没用到这个结构，只是在求平均。"], "tip": {"t": "这条优点是双刃的", "v": "不依赖马尔可夫，意味着模型estimate 得不准时它也还站得住；但世界真是马尔可夫时，它<b>白白浪费了这个结构</b>，算得比下面两种慢。"}},
+{"r": [18, 18], "t": "马尔可夫结构给出的分解", "star": 3, "one": "一个状态的值 = 当下的奖励 + 折扣后的「下一个状态的值」。", "eq": "V(s) = R(s) + γ · Σ_{s′} P(s′|s) · V(s′)", "pts": ["左边是 <code>V</code>，右边也有 <code>V</code>——这不是循环定义，是一组<b>方程</b>。", "整门课后面的算法，几乎都是在用不同办法解这组方程。"]},
+{"r": [19, 19], "t": "写成矩阵", "one": "有限状态下，上一页那组方程就是一个矩阵方程。", "eq": "V = R + γ · P · V"},
+{"r": [20, 20], "t": "算法二：解析解", "star": 2, "one": "移项、求逆，一步到位。", "eq": "(I − γP) · V = R\nV = (I − γP)^{-1} · R", "pts": ["代价是求一次矩阵逆：<b>N² 到 N³</b> 之间，看用哪种算法。", "只适用于<span class='w'>状态有限</span>的情形。"], "say": "课上有人问「这个矩阵会不会不可逆」。老师当场没敢打包票，过了一段回来给了答案：<b>P 是随机矩阵，特征值都 ≤1，所以只要 γ&lt;1，<code>I − γP</code> 一定可逆</b>。"},
+{"r": [21, 21], "t": "算法三：动态规划", "star": 3, "one": "从 <code>V₀=0</code> 出发，反复用上一轮的 V 算这一轮的 V。", "eq": "V_k(s) = R(s) + γ · Σ_{s′} P(s′|s) · V_{k-1}(s′)", "pts": ["每轮 <code>O(|S|²)</code>，比求逆便宜。", "停在哪：<code>‖V_k − V_{k-1}‖ &lt; ε</code>。", "初始化成什么都行——只要跑到收敛。"], "tip": {"t": "三种算法的分工", "v": "<b>模拟</b>不需要模型结构但慢；<b>解析解</b>一步到位但要求逆、要有限状态；<b>动态规划</b>每轮便宜，而且加上动作之后还能继续用——后面全靠它。"}},
+{"r": [22, 22], "t": "马尔可夫决策过程（MDP）", "star": 3, "one": "MDP = MRP + 动作。", "eq": "MDP = (S, A, P, R, γ)\nP(s_{t+1}=s′ | s_t=s, a_t=a)\nR(s_t=s, a_t=a) = E[r_t | s_t=s, a_t=a]", "pts": ["转移模型现在<b>每个动作各有一份</b>。", "奖励可以定义成 s、(s,a) 或 (s,a,s′) 的函数；这门课<b>多数时候用 (s,a)</b>。"], "say": "有人问「为什么转移要是随机的，我都指定动作了」。老师答：<b>因为模型不够好</b>——机器人在地毯上有时卡住、开车有时堵车。你可以把更多变量塞进状态让它变确定，也可以就用随机性把这份不确定性兜住。"},
+{"r": [23, 23], "t": "火星车 MDP：两个确定性动作", "star": 2, "one": "<code>a1</code> 往左，<code>a2</code> 往右，都是<b>确定</b>的。", "eq": "a1：能左就左，到 s1 就停在 s1\na2：能右就右，到 s7 就停在 s7", "pts": ["两个转移矩阵都只有 0 和 1——这是为了后面手算方便，不是一般情形。", "<span class='w'>注意 p28 会临时换成随机动态</span>（s6 各 0.5），别把两页的数字混用。"]},
+{"r": [24, 24], "t": "MDP 的策略", "one": "策略规定每个状态该做什么动作。", "eq": "π(a|s) = P(a_t = a | s_t = s)", "pts": ["可以是确定性的，也可以是随机的；为了一般性写成条件分布。", "这门课大部分时候用<b>确定性策略</b>，到策略搜索那几讲才大量用随机策略。"]},
+{"r": [25, 25], "t": "MDP + 策略 = MRP", "star": 3, "one": "把策略定死，动作这一维就被积掉了，剩下的就是一个 MRP。", "eq": "R^π(s) = Σ_a π(a|s) · R(s,a)\nP^π(s′|s) = Σ_a π(a|s) · P(s′|s,a)", "pts": ["<span class='k'>这一页是整讲的枢纽。</span>它意味着：评估一个策略的值，<b>不需要新工具</b>——前面算 MRP 的三种办法原样拿来用。"]},
+{"r": [26, 26], "t": "策略评估的迭代算法", "one": "和 MRP 的迭代算法一模一样，只是奖励和转移都按策略选好的动作去查表。", "eq": "V^π_k(s) = r(s, π(s)) + γ · Σ_{s′} p(s′|s, π(s)) · V^π_{k-1}(s′)", "pts": ["这叫<b>给定策略的贝尔曼备份</b>（Bellman backup）。"]},
+{"r": [27, 27], "t": "检验题：γ=0 时这个策略值多少", "star": 2, "one": "策略是「处处做 <code>a1</code>」，<code>γ=0</code>。", "eq": "V^π = [1  0  0  0  0  0  10]", "pts": ["<code>γ=0</code> 把整个求和项乘没了，只剩当下这一步的奖励。"], "say": "老师说这题<b>故意是个陷阱</b>：她没给转移模型。而答案根本不需要转移模型——γ=0 的时候它压根用不上。"},
+{"r": [28, 28], "t": "练习：做一次备份", "star": 3, "one": "这一页把动态换成随机的，让你亲手算一格。", "eq": "已知：p(s6|s6,a1)=0.5, p(s7|s6,a1)=0.5\nV_k = [1 0 0 0 0 0 10],  γ = 0.5\n\nV_{k+1}(s6) = 0 + 0.5·0.5·0 + 0.5·0.5·10 = 2.5", "pts": ["s6 原本的值是 0，一次备份之后变成 <b>2.5</b>。"], "tip": {"t": "这题真正想给你看的", "v": "<b>信息在往回流。</b>第一次备份只把即时奖励铺开，此后每一轮，s7 那个 +10 就往左渗一格。「我现在没奖励，但再走几步可能够得着」——迭代就是在把这句话算出来。"}},
+{"r": [29, 29], "t": "MDP 控制", "star": 2, "one": "不再是评估某个策略，而是<b>找出最好的那个</b>。", "eq": "π*(s) = arg max_π V^π(s)", "pts": ["<span class='k'>最优值函数是唯一的。</span>", "无限 horizon 的有限状态 MDP，最优策略一定<b>存在确定性的一个</b>。"]},
+{"r": [30, 30], "t": "检验题：有多少个策略", "star": 3, "one": "7 个状态、2 个动作。", "eq": "确定性策略个数 = 2⁷ = 128\n一般地：|A|^|S|", "pts": ["<b>指数级</b>，不是线性。每个状态各自挑一个动作，挑法相乘。", "最优策略<span class='w'>不一定唯一</span>——两个动作的最优值打平就有并列。"], "say": "有同学正是按「线性」猜的。老师用两个状态演示：a1a1 / a1a2 / a2a1 / a2a2，四个都是不同的策略——所以是 <b>2²</b> 而不是 2。"},
+{"r": [31, 31], "t": "最优策略的三个性质", "star": 2, "one": "确定性 · 平稳 · 不一定唯一。", "pts": ["<b>平稳</b>＝不依赖时间步。在 s7 该做什么，第 1 步和第 242 步是同一个答案。", "理由：无限 horizon 下，<span class='k'>无论你在哪一步，前面都还剩无穷多步</span>，处境完全一样。", "唯一性：值函数唯一，策略不一定。"]},
+{"r": [32, 32], "t": "策略搜索：能不能直接枚举", "one": "可以，但一般不划算。", "pts": ["确定性策略共 <code>|A|^|S|</code> 个，有限但指数级。", "机器多到不像话时，<b>并行枚举反而可能更快</b>；串行就该用策略迭代。"], "say": "老师特意补了这句：如果你在乎的是墙钟时间、而且有非常多处理器，穷举是可以的。策略迭代的优势是<b>串行</b>算得省。"},
+{"r": [33, 33], "t": "策略迭代（PI）", "star": 3, "one": "手里始终攥着一个策略：评估它 → 改进它 → 再评估，直到不再变。", "eq": "i = 0，π₀ 随机初始化\n当 i==0 或 ‖π_i − π_{i-1}‖₁ > 0：\n    V^{π_i} ← 策略评估\n    π_{i+1} ← 策略改进\n    i = i + 1", "pts": ["停止条件就是<b>策略不再变化</b>（L1 范数为 0）。", "评估这一步是老工具（MDP+策略=MRP）；<span class='k'>新东西只有「改进」</span>。"]},
+{"r": [34, 34], "t": "新定义：状态–动作值 Q", "star": 3, "one": "先做动作 <code>a</code>（哪怕策略不这么说），<b>之后</b>再按 π 走。", "eq": "Q^π(s,a) = R(s,a) + γ · Σ_{s′} P(s′|s,a) · V^π(s′)", "pts": ["和 <code>V</code> 的差别只在<b>第一步</b>：V 从头到尾听 π 的，Q 的第一步是你指定的。", "有了它才能问出「换个动作会不会更好」——这正是改进要的。"]},
+{"r": [35, 35], "t": "策略改进", "star": 3, "one": "对每个状态，挑让 Q 最大的那个动作。", "eq": "对所有 s, a：Q^{π_i}(s,a) = R(s,a) + γ Σ P(s′|s,a) V^{π_i}(s′)\nπ_{i+1}(s) = arg max_a  Q^{π_i}(s,a)"},
+{"r": [36, 36], "t": "把两步拼起来", "one": "p33 的流程图再放一遍——现在「策略改进」那一格有内容了。", "pts": ["评估用的是 p26 的老办法（MDP+策略=MRP）；改进用的是 p34–35 的 Q 与 arg max。", "剩下的问题只有一个：<span class='k'>这样改真的会更好吗？</span>下一页开始回答。"]},
+{"r": [37, 38], "t": "改进这一步为什么奇怪", "star": 3, "one": "算的时候假设「只换第一步，之后还听老策略」；<b>用的时候却全程换新策略</b>。", "eq": "max_a Q^{π_i}(s,a)  ≥  R(s, π_i(s)) + γ Σ P(s′|s, π_i(s)) V^{π_i}(s′)  =  V^{π_i}(s)", "pts": ["不等式这一半很容易：最大值至少不比「照旧」差，因为照旧也在候选里。", "<span class='w'>难的是另一半</span>：凭什么「只换一步会更好」能推出「全程换掉也更好」？"], "say": "老师原话大意：<b>这件事应该让你觉得至少有点不清楚才对。</b>你证明的是「换一步然后回老路」，你要做的却是「从此走新路」。下一页就是补这个缺口。"},
+{"r": [39, 39], "t": "单调改进", "star": 3, "one": "新策略在<b>每一个</b>状态上都不比旧的差。", "eq": "V^{π_1} ≥ V^{π_2}  即  V^{π_1}(s) ≥ V^{π_2}(s), ∀s ∈ S\n\n命题：V^{π_{i+1}} ≥ V^{π_i}，若 π_i 非最优则严格大于", "pts": ["注意是<b>对所有状态</b>成立，不是平均意义上更好。"]},
+{"r": [40, 41], "t": "证明：把不等式一层层套进去", "star": 2, "one": "反复用同一个技巧：拿 <code>max_a Q</code> 去顶掉 <code>V^{π_i}</code>。", "pts": ["第一步：<code>V^{π_i}(s) ≤ max_a Q^{π_i}(s,a)</code>——定义直给。", "第二步：按 <code>π_{i+1}</code> 的定义把 max 换成具体动作。", "第三步：里面那个 <code>V^{π_i}(s′)</code> 又可以被 <code>max_a Q</code> 顶掉，<b>再展开一层</b>。", "一直套下去，每一层都换成 <code>π_{i+1}</code>——套到底，右边就是 <code>V^{π_{i+1}}</code>。"], "tip": {"t": "两个关键动作", "v": "① <code>V^{π_i}</code> 永远是 <code>max_a Q^{π_i}</code> 的下界；② 用 <code>π_{i+1}</code> 的定义把 max 具体化。剩下的只是重复。"}},
+{"r": [42, 43], "t": "检验题：会不会反复横跳", "star": 2, "one": "两个问题，答案都很干脆。", "pts": ["<b>策略一旦不变，还会再变吗？</b> 不会。π 不变 ⇒ Q 不变 ⇒ arg max 不变，从此锁死。", "<b>最多迭代多少次？</b> <code>|A|^|S|</code>。因为单调改进，<span class='k'>同一个策略不可能出现两次</span>（除非它已是最优）。"]},
+{"r": [44, 44], "t": "换一条路：值迭代", "star": 2, "one": "维护的不是策略，而是「还剩 k 步时的最优值」。", "pts": ["从 1 步算起，再算 2 步、3 步……越算越长。", "<b>和 PI 算的根本不是同一样东西</b>：PI 手里永远有个<span class='k'>完整策略</span>（可能不好）；VI 手里永远是<span class='k'>最优的</span>（但只对 k 步有效）。", "两者最终会收敛到同一处。"]},
+{"r": [45, 45], "t": "贝尔曼方程与备份算子", "star": 3, "one": "把那条约束看成一个<b>算子</b>：吃进一个值函数，吐出一个新的。", "eq": "贝尔曼方程：V^π(s) = R^π(s) + γ Σ P^π(s′|s) V^π(s′)\n\n备份算子：BV(s) = max_a [ R(s,a) + γ Σ p(s′|s,a) V(s′) ]", "pts": ["和策略评估的式子只差一处：<span class='w'>这里多了 max_a</span>。", "视角一换，「迭代算法」就变成了「反复施加同一个算子」——收敛性由此可证。"]},
+{"r": [46, 46], "t": "值迭代（VI）", "star": 3, "one": "从 0 出发，反复做带 max 的备份。", "eq": "V₀(s) = 0\n循环：V_{k+1}(s) = max_a [ R(s,a) + γ Σ P(s′|s,a) V_k(s′) ]\n等价写法：V_{k+1} = B V_k\nπ_{k+1}(s) = arg max_a [ … ]", "pts": ["为什么初始化成 0 合理：<b>一步都不能走时，值本来就是 0</b>。", "第一次备份给的是「只许走一步的最优动作」，之后每轮把可走步数加一。"]},
+{"r": [47, 48], "t": "用算子重述策略迭代", "one": "固定策略的备份算子写作 <code>B^π</code>（没有 max）。", "eq": "B^π V(s) = R^π(s) + γ Σ P^π(s′|s) V(s)\n\n策略评估 = 求 B^π 的不动点：V^π = B^π B^π … B^π V", "pts": ["策略评估＝反复施加 <code>B^π</code> 直到 V 不再变；策略改进＝那一步 arg max。", "两个算法于是有了同一套语言：<b>VI 用 B，PI 用 B^π 加 arg max</b>。"]},
+{"r": [49, 49], "t": "回到值迭代：怎么取出策略", "one": "值迭代本身只算值；策略是<b>最后单独取一次</b>的。", "eq": "V_{k+1} = B V_k\n\n若还能走 k+1 步：π(s) = arg max_a [ R(s,a) + γ Σ P(s′|s,a) V_k(s′) ]", "pts": ["和 PI 的区别又清楚了一层：<b>PI 全程带着策略走，VI 到用的时候才取</b>。", "取策略这一步用的是 <code>arg max</code>，算值那一步用的是 <code>max</code>——同一个式子的两个出口。"]},
+{"r": [50, 50], "t": "压缩算子", "star": 2, "one": "施加之后，两个东西之间的距离不会变大。", "eq": "若 |OV − OV′| ≤ |V − V′|，则 O 是压缩算子", "pts": ["这里的 V 可以是任意两个值函数，<span class='w'>和值迭代没有关系</span>——是算子本身的性质。"]},
+{"r": [51, 51], "t": "值迭代会收敛吗", "star": 3, "one": "会，只要 <code>γ &lt; 1</code>（或以概率 1 进入终止状态）。", "pts": ["理由：<code>γ&lt;1</code> 时贝尔曼备份是<b>压缩算子</b>。", "拿两个任意的值函数各做一次备份，它们之间的距离会缩小。", "压缩 ⇒ <span class='k'>存在唯一不动点</span>，反复施加必然收敛到它。"]},
+{"r": [52, 53], "t": "证明：备份是压缩", "star": 2, "one": "用无穷范数，四步。", "eq": "‖V − V′‖ = max_s |V(s) − V′(s)|   （无穷范数）", "pts": ["① 两个 max 各自取最优，其差被「共用一个 max」放大后的量上界；", "② 奖励项相同，<b>相减抵消</b>；", "③ 把 <code>|V_k(s′) − V_j(s′)|</code> 放大成它的最大值，移出求和；", "④ 剩下的是一个概率分布求和，<span class='k'>等于 1</span>。于是整体 ≤ <code>γ·‖V_k − V_j‖</code>。"], "tip": {"t": "γ 在这里做了什么", "v": "γ 就是那个收缩比例。<code>γ&lt;1</code> 距离才真的在缩；<code>γ=1</code> 时这个论证给不出收缩，收敛就得另找理由（比如必然终止）。"}},
+{"r": [54, 54], "t": "检验题：初始化重要吗", "one": "两道留给你自己想的题。", "pts": ["证明 γ&lt;1 的离散状态动作空间下，值迭代收敛到唯一解。", "值迭代的初始值影响什么？"], "tip": {"t": "提示", "v": "上一页已经给了一半答案：压缩算子有<b>唯一</b>不动点。所以只要你算到收敛，初值影响的只是<span class='k'>花多少轮</span>，不是落在哪。但若你是拿 <code>V_k</code> 当「还剩 k 步的最优值」用，那初值就<b>必须</b>是 0。", "w": 1}},
+{"r": [55, 55], "t": "有限 horizon 的值迭代", "one": "不跑到收敛，而是正好跑 H 轮。", "eq": "V_k = 还能做 k 个决策时的最优值\nπ_k = 还能做 k 个决策时的最优策略\n\nV₀(s)=0；for k = 1 : H  做同样的备份", "pts": ["此时 <code>V_k</code> 的下标有了实在意义：<b>剩几步</b>。"]},
+{"r": [56, 56], "t": "有限 horizon 下策略还平稳吗", "star": 2, "one": "<span class='w'>一般不。</span>", "pts": ["p31 说的「平稳」前提是<b>无限 horizon</b>：无论何时，前面都还剩无穷多步。", "只剩 2 步和还剩 200 步，该做的事可以完全不同——所以 <code>π_k</code> 带着下标。"]},
+{"r": [57, 57], "t": "值迭代 vs 策略迭代", "star": 3, "one": "一句话：VI 算「k 步的最优」，PI 算「某个策略的无限 horizon 值」。", "pts": ["<b>值迭代</b>：算 horizon = k 的最优值 → 由它取出 k 步最优策略 → k 加一。", "<b>策略迭代</b>：算某个策略的无限 horizon 值 → 用它挑一个更好的策略。", "PI 这条路<span class='k'>和策略梯度关系很近</span>——后面几讲会接上。"]},
+{"r": [58, 58], "t": "这一讲你该掌握什么", "one": "课件自己给的清单。", "pts": ["能<b>定义</b>：MP、MRP、MDP、贝尔曼算子、压缩、模型、Q 值、策略。", "能<b>实现</b>：值迭代、策略迭代。", "能说清几种策略评估方式的<b>利弊</b>，能证压缩性质。", "知道这些方法和马尔可夫假设的<b>局限</b>：<span class='k'>哪一种评估方式不需要马尔可夫假设？</span>"], "tip": {"t": "最后那道题的答案在 p17", "v": "<b>模拟</b>。它只是在求平均，压根没用到马尔可夫结构——所以模型错了它也还站得住。"}},
+{"r": [59, 60], "t": "附录：重复页", "one": "p59/p60 是 p35 和 p33 的重排，没有新内容。", "pts": ["讲座结束在 p53 附近，后面几页是课件自带的补充。"]}
+];
+
+var TH = null;
+
+(function(){
+  var PDF="../slides/lecture2.pdf", MAX=60;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l02quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l02p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l02quiz");
+      localStorage.removeItem("l02p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

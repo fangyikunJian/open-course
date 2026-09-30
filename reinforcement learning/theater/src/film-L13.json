@@ -1,0 +1,39 @@
+{
+ "file": "L13-PAC-MDP分析与带泛化的探索.html",
+ "html_title": "CS234 L13 · PAC-MDP 分析、贝叶斯 RL 与带泛化的探索 · 放映厅",
+ "title": "CS234 · Lecture 13 · 把「探索是对的」证成定理，再承认它在深度网络上还不成立",
+ "subtitle": "%d 个知识点 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "https://www.youtube.com/watch?v=Hg_uyWezMM0&t=",
+ "prelude_js": "// 本片数字由 scratchpad/v13.py 独立核算：\n//   3000 个随机 MDP 全部 (s,a)：max[Q*(s,a) − V*(s)] = 0.000e+00 —— Q* ≤ V* 恒成立\n//   Hoeffding 指数 −2n·(β/√n)²/(1/(1−γ))² = −2β²(1−γ)²，n 从 1 到 1e5 完全不变\n//   β=(1/(1−γ))√(½ln(2|S||A|m/δ)) 使 exp(−2β²(1−γ)²) 恰等于 δ/(2|S||A|m)，\n//     双侧 × |S||A|m 次更新 = 0.050000 = δ（机器精度相等）\n//   (1−γ)² vs 1−γ²：γ=0.9 差 19 倍，γ=0.99 差 199 倍，γ=0.999 差 1999 倍\n//   具体 Q*/V* 例：V*(s)−Q*(s,a) = 0.4544 / 0.1741 / 0.0000\nfunction hoeffExp(beta,g){return -2*beta*beta*Math.pow(1-g,2);}\nfunction betaEB(S,A,m,d,g){return (1/(1-g))*Math.sqrt(0.5*Math.log(2*S*A*m/d));}\nfunction budget(S,A,m){return S*A*m;}\n\n/* ══ L13 片内图 ══════════════════════════════════════════════════════\n   整部片共用同一张 (s,a) 计数格（课件 p.13 的「已知集」就画在它上面）。 */\nvar GX=330, GY=150, GW=26, GH=26, GC=10, GR=4;   /* 10 个状态 × 4 个动作 */\n\n/* (s,a) 计数格。fill(i,j) 返回 0..1 的填充比例，cls(i,j) 给颜色类 */\nfunction saGrid(o){\n  var x0=o.x!=null?o.x:GX, y0=o.y!=null?o.y:GY;\n  for(var i=0;i<GR;i++)for(var j=0;j<GC;j++){\n    var x=x0+j*(GW+6), y=y0+i*(GH+6);\n    E.gS.append(\"rect\").attr(\"class\",\"cellbg \"+((o.cls&&o.cls(i,j))||\"\"))\n      .attr(\"x\",x).attr(\"y\",y).attr(\"width\",GW).attr(\"height\",GH).attr(\"rx\",3);\n    var f=o.fill?o.fill(i,j):0;\n    if(f>0)E.gS.append(\"rect\").attr(\"class\",\"vbar \"+((o.bar&&o.bar(i,j))||\"g\"))\n      .attr(\"x\",x+2).attr(\"y\",y+GH-2-(GH-4)*f)\n      .attr(\"width\",GW-4).attr(\"height\",(GH-4)*f).attr(\"rx\",2);\n  }\n  if(o.sLab)note(\"状态 s →\",x0-56,y0+GH/2+5,\"sm\");\n  if(o.aLab)note(\"↓ 动作 a\",x0-52,y0+GH*3,\"sm\");\n}\n\n/* 值的阶梯：一条竖轴上摆几个水平刻度，用来比 V*、V^π、下界 */\nfunction vLadder(items,x1,x2){\n  items.forEach(function(it){\n    E.gS.append(\"path\").attr(\"class\",\"axline \"+(it.cls||\"\"))\n      .attr(\"d\",\"M\"+x1+\",\"+it.y+\"L\"+x2+\",\"+it.y);\n    note(it.label,x2+16,it.y+5,it.cls||\"sm\");\n  });\n}\n\n/* Beta(a,b) 密度曲线，画在 [x1,x2]×[yBase-h, yBase] 里 */\nfunction betaCurve(a,b,x1,x2,yBase,h,cls){\n  var pts=[],mx=0,v=[];\n  for(var i=0;i<=60;i++){var t=i/60;\n    var y=Math.pow(t,a-1)*Math.pow(1-t,b-1);\n    if(!isFinite(y))y=0; v.push(y); if(y>mx)mx=y;}\n  for(var i=0;i<=60;i++)pts.push([x1+(x2-x1)*i/60, yBase-h*(v[i]/(mx||1))]);\n  curve(pts,\"fit \"+(cls||\"\"));\n  return pts;\n}\n",
+ "kp_names": {
+  "1": "1 · PAC 和遗憾的<b>参照系不同</b>：一个比全局，一个比当下",
+  "2": "2 · 板上的 PAC 定义把 Q 和 V 混了 —— <b>Q* ≤ V* 恒成立</b>",
+  "3": "3 · 三条充分条件，以及<b>为什么光有乐观不行</b>",
+  "4": "4 · 算法<b>故意扔掉</b>第 m 个之后的数据 —— 这不是笔误",
+  "5": "5 · 乐观归纳证明：Hoeffding 里的 <b>n 恰好抵消</b>",
+  "6": "6 · 两个混合 MDP：<b>M̂ 与 M̃ 只差奖励</b>，M′ 只在已知集上换",
+  "7": "7 · 学习复杂度有界：<b>鸽笼二分法</b>",
+  "8": "8 · MDP 的后验采样：抽<b>一整个 MDP</b>，然后解它",
+  "9": "9 · 函数逼近下的探索：<b>计数不泛化</b>，而理论还没跟上"
+ },
+ "kp_base": {
+  "1": 597,
+  "2": 702,
+  "3": 1290,
+  "4": 2033,
+  "5": 2297,
+  "6": 3225,
+  "7": 3503,
+  "8": 3920,
+  "9": 4168
+ },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"CS234 · Lecture 13\",\"PAC-MDP 分析、贝叶斯 RL 与带泛化的探索\",\n  \"Emma Brunskill · Winter 2019 · 全课证明最密的一小时，结尾是一句坦白\");",
+  "narration": "这是快速 RL 这一块的收尾，也是<b>全课证明最密的一小时</b>。\n\n它做三件事。\n\n<b>第一，把 PAC 和遗憾的差别说清</b>。这两个判据经常被并列提起，好像只是同一件事的两种度量。不是。它们的<b>参照系不同</b>：遗憾拿你和「从第一步起就最优、因而会走到的那些状态」比；PAC 只拿你和「<b>你自己走到的这个状态下</b>最好的动作」比。后者宽容得多——它问的是「在你所在的地方，你尽力了吗」。\n\n<b>第二，给出证 PAC 的三条充分条件，并在板上真的证完其中一条</b>：MBIE-EB 的奖励加成 β/√n <b>够大</b>，足以让算出来的 Q 是乐观的。这个证明由三块组成——Hoeffding 偏差界、对 |S||A|m 次估计更新的并集界、以及沿值迭代扫的归纳——而它有一处精巧得值得单独看一集：<b>Hoeffding 指数里的 n 恰好被 β/√n 的 n 抵消掉</b>，这正是奖励加成要长成 1/√n 的全部理由。另外两条只给了梗概。\n\n<b>第三，掉头承认理论的边界</b>。后验采样搬到 MDP 是干净的；但一进函数逼近，<b>计数就不泛化</b>了——两个从没有完全相同的状态，「访问过多少次」这个问题在连续状态空间里没有意义。伪计数、哈希计数、学到的嵌入都是在补这个洞。讲师的结论很坦白：<b>「we still haven't made sufficient progress in how to do exploration plus generalization」</b>。\n\n这一讲的板书有多处 Q 与 V 混用，包括 PAC 定义本身——本片逐处修好。讲师也提前声明了：<b>「throughout today I'm going to be a little bit loose about constants」</b>。"
+ },
+ "closing": {
+  "t": 4700,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"CS234 · Lecture 13 · 完\",\"快速强化学习这条线到此为止\",\n  \"L15 · 之后进入课程最后一块（L14 不在本语料里）\");",
+  "narration": "回头看这九集，承重的是五件事。\n\n第一，<b>判据的差别在参照系，不在数值</b>。遗憾和 PAC 不能直接比大小——讲师自己说了一句「PAC can give much smaller regret」然后<b>当场自我更正</b>。两者衡量的东西不同：遗憾的基准是「从头最优会到的地方」，PAC 的基准是「你现在所在的地方」。在回合制、每次重置到固定起点的设定里，两者会靠得近一些。\n\n第二，<b>光有乐观不够，这是三条充分条件里第二条存在的全部理由</b>。讲师的反例一句话就说完了：<b>把所有值设成超高然后永不更新，乐观自动成立</b>——而这个算法什么也学不到。所以必须再要求「准确性」：等你对某些状态动作对攒够了信息，你算出来的值就得<b>真的接近</b>它们的值。乐观负责让你去试，准确负责让你<b>停下来</b>。\n\n第三，<b>β/√n 这个形状不是猜的，是被 Hoeffding 逼出来的</b>。X_i 的取值范围宽度是 1/(1−γ)，偏差取 β/√n 代进 exp(−2n t²/R²)，<b>n 精确地约掉</b>：我从 n=1 试到 n=10⁵，指数一动不动，都是 −2β²(1−γ)²。然后把 β 定成 (1/(1−γ))√(½ln(2|S||A|m/δ))，单次失败概率<b>恰好等于</b> δ/(2|S||A|m)，双侧再乘 |S||A|m 次更新，总失败率<b>精确等于 δ</b>——我验到机器精度。整条 β 是从「总预算是 δ」倒推回来的，和 L11 第六集是同一个手法。\n\n第四，<b>「故意扔掉数据」是并集界逼出来的，不是失误</b>。并集界要覆盖<b>所有</b>估计更新，所以更新次数必须有限；于是算法规定每个 (s,a) 只用前 m 个样本。讲师自己点破了这有多反常——她引了 Tom Mitchell 对机器学习的定义：<b>设计能随数据增多而持续改进的算法</b>——而这个算法恰恰相反。<b>这是为了拿到证明而付的代价，不是这个算法的优点。</b>\n\n第五，<b>理论到函数逼近为止</b>。计数不泛化，于是所有基于计数的保证都断在这里。伪计数、哈希、嵌入是工程上的替代，都没有 PAC 保证。讲师对两种主流做法的评价也很直接：bootstrap DQN <b>「not incredibly effective」</b>，只有一些提升；而在<b>冻结的嵌入上做贝叶斯线性回归</b>——「super simple」——反而在很多情形下带来明显收益。\n\n快速 RL 这条线到此为止。"
+ }
+}

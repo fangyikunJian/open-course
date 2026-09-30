@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS234 第六讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#0b0f15; --panel:#121823; --line:#212c3c; --ink:#e7eef7; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff; --mark:#16202e;
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:#0a0e14;border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:#0a0e14;border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:#0a0e14;border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:#18212e;
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:#2c3c52}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:#070a0f;
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:0 10px 34px rgba(0,0,0,.55)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:#c3d2e3;font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:#f4f8fd}
+.one{font-size:16.5px;line-height:1.7;color:#f4f8fd;border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,rgba(111,211,187,.09),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:#fff}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:#cfe3f5}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:#dbe8f7;overflow-x:auto}
+.say{border:1px solid #2a3b4f;border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:rgba(127,184,255,.055);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:rgba(255,255,255,.025);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:#4a2b2e;background:rgba(255,120,120,.055)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:#fff}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+.res{border:1px solid #3b2f4f;border-left:3px solid #b98fe6;border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:rgba(185,143,230,.06);
+  font-size:14px;line-height:1.72}
+.res .t{color:#b98fe6;font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:rgba(10,14,20,.97);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:#0a0e14;transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:rgba(255,255,255,.022)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:#0a0e14;border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:#0d141c}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:rgba(111,211,187,.13);color:#d8fff4}
+.opt.no{border-color:var(--warn);background:rgba(255,143,143,.12);color:#ffdede}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:#c3d2e3;border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,rgba(111,211,187,.07),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:rgba(6,9,13,.82);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:#b98fe6;border:1px solid #b98fe6;
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:#e7eef7;margin:12px 0 18px;
+  border-left:3px solid #b98fe6;padding-left:14px;
+  background:linear-gradient(90deg,rgba(185,143,230,.07),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+</style>
+</head>
+<body data-key="cs234-2019-l06">
+
+<div id="bar">
+  <h1>CS234 第六讲 · <span>卷积网络与深度 Q 学习：DQN 及其三个改进</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 68</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../slides/lecture6.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs234-2019</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/中文精读/L06-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "这一讲和上一讲的关系是？", "o": ["推翻上一讲", "把上一讲的函数逼近器从线性换成深度网络", "回到表格表示", "改讲策略梯度"], "a": 1, "why": "CNN 那一节只是交代背景，重点全在深度 Q 学习。"}],
+8: [{"q": "线性 VFA 的天花板在哪？", "o": ["计算太慢", "特征要你自己手工设计出来", "只能用于小状态空间", "不能做控制"], "a": 1, "why": "出路是换一个「直接从状态出发、不用显式指定特征」的更丰富的函数类。"}],
+9: [{"q": "老师说过去几年真正的变革是什么？", "o": ["更快的 GPU", "自动微分——不用再手推每一层的梯度", "更多数据", "ReLU"], "a": 1, "why": "她说当年要手推反向传播，「所以那是一份不太受欢迎的作业」。"}, {"q": "ReLU 有一半区域是平的，梯度为 0，这算问题吗？", "o": ["算，所以不能用", "梯度就是 0，没问题；但很深的网络确实会有梯度消失", "不算，因为它处处可微", "算，所以要配 sigmoid"], "a": 1, "why": "梯度消失这门课不展开，但值得知道。"}],
+11: [{"q": "深度网络的「万能逼近」性质，对上一讲的哪个问题是个正面回答？", "o": ["收敛性", "「线性类可能装不下真值」——节点够多时这个限制原理上消失", "计算效率", "探索"], "a": 1, "why": "但代价是：上一讲的收敛保证全建立在线性之上，这里全没了。"}],
+14: [{"q": "1000×1000 的图接全连接层，一个隐藏单元要多少权重？", "o": ["1000", "10⁶", "25", "10³"], "a": 1, "why": "再并联几百个就不现实了。更要命的是这完全没用上图像结构。"}],
+19: [{"q": "28×28 输入、5×5 感受野、步长 1，隐藏层是多大？需要多少权重？", "o": ["28×28，784 个权重", "24×24，但只要 25 个共享权重", "24×24，24×24 个权重", "5×5，25 个权重"], "a": 1, "why": "对比全连接的 10⁶ 个权重——这就是权重共享省下的量。"}],
+23: [{"q": "整张图共用同一组权重，为什么合理？", "o": ["省内存", "在某处能认出竖直边缘的本事，在图像别处同样有用——由此得到平移不变性", "梯度更稳", "图像是方的"], "a": 1, "why": "灵感来自视觉系统。深度学习之前，CV 花了大力气手工设计这类不变特征（如 SIFT）。"}],
+26: [{"q": "CNN 最后一层通常全连接，这一步在做什么？", "o": ["池化", "把前面算出的新特征表示拿来做线性回归，输出标量", "卷积", "归一化"], "a": 1, "why": "前半部分可看成「在算一套特征」，最后一层正好接回上一讲的线性 VFA。"}],
+31: [{"q": "普通 DQN 的更新式里，右边出现的 <code>w</code> 有几组？", "o": ["两组", "只有一组——当前值、未来值估计、梯度全用它", "三组", "取决于实现"], "a": 1, "why": "p40 的固定 Q 目标要动的正是这一点。"}],
+34: [{"q": "Atari 上 DQN 的状态为什么是<b>四帧</b>而不是一帧？", "o": ["为了降噪", "单帧看不出速度，而很多游戏必须知道球往哪飞", "为了省内存", "为了对齐动作"], "a": 1, "why": "四帧也未必够——蒙特祖玛的复仇那类要记住「钥匙已拿到」的游戏就不行。"}, {"q": "「同一套结构和超参数跑通 50 个游戏」，共享的是什么？", "o": ["学到的权重", "网络结构和超参数；每个游戏仍各自从零学一份 Q 和策略", "回放池", "奖励函数"], "a": 1, "why": "这是这篇论文真正的卖点：不必为每个游戏各调一套。"}],
+37: [{"q": "让 Q-learning + 深度网络容易崩的两个问题是？", "o": ["方差大、偏差大", "样本之间高度相关、目标一直在动", "学习率、批量大小", "探索不足、奖励稀疏"], "a": 1, "why": "DQN 的两招正是各治一个：经验回放治相关性，固定 Q 目标治非平稳。"}, {"q": "「目标非平稳」具体指什么？", "o": ["环境在变", "目标 y 是你自己当前的 Q 算出来的，你一改权重它就变", "奖励在变", "状态分布在变"], "a": 1, "why": "监督学习里 y 是固定的，这里不是——所以拟合起来格外难。"}],
+38: [{"q": "同一条 tuple 被反复重放，每次的更新为什么不一样？", "o": ["因为随机性", "因为 Q 已经变了，算出来的目标值也就不同", "因为 α 在变", "因为 γ 在变"], "a": 1, "why": "朴素 TD/Q-learning 一条数据用一次就扔，省内存但极浪费。"}, {"q": "经验回放和「状态里多存几帧」是一回事吗？", "o": ["是", "不是：多存帧是改状态表示，回放是把旧数据再用一遍", "只在 Atari 上是", "只在 tabular 下是"], "a": 1, "why": "课上专门有人问到这一点。"}],
+40: [{"q": "固定 Q 目标为什么能提高稳定性？", "o": ["降低了学习率", "把目标 y 暂时钉住——监督学习里 y 不动才好拟合", "减小了方差", "避免了最大化偏差"], "a": 1, "why": "代价是信息往回传更慢：你在用一组过时的权重评估未来。"}, {"q": "<code>w⁻</code> 的同步周期 n 取极端值会怎样？", "o": ["n=1 最稳", "n=1 退回普通 TD，n=∞ 永不更新；中间是一条连续的取舍", "n 越大越好", "n 不影响结果"], "a": 1, "why": "这是个超参数，在「传得快」和「更稳」之间权衡。"}, {"q": "这两招带来收敛保证了吗？", "o": ["带来了", "没有——只是经验上管用；Q-learning 这类本来就不是真正的梯度下降", "线性时带来了", "配合 Double DQN 就有了"], "a": 1, "why": "更接近真梯度的算法（如 GTD）在 Sutton & Barto 第 11 章。"}],
+45: [{"q": "消融实验里，对 Breakout 提升最大的是哪一项？", "o": ["换成深度网络（3→3）", "固定 Q 目标（3→10）", "经验回放（10→241）", "三者相当"], "a": 2, "why": "回放是碾压性的。用完就扔数据是个很糟的做法。"}, {"q": "这张表里<b>没有</b>的一栏是？", "o": ["线性", "深度网络", "线性 + 回放 + 固定 Q", "回放且固定 Q"], "a": 2, "why": "课上有同学指出了这一点。老师承认这确实值得试——后面四栏全是深度网络。"}],
+47: [{"q": "Double DQN 把哪两件事分给了不同的权重？", "o": ["更新和采样", "选动作（用 w）和评估这个动作（用 w⁻）", "探索和利用", "前向和反向"], "a": 1, "why": "治的是第四讲那个最大化偏差：估计值的 max 会系统性高估真值的 max。"}],
+53: [{"q": "火星车那条轨迹，只许回放两条 tuple，正确顺序是？", "o": ["先 (s3→s2) 再 (s2→s1)", "先 (s2→s1) 再 (s3→s2)", "顺序无所谓", "两条都选 (s1→终止)"], "a": 1, "why": "必须从靠近奖励的那一端往回做。先做 (s3→s2) 时 V(s2) 还是 0，那一步白做。"}, {"q": "Schaul 等人用「能挑最优顺序的神谕」做实验，结论是？", "o": ["顺序影响不大", "收敛所需更新次数呈指数级下降", "顺序只影响前期", "只对 tabular 有效"], "a": 1, "why": "神谕算不出来，但它说明了顺序值多少钱。"}],
+55: [{"q": "优先经验回放里，<code>α = 0</code> 会得到什么规则？", "o": ["只抽误差最大的", "所有 tuple 概率相等，退回均匀采样", "不抽任何 tuple", "按时间倒序抽"], "a": 1, "why": "α → ∞ 则只抽误差最大的那条。α 就是从「完全不排序」到「只看最大误差」的旋钮。"}, {"q": "优先级 <code>p_i</code> 是按什么定的？", "o": ["奖励大小", "DQN 误差（即那条 tuple 的 TD 误差绝对值）", "访问次数", "时间先后"], "a": 1, "why": "每次更新后重算；新 tuple 的 p 设为 0。"}],
+59: [{"q": "Dueling DQN 的出发点是？", "o": ["降低方差", "判断「状态好不好」和「哪个动作更好」该看的特征不一样，所以拆成两条支路", "减少参数", "加快收敛"], "a": 1, "why": "例子：游戏分数对预测 V(s) 有用，对判断此刻哪个动作更好几乎没用。"}, {"q": "优势函数的定义是？", "o": ["A = V − Q", "A = Q − V", "A = Q − max Q", "A = r + γV − V"], "a": 1, "why": "Baird 1993。它度量的是「这个动作比按当前策略走好多少」。"}],
+61: [{"q": "<code>Q = V + A</code> 为什么不可辨识？", "o": ["因为 A 可能为负", "V 加一个常数、A 减同一个常数，Q 完全不变", "因为 V 不唯一", "因为 Q 有偏"], "a": 1, "why": "所以必须额外钉一个约束，否则两条支路各自的值毫无意义。"}, {"q": "课件说哪种约束更稳？", "o": ["强制被选动作的 A 为 0（减 max）", "用均值当基线（减所有动作 A 的平均）", "强制 A 之和为 0", "不加约束"], "a": 1, "why": "这也是实践中常用的那个。"}],
+64: [{"q": "Schulman 建议拿哪个游戏当「体检」？", "o": ["Breakout", "Pong——DQN 在它上面很可靠，跑不出好成绩就是哪里错了", "Montezuma's Revenge", "Seaquest"], "a": 1, "why": "老师还强调：先把线性情形的 Q-learning 跑通再上 Atari，不然要等十二小时才发现什么都没学到。"}, {"q": "DQN 在 Atari 上通常要跑多久才明显好过随机策略？", "o": ["几千帧", "几十万帧", "1000–4000 万帧（GPU 上几小时到一天）", "上亿帧"], "a": 2, "why": "「要有耐心」是课件原话。另外：回放池越大越稳，所以用 uint8 存图、别重复存数据。"}]
+};
+
+var N = [
+{"r": [1, 3], "t": "这一讲要干什么", "star": 2, "one": "把上一讲的函数逼近器换成<b>深度网络</b>，做出能玩 Atari 的 DQN。", "pts": ["两节：卷积网络（CNN）→ 深度 Q 学习。", "CNN 那一节只是个交代，<span class='k'>重点全在第二节</span>。"], "tip": {"t": "课件自己标的来源", "v": "DQN 部分的幻灯片来自 David Silver 和 Ruslan Salakhutdinov，视觉部分来自 Gianni Di Caro 与斯坦福 CS231n。"}},
+{"r": [4, 4], "t": "为什么要泛化", "one": "自动驾驶、Atari、营销、医疗、教育——状态/动作空间都大到写不下表。", "pts": ["把 <code>V</code> 或 <code>Q</code> 换成带参数的函数，这一点和上一讲完全一样。"]},
+{"r": [5, 7], "t": "复习：SGD 与线性 VFA", "one": "上一讲的式子原样搬过来，下面要把 <code>V̂</code> 换成深度网络。", "eq": "J(w) = E_π[ ( V^π(s) − V̂^π(s; w) )² ]\nΔw = α·( V^π(s) − V̂(s; w) )·∇_w V̂(s; w)\n\nMC： Δw = α·( G_t − x(s_t)ᵀw )·x(s_t)\nTD： Δw = α·( r_t + γ·x(s_{t+1})ᵀw − x(s_t)ᵀw )·x(s_t)"},
+{"r": [8, 8], "t": "线性 VFA 的天花板", "star": 3, "one": "特征给对了它很好用，<b>但特征得你自己想出来</b>。", "pts": ["核方法这类局部表示有好性质（某些情形能证收敛），<span class='w'>但扩不到巨大的状态空间和数据量</span>。", "出路：换一个<b>直接从状态出发、不用显式指定特征</b>的更丰富的函数类。"]},
+{"r": [9, 10], "t": "深度网络：函数的复合", "star": 3, "one": "一层套一层，再用<b>链式法则</b>把梯度传回去。", "eq": "h_n = f_n( h_{n-1} )，一层套一层\n\n∂J/∂w_n = (∂J/∂h_n)·(∂h_n/∂w_n)\n再往下一层继续套 —— 这就是反向传播", "pts": ["<b>线性层</b> <code>h_n = W·h_{n-1}</code> 与<b>非线性激活</b>交替；只要可微就行。", "常见激活：sigmoid、ReLU。", "损失函数：均方误差、对数似然等。"], "say": "老师说<b>真正的变革是自动微分</b>：她当年学的时候要手推每一层的梯度，「<span class='k'>所以那是一份不太受欢迎的作业</span>」。现在写下网络结构，TensorFlow 替你求导——这才让复杂网络变得人人可用。<br>有人问 ReLU 在 0 处不可微、平的那半边梯度为 0 怎么办。老师答：<b>平的地方梯度就是 0，没问题</b>；但很深的网络确实会有梯度消失，这门课不展开。"},
+{"r": [11, 11], "t": "深度网络换来了什么", "star": 3, "one": "分布式表示 · <b>万能逼近</b> · 参数可能指数级更少 · 能用 SGD 训。", "pts": ["<span class='k'>万能逼近</span>：只要足够多的节点，任何函数都表示得了——<b>上一讲那种「线性类装不下真值」的问题从原理上消失了</b>。", "相比浅网络，表示同一个函数可能只需<b>指数级更少</b>的节点/参数。"], "tip": {"t": "但代价立刻就来", "v": "上一讲的收敛保证全部建立在<b>线性</b>之上。表达力换来了这些保证的消失——p37 起整讲都在对付这件事。"}},
+{"r": [12, 13], "t": "为什么要讲 CNN", "one": "想从像素直接做决策，就该借视觉那边的经验。"},
+{"r": [14, 16], "t": "全连接网络：参数爆炸", "star": 2, "one": "1000×1000 的图就是 <code>10⁶</code> 个像素，<b>每个隐藏单元就要 10⁶ 个权重</b>。", "pts": ["再并联几百个这样的单元，参数量大到不现实。", "更要命的是：<span class='w'>这么做完全没用上图像本身的结构</span>。"]},
+{"r": [17, 18], "t": "卷积网络的四个想法", "star": 3, "one": "局部处理 · 权重共享 · 多组滤波器 · 压缩出显著特征。", "pts": ["图像有<b>局部结构和相关性</b>，在空间和频率上都有特征。", "所以<span class='k'>不要全连接</span>：每个单元只看一小块。", "而且<span class='k'>同一组权重在整张图上重复用</span>——参数量骤降。"]},
+{"r": [19, 22], "t": "感受野、步长、权重共享", "star": 3, "one": "5×5 的窗口在 28×28 的图上滑，得到 24×24 的隐藏层，<b>只用 25 个权重</b>。", "eq": "输入 28×28，感受野 5×5，步长 1\n  ⇒ 隐藏层 24×24 = 576 个单元\n  ⇒ 但所有单元共用同一组 25 个权重 + 1 个偏置\n\n单元的激活值：g( b + Σ_i w_i·x_i )，i 只跑遍感受野内的像素", "pts": ["<b>零填充</b>决定在边缘补几个 0，从而决定输出尺寸。", "对比一下：全连接要 <code>10⁶</code> 个权重，<span class='k'>这里 25 个</span>。"]},
+{"r": [23, 25], "t": "特征图与多组滤波器", "star": 3, "one": "一组共享权重 = <b>一个特征检测器</b>，在整张图上到处找同一种模式。", "pts": ["<b>为什么合理</b>：如果这组权重学会了在某个小块里认出「竖直边缘」，那这个本事在图像别处<span class='k'>同样有用</span>。", "由此得到<b>平移不变性</b>——灵感来自视觉系统。", "用多组滤波器，就能同时找横边、竖边、各种别的模式。"], "say": "老师提到：深度学习之前，计算机视觉花了大量力气<b>手工设计</b>这类特征（如 SIFT），目标正是这种平移不变性。CNN 把它变成了学出来的。"},
+{"r": [26, 27], "t": "池化层与最后的全连接层", "star": 2, "one": "池化压缩信息；最后一层通常全连接，把特征变成标量输出。", "pts": ["池化常紧跟在卷积层之后，做下采样（如 max pooling）。", "<span class='k'>整个前半部分可以看成「在算一套新的特征表示」</span>，最后那层全连接就是在这套特征上做线性回归——<b>正好接回上一讲</b>。", "在 RL 里：输入是一张图，输出要是一个标量 Q 值，中间必须一路降维。"]},
+{"r": [28, 30], "t": "深度强化学习", "one": "用深度网络去表示值函数 / 策略 / 模型，再用 SGD 优化损失。", "pts": ["这一讲只做<b>值函数</b>；策略那条线下周讲。"]},
+{"r": [31, 33], "t": "DQN：用网络表示 Q", "star": 3, "one": "<code>Q̂(s,a; w) ≈ Q(s,a)</code>，更新式和第五讲的 Q-learning 一模一样。", "eq": "Δw = α·( r + γ·max_a Q̂(s_{t+1}, a; w) − Q̂(s_t, a_t; w) )·∇_w Q̂(s_t, a_t; w)", "pts": ["<span class='w'>注意右边所有的 w 都是同一组</span>——当前值、未来值的估计、梯度，全用它。", "p40 要动的就是这一点。"], "say": "老师提醒：Atari 的<b>动作空间其实很小</b>，离散、大约 4 到 18 个；大的是状态空间（像素）。"},
+{"r": [34, 36], "t": "Atari 上的 DQN", "star": 3, "one": "端到端：<b>从像素直接学出 Q(s,a)</b>。", "eq": "状态 s：最近 4 帧原始像素堆叠\n输出：18 个摇杆/按键位各自的 Q(s,a)\n奖励：该步的得分变化\n网络结构与超参数：50 个游戏全部相同", "pts": ["<b>为什么要 4 帧</b>：单帧看不出速度，而很多游戏必须知道球往哪飞。", "<span class='w'>4 帧也未必够</span>——蒙特祖玛的复仇那类要记住「钥匙已经拿到」的游戏就不行。", "论文的真正卖点：<span class='k'>同一套结构和超参数跑通 50 个游戏</span>，而不是每个游戏各调一套。"], "say": "老师强调：每个游戏仍然<b>各自从零学一份 Q 和策略</b>，共用的是结构和超参数，不是学到的权重。"},
+{"r": [37, 37], "t": "两个会把它搞崩的问题", "star": 3, "one": "<b>样本之间高度相关</b>；<b>目标一直在动</b>。", "pts": ["<b>相关性</b>：<code>(s,a,r,s′)</code> 和紧接着的那条几乎不独立——确定性系统里只差一个 r。<span class='w'>这不是 i.i.d. 数据</span>。", "<b>非平稳目标</b>：监督学习里 y 是固定的；这里 y 由你自己当前的 Q 算出来，你一改权重它就变。", "DQN 的两招正是各治一个：<span class='k'>经验回放</span>治相关性，<span class='k'>固定 Q 目标</span>治非平稳。"]},
+{"r": [38, 39], "t": "经验回放", "star": 3, "one": "把走过的 tuple 存进一个<b>回放缓冲区</b>，以后反复抽出来重训。", "eq": "缓冲区 D 里存着 (s₁,a₁,r₁,s₂), (s₂,a₂,r₂,s₃), …\n\n重复：\n  (s,a,r,s′) ~ D            从缓冲区随机抽一条\n  目标 = r + γ·max_{a′} Q̂(s′,a′; w)\n  Δw = α·( 目标 − Q̂(s,a; w) )·∇_w Q̂(s,a; w)", "pts": ["朴素 TD/Q-learning <b>一条数据用一次就扔</b>——省内存，但极浪费。", "<span class='k'>同一条 tuple 每次被重放，目标值都不一样</span>，因为 Q 已经变了。"], "say": "有人问缓冲区满了怎么换。老师答：<b>常见做法是留最近的，比如最近一百万条</b>，但换谁出去是个有意思的开放问题，还取决于环境有多非平稳。<br>还有人问「回放和多存几帧是不是一回事」——<b>不是</b>：多存帧是改状态表示，回放是把旧数据再用一遍。"},
+{"r": [40, 40], "t": "固定 Q 目标", "star": 3, "one": "算目标时用<b>另一组、较旧的权重</b> <code>w⁻</code>，隔一阵才同步一次。", "eq": "目标 = r + γ·max_{a′} Q̂(s′, a′; w⁻)     ← 用旧权重\nΔw  = α·( 目标 − Q̂(s,a; w) )·∇_w Q̂(s,a; w)   ← 更新新权重", "pts": ["<b>为什么有用</b>：监督学习里 y 不动才好拟合。固定 <code>w⁻</code> 就是把 y 暂时钉住。", "<span class='w'>代价</span>：信息往回传得更慢——你在用一组过时的权重评估未来。", "<code>w⁻</code> 每隔 n 步同步成 <code>w</code>。<b>n=1 就退回普通 TD，n=∞ 就永不更新</b>，中间是一条连续的取舍。"], "say": "有人问这招是不是深度网络专属。老师答：<b>不是</b>，线性逼近器一样能用；只是复杂逼近器下大家更担心稳定性。<br>还有人追问「这还算梯度下降吗」。老师承认：<b>Q-learning 这类本来就不是真正的梯度下降</b>，只是近似，而且<span class='w'>这些招数并不带来收敛保证</span>——只是经验上管用。"},
+{"r": [41, 42], "t": "DQN 小结", "one": "经验回放 + 固定 Q 目标 + 小批量 SGD + ε-贪婪。", "eq": "存 (s_t, a_t, r_{t+1}, s_{t+1}) 进回放池 D\n从 D 抽一个随机小批量\n用旧参数 w⁻ 算 Q-learning 目标\n最小化 Q 网络与目标之间的均方误差，SGD 更新 w", "pts": ["<b>课件没写但很重要的一条</b>：探索仍然是朴素的 ε-贪婪，<span class='k'>原始论文并没有用什么高级探索</span>。"]},
+{"r": [43, 44], "t": "Demo 与 Atari 结果", "star": 2, "one": "50 个游戏里很多达到人类水平；也有一批做得很差。", "pts": ["<b>「人类水平」指的是渐近性能</b>，不包括学会它花了多少经验——那往往极多。", "垫底的那批多是<span class='w'>难探索的游戏</span>，后面讲探索时会回来。"], "say": "打砖块的 demo 里，agent 自己发现了<b>先在边上打通一个洞、让球跑到顶上来回弹</b>的打法。老师的评语：你让它最大化奖励，数据够多它就真会找到最好的办法。<br>有同学问为什么球拍一直乱抖。老师答：<b>移动没有代价，所以抖不抖对它没区别</b>，那只是探索时的「牙牙学语」；想让它别抖，就给移动加个代价。"},
+{"r": [45, 45], "t": "消融实验：哪一样最重要", "star": 3, "one": "<b>回放。而且不是小胜，是碾压。</b>", "eq": "游戏            线性   深度网络  +固定Q  +回放   +回放且固定Q\nBreakout          3       3       10     241      317\nEnduro           62      29      141     831     1006\nRiver Raid     2345    1453     2868    4102     7447\nSeaquest        656     275     1003     823     2894\nSpace Invaders  301     302      373     826     1089", "pts": ["Breakout：固定 Q 只把 3 抬到 10，<span class='k'>加上回放直接到 241</span>。", "<b>用完就扔数据是个很糟的做法。</b>", "有几个游戏里换成深度网络本身就带来明显提升（River Raid、Seaquest）。"], "say": "有同学指出：那按这张表，「线性 + 回放 + 固定 Q」说不定也不错？老师承认<b>表里没有这一栏</b>，而且这确实值得试；她提到有人把深度网络前半段当特征提取器、最后一层直接做线性回归（甚至贝叶斯线性回归），两头的好处都要。"},
+{"r": [46, 46], "t": "三个立竿见影的改进", "one": "Double DQN · 优先经验回放 · Dueling DQN。", "pts": ["Van Hasselt et al., AAAI 2016；Schaul et al., ICLR 2016；Wang et al., ICML 2016（最佳论文）。", "<span class='k'>这三样是层层叠上去的</span>，后面的图会一路对比。"]},
+{"r": [47, 49], "t": "Double DQN", "star": 3, "one": "<b>用当前网络挑动作，用旧网络评估它。</b>", "eq": "普通 DQN：  目标 = r + γ·max_{a′} Q̂(s′, a′; w⁻)\n\nDouble DQN：目标 = r + γ· Q̂( arg max_{a′} Q̂(s′,a′; w) , w⁻ )\n                            └─ 用 w 选 ─┘      └ 用 w⁻ 评 ┘", "pts": ["治的是第四讲那个<b>最大化偏差</b>：估计值的 max 会系统性高估真值的 max。", "<span class='k'>改动极小</span>——目标网络本来就有，只是把「选」和「评」分给两组权重。", "「一点点代码换来立竿见影的提升」。"]},
+{"r": [50, 51], "t": "Double DQN 的效果", "one": "在很多 Atari 游戏上收益很大。", "pts": ["图出自 van Hasselt, Guez, Silver, 2015。"]},
+{"r": [52, 52], "t": "回到火星车", "star": 2, "one": "为了讲清「回放顺序有多要紧」，先把第三讲那条轨迹搬回来。", "eq": "R = [1 0 0 0 0 0 10]，π=a1，γ=1，到 s1/s7 下一步终止\n轨迹 = (s3,a1,0, s2,a1,0, s2,a1,0, s1,a1,1, 终止)\n\n首次访问 MC： [1 1 1 0 0 0 0]\nTD（α=1）：   [1 0 0 0 0 0 0]"},
+{"r": [53, 54], "t": "回放的顺序会带来指数级差别", "star": 3, "one": "<b>同样两次回放，顺序不同，结果完全不同。</b>", "eq": "可回放的四条 tuple：\n  ① (s3,a1,0,s2)   ② (s2,a1,0,s2)\n  ③ (s2,a1,0,s1)   ④ (s1,a1,1,终止)\n\n只许做两次，正确顺序是 ③ 然后 ①：\n  做 ③：V(s2) ← 0 + γ·V(s1) = 1\n  做 ①：V(s3) ← 0 + γ·V(s2) = 1\n  ⇒ 得到 [1 1 1 0 0 0 0]，和蒙特卡洛一模一样\n\n若先做 ①：那时 V(s2) 还是 0，这一步白做。", "pts": ["<b>必须从靠近奖励的那一端往回做。</b>", "Schaul et al. ICLR 2016 用一个能挑最优顺序的「神谕」做实验：<span class='k'>收敛所需更新次数呈指数级下降</span>。", "神谕当然算不出来，但它说明了顺序值多少钱。"], "say": "老师现场举手表决，课堂选对了 ③ 再 ①。她借此点出：<b>不只要想「往回放池里放什么」，还要想「按什么顺序抽」。</b>"},
+{"r": [55, 56], "t": "优先经验回放", "star": 3, "one": "按 <b>DQN 误差</b>给每条 tuple 定优先级，误差大的多抽。", "eq": "p_i = | r + γ·max_{a′} Q(s_{i+1},a′; w⁻) − Q(s_i,a_i; w) |\n\nP(i) = p_i^α / Σ_k p_k^α\n\n每次更新后重算 p_i；新 tuple 的 p 设为 0", "pts": ["<code>α = 0</code> ⇒ <span class='k'>所有 tuple 概率相等，退回均匀采样</span>。", "<code>α → ∞</code> ⇒ 只抽误差最大的那一条。", "<b>α 就是一根从「完全不排序」到「只看最大误差」的旋钮。</b>"], "say": "有同学发现一处张力：<b>固定 Q 目标会把信息往回传这件事拖慢，那还讲什么顺序？</b> 老师承认这确实是个取舍——但回放池可能有一百万条，而权重每几十步就更新一次，<span class='k'>在两次同步之间，顺序照样很重要</span>。"},
+{"r": [57, 58], "t": "优先回放的效果", "one": "大多数游戏上优于 Double DQN。", "pts": ["图出自 Schaul et al. ICLR 2016：零线以上表示优先回放更好。"]},
+{"r": [59, 60], "t": "优势函数与 Dueling DQN", "star": 3, "one": "<b>「这个状态好不好」和「这个动作比别的好多少」，该看的特征不一样。</b>", "eq": "优势函数（Baird 1993）：A^π(s,a) = Q^π(s,a) − V^π(s)\n\nDueling 网络：一条支路估 V̂(s)，另一条估 Â(s,a)，最后再合成 Q̂", "pts": ["例子：<b>游戏分数</b>对预测 <code>V(s)</code> 很有用，但<span class='w'>对判断此刻哪个动作更好几乎没用</span>。", "<span class='k'>我们真正要的是后者。</span>所以把两件事拆成两条支路分别学。", "这是<b>纯粹的结构选择</b>，训练方式没变。"]},
+{"r": [61, 62], "t": "可辨识性问题", "star": 3, "one": "<code>Q = V + A</code> 是<b>不可辨识</b>的：V 加一个常数、A 减同一个常数，Q 不变。", "eq": "做法一（强制被选动作的 A 为 0）：\n  Q̂(s,a;w) = V̂(s;w) + [ Â(s,a;w) − max_{a′} Â(s,a′;w) ]\n\n做法二（用均值当基线，更稳）：\n  Q̂(s,a;w) = V̂(s;w) + [ Â(s,a;w) − (1/|A|)·Σ_{a′} Â(s,a′;w) ]", "pts": ["所以必须<b>额外钉一个约束</b>，否则两条支路各自的值毫无意义。", "<span class='k'>课件说做法二更稳</span>，这也是实践中常用的那个。"]},
+{"r": [63, 63], "t": "Dueling 的效果", "one": "在「Double DQN + 优先回放」之上再涨一截。", "pts": ["图出自 Wang et al., ICML 2016。<b>三个改进是叠加的</b>：DQN &lt; Double DQN &lt; +优先回放 &lt; +Dueling。"]},
+{"r": [64, 66], "t": "实操建议（来自 John Schulman）", "star": 3, "one": "课件最后三页全是踩坑经验。", "pts": ["<b>拿 Pong 当体检</b>：DQN 在它上面很可靠，跑不出好成绩就是哪里错了。", "<b>回放池越大越稳</b>，所以内存效率是关键：用 uint8 存图，别重复存数据。", "<b>要有耐心</b>：Atari 常要 1000–4000 万帧（GPU 上几小时到一天）才明显好过随机策略。", "对贝尔曼误差试 <b>Huber 损失</b>：<code>|x| ≤ δ</code> 时用 <code>x²/2</code>，否则用 <code>δ|x| − δ²/2</code>。", "<b>至少跑两个随机种子</b>；学习率做调度，早期探索阶段可以调高。", "想检验你的预处理，就<b>自己照着处理后的画面玩一局</b>。"], "say": "老师特别强调作业的顺序：<b>先把线性情形的 Q-learning 跑通</b>，再上 Atari。「不然你要等十二个小时才发现 Pong 什么都没学到。」"},
+{"r": [67, 68], "t": "这一讲讲完了", "one": "上一讲：值函数逼近；这一讲：带函数逼近的 RL、深度 RL。", "pts": ["作业二要实现的是 <b>DQN</b>，不是那三个改进；但知道它们存在很有必要。"]}
+];
+
+var TH = null;
+
+(function(){
+  var PDF="../slides/lecture6.pdf", MAX=68;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l06quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l06p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l06quiz");
+      localStorage.removeItem("l06p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
