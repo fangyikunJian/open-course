@@ -47,6 +47,7 @@ except Exception:
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _course  # noqa: E402
+import theme  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TPL = os.path.join(HERE, "reader_template.html")
@@ -302,7 +303,9 @@ def render(co, L, d, th=None):
         s = s.replace(a, b)
     left = [a for a, _ in sub if a in s]
     assert not left, "模板里还有没填的占位符：%s" % left
-    return s
+    # 最后一步：把写死暗色的壳改造成「浅色纸感默认 + ☾ 切暗色」。
+    # ⚠ 这个函数的形参 th 是**科研主线**（co.load_thread），不是主题 —— 别改错。
+    return theme.apply_theme(s)
 
 
 def main():

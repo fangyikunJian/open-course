@@ -1,0 +1,713 @@
+{
+ "_目标": {"密度": 400, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "Markov 条件（p47 原文）：p(s_{t+1}|s_t,a_t) = p(s_{t+1}|h_t,a_t)",
+  "火星车（p56）：状态 s1…s7；动作 左/右；奖励 s1=+1，s7=+10，其余 0",
+  "火星车转移模型（p59）：0.5 = P(s1|s1,right) = P(s2|s1,right)；0.5 = P(s2|s2,right) = P(s3|s2,right) …",
+  "p63 与 p74/p75 的值函数例子用的是 γ=0，不是 γ=1",
+  "γ=0 时 V^π(s1)=+1, V^π(s7)=+10, 其余为 0（即只剩即时奖励）",
+  "值函数定义（p62）：V^π(s_t=s) = E_π[r_t + γr_{t+1} + γ²r_{t+2} + … | s_t=s]",
+  "⚠ CS234 的回报下标从 r_t 起；Sutton & Barto 写 R_{t+1} 起，差一位"
+ ],
+ "notes": [
+  {
+   "r": [43, 43],
+   "t": "交互回路：离散时间，三件事一轮",
+   "star": 2,
+   "quote": "<b>Sequential Decision Process: Agent &amp; the World (Discrete Time)</b><br>Each time step <em>t</em>: Agent takes an action <em>a<sub>t</sub></em> · World updates given action <em>a<sub>t</sub></em>, emits observation <em>o<sub>t</sub></em> and reward <em>r<sub>t</sub></em> · Agent receives observation <em>o<sub>t</sub></em> and reward <em>r<sub>t</sub></em>",
+   "one": "<b>技术正文从这里开始。一轮三件事：你动 → 世界更新并吐出观测和奖励 → 你收到它们。</b>",
+   "pts": [
+    "<b>「离散时间」是一个建模假设，不是事实。</b> 真实世界是连续的；把它切成 t=1,2,3… 是我们选的。切得粗一点每步信息多、序列短；切得细一点相反。<span class='k'>这个选择直接决定了后面「有效时域 H」有多长</span>，而 H 是几乎所有样本复杂度结论里的指数项。",
+    "<b>注意课件把 agent 的动作放在最前面。</b> 一轮是「先动，后看」，不是「先看，后动」。这个顺序要紧：<b>t 时刻的观测 oₜ 是你在 t 时刻动作之后才拿到的</b>，所以用 oₜ 去决定 aₜ 是错的时序。后面写算法时下标搞错，多半源于这里。",
+    "<b>observation 和 state 是两个词，这一页只出现了 observation。</b> 课件到 p45 才引入 state，而且立刻分成「世界状态」与「agent 状态」两种。<span class='w'>这三个词在本课里从不混用</span>，混了后面 POMDP 那一段就读不懂。",
+    "⚠️ 奖励 rₜ 是<b>世界给的</b>，不是 agent 算的。这一点在 p28「奖励从哪来」那页被质疑过——奖励函数是人写的，写错了整个问题就错了。"
+   ],
+   "tbl": {
+    "head": ["一轮里的三步", "谁做的", "产出"],
+    "rows": [
+     ["① 采取动作 a<sub>t</sub>", "agent", "动作"],
+     ["② 按 a<sub>t</sub> 更新，吐出 o<sub>t</sub> 与 r<sub>t</sub>", "<b>世界</b>", "观测 + 奖励"],
+     ["③ 收到 o<sub>t</sub> 与 r<sub>t</sub>", "agent", "更新内部状态"]
+    ]
+   },
+   "tip": {
+    "t": "记号",
+    "v": "本课全程用 <code>a</code> 动作 · <code>o</code> 观测 · <code>r</code> 奖励 · <code>s</code> 状态 · <code>h</code> 历史。<b>观测 o 与状态 s 是两件事</b>，只有在完全可观测（p50）时才相等。"
+   }
+  },
+  {
+   "r": [44, 44],
+   "t": "历史：到目前为止的全部记录",
+   "star": 2,
+   "quote": "<b>History: Sequence of Past Observations, Actions &amp; Rewards</b><br><em>h<sub>t</sub> = (a<sub>1</sub>, o<sub>1</sub>, r<sub>1</sub>, ..., a<sub>t</sub>, o<sub>t</sub>, r<sub>t</sub>)</em><br>Agent chooses action based on history · <em>State is information assumed to determine what happens next</em> · Function of history: <em>s<sub>t</sub> = f(h<sub>t</sub>)</em>",
+   "one": "<b>历史 hₜ 是到 t 为止的全部动作、观测、奖励。状态是「假定足以决定接下来会发生什么」的那部分信息，而它是历史的一个函数。</b>",
+   "pts": [
+    "<b>课件对 state 的定义里有一个词要重读：<em>assumed</em>（假定）。</b> 状态不是客观存在的东西，是<span class='k'>你假定它足够</span>。这一个词把后面整段（p45–p49）都串起来了——Markov 性不是世界的属性，是你对所选表示的一个断言。",
+    "<b>hₜ 会无限增长。</b> 这是为什么必须有 sₜ = f(hₜ) 这个压缩：直接拿历史当状态在数学上永远成立（p49 会明说），但在计算上不可行。<b>整个状态表示的学问就是在找一个「压得够狠又没丢关键信息」的 f</b>。",
+    "<b>「agent 基于历史选动作」这句话是默认设定，不是最终设定。</b> 后面所有算法都会把它替换成「基于状态选动作」，而这个替换只有在状态是充分统计量时才无损。",
+    "⚠️ 注意 hₜ 里<b>包含动作</b>。有些教材的历史只记观测，本课不是。写下标时要小心。"
+   ],
+   "say": "她讲这一页时强调的是「<b>state is a function of history</b>」这个结构，而不是某个具体的状态定义。这门课后面讲的每一种表示——表格状态、线性特征、CNN 特征、RNN 隐状态——<b>全都是在填这个 f</b>。"
+  },
+  {
+   "r": [45, 45],
+   "t": "世界状态：真的那个，通常你看不见",
+   "star": 2,
+   "quote": "<b>World State</b> — This is <em>true state of the world</em> used to determine how world generates next observation and reward · <em>Often hidden or unknown to agent</em> · <em>Even if known may contain information not needed by agent</em>",
+   "one": "<b>世界状态是真正决定下一个观测和奖励的那个东西——而它通常对 agent 隐藏，且就算给你也多半含有你不需要的信息。</b>",
+   "pts": [
+    "<b>两句限定各自指向一类问题。</b> 「通常隐藏」→ 部分可观测（p51–p52）；「就算知道也含有不需要的信息」→ <span class='k'>状态抽象与表示学习</span>。后者常被忽略，但它才是实际工程里更常见的那个问题。",
+    "<b>第二句值得多想一层。</b> 一个完全正确但过于精细的状态（比如把每个原子的位置都算上）在数学上是 Markov 的，在统计上却是灾难——<b>状态越细，每个状态被访问到的次数越少，你需要的数据越多</b>。这条线索在 p49 会被明确写成「state representation has big implications for data required」。",
+    "<b>所以「更精确的状态」不等于「更好的状态」。</b> 这与监督学习里「特征越多越好（有正则化就行）」的直觉相反，是本课第一个明显的直觉反转。"
+   ],
+   "tbl": {
+    "head": ["情形", "世界状态", "对 agent 的后果"],
+    "rows": [
+     ["完全可观测", "= 观测", "MDP（p50）"],
+     ["隐藏", "看不到", "POMDP，要自己构造状态（p51）"],
+     ["可见但过细", "看得到但太大", "<b>数据不够</b>，需要抽象"]
+    ]
+   }
+  },
+  {
+   "r": [46, 46],
+   "t": "agent 状态：你实际拿来做决策的那个",
+   "star": 3,
+   "quote": "<b>Agent State: Agent's Internal Representation</b> — What the agent / algorithm <em>uses to make decisions about how to act</em> · Generally a function of the history: <em>s<sub>t</sub> = f(h<sub>t</sub>)</em> · Could include <em>meta information</em> like state of algorithm (how many computations executed) or decision process (how many decisions left until an episode ends)",
+   "one": "<b>agent 状态不是「世界是什么样」，是「我拿什么来做决策」。它可以包含元信息——算了多少步、还剩几次决策。</b>",
+   "pts": [
+    "<b>世界状态与 agent 状态的分开，是本讲最重要的一次切分。</b> 前者是本体论问题（世界是什么），后者是<span class='k'>工程决定</span>（我用什么）。本课后面所有的 sₜ 指的都是<b>后者</b>。",
+    "<b>「元信息」那一条不是补充说明，是一个出口。</b> 课件明说 agent 状态可以包含「算了多少次计算」「还剩几次决策」。这打开了一整类做法：<b>把资源预算写进状态</b>。有限时域问题里「还剩几步」必须进状态，否则最优策略会变成非平稳的（这一点 L02 会正式讲）。",
+    "<b>把 f 选成什么，本课给了一条明确的谱</b>：sₜ = oₜ（只用最近观测，最省）→ sₜ = 最近 k 个观测 → sₜ = 信念状态 → sₜ = RNN 隐状态 → sₜ = hₜ（全历史，最贵但永远 Markov）。<b>越往右越安全，越往左越可算</b>。",
+    "⚠️ 别把 agent 状态理解成「对世界状态的估计」。它可以是，但不必是——它只需要<b>足够支撑决策</b>，不需要还原世界。"
+   ],
+   "tbl": {
+    "head": ["f 的选法", "s<sub>t</sub> =", "Markov?", "代价"],
+    "rows": [
+     ["最近观测", "o<sub>t</sub>", "<b>不一定</b>", "最便宜"],
+     ["最近 k 个", "(o<sub>t−k+1</sub>…o<sub>t</sub>)", "不一定", "便宜（DQN 用 k=4）"],
+     ["信念状态", "P(世界状态 | h<sub>t</sub>)", "是", "要模型，贵"],
+     ["RNN 隐状态", "学出来的压缩", "近似", "要训练"],
+     ["全历史", "h<sub>t</sub>", "<b>永远是</b>", "不可行（p49）"]
+    ]
+   },
+   "say": "她把这一页讲成「<b>算法能拿到什么</b>」而不是「世界是什么」。这个措辞值得记——它把状态从哲学问题变回工程问题。"
+  },
+  {
+   "r": [47, 47],
+   "t": "Markov 条件：充分统计量",
+   "star": 3,
+   "quote": "<b>Markov Assumption</b> — <em>Information state: sufficient statistic of history</em><br>State s<sub>t</sub> is Markov <em>if and only if</em>: <b>p(s<sub>t+1</sub>|s<sub>t</sub>, a<sub>t</sub>) = p(s<sub>t+1</sub>|h<sub>t</sub>, a<sub>t</sub>)</b><br><em>Future is independent of past given present</em>",
+   "one": "<b>状态是 Markov 的，当且仅当「知道 sₜ 和 aₜ」与「知道整段历史 hₜ 和 aₜ」对预测 sₜ₊₁ 一样好。</b>",
+   "pts": [
+    "<b>把这个式子读成一句话：历史里除了 sₜ 之外的部分，对预测未来没有增量信息。</b> 这就是「充分统计量」的意思——<span class='k'>不是「历史不重要」，是「历史的信息已经全在 sₜ 里了」</span>。",
+    "<b>「未来与过去在给定现在下独立」是同一件事的概率语言版。</b> 两种说法要都能认出来：式子形式出现在算法推导里，独立性形式出现在证明里。",
+    "<b>这是一个关于「你选的那个 sₜ」的断言，不是关于世界的断言。</b> 同一个世界，换一种状态表示，Markov 性就变了。<b>所以「这个系统是不是 Markov 的」是个问错的问题</b>，正确的问法是「<b>我选的这个表示是不是充分的</b>」。下一页两道自查题就在练这件事。",
+    "⚠️ <b>Markov 不要求「无记忆」。</b> 一个把过去十步都打包进去的状态照样可以是 Markov 的——只要它足够。混淆「Markov」与「只看当前观测」是最常见的错。"
+   ],
+   "eq": "p(s_{t+1} | s_t, a_t) = p(s_{t+1} | h_t, a_t)\n\n「给定 s_t 与 a_t，h_t 的其余部分不提供额外信息」",
+   "tip": {
+    "t": "记号陷阱",
+    "v": "课件写的是 <b>if and only if</b>（当且仅当），所以这是 Markov 性的<b>定义</b>，不是一个充分条件。判断时两边都要想：满足式子 ⇒ Markov；Markov ⇒ 满足式子。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这个式子就是你 P2 vs P3 消融要检验的那个等式，只要把符号换掉。</b><br>令 h 为「已执行的部分轨迹」，s 为「(query, 节点 id)」。P2 假设的正是<br><code>p(结果 | query, 节点id, 动作) = p(结果 | 部分轨迹, 动作)</code><br>——即<b>节点下标 + query 是部分轨迹的充分统计量</b>。P3 不做这个假设。<br>所以你的消融<span class='k'>不是在比两个特征集，是在检验一个 Markov 断言</span>。这个说法对审稿人更有力：你不是「试了两种输入发现差不多」，你是<b>检验了一个可写成等式的条件并报告了它成立到什么程度</b>。<br>配套的量化判据已经定了：<b>序贯信息带来的提升不到 2 个百分点就别用 MDP 框架</b>。<br>标【推断】：符号对应是我做的；「2 个百分点」这条判据本身在简报里是【已核】。",
+    "ref": "简报 §5（P2/P3 消融与 2 个百分点判据，已核）"
+   }
+  },
+  {
+   "r": [48, 48],
+   "t": "两道自查题：同一个系统，换表示就换答案",
+   "star": 3,
+   "quote": "<b>Markov Assumption for Prior Examples</b><br><em>Hypertension control</em>: let state be current blood pressure, and action be whether to take medication or not. <em>Is this system Markov?</em><br><em>Website shopping</em>: state is current product viewed by customer, and action is what other product to recommend.",
+   "one": "<b>两道题的答案都是「不是」——而关键在于，不是世界不 Markov，是这两个状态选得不够。</b>",
+   "pts": [
+    "<b>高血压那题。</b> 状态＝当前血压，动作＝吃不吃药。不 Markov，因为<span class='w'>同样的血压值，来自不同的病史，对药的反应不同</span>：是否已经在服药、服了多久、有没有耐药、有无并发症——这些都影响下一步血压，而当前血压值一个数装不下它们。",
+    "<b>购物那题。</b> 状态＝当前浏览的商品，动作＝推荐什么。不 Markov，因为<b>同一个商品页，来自不同的浏览路径，意味着完全不同的意图</b>：刚从搜索进来 vs 已经比价了半小时 vs 刚退过货。下一步点什么明显依赖这些。",
+    "<b>两题的病因是同一个：状态把「路径」丢了，而路径携带信息。</b> 这正是 p47 那个式子失败的样子——`p(s'|s,a) ≠ p(s'|h,a)`，因为 h 里有 s 装不下的东西。",
+    "<b>修法也是同一个：把丢掉的那部分加回状态。</b> 高血压加「用药史 + 时长」，购物加「最近 k 次点击」。<span class='k'>加进去之后它就 Markov 了</span>——这再一次说明 Markov 性是表示的属性。",
+    "⚠️ 但加回去有代价：状态变大 → 每个状态的数据变少 → 估计变差。<b>这就是下一页要讲的权衡。</b>"
+   ],
+   "tbl": {
+    "head": ["例子", "给的状态", "历史里被丢掉的", "为什么破坏 Markov"],
+    "rows": [
+     ["高血压控制", "当前血压", "用药史、服药时长、耐药、并发症", "同一血压对药的反应不同"],
+     ["网站购物", "当前浏览商品", "浏览路径、停留时长、比价行为", "同一页面背后意图不同"]
+    ]
+   },
+   "say": "她把这两题当堂抛给学生，<b>要的不是「是/否」而是「缺了什么」</b>。这个提问方式本身是这一段的教学重点：遇到 Markov 性问题，先问「历史里还有什么没装进状态」。"
+  },
+  {
+   "r": [49, 49],
+   "t": "为什么这个假设这么流行——以及它真正的代价",
+   "star": 3,
+   "quote": "<b>Why is Markov Assumption Popular?</b><br><em>Can always be satisfied</em> · Setting state as history always Markov: <b>s<sub>t</sub> = h<sub>t</sub></b><br>In practice often assume most recent observation is sufficient statistic of history: <b>s<sub>t</sub> = o<sub>t</sub></b><br><em>State representation has big implications for</em>: <b>Computational complexity · Data required · Resulting performance</b>",
+   "one": "<b>Markov 假设总能被满足——取 sₜ = hₜ 就行。所以它从来不是「成不成立」的问题，而是「你愿意为它付多少」的问题。</b>",
+   "pts": [
+    "<b>「Can always be satisfied」这一句，是整讲最容易被读漏、也最重要的一句。</b> 它说明 Markov 性<span class='w'>不是一个需要验证的经验事实</span>，而是一个<b>你总能通过扩大状态来买到的性质</b>。于是真正的问题从「它成立吗」变成「<b>为了让它成立，我把状态撑到了多大</b>」。",
+    "<b>实践中的另一端是 sₜ = oₜ</b>——只用最近的观测。这最便宜，但几乎一定不充分（p48 两题就是例子）。<b>所有实际工作都在这两端之间选点。</b>",
+    "<b>课件给出的代价有三项，而且它们不是并列的。</b> 计算复杂度与所需数据量是你<b>付出</b>的，最终性能是你<b>得到</b>的。往右走（状态更丰富）前两项涨，第三项<span class='k'>先涨后跌</span>——因为数据被摊薄。<b>存在一个最优点，而它取决于你有多少数据。</b>",
+    "<b>这一页因此是整门课的隐藏主线。</b> L05 的函数逼近、L06 的 CNN、L11–L13 的样本复杂度界，全都在同一条权衡曲线上的不同位置。"
+   ],
+   "tbl": {
+    "head": ["状态表示", "Markov?", "计算复杂度", "所需数据", "什么时候用"],
+    "rows": [
+     ["s<sub>t</sub> = o<sub>t</sub>", "多半不是", "最低", "最少", "观测确实充分时"],
+     ["s<sub>t</sub> = 最近 k 个", "近似", "低", "少", "DQN 用 k=4 帧"],
+     ["学出来的特征", "近似", "中", "中（要训练）", "状态大但有结构"],
+     ["s<sub>t</sub> = h<sub>t</sub>", "<b>永远是</b>", "<b>不可行</b>", "<b>爆炸</b>", "只在理论分析里"]
+    ]
+   },
+   "tip": {
+    "t": "记这一条",
+    "v": "把「这个问题是不是 MDP」这个问法<b>整个丢掉</b>。换成两问：<b>①我选的表示充分吗？②为了让它充分，我付了多少数据？</b>这两问在本课后面每一讲都还用得上。"
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页把你的形式化选择变成了一个可量化的权衡，而不是一个流派之争。</b><br>「Markov 总能满足」意味着：把部分轨迹全塞进状态（P3），你的问题<b>一定</b>是 MDP。所以「它是不是 MDP」这个争论没有内容——<span class='k'>有内容的是「为了让它是，你付了多少数据」</span>。<br>而你付的正是课件列的第二项（data required），在你这里有精确形式：<b>随机化节点数 k 每加 1，ESS 减半</b>（<code>E[m] = n·2^(−k)</code>）。k=10 时 ESS = n/1024。<br>于是整件事变成一句可写进论文的话：<b>更丰富的状态表示买来 Markov 性，代价是有效样本量指数下降；我们用一步偏离扫描把 k 压到 3~4，换取 64 倍 ESS。</b><br>这也解释了为什么<b>顺序必须是「先扫描，后估计」</b>：扫描是在决定状态表示，而状态表示决定了你后面还有多少数据可用。先挑估计量再补扫描，是在对一个还没定下来的分母做优化。<br>那张敏感度表本身就是论文插图。",
+    "ref": "简报 §4b（ESS 推导，已核）· §4c（先扫描后 OPE，已核）· 本页课件原文三项代价"
+   }
+  },
+  {
+   "r": [50, 50],
+   "t": "完全可观测：MDP",
+   "star": 2,
+   "quote": "<b>Full Observability / Markov Decision Process (MDP)</b> — Environment and world state <b>s<sub>t</sub> = o<sub>t</sub></b>",
+   "one": "<b>观测就是世界状态时，问题叫 MDP。</b>",
+   "pts": [
+    "<b>MDP 是一个「运气好」的特例，不是默认情形。</b> 本课绝大部分内容在 MDP 上展开，是因为它可解，不是因为它常见。",
+    "<b>注意这一页只有一个式子。</b> 课件在这里极简，因为真正的内容在前两页——MDP 只是「表示充分」这件事的一个名字。",
+    "⚠️ <b>「完全可观测」不等于「模型已知」。</b> MDP 里你可能看得见状态但不知道转移概率——那仍然是 RL 问题（L03 起）。模型已知的那一半叫规划（L02）。这两件事经常被并在一起读错。"
+   ],
+   "tbl": {
+    "head": ["", "状态可见?", "模型已知?", "叫什么", "本课"],
+    "rows": [
+     ["①", "是", "是", "规划 / 动态规划", "L02"],
+     ["②", "是", "<b>否</b>", "<b>MDP 上的 RL</b>", "L03–L10"],
+     ["③", "否", "是/否", "POMDP", "本课基本不展开"]
+    ]
+   }
+  },
+  {
+   "r": [51, 52],
+   "t": "部分可观测：POMDP，自己造状态",
+   "star": 2,
+   "quote": "<b>Partial Observability / POMDP</b> — <em>Agent state is not the same as the world state</em> · Agent constructs its own state, e.g. use history <em>s<sub>t</sub> = h<sub>t</sub></em>, or <em>beliefs</em> of world state, or <em>RNN</em>, ...<br><b>Examples</b>: <em>Poker player (only sees own cards)</em> · <em>Healthcare (don't see all physiological processes)</em>",
+   "one": "<b>agent 状态 ≠ 世界状态时，agent 必须自己造一个状态出来——用历史、用信念、或者用 RNN。</b>",
+   "pts": [
+    "<b>三条造法正好对应三种代价。</b> 用历史：永远正确但不可行。用信念（对世界状态的后验分布）：正确且紧凑，但<span class='w'>要有模型才能算后验</span>。用 RNN：不要模型，但只是近似，且要训练数据。",
+    "<b>两个例子选得很好，因为它们的「看不见」不同。</b> 扑克是<b>对抗性的不可见</b>（别人故意不让你看见），医疗是<b>测不到的不可见</b>（生理过程没有传感器）。前者要考虑对手会利用你的无知，后者不用。",
+    "<b>POMDP 在本课基本不展开</b>（p28「本课基本不讲的」里有交代）。但它的思路渗透在别处：DQN 把最近 4 帧堆起来当状态，就是在用「最近 k 个观测」近似解决部分可观测。",
+    "⚠️ <b>别把 POMDP 读成「MDP 加噪声」。</b> 加噪声的 MDP 仍是 MDP（转移是随机的而已）。POMDP 的困难是<b>你不知道自己在哪个状态</b>，这会让最优策略依赖整个历史，计算复杂度是另一个量级。"
+   ],
+   "tbl": {
+    "head": ["造状态的办法", "要不要模型", "精确?", "代价"],
+    "rows": [
+     ["s<sub>t</sub> = h<sub>t</sub>（全历史）", "不要", "<b>精确</b>", "不可行"],
+     ["信念状态 P(世界状态\\|h<sub>t</sub>)", "<b>要</b>", "精确", "算后验很贵"],
+     ["RNN 隐状态", "不要", "近似", "要训练"],
+     ["最近 k 个观测", "不要", "近似", "最便宜（DQN k=4）"]
+    ]
+   }
+  },
+  {
+   "r": [53, 53],
+   "t": "赌博机：动作不影响下一个观测",
+   "star": 3,
+   "quote": "<b>Types of Sequential Decision Processes: Bandits</b> — <em>Bandits: actions have no influence on next observations</em> · <em>No delayed rewards</em>",
+   "one": "<b>赌博机 = 你的动作不改变接下来看到什么，也没有延迟奖励。序贯性被抽掉了，只剩探索。</b>",
+   "pts": [
+    "<b>赌博机不是「简单的 RL」，是「抽掉了一个要素的 RL」。</b> 回到 p14 四要素：赌博机保留了优化、探索、泛化，<span class='k'>只去掉延迟后果</span>。所以它仍然很难——难的部分全在探索上。",
+    "<b>去掉延迟后果换来了什么？</b> 换来了<b>功劳分配问题消失</b>：每个动作的奖励当场可见，不需要往回推。这让理论分析变得可做，于是赌博机有非常紧的 regret 界，而完整 MDP 没有。",
+    "<b>上下文赌博机（contextual bandit）是中间态</b>：每轮先看到一个上下文 x，再选动作，奖励依赖 (x, a)，但你的动作不影响下一个 x。<b>大量真实问题其实是这一类</b>——推荐、广告、路由——而它们常被误当成完整 RL 来做。",
+    "⚠️ <b>判断标准只有一条：你的动作改不改变下一个观测的分布。</b> 不改变 → 赌博机。改变 → MDP/POMDP。别看问题「感觉起来有多序贯」。"
+   ],
+   "tbl": {
+    "head": ["", "动作影响下一个观测?", "延迟奖励?", "核心困难", "本课"],
+    "rows": [
+     ["赌博机", "否", "否", "纯探索", "L11 L12"],
+     ["上下文赌博机", "否（上下文外生）", "否", "探索 + 泛化", "L11 L12"],
+     ["MDP", "<b>是</b>", "<b>是</b>", "探索 + <b>功劳分配</b>", "L02–L10"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>如果可加性检验通过，你的问题落在这一页而不是下一页——而这不是降级，是更诚实的形式化。</b><br>判据就是课件这一句：<b>节点 h 的选择改不改变 h+1 看到的输入分布</b>？改变，是 MDP；不改变（或改变到可忽略），就是<b>上下文赌博机</b>：上下文 = (query, 节点 id)，动作 = 保真度档位。<br>两个直接好处：<b>一</b>、赌博机有紧的 regret 界而完整 MDP 没有，你能证的东西更多。<b>二</b>、审稿人第 1 拳（「为什么是 MDP 而不是 H 个独立决策」）不攻自破——你已经正面回答了。<br><span class='w'>但要防住第 3 拳</span>：|M|=2、H≤5 时构型空间 ≤32，可穷举，探索机制会显得像表演。解法是<b>加宽保真度集合</b>——7B greedy / 7B self-consistency k=3 / 7B k=8 / 72B greedy / prune。这既是防守也是更好的科学。<br><b>顺带一条 framing</b>：AFlow 自己的选择规则是 top-k + Boltzmann + uniform 混合（λ=0.2, α=0.4），<b>没有访问计数、没有置信上界</b>——它本身就不是 UCT，而更接近一个赌博机式的爬山搜索。你在赌博机框架里做，和它的实际机制反而更一致。",
+    "ref": "简报 §7 第 1、3 拳（已核）· §2（AFlow 选择规则，已核，Algorithm 1 / Appendix A.6 行 28–42）"
+   }
+  },
+  {
+   "r": [54, 54],
+   "t": "MDP / POMDP：动作影响未来",
+   "star": 2,
+   "quote": "<b>Types of Sequential Decision Processes: MDPs and POMDPs</b> — <em>Actions influence future observations</em> · <em>Credit assignment and strategic actions may be needed</em>",
+   "one": "<b>动作影响未来观测时，你就需要功劳分配，也可能需要「战略性动作」——为了以后好而现在故意吃亏。</b>",
+   "pts": [
+    "<b>「strategic actions」这个词课件只提了一次，但它指的是一类很具体的行为</b>：当前奖励不好、但把你带到一个更好的位置的动作。没有延迟后果就不存在这种动作——<span class='k'>赌博机里「最优动作」永远等于「当前期望奖励最高的动作」</span>。",
+    "<b>功劳分配与战略性动作是同一枚硬币的两面。</b> 正着看：这一步为以后铺路（战略）。反着看：以后的好是哪一步铺的（功劳分配）。",
+    "⚠️ 这一页与 p53 合起来是一张分类表，<b>分类依据只有一条</b>：动作影不影响未来观测。记住这一条就够了。"
+   ]
+  },
+  {
+   "r": [55, 55],
+   "t": "世界怎么变：确定性 vs 随机",
+   "star": 1,
+   "quote": "<b>How the World Changes</b> — <em>Deterministic</em>: given history &amp; action, <b>single</b> observation &amp; reward · common in robotics and controls<br><em>Stochastic</em>: given history &amp; action, <b>many potential</b> observations &amp; rewards · common for customers, patients, hard to model domains",
+   "one": "<b>确定性：一个动作一个结果。随机：一个动作一堆可能结果。课件还顺带点了各自的典型领域。</b>",
+   "pts": [
+    "<b>领域的对应不是巧合。</b> 机器人与控制里物理规律稳定，把它当确定性代价不大；顾客与病人则是<span class='w'>本质上不可完全建模</span>的，随机性里装的是「我们没测到的那些变量」。",
+    "<b>确定性假设买来的是什么？</b> 是规划变简单——不用对结果取期望，搜索树不分叉。这就是为什么控制领域能用很深的前向推演。",
+    "⚠️ <b>「随机」在这里既指真随机，也指「我们建模能力之外」。</b> 后者更常见。这一区分在 L02 讲模型误差、L16 讲 certainty-equivalence 时会再出现。"
+   ]
+  },
+  {
+   "r": [56, 56],
+   "t": "火星车：贯穿全课的例子",
+   "star": 3,
+   "quote": "<b>Example: Mars Rover as a Particular MDP</b> — <em>States</em>: location of rover (s<sub>1</sub>, ..., s<sub>7</sub>) · <em>Actions</em>: Left or Right · <em>Rewards</em>: <b>+1 in state s<sub>1</sub>, +10 in state s<sub>7</sub>, 0 in all other states</b>",
+   "one": "<b>七个格子排成一条线，两个动作，两端有奖励：左端 +1，右端 +10，中间全 0。</b>",
+   "pts": [
+    "<b>这个例子会一直用到本讲结束，而且 L02 还会继续用。</b> 值得把三个数字记住：<span class='k'>s₁ 给 +1，s₇ 给 +10，其余 0</span>。后面每次出现值函数、策略、γ 的讨论，都是在这张图上做的。",
+    "<b>例子的设计很讲究：两个奖励一大一小，且在两端。</b> 这样才能造出一个真正的权衡——近的小奖励 vs 远的大奖励，而 <b>γ 决定你选哪个</b>。γ 小就近视，去抓 +1；γ 大就远视，去追 +10。",
+    "<b>这就是 γ 不是超参数的第一个证据。</b> 改 γ 会改变<span class='w'>最优策略本身</span>，不只是缩放值的大小。L02 会算出那个临界 γ。",
+    "⚠️ <b>火星车的动力学是明确写死的教学设定</b>（p59 会给），不是真实探测器。数值别往外引用。"
+   ],
+   "tbl": {
+    "head": ["要素", "这个例子里是什么"],
+    "rows": [
+     ["状态 S", "s<sub>1</sub> … s<sub>7</sub>（位置），共 7 个"],
+     ["动作 A", "Left / Right，共 2 个"],
+     ["奖励 R", "<b>s<sub>1</sub>: +1 · s<sub>7</sub>: +10 · 其余: 0</b>"],
+     ["策略空间大小", "\\|A\\|<sup>\\|S\\|</sup> = 2<sup>7</sup> = 128"]
+    ]
+   }
+  },
+  {
+   "r": [57, 57],
+   "t": "三个部件：模型、策略、值函数",
+   "star": 3,
+   "quote": "<b>RL Algorithm Components</b> — <em>often include one or more of</em>:<br><b>Model</b>: representation of how the world changes in response to agent's action<br><b>Policy</b>: function mapping agent's states to action<br><b>Value function</b>: future rewards from being in a state and/or action when following a particular policy",
+   "one": "<b>三个部件。注意课件的措辞是「often include one or more of」——一个算法不必三个都有。</b>",
+   "pts": [
+    "<b>「one or more」这四个词就是 p64 与 p78 那两张分类表的来源。</b> 有模型的叫 model-based，只有值函数的叫 value-based，只有策略的叫 policy-based，两个都有的叫 actor-critic。<span class='k'>整门课的算法地图就是这三个部件的组合</span>。",
+    "<b>三者不是平行的，有依赖关系</b>：有了模型可以算出值函数与策略（规划）；有了值函数可以导出策略（贪婪）；只有策略则什么都导不出，得直接优化它。<b>所以「拥有哪个部件」决定了你能做什么</b>。",
+    "<b>值函数的定义里有一个限定词不能丢：<em>when following a particular policy</em>。</b> 值函数永远是<b>相对于某个策略</b>的——写作 V^π 而不是 V。脱离策略谈值是没有定义的（除非特指最优值 V*）。"
+   ],
+   "tbl": {
+    "head": ["部件", "回答什么问题", "没有它会怎样"],
+    "rows": [
+     ["模型", "我做了 a，世界会变成什么样？", "不能想象，只能试"],
+     ["策略", "在 s 我该做什么？", "不能行动"],
+     ["值函数", "从 s 出发，按 π 走能拿多少？", "不能比较好坏"]
+    ]
+   }
+  },
+  {
+   "r": [58, 59],
+   "t": "模型：转移 + 奖励，而且可能是错的",
+   "star": 3,
+   "quote": "<b>Model</b> — Transition / dynamics model predicts next agent state: <em>p(s<sub>t+1</sub>=s'|s<sub>t</sub>=s, a<sub>t</sub>=a)</em> · Reward model predicts immediate reward: <em>r(s<sub>t</sub>=s, a<sub>t</sub>=a) = E[r<sub>t</sub>|s<sub>t</sub>=s, a<sub>t</sub>=a]</em><br>p59: 0.5 = P(s<sub>1</sub>|s<sub>1</sub>, right) = P(s<sub>2</sub>|s<sub>1</sub>, right) · <b><em>Model may be wrong</em></b>",
+   "one": "<b>模型是两件东西：转移模型（下一步去哪）和奖励模型（这一步拿多少）。课件最后一句是「模型可能是错的」。</b>",
+   "pts": [
+    "<b>两个模型可以分开学、分开错。</b> 你可能转移模型很准但奖励模型很差，反过来也行。<span class='k'>它们的误差对最终策略的影响也不一样</span>——这一点在 L16 讲模型误差复合时会正式展开。",
+    "<b>奖励模型的定义里是期望：<code>r(s,a) = E[rₜ|sₜ=s, aₜ=a]</code>。</b> 也就是说奖励本身可以是随机的，模型记的是它的均值。",
+    "<b>火星车的转移是教学设定</b>：向右以 0.5 成功、否则原地（<code>0.5 = P(s₁|s₁,right) = P(s₂|s₁,right)</code>）。<b>这个设定让「向右走」变成一件需要时间的事</b>，于是 γ 的影响被放大——这正是它被设计成这样的原因。",
+    "<b>「Model may be wrong」是课件自己加的警告，不是我的补充。</b> 这一句是 model-based RL 全部麻烦的源头：用错的模型规划，会自信地得出错的策略，而且<span class='w'>错误会随着规划步数复合放大</span>。"
+   ],
+   "tbl": {
+    "head": ["模型的两半", "预测什么", "形式", "错了会怎样"],
+    "rows": [
+     ["转移 / 动力学", "下一个状态", "p(s'\\|s,a)", "规划走向错误的未来，<b>误差随步数复合</b>"],
+     ["奖励", "即时奖励的期望", "r(s,a) = E[r<sub>t</sub>\\|s,a]", "目标本身错了，策略朝错方向优化"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>你的问题里这两个模型的可学性差得极远，而这个不对称本身就是一个建模贡献。</b><br><b>成本模型 ≈ 转移模型的角色，但它几乎是确定的</b>：给定保真度与输入长度，token 成本近乎确定 → 直接回归，<b>预期 R² &gt; 0.95，完全不用重要性权重</b>。这是真实且可辩护的方差缩减，值得单独写出来。<br><b>准确率模型才是「may be wrong」的那个</b>：终局奖励，要用 FQE + <b>5 折 cross-fitting</b>（nuisance 不能在自己那折上拟合）。<br>所以<span class='k'>估计量必须拆成两半，两半用不同方法</span>——把它们混在一个估计量里，等于让确定的那一半去承担随机那一半的方差。<br>另外注意：<b>成本报法也要小心。</b> 自托管 vLLM 上 72B/7B 的成本比取决于 batch 占用、TP 度、量化，<span class='w'>不是 OpenAI 价目表</span>。报 token 数 + GPU-秒 + 峰值显存归一吞吐，写明 TP 配置与量化；API 价格另列并明确标注为假设值。这是审稿人第 5 拳。",
+    "ref": "简报 §4e（估计量拆两半，已核）· §7 第 5 拳（成本口径，已核）"
+   }
+  },
+  {
+   "r": [60, 61],
+   "t": "策略：确定性与随机性",
+   "star": 2,
+   "quote": "<b>Policy</b> — π determines how the agent chooses actions · <em>π : S → A</em>, mapping from states to actions<br>Deterministic: <em>π(s) = a</em> · Stochastic: <em>π(a|s) = Pr(a<sub>t</sub>=a|s<sub>t</sub>=s)</em><br>p61: π(s<sub>1</sub>) = ... = π(s<sub>7</sub>) = right · <em>Quick check: is this a deterministic policy or a stochastic policy?</em>",
+   "one": "<b>策略把状态映到动作。确定性策略给一个动作，随机性策略给一个动作上的分布。</b>",
+   "pts": [
+    "<b>p61 那道 quick check 的答案是「确定性」。</b> 每个状态都固定输出 right，没有分布。<span class='k'>别被「箭头图看起来很简单」误导</span>——确定性与随机的区别在于输出的类型，不在于策略复不复杂。",
+    "<b>为什么需要随机策略？</b> 三个理由，本课后面各占一段：①<b>探索</b>（ε-贪婪，L04）；②<b>部分可观测下随机策略可能严格更优</b>（POMDP）；③<b>策略梯度需要可微的策略</b>，而确定性策略对参数不可微（L08）。",
+    "<b>注意 π 的定义域是 S 不是 H。</b> 这是在用 p47 的 Markov 假设——如果状态不充分，把策略限制在 S 上就是在放弃信息。",
+    "<b>还有第四个理由，课件这里没提但后面会大量用到：随机策略让「这个动作被选中的概率」成为一个可记录的数。</b> 确定性策略下这个概率恒为 1 或 0；随机策略下它是 (0,1) 里的值，<span class='k'>而离策略评估的全部数学都建立在这个数身上</span>。L15 会正式讲。",
+    "⚠️ 记号：确定性写 <code>π(s) = a</code>（输出动作），随机写 <code>π(a|s)</code>（输出概率）。<b>两者括号里的东西不一样</b>，读公式时靠这个区分。"
+   ],
+   "tbl": {
+    "head": ["", "形式", "输出", "什么时候必须用"],
+    "rows": [
+     ["确定性", "π(s) = a", "一个动作", "已知模型、完全可观测的规划"],
+     ["随机性", "π(a\\|s) = Pr(a<sub>t</sub>=a\\|s<sub>t</sub>=s)", "动作上的分布", "<b>探索</b> · <b>部分可观测</b> · <b>策略梯度</b>"]
+    ]
+   }
+  },
+  {
+   "r": [62, 62],
+   "t": "值函数：折扣回报的期望",
+   "star": 3,
+   "quote": "<b>Value</b> — Value function V<sup>π</sup>: <em>expected discounted sum of future rewards under a particular policy π</em><br><b>V<sup>π</sup>(s<sub>t</sub>=s) = E<sub>π</sub>[r<sub>t</sub> + γr<sub>t+1</sub> + γ²r<sub>t+2</sub> + γ³r<sub>t+3</sub> + ··· | s<sub>t</sub>=s]</b><br>Discount factor γ weighs immediate vs future rewards",
+   "one": "<b>从状态 s 出发、按策略 π 走下去，未来奖励的折扣和的期望。</b>",
+   "pts": [
+    "<b>拆开看四个部分</b>：<code>E</code>（期望，因为转移和策略都可能随机）、<code>下标 π</code>（按哪个策略走）、<code>γ 的幂次</code>（越远权重越小）、<code>条件在 sₜ=s</code>（从哪出发）。<span class='k'>四个部分缺一个这个式子就不成立</span>。",
+    "<b>γ 的作用课件写得很克制：「weighs immediate vs future rewards」。</b> 但它做的事不止权衡——γ&lt;1 还<b>保证了这个无穷和收敛</b>（奖励有界时）。这是数学上必须有它的理由，L02 会正式证。",
+    "<b>值函数的两个用途课件都列了</b>：量化状态/动作的好坏，以及<b>通过比较来决定怎么行动</b>。第二个才是它存在的理由——值函数不是为了报数，是为了导出策略。",
+    "⚠️ <b>记号陷阱（与 Sutton &amp; Barto 不一致）</b>：CS234 写 <code>rₜ + γr_{t+1} + …</code>，S&amp;B 写 <code>R_{t+1} + γR_{t+2} + …</code>，<span class='w'>差一位下标</span>。跨教材看公式时必须先对齐这一条，否则每个推导都会差一步。"
+   ],
+   "eq": "V^π(s_t = s) = E_π[ r_t + γ r_{t+1} + γ² r_{t+2} + γ³ r_{t+3} + ⋯ | s_t = s ]",
+   "tip": {
+    "t": "记号陷阱",
+    "v": "本课 13 讲共统计出 <b>165 条记号陷阱</b>，其中 18 条是与 Sutton &amp; Barto 的约定冲突。<b>回报下标差一位是最典型的那条</b>，从这一页开始贯穿全课。"
+   }
+  },
+  {
+   "r": [63, 63],
+   "t": "γ=0 是什么意思",
+   "star": 3,
+   "quote": "<b>Example: Mars Rover Value Function</b> — <em>Discount factor, γ = 0</em> · π(s<sub>1</sub>) = ... = π(s<sub>7</sub>) = right<br>V<sup>π</sup>(s<sub>1</sub>) = <b>+1</b> · V<sup>π</sup>(s<sub>2</sub>) = ... = V<sup>π</sup>(s<sub>6</sub>) = <b>0</b> · V<sup>π</sup>(s<sub>7</sub>) = <b>+10</b>",
+   "one": "<b>γ=0 时值函数塌成即时奖励——每个状态的值就是它自己给的那个数，和策略完全无关。</b>",
+   "pts": [
+    "<b>把 γ=0 代进 p62 的式子看一眼</b>：<code>V^π(s) = E[rₜ + 0·r_{t+1} + 0·r_{t+2} + …] = E[rₜ]</code>。除了第一项，全被乘成 0。<span class='k'>所以 γ=0 的 agent 是完全近视的</span>——它对「以后」没有任何概念。",
+    "<b>这就是为什么这一页的值等于奖励本身</b>：s₁ 的值是 +1、s₇ 的值是 +10、中间全 0，和「策略是 right」这件事<b>毫无关系</b>。换成全 left 也是这组数。",
+    "<b>这一页的教学用意是给 γ 的一端立个桩。</b> 另一端（γ→1）在 L02 讲，那时值函数会变成「一路走到底能拿多少」，策略就开始要紧了。<b>γ 从 0 走到 1 的过程，就是 agent 从近视走到远视的过程。</b>",
+    "⚠️ <b>别把「γ=0 时值等于奖励」记成一般规律。</b> 它只在 γ=0 时成立。γ 稍微大一点，中间状态就立刻有非零的值了。"
+   ],
+   "tbl": {
+    "head": ["γ", "agent 看多远", "火星车里 V<sup>π</sup>(s<sub>4</sub>)", "策略要紧吗"],
+    "rows": [
+     ["0", "只看这一步", "<b>0</b>", "<b>不要紧</b>"],
+     ["接近 0", "看几步", "很小的正数", "开始要紧"],
+     ["接近 1", "看到底", "取决于走向哪端", "<b>非常要紧</b>"]
+    ]
+   },
+   "say": "这一页她是让学生当场算的。<b>值得自己动手代一次</b>——γ=0 代进去、看着后面所有项被乘没，比读十遍定义有用。"
+  },
+  {
+   "r": [64, 65],
+   "t": "agent 分类（粗分）：有没有模型",
+   "star": 2,
+   "quote": "<b>Types of RL Agents</b><br><em>Model-based</em>: Explicit: Model · May or may not have policy and/or value function<br><em>Model-free</em>: Explicit: Value function and/or policy function · <b>No model</b><br>p65 <em>Figure from David Silver's RL course</em>（三个圈的交叠图）",
+   "one": "<b>粗分只看一件事：显式地维护世界模型吗？p65 是这张分类的配图，不是新内容。</b>",
+   "pts": [
+    "<b>model-based 的优势是样本效率</b>：学到模型后可以「在脑子里」反复规划，不用再去真实世界试。<span class='k'>一份数据可以用很多次</span>。代价是模型可能是错的（p59 那句警告），而且错误会随规划步数复合。",
+    "<b>model-free 的优势是没有模型误差</b>：直接从经验估值函数或策略，跳过「世界长什么样」这个中间问题。代价是每一点进步都要<b>真实数据</b>换——样本效率低，但你估的东西正是你要用的东西。",
+    "<b>这个权衡的本质是「要不要经过一个中间量」。</b> model-based 走 数据 → 模型 → 策略，model-free 走 数据 → 策略。<b>中间量让你能复用数据，也让你多了一处可能出错的地方。</b> 这是统计里的老问题，不是 RL 特有的。",
+    "<b>什么时候该选 model-based？</b> 真实数据很贵（机器人、医疗、你的 LLM 调用）、或者模型结构已知得比较好时。<span class='k'>数据越贵，经过中间量越划算</span>。",
+    "<b>p65 那张图是 p57「one or more of」的可视化</b>：模型、策略、值函数三个圈两两相交，每块区域对应一类算法。课件开头交代过，这一讲第三部分基于 David Silver 的 RL 入门 slides。",
+    "⚠️ <b>这是「粗分」，p78 有细分。</b> 细分把 model-free 再拆成 value-based / policy-based / actor-critic，并引入「显式 / 隐式」这一层。两张表要一起看。"
+   ],
+   "tbl": {
+    "head": ["", "Model-based", "Model-free"],
+    "rows": [
+     ["显式维护", "模型", "值函数和/或策略"],
+     ["数据 → 策略的路径", "数据 → <b>模型</b> → 策略", "数据 → 策略"],
+     ["样本效率", "<b>高</b>（数据可复用）", "低"],
+     ["风险", "<b>模型错了，误差随步数复合</b>", "没有模型误差"],
+     ["什么时候划算", "<b>真实数据很贵</b>", "数据便宜、模型难建"]
+    ]
+   }
+  },
+  {
+   "r": [66, 67],
+   "t": "规划 vs 强化学习：差别只在一句话",
+   "star": 3,
+   "quote": "<b>Planning</b> (agent's internal computation) — <em>Given model of how the world works</em> (dynamics and reward model) · algorithm computes how to act to maximize expected reward · <b><em>With no interaction with real environment</em></b><br><b>Reinforcement learning</b> — <em>Agent doesn't know how world works</em> · interacts with world to implicitly/explicitly learn how world works",
+   "one": "<b>规划：模型已给，纯内部计算，不与真实环境交互。强化学习：不知道世界怎么运作，必须交互着学。</b>",
+   "pts": [
+    "<b>分界线只有一条：模型给没给。</b> 不是「难不难」，不是「用不用神经网络」。<span class='k'>给了模型就是规划，没给就是 RL</span>。",
+    "<b>「with no interaction with real environment」这一句是规划的定义性特征。</b> 它意味着规划<b>不消耗真实样本</b>，只消耗算力。这是 model-based 方法的全部吸引力所在：先用少量真实数据学模型，然后在模型里免费规划。",
+    "<b>RL 那半句里的「implicitly/explicitly」也要注意。</b> 显式地学模型 = model-based；隐式地学 = model-free（值函数里其实也编码了世界的信息，只是没写成 p(s'|s,a)）。",
+    "⚠️ <b>规划不等于简单。</b> 围棋的规则完全已知，规划仍然极难——难在状态空间，不在未知。L16 的 MCTS 就是在对付这种「已知但算不动」的情形。"
+   ],
+   "tbl": {
+    "head": ["", "规划", "强化学习"],
+    "rows": [
+     ["模型", "<b>已给</b>", "未知"],
+     ["与真实环境交互", "<b>不需要</b>", "必须"],
+     ["消耗什么", "算力", "<b>真实样本</b> + 算力"],
+     ["主要困难", "状态空间太大", "探索 + 功劳分配 + 状态表示"],
+     ["本课", "L02 · L16", "L03–L15"]
+    ]
+   }
+  },
+  {
+   "r": [68, 69],
+   "t": "接龙：有规则书和没规则书",
+   "star": 2,
+   "quote": "<b>Planning Example</b> — <em>Solitaire</em>: know all rules of game / perfect model · if take action a from state s, can compute probability distribution over next state · can compute potential score · <em>can plan ahead</em> (dynamic programming, tree search)<br><b>RL Example</b> — <em>Solitaire with no rule book</em>: learn directly by taking actions and seeing what happens",
+   "one": "<b>同一个游戏，有规则书是规划，没规则书是强化学习。</b>",
+   "pts": [
+    "<b>这组例子的好处是把变量控制住了</b>：游戏一样、状态空间一样、目标一样，<span class='k'>唯一变的是你知不知道规则</span>。所以两者的差别确实只来自「模型给没给」。",
+    "<b>有规则书时你能做三件事</b>（课件逐条列了）：算出下一状态的分布、算出可能得分、往前推演。这三件事全都<b>不需要真的去玩</b>。",
+    "<b>没规则书时这三件事都做不了，只能「做了看看」。</b> 而「做了看看」立刻带来 p70 的问题：你只看得到你试过的那些。",
+    "⚠️ 接龙是单人游戏，所以没有对手建模的问题。<b>换成双人游戏，「知道规则」也不够</b>——你还得知道对手怎么想。这是本课不覆盖的多智能体部分（p28 有交代）。"
+   ]
+  },
+  {
+   "r": [70, 70],
+   "t": "一句显而易见的话，和它带出的困境",
+   "star": 3,
+   "quote": "<b>Exploration and Exploitation</b> — <em>Agent only experiences what happens for the actions it tries</em> · Mars rover trying to drive left learns the reward and next state for trying to drive left, <em>but not for trying to drive right</em> · <b><em>Obvious! But leads to a dilemma</em></b>",
+   "one": "<b>agent 只经历它试过的那些动作的后果。课件自己加了一句：显而易见！但由此产生一个困境。</b>",
+   "pts": [
+    "<b>「Obvious!」这个感叹号是课件自己打的，值得重视。</b> 它在提示：<span class='k'>这句话简单到你会直接滑过去，而后面十几讲的困难全都从它来</span>。",
+    "<b>火星车的例子把它具体化了</b>：试了向左，你就知道向左的奖励和下一个状态；<b>向右的你一无所知</b>。不是知道得少，是<b>一点都不知道</b>。",
+    "<b>这与 p17 的「删失数据」是同一件事，隔了 53 页又说了一遍。</b> 课件重复它不是冗余——p17 是在讲 RL 的特征，这里是在推出探索-利用困境。<b>同一个事实，两个用途。</b>",
+    "<b>困境是怎么来的</b>：因为只知道试过的，所以「用已知的最好选项」（利用）与「试点新的好知道更多」（探索）会互相竞争同一批机会。<b>机会是有限的，这才成为困境。</b>"
+   ],
+   "res": {
+    "tag": "已核",
+    "v": "<b>课件这一句就是你日志问题的教科书表述，只是它没给术语。</b><br>「agent 只经历它试过的那些动作的后果」——你的 AFlow 日志里，<b>每个节点只「试过」一个配置</b>（固定模型），所以 π_b(a|h) ∈ {0,1}。于是对任何与已跑配置不同的候选策略，重要性权重<b>恒为 0</b>。<br><span class='w'>这不是「高方差的 IS」，是 IS 无定义</span>——即 deficient support（Sachdeva / Su / Joachims）。课件说的「but not for trying to drive right」，在你这里就是「but not for running this node with 7B」。<br><b>诚实的结论</b>：就现有日志而言，「不重跑就评估新策略」做不到。加再多数据也不会好转，因为缺的不是数据量是<b>支撑集</b>。<br><b>但现有日志仍有三样不需要随机化就能挖的东西</b>：①拟合结果模型 Q̂ 与成本模型（DR 的 nuisance 分量 / FQE 的回归目标）；②已跑配置（all-72B、all-7B）的 on-policy 蒙特卡洛值——<b>Pareto 前沿上白送的两个点</b>；③节点级特征工程与难度打分。<br>第一件该做的事也很清楚：<b>审计现有日志，确认记的是动作分布还是只有实际 model id</b>（简报把它列为「立刻，1 天」）。",
+    "ref": "简报 §4a（已核/推断）· §9 动作表第 1、2 条（已核）"
+   }
+  },
+  {
+   "r": [71, 72],
+   "t": "探索与利用：必须牺牲一点当下",
+   "star": 3,
+   "quote": "<b>Exploration</b>: trying new things that might enable the agent to make better decisions in the future<br><b>Exploitation</b>: choosing actions that are <em>expected to yield good reward given past experience</em><br><em>Often there may be an exploration-exploitation tradeoff · may have to sacrifice reward in order to explore</em><br>p72: Movies · Advertising · Driving",
+   "one": "<b>探索是为了以后更好而试新的，利用是拿现在已知最好的。权衡在于：探索往往要牺牲当下的奖励。</b>",
+   "pts": [
+    "<b>课件对利用的定义里有一个限定：<em>given past experience</em>。</b> 「已知最好」是<span class='k'>相对于你现有经验</span>的最好，不是真正的最好。这正是困境成立的原因——如果你已知真正的最好，就不需要探索了。",
+    "<b>「may have to sacrifice reward」是这一页的核心。</b> 探索不是免费的：你把一次机会花在一个期望更低的动作上。<b>没有这个牺牲就没有困境</b>，只有「多做点事」。",
+    "<b>p72 的三个例子分别对应三种不同的成本结构。</b> 电影：探索成本 = 一次可能糟糕的观影体验，可恢复。广告：探索成本 = 一次转化率损失，可量化、可承受。开车：探索成本 = 可能迟到，<b>但也可能发现更快的路，且信息可复用</b>。",
+    "⚠️ <b>本课后面所有探索算法都不是在「决定要不要探索」，而是在「以多大力度、朝哪个方向探索」。</b> ε-贪婪按固定概率、UCB 朝不确定性大的方向、Thompson 按后验采样——三种不同的分配方式。"
+   ],
+   "tbl": {
+    "head": ["例子", "利用", "探索", "探索的成本"],
+    "rows": [
+     ["电影", "重看喜欢的", "看新片", "一次可能糟糕的体验"],
+     ["广告", "投目前最有效的", "投不同的", "一次转化率损失"],
+     ["开车", "走经验里最快的路", "试别的路", "可能迟到（但信息可复用）"]
+    ]
+   }
+  },
+  {
+   "r": [73, 73],
+   "t": "评估与控制：两件事，先后有序",
+   "star": 3,
+   "quote": "<b>Evaluation and Control</b><br><em>Evaluation</em>: <b>estimate/predict the expected rewards from following a given policy</b><br><em>Control</em>: <b>optimization: find the best policy</b>",
+   "one": "<b>评估是「给定一个策略，它能拿多少」；控制是「找出最好的策略」。本课几乎每一讲都按这个顺序讲两遍。</b>",
+   "pts": [
+    "<b>这一对区分是本课的结构骨架。</b> L03 是无模型<b>评估</b>，L04 是无模型<b>控制</b>；L02 里策略评估先于策略迭代。<span class='k'>顺序从不颠倒：先会评估，才能控制</span>。",
+    "<b>为什么评估必须在前？</b> 因为绝大多数控制方法的内核是「评估 → 改进 → 再评估」。<b>不能比较两个策略的好坏，就无法改进</b>。",
+    "<b>评估比控制更基础，也更容易被低估。</b> 控制问题里评估的误差会被优化过程放大——你朝着一个估错的方向优化，会自信地走向错误策略。这是 L15 反复强调的事。",
+    "⚠️ 注意评估的定义里是「<em>a given policy</em>」——<b>给定的那个策略不必是你正在执行的那个</b>。当它不是时，这件事就叫<b>离策略评估（off-policy evaluation）</b>，是 L15 整讲的内容。"
+   ],
+   "tbl": {
+    "head": ["", "评估", "控制"],
+    "rows": [
+     ["问题", "给定 π，V<sup>π</sup> 是多少？", "哪个 π 最好？"],
+     ["输出", "一个数（或一张值表）", "一个策略"],
+     ["谁依赖谁", "—", "<b>依赖评估</b>"],
+     ["本课", "L03（无模型评估）· <b>L15（离策略评估）</b>", "L04（无模型控制）· L08–L10"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>你的整个课题坐在「评估」这一格里，不在「控制」里——想清楚这件事会改变论文的写法。</b><br>课件对评估的定义是「估计遵循<b>给定</b>策略的期望回报」，而你要回答的正是：<span class='k'>在把新的保真度分配策略上线之前，它的 Acc 和 Cost 是多少？</span>这就是离策略评估，一字不差。控制（找最优分配）反而是次要的——因为构型空间小到可穷举（|M|=2、H≤5 时 ≤32 种）。<br><b>三个后果</b>：<br>① <b>L15 是这门课对你最重要的一讲</b>，不是 L11–L13。它是 Brunskill 自己的研究讲座，几乎全建在 Philip Thomas 的工作上，覆盖 IS / PDIS / WIS / DR / 高置信离策略评估。<br>② 评估做不好会<b>被优化放大</b>：你朝一个估错的方向挑配置，会自信地选出一个更差的。这正是「安全策略改进」存在的理由。<br>③ 而你的评估目前<b>做不了</b>（支撑集缺失，见 p70 那格）。所以真实的工作顺序是：<b>审计日志 → 一步偏离扫描（带止损闸与可加性检验）→ 穷举 oracle 表 → 才轮到估计量</b>。<br><b>别先挑估计量。</b> 估计量是最后一步，不是第一步。",
+    "ref": "thread0（cs234_anchor：L15 是 Brunskill 自己的研究讲座，已核）· 简报 §4c §4d · §9 动作表"
+   }
+  },
+  {
+   "r": [74, 75],
+   "t": "两道练习：评估与控制各一",
+   "star": 2,
+   "quote": "p74 <b>Policy Evaluation</b> — π(s<sub>1</sub>) = ... = π(s<sub>7</sub>) = right, <em>γ = 0</em> · <em>What is the value of this policy?</em><br>p75 <b>Policy Control</b> — <em>γ = 0</em> · <em>What is the policy that optimizes the expected discounted sum of rewards?</em>",
+   "one": "<b>同一张火星车图，同一个 γ=0，一道问值、一道问最优策略——正好演示评估与控制的分工。</b>",
+   "pts": [
+    "<b>p74（评估）的答案</b>：γ=0 所以值就是即时奖励，<code>V(s₁)=+1, V(s₂)…V(s₆)=0, V(s₇)=+10</code>，<span class='k'>与策略是 right 无关</span>。",
+    "<b>p75（控制）的答案需要小心。</b> γ=0 时 agent 完全近视，只看这一步的奖励。而<b>在这个设定下动作本身不产生奖励</b>——奖励由你<b>所处的状态</b>给。所以 γ=0 时任何策略的值都一样，<span class='w'>「最优策略」不唯一</span>。",
+    "<b>这两道题合起来是在演示一件事：γ=0 让控制问题退化。</b> 只有 γ&gt;0 时「走向 s₇」才有意义，最优策略才变得唯一且有趣。<b>这是 γ 不是超参数的第二个证据。</b>",
+    "⚠️ 做这两题时<b>不要偷偷把 γ 想成 1</b>。这是最常见的错——看到火星车就条件反射地算「走到 s₇ 拿 +10」，但题目写的是 γ=0。"
+   ],
+   "tbl": {
+    "head": ["", "p74 评估", "p75 控制"],
+    "rows": [
+     ["给了什么", "策略（全 right）+ γ=0", "只有 γ=0"],
+     ["问什么", "这个策略值多少", "哪个策略最好"],
+     ["答案", "V = (+1,0,0,0,0,0,+10)", "<b>γ=0 时不唯一</b>——任何策略都一样"],
+     ["说明了什么", "评估不需要比较", "<b>γ=0 让控制退化</b>"]
+    ]
+   }
+  },
+  {
+   "r": [76, 76],
+   "t": "课程大纲：这门课的地图",
+   "star": 2,
+   "quote": "<b>Course Outline</b> — Markov decision processes &amp; planning · Model-free policy evaluation · Model-free control · RL with function approximation &amp; Deep RL · Policy Search · Exploration · Advanced Topics",
+   "one": "<b>七段。它们正好是 p14 四要素与 p73「评估/控制」两条线交织出来的顺序。</b>",
+   "pts": [
+    "<b>读法：前三段在把「模型已知」一步步拿掉</b>——① MDP 与规划（模型全给）→ ② 无模型评估（模型没了，先学会评估）→ ③ 无模型控制（再学会改进）。<span class='k'>这三段是同一条线上的三步，不是三个话题</span>。",
+    "<b>第四段（函数逼近与深度 RL）换的是另一根轴</b>：状态从「可枚举」变成「不可枚举」。它与前三段正交——可以在任意一段上叠加函数逼近。",
+    "<b>第五段策略搜索（Policy Search）是第三条路</b>：不绕值函数，直接对策略求导。对应 L08–L10。",
+    "<b>第六段探索单列，对应 L11–L13。</b> 到这里才正式处理 p17 与 p70 反复铺垫的那个困难。",
+    "⚠️ <b>本精读对应的讲次</b>：① L02 · ② L03 · ③ L04 · ④ L05 L06 · ⑤ L08 L09 L10（L07 模仿学习插在中间）· ⑥ L11 L12 L13 · ⑦ L15 L16。<b>官方没有 lecture 14</b>——那一格是客座讲座（Meta-Learning），视频和 slides 都没发布。"
+   ],
+   "tbl": {
+    "head": ["大纲段", "拿掉/加上了什么", "对应讲次"],
+    "rows": [
+     ["① MDP 与规划", "模型全给", "L02"],
+     ["② 无模型策略评估", "<b>拿掉模型</b>，先学评估", "L03"],
+     ["③ 无模型控制", "再学改进", "L04"],
+     ["④ 函数逼近与深度 RL", "<b>加上</b>不可枚举的状态", "L05 L06"],
+     ["⑤ 策略搜索", "绕开值函数", "L08 L09 L10"],
+     ["⑥ 探索", "正式处理探索-利用", "L11 L12 L13"],
+     ["⑦ 进阶", "离线 RL、MCTS", "L15 L16"]
+    ]
+   }
+  },
+  {
+   "r": [78, 78],
+   "t": "agent 分类（细分）：显式与隐式",
+   "star": 3,
+   "quote": "<b>Types of RL Agents: What the Agent (Algorithm) Learns</b><br><em>Model-based</em>: Explicit: Model · Implicit: policy and/or value function (can use model to plan)<br><em>Value-based</em>: Explicit: Value function · Implicit: policy (can derive a policy from value function)<br><em>Policy-based</em>: Explicit: Policy · No value function<br><em>Actor-Critic</em>: Explicit: Policy · Explicit: Value function",
+   "one": "<b>四类。关键是课件引入了「显式 / 隐式」这一层：你没有显式维护的东西，常常仍然可以导出来。</b>",
+   "pts": [
+    "<b>「隐式」这个词是这张表的全部价值。</b> value-based 方法没有显式策略，但<span class='k'>可以从值函数贪婪地导出一个</span>；model-based 没有显式策略，但可以用模型规划出一个。<b>所以「没有」不等于「不能有」。</b>",
+    "<b>policy-based 那一行的「No value function」是真的没有</b>，不是隐式——课件在这一行没写 Implicit。这意味着纯策略梯度方法<b>无法比较状态的好坏</b>，只能比较整条轨迹的回报，这正是它方差大的根源（L08 会讲基线怎么补救）。",
+    "<b>actor-critic 是唯一两者都显式的。</b> 它的动机就是补上 policy-based 缺的那一半：用值函数（critic）给策略（actor）提供低方差的信号。",
+    "⚠️ <b>课件最后一句是 <em>Algorithms can ...</em>（被截断）</b>，完整意思是这些类别可以组合——现实中的算法常常横跨两类。<b>别把这张表当成互斥分区。</b>"
+   ],
+   "tbl": {
+    "head": ["类别", "显式维护", "隐式可导出", "缺什么"],
+    "rows": [
+     ["Model-based", "模型", "策略、值函数（靠规划）", "—"],
+     ["Value-based", "值函数", "策略（贪婪导出）", "模型"],
+     ["Policy-based", "策略", "<b>无</b>", "<b>值函数</b>（方差大的根源）"],
+     ["Actor-Critic", "策略 + 值函数", "—", "模型"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>你的方法在这张表上是个混合体，而这个混合本身值得写出来。</b><br>对<b>成本</b>那一半你是 <span class='k'>model-based</span>：你显式拟合一个成本模型（给定保真度与输入长度，token 成本近乎确定，R² &gt; 0.95），然后用它<b>规划</b>——不需要重要性权重，也不需要真跑。<br>对<b>准确率</b>那一半你是 <span class='k'>value-based</span>：FQE 拟合的就是一个 Q̂，策略从它导出。<br>所以一句可以写进论文的话：<b>我们对目标的两个分量采用不同的估计范式——确定性分量走 model-based 回归，随机分量走 fitted-Q 评估——因为它们的可学性相差一个数量级。</b>这不是工程细节，是 §4e 说的「真实且可辩护的方差缩减」。<br><b>另外注意 FQE 踩在哪条线上</b>：它是<b>自举 + 函数逼近 + 离策略</b>三者同时出现，正好是 L05 讲的「致命三件套」。<span class='w'>FQE 可能不收敛，这不是实现 bug 而是已知的结构性风险</span>——L05 精读那一讲会展开，届时要回来把这条接上。<br>标【推断】：两半各自的方法在简报里是【已核】；「把它当成分类表上的混合体来 framing」是我的建议。",
+    "ref": "简报 §4e（已核）· L05 致命三件套（原课，待该讲精读时接回）"
+   }
+  }
+ ],
+ "quiz": {
+  "43": [
+   {
+    "q": "课件把一轮交互写成「agent 动 → 世界更新并吐出 o<sub>t</sub>、r<sub>t</sub> → agent 收到」。这个顺序意味着什么？",
+    "o": ["o<sub>t</sub> 可以用来决定 a<sub>t</sub>", "o<sub>t</sub> 是 a<sub>t</sub> 之后才拿到的，用它决定 a<sub>t</sub> 是错的时序", "o<sub>t</sub> 与 a<sub>t</sub> 同时发生", "顺序不影响算法"],
+    "a": 1,
+    "why": "课件把动作列在最前：<em>Agent takes an action a<sub>t</sub></em>，然后世界才 emit o<sub>t</sub> 和 r<sub>t</sub>。所以一轮是「先动后看」。写算法时下标错位，多半源于把这个顺序记反了。"
+   }
+  ],
+  "47": [
+   {
+    "q": "「这个系统是不是 Markov 的」为什么是个问错的问题？",
+    "o": ["因为所有系统都是 Markov 的", "因为 Markov 性是你所选状态表示的属性，不是世界的属性", "因为 Markov 性无法验证", "因为只有连续系统才谈 Markov"],
+    "a": 1,
+    "why": "p47 的式子是关于 <b>s<sub>t</sub></b> 的断言。同一个世界换一种状态表示，Markov 性就变了——p48 两道题正是这样：加回用药史或浏览路径之后它们就 Markov 了。正确问法是「我选的表示充分吗」。"
+   },
+   {
+    "q": "把 p47 的式子换成你的符号：令 s = (query, 节点 id)、h = 已执行的部分轨迹。这时 Markov 条件对应你的哪个实验？",
+    "o": ["一步偏离敏感度扫描", "P2 vs P3 消融", "穷举 oracle 表", "止损闸"],
+    "a": 1,
+    "why": "P2 假设 (query, 节点 id) 是部分轨迹的<b>充分统计量</b>，P3 不做此假设。所以这个消融不是在比两个特征集，是在<b>检验一个可写成等式的 Markov 断言</b>——对审稿人这个说法有力得多。判据：序贯信息提升不到 2 个百分点就别用 MDP 框架。"
+   }
+  ],
+  "49": [
+   {
+    "q": "课件说 Markov 假设「can always be satisfied」。这句话的真正含义是？",
+    "o": ["任何状态定义都是 Markov 的", "取 s<sub>t</sub> = h<sub>t</sub> 总能满足，所以问题从「成不成立」变成「代价多大」", "只要数据足够多就能满足", "只在完全可观测时成立"],
+    "a": 1,
+    "why": "全历史永远是充分统计量。所以 Markov 性不是待验证的经验事实，是<b>你总能靠扩大状态买到的性质</b>。课件紧接着列了三项代价：计算复杂度、所需数据量、最终性能。"
+   },
+   {
+    "q": "「更丰富的状态表示」在你的问题里，代价精确地表现为什么？",
+    "o": ["推理延迟上升", "有效样本量 ESS 指数下降，E[m] = n·2<sup>−k</sup>", "模型参数变多", "成本模型 R² 下降"],
+    "a": 1,
+    "why": "随机化节点数 k 每加 1，ESS 减半；k=10 时 ESS = n/1024。这正是课件列的第二项代价（data required）在你这里的精确形式。所以要先做一步偏离扫描把 k 压到 3~4，换 64 倍 ESS——<b>先定状态表示，再挑估计量</b>。"
+   }
+  ],
+  "53": [
+   {
+    "q": "判断一个问题是赌博机还是 MDP，唯一的判据是？",
+    "o": ["奖励是不是随机的", "动作改不改变下一个观测的分布", "状态空间有多大", "有没有折扣因子"],
+    "a": 1,
+    "why": "课件原文：<em>actions have no influence on next observations</em>。别看问题「感觉起来有多序贯」。上下文赌博机是中间态——上下文是外生的，你的动作不影响下一个上下文。"
+   },
+   {
+    "q": "若可加性检验显示节点效应近似可加，你的问题落进赌博机那一格。<b>这时最该防的审稿人质疑是</b>？",
+    "o": ["「为什么不用深度网络」", "「两个模型就是两条臂，决策问题在哪」", "「为什么不做多智能体」", "「γ 怎么选的」"],
+    "a": 1,
+    "why": "|M|=2、H≤5 时构型空间 ≤32，可穷举，探索机制会显得像表演。解法是<b>加宽保真度集合</b>：7B greedy / 7B self-consistency k=3 / 7B k=8 / 72B greedy / prune。这既是防守也是更好的科学。"
+   }
+  ],
+  "58": [
+   {
+    "q": "课件在火星车模型那页写了一句 <em>Model may be wrong</em>。它指向的主要风险是？",
+    "o": ["模型训练会过拟合", "用错的模型规划，误差会随规划步数复合放大", "模型太大算不动", "奖励模型无法学习"],
+    "a": 1,
+    "why": "这是 model-based RL 全部麻烦的源头：你会自信地得出错的策略，而且错误随步数复合。L16 讲模型误差复合时会正式展开。"
+   },
+   {
+    "q": "你的成本模型与准确率模型，可学性差得极远。<b>正确的做法是</b>？",
+    "o": ["统一用一个估计量，简洁", "拆成两半：成本用回归（不用重要性权重），准确率用 FQE + 5 折 cross-fitting", "两半都用 WIS", "两半都用穷举 oracle"],
+    "a": 1,
+    "why": "成本给定保真度与输入长度近乎确定（预期 R² &gt; 0.95），<b>完全不用重要性权重</b>；准确率是终局奖励，要 FQE + cross-fitting（nuisance 不能在自己那折上拟合）。混在一个估计量里，等于让确定的那一半去承担随机那一半的方差。"
+   }
+  ],
+  "62": [
+   {
+    "q": "CS234 与 Sutton &amp; Barto 在回报下标上的差别是？",
+    "o": ["没有差别", "CS234 从 r<sub>t</sub> 起，S&amp;B 从 R<sub>t+1</sub> 起，差一位", "CS234 不用折扣", "S&amp;B 不写期望"],
+    "a": 1,
+    "why": "CS234 写 r<sub>t</sub> + γr<sub>t+1</sub> + …，S&amp;B 写 R<sub>t+1</sub> + γR<sub>t+2</sub> + …。跨教材看推导时必须先对齐，否则每一步都差一位。本课共统计出 165 条记号陷阱，其中 18 条与 S&amp;B 冲突。"
+   }
+  ],
+  "63": [
+   {
+    "q": "γ=0 时火星车的 V<sup>π</sup>(s<sub>4</sub>) 是多少，为什么？",
+    "o": ["+10，因为最终会走到 s<sub>7</sub>", "0，因为 γ=0 时值只剩即时奖励，而 s<sub>4</sub> 的奖励是 0", "+1，因为可以走回 s<sub>1</sub>", "取决于策略"],
+    "a": 1,
+    "why": "代进 p62 的式子：γ=0 把 r<sub>t</sub> 之后所有项乘成 0，于是 V<sup>π</sup>(s) = E[r<sub>t</sub>]。s<sub>4</sub> 的即时奖励是 0，所以值是 0，<b>与策略无关</b>。选「+10」就是偷偷把 γ 当成了 1。"
+   }
+  ],
+  "70": [
+   {
+    "q": "课件对「agent 只经历它试过的动作的后果」打了个感叹号说 <em>Obvious!</em>。为什么还要专门讲？",
+    "o": ["为了凑页数", "因为它简单到会被滑过去，而后面十几讲的困难全从它来", "因为它只在火星车里成立", "因为它与 Markov 假设矛盾"],
+    "a": 1,
+    "why": "这句话与 p17 的「删失数据」是同一件事，隔 53 页又说一遍：p17 用它讲 RL 的特征，p70 用它推出探索-利用困境。同一个事实，两个用途。"
+   },
+   {
+    "q": "你的 AFlow 日志每个节点只跑过一个固定配置。<b>现有日志还能挖出什么</b>（不需要随机化）？",
+    "o": ["任意候选策略的 IS 估计", "成本模型与 Q̂ 的拟合、已跑配置的 on-policy 蒙特卡洛值、节点级特征与难度打分", "所有节点的反事实结果", "完整的 Pareto 前沿"],
+    "a": 1,
+    "why": "IS 无定义（支撑集缺失），但这三样不需要随机化：①拟合 Q̂ 与成本模型（DR 的 nuisance / FQE 的回归目标）；②all-72B 与 all-7B 两个配置的 on-policy 值——<b>Pareto 前沿上白送的两个点</b>；③特征工程与难度打分。第一件事是审计日志，确认记的是动作分布还是只有 model id。"
+   }
+  ],
+  "73": [
+   {
+    "q": "为什么本课几乎每一讲都先讲评估再讲控制？",
+    "o": ["评估比较简单", "因为控制方法的内核是「评估 → 改进 → 再评估」，不能比较好坏就无法改进", "历史原因", "因为评估不需要数据"],
+    "a": 1,
+    "why": "L03 评估 → L04 控制，L02 里策略评估先于策略迭代，顺序从不颠倒。而且评估误差会被优化过程<b>放大</b>：朝一个估错的方向优化，会自信地走向错误策略。"
+   },
+   {
+    "q": "你的课题主要坐在哪一格？",
+    "o": ["控制——找出最优的节点级分配", "评估——在上线前估出新分配策略的 Acc 与 Cost", "两者各半", "都不是"],
+    "a": 1,
+    "why": "课件对评估的定义是「估计遵循<b>给定</b>策略的期望回报」，这正是你的问题。控制反而次要——构型空间小到可穷举（|M|=2、H≤5 时 ≤32 种）。三个后果：①<b>L15 是这门课对你最重要的一讲</b>；②评估误差会被放大，这是「安全策略改进」存在的理由；③你现在的评估做不了（支撑集缺失），所以顺序是<b>审计日志 → 一步偏离扫描 → 穷举 oracle → 才轮到估计量</b>。别先挑估计量。"
+   }
+  ],
+  "78": [
+   {
+    "q": "policy-based 那一行写着 <em>No value function</em>，而且没写 Implicit。这带来的后果是？",
+    "o": ["它比其它方法更快", "它无法比较状态的好坏，只能比较整条轨迹的回报，这是方差大的根源", "它不需要探索", "它只能用于离散动作"],
+    "a": 1,
+    "why": "value-based 没有显式策略但能贪婪导出，model-based 能靠规划导出——<b>只有 policy-based 那一行是真的没有</b>。L08 讲的基线与 actor-critic 就是在补这一半。"
+   }
+  ]
+ }
+}

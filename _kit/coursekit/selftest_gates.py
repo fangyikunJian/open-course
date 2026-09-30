@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 13
+TOTAL = 20
 
 
 def run():
@@ -45,6 +45,41 @@ def run():
                                                    "ref": "y"}}])) == 1)
     ok += (len(br.check_res([{"r": [1, 1], "res": {"tag": "已核", "v": "x",
                                                    "ref": ""}}])) == 1)
+
+    # ── theme：浅色主题注入。两侧自证 ──
+    import theme
+    raw = ('<style>:root{--mono:x; --bg:#0b0f15; --ink:#e7eef7}\n'
+           'b{font-weight:650;color:#fff}\n'
+           '.tbl td b{color:#fff}\n'
+           '.res{border:1px solid #3b2f4f;background:rgba(185,143,230,.06)}\n'
+           '.res .t{color:#b98fe6}\n</style>'
+           '<button class="btn" id="help">?</button>'
+           '<script>var x=1;</script>')
+    lit = theme.apply_theme(raw)
+    # 必须报：.res 的三个值都换成变量，纸底上不再是深紫。
+    # ⚠ 判据只看**规则里**换没换，不能写成「全文不含 #3b2f4f」——
+    #   暗色调色板里 --violetline 的值本来就是它，那种写法会永远失败。
+    ok += ("border:1px solid var(--violetline)" in lit)
+    ok += ("color:var(--violet)" in lit and "#b98fe6" not in lit)
+    ok += ("background:var(--tintviolet)" in lit
+           and "rgba(185,143,230,.06)" not in lit)
+    # 必须报：两处纯白加粗都修掉（浅色下对比度 1.11，等于隐形）。
+    # ⚠ 同理不能写成「全文不含 color:#fff」—— .pg 是彩底白字，那处必须留白。
+    ok += ("b{font-weight:650;color:var(--ink2)}" in lit
+           and ".tbl td b{color:var(--ink2)}" in lit)
+    # 必须不报：幂等 —— 第二次调用不许再插一个按钮
+    ok += (theme.apply_theme(lit).count('id="themeBtn"') == 1)
+    # 必须不报：本壳原生已有的 quote / tbl 分支不许被注入成两份
+    shell = ('<style>:root{--bg:#0b0f15}</style>'
+             '<button class="btn" id="help">?</button><script>'
+             "if(n.quote) h+='<div class=\"quote\">'+n.quote+'</div>';"
+             "if(n.tbl && n.tbl.head) h+='x';"
+             "if(n.tip) h+='<div class=\"tip'+(n.tip.w?\" w2\":\"\")+'\">'"
+             "+n.tip.t+'</span>'+n.tip.v+'</div>';</script>")
+    th2 = theme.apply_theme(shell)
+    ok += (th2.count("if(n.quote)") == 1 and th2.count("if(n.tbl") == 1)
+    # 必须不报：ng / exam 是 ML 课特有的，本项目不注入、也不留死 CSS
+    ok += (".ng{" not in th2 and ".exam{" not in th2)
 
     print("selftest_gates %d/%d" % (ok, TOTAL))
     return ok == TOTAL
