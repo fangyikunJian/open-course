@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 20
+TOTAL = 24
 
 
 def run():
@@ -80,6 +80,16 @@ def run():
     ok += (th2.count("if(n.quote)") == 1 and th2.count("if(n.tbl") == 1)
     # 必须不报：ng / exam 是 ML 课特有的，本项目不注入、也不留死 CSS
     ok += (".ng{" not in th2 and ".exam{" not in th2)
+
+    # ── link「你学过的对应」：两侧自证 ──
+    # 必须报：只有文字没有链接 = 一个点不动的假链接，比不写更糟
+    ok += (len(br.check_link([{"r": [1, 1], "link": {"t": "只有文字"}}])) == 1)
+    ok += (len(br.check_link([{"r": [1, 1], "link": {"href": "x.html"}}])) == 1)
+    # 必须不报：齐全的 link 不该被拦；没有 link 的条目也不该被拦
+    ok += (len(br.check_link([{"r": [1, 1], "link": {
+        "t": "CS234 L08 策略梯度",
+        "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}}])) == 0)
+    ok += (len(br.check_link([{"r": [1, 1], "one": "没有 link"}])) == 0)
 
     print("selftest_gates %d/%d" % (ok, TOTAL))
     return ok == TOTAL

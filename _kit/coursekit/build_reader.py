@@ -144,6 +144,23 @@ def check_res(notes):
     return out
 
 
+def check_link(notes):
+    """「你学过的对应」必须同时有 t 与 href。
+
+    只有文字没有链接，在页面上是一个**点不动的假链接** —— 读者会以为自己
+    漏点了，比根本不写更糟。缺 t 则是一个没有标题的空框。"""
+    out = []
+    for n in notes:
+        k = n.get("link")
+        if not k:
+            continue
+        if not k.get("t"):
+            out.append("p%s 的 link 没有显示文字" % (n.get("r"),))
+        if not k.get("href"):
+            out.append("p%s 的 link 没有 href" % (n.get("r"),))
+    return out
+
+
 def check(co, L, d):
     """把能机械检查的都查掉。放过去的错，在页面上只表现为『那道题不见了』。
 
@@ -256,6 +273,11 @@ def check(co, L, d):
         "%s%d" % (t, sum(1 for n in notes
                          if (n.get("res") or {}).get("tag") == t))
         for t in RES_TAGS)))
+
+    # link 同理不设数量下限：不是每一页都该有「你学过的对应」，硬凑等于噪声。
+    bad += check_link(notes)
+    nlink = sum(1 for n in notes if n.get("link"))
+    print("   %s  你学过的对应 %d 条" % (tag, nlink))
 
     if bad:
         print("!! %s" % tag)
