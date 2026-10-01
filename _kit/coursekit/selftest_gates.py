@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 29
+TOTAL = 31
 
 
 def run():
@@ -80,6 +80,17 @@ def run():
     ok += (th2.count("if(n.quote)") == 1 and th2.count("if(n.tbl") == 1)
     # 必须不报：ng / exam 是 ML 课特有的，本项目不注入、也不留死 CSS
     ok += (".ng{" not in th2 and ".exam{" not in th2)
+
+    # ── 讲级科研主线卡的两个颜色也要换掉。两侧自证 ──
+    # 必须报：.arc 的正文色写死成了暗色的 --ink，浅色下对比度 1.17 等于隐形。
+    # ⚠ 这张卡默认收起，肉眼扫页面发现不了 —— 只有对比度审计能抓到，所以必须有这条。
+    th3 = theme.apply_theme(
+        '<style>:root{--bg:#0b0f15}\n'
+        '#threadBox .arc{color:#e7eef7}\n'
+        '#threadBox h3 .tag{background:rgba(185,143,230,.07)}\n</style>'
+        '<button class="btn" id="help">?</button><script>var x=1;</script>')
+    ok += ("color:var(--ink)" in th3)
+    ok += ("background:var(--tintviolet)" in th3)
 
     # ── link「你学过的对应」：两侧自证 ──
     # 必须报：只有文字没有链接 = 一个点不动的假链接，比不写更糟
