@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 13
+TOTAL = 18
 
 
 def run():
@@ -45,6 +45,19 @@ def run():
                                                    "ref": "y"}}])) == 1)
     ok += (len(br.check_res([{"r": [1, 1], "res": {"tag": "已核", "v": "x",
                                                    "ref": ""}}])) == 1)
+
+    # ── 防泄题：两层各两侧 ──
+    # 第一层：选项里加粗
+    ok += (br.check_quiz_leak({"1": [{"o": ["a", "b", "c"], "a": 0}]}) == [])
+    ok += (len(br.check_quiz_leak({"1": [{"o": ["a", "<b>b</b>", "c"], "a": 1}]})) == 1)
+    # 第二层：答案位置集中。n<8 不判（4 题全在 B 只是巧合），n>=8 且过半才报
+    few = {"1": [{"o": ["a", "b", "c"], "a": 1} for _ in range(4)]}
+    ok += (br.check_quiz_leak(few) == [])
+    many = {"1": [{"o": ["a", "b", "c"], "a": 1} for _ in range(10)]}
+    ok += (len(br.check_quiz_leak(many)) == 1)
+    # 均匀分布的 12 题必须不报 —— 这一侧防的是「闸门收太紧把正常写法也拦了」
+    even = {"1": [{"o": ["a", "b", "c", "d"], "a": i % 4} for i in range(12)]}
+    ok += (br.check_quiz_leak(even) == [])
 
     print("selftest_gates %d/%d" % (ok, TOTAL))
     return ok == TOTAL

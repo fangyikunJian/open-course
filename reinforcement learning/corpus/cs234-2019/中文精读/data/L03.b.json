@@ -1,0 +1,873 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "p42/p50 同一条轨迹三种答案：首次访问 MC = [1 1 1 0 0 0 0] · 每次访问 MC 的 V(s2) = 1 · TD(init 0, α=1) = [1 0 0 0 0 0 0] · 确定性等价 = [1 1 1 0 0 0 0]",
+  "p50 确定性等价的模型：r̂ = [1 0 0 0 0 0 0]，p̂(terminate|s1,a1) = p̂(s1|s2,a1) = p̂(s2|s3,a1) = 1",
+  "p44 AB 例子（S&B 2018 Ex. 6.4）：两状态 A、B，γ=1，8 个回合 —— A,0,B,0 一次；B,1 六次；B,0 一次",
+  "p45 V(B) = 0.75（TD 与 MC 一致）；p46 V(A)：MC 给 0，TD 给 0.75",
+  "p39 三方性质表：无模型可用 DP否/MC是/TD是 · 连续任务 DP是/MC否/TD是 · 非 Markov DP否/MC是/TD否 · 极限收敛 三者皆是 · 无偏 DP不适用/MC是/TD否",
+  "⚠ p39 的脚注：极限收敛那一行**只对表格表示成立**",
+  "p47：简单 TD 每次更新 O(1)，一个长度 L 的回合 O(L)；MC 也是 O(L)，但要等回合结束"
+ ],
+ "notes": [
+  {
+   "r": [
+    30,
+    30
+   ],
+   "t": "路线图：轮到 TD",
+   "star": 1,
+   "quote": "<b>This Lecture: Policy Evaluation</b> — Dynamic programming · Monte Carlo · <b>Temporal Difference (TD)</b> · Metrics to evaluate and compare algorithms",
+   "one": "<b>同一张清单第三次出现，当前位置挪到 TD。</b>",
+   "pts": [
+    "<b>停一下想一个问题再往下读</b>：MC 的两条硬伤是「方差大」和「必须等回合结束」。<span class='k'>如果让你设计一个方法去同时治这两条，你会怎么做？</span>答案就是下一页——<b>别走到底，走一步就用手上的估计顶上</b>。",
+    "<b>这一步的代价可以预先推出来</b>：用估计顶替未来 ⇒ 自举 ⇒ 按 p13，自举要 Markov 性，而且会引入偏差。<b>所以 TD 的全部性质在你看到算法之前就能推出来</b>——这是本讲结构清晰的地方。",
+    "<b>把三个方法摆成一条「拿掉什么、换来什么」的链子，这一讲的结构就清楚了</b>：DP 什么都要（模型、自举、Markov 性），换来精确；MC 把模型和自举<b>一起</b>拿掉，换来对非 Markov 的免疫，代价是必须等回合结束、方差大；<b>TD 只拿掉模型，保留自举</b>，于是方差降下来、不必等结束，<span class='w'>但 Markov 性这笔账又回来了</span>。",
+    "<b>注意这张清单最后一行：<em>Metrics to evaluate and compare algorithms</em>。</b>它不是客套话——p37–p39 那张五行表就是这一行的兑现，<span class='k'>而且那张表是本讲唯一一张「横向比较」的东西</span>。前面每个方法都是单独讲的，只有那里把它们并排放在一起。"
+   ],
+   "tbl": {
+    "head": [
+     "方法",
+     "拿掉了什么",
+     "换来什么",
+     "代价"
+    ],
+    "rows": [
+     [
+      "动态规划",
+      "—",
+      "精确、每轮便宜",
+      "<b>必须有模型</b>"
+     ],
+     [
+      "蒙特卡洛",
+      "模型 + 自举",
+      "<b>不怕非 Markov</b>",
+      "等回合结束 · 方差大"
+     ],
+     [
+      "时序差分",
+      "只拿掉模型",
+      "低方差 · 每步可更新",
+      "<b>有偏 · 要 Markov 性</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    31,
+    31
+   ],
+   "t": "时序差分：把 MC 和 DP 缝在一起",
+   "star": 3,
+   "quote": "<b>Temporal Difference Learning</b><br><em>\"If one had to identify one idea as central and novel to reinforcement learning, it would undoubtedly be temporal-difference (TD) learning.\"</em> — Sutton and Barto 2017<br><em>Combination of Monte Carlo &amp; dynamic programming methods</em> · <em>Model-free</em> · <em>Bootstraps and samples</em> · <em>Can be used in episodic or infinite-horizon non-episodic settings</em> · <em>Immediately updates estimate of V after each (s,a,r,s′) tuple</em>",
+   "one": "<b>TD = 采样（学 MC）+ 自举（学 DP）。两样都做，于是两样的好处都拿到一些，两样的代价也都沾一点。</b>",
+   "pts": [
+    "<b>课件引的那句话分量很重</b>：Sutton &amp; Barto 说如果只能指出一个<b>强化学习特有</b>的核心思想，那就是 TD。<span class='k'>它特有在哪？在于它是唯一同时做采样和自举的</span>——DP 只自举，MC 只采样，统计学和控制论里都没有正好对应的东西。",
+    "<b>「bootstraps and samples」这六个字就是整页的内容。</b> 回到 p11–p12 那张 2×2：DP（自举✓ 采样✗）、MC（自举✗ 采样✓）、<b>TD（两样都✓）</b>。第四格「两样都✗」是穷举所有轨迹，只在理论里存在。",
+    "<b>两条实用好处直接来自自举</b>：<br>① <b>可用于连续任务</b>——不需要回合终止，因为不必走到底；<br>② <b>每一步立刻更新</b>——拿到一个 <code>(s,a,r,s′)</code> 四元组就能更新，不必攒完一整条轨迹。<br><span class='k'>这两条正好治 MC 的第二条硬伤</span>。",
+    "<b>而第一条硬伤（方差大）也被治了一半</b>：TD 的更新目标只含<b>一步</b>的随机性（一个动作、一个奖励、一个后继状态），而 MC 的 <code>G<sub>t</sub></code> 含整条轨迹的随机性。p41 会把这件事写清楚。",
+    "⚠️ <b>代价一个字没提，但按 p13 推得出来</b>：自举 ⇒ 需要 Markov 性 ⇒ 在非 Markov 环境里会收敛到错的东西。p46 的 AB 例子就是为这件事准备的。"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "DP",
+     "MC",
+     "<b>TD</b>"
+    ],
+    "rows": [
+     [
+      "自举",
+      "✓",
+      "✗",
+      "<b>✓</b>"
+     ],
+     [
+      "采样",
+      "✗",
+      "✓",
+      "<b>✓</b>"
+     ],
+     [
+      "要模型",
+      "<b>要</b>",
+      "不要",
+      "不要"
+     ],
+     [
+      "要回合终止",
+      "不要",
+      "<b>要</b>",
+      "不要"
+     ],
+     [
+      "要 Markov 性",
+      "<b>要</b>",
+      "不要",
+      "<b>要</b>"
+     ]
+    ]
+   },
+   "say": "讲稿里她先铺垫了来源：<em>if you talk to Rich Sutton … they would probably argue that the central contribution to reinforcement learning that makes it different perhaps than some other ways of thinking about adaptive control, is the notion of temporal difference learning</em>。<b>注意她说的是「区别于自适应控制」</b>——TD 的特殊性是相对控制论传统而言的，这个对照课件上没有。"
+  },
+  {
+   "r": [
+    32,
+    32
+   ],
+   "t": "TD 是怎么推出来的：把 G 换成一步估计",
+   "star": 3,
+   "quote": "<b>TD Learning for Estimating V</b><br>Recall Bellman operator (if know MDP models): <em>B<sup>π</sup>V(s) = r(s,π(s)) + γ Σ<sub>s′</sub> p(s′|s,π(s)) V(s′)</em><br>In incremental every-visit MC, update estimate using <b>1 sample of return</b>",
+   "one": "<b>把增量 MC 的更新式里那个「真实回报 G」换成「即时奖励 + γ × 下一状态的当前估计」——TD 就出来了。</b>",
+   "pts": [
+    "<b>这一页把两个来源并排放，就是为了让你看出替换发生在哪。</b><br>增量 MC：<code>V(s) ← V(s) + α(<b>G<sub>i,t</sub></b> − V(s))</code><br>Bellman 算子：<code>B<sup>π</sup>V(s) = r + γ Σ<sub>s′</sub> p(s′|·)V(s′)</code><br><b>TD 取 MC 的壳、Bellman 的芯</b>：保留滑动平均的形式，把目标从真实回报换成 Bellman 形式的一步估计。",
+    "<b>但 Bellman 算子里的求和 TD 做不到</b>（那要模型）。<span class='k'>所以它把求和也替换掉了：用实际走到的那一个 s′ 代替对所有 s′ 的加权和</span>。这一步就是「采样」。<b>两次替换各管一件事：换掉 G 是自举，换掉求和是采样。</b>",
+    "<b>讲稿把这个「两次替换」说得比课件清楚</b>：<em>normally we would have like that nice sum … We don't have that here. We're only giving you a single next state. And we're plugging that in as our estimator.</em>",
+    "⚠️ <b>Bellman 算子里写的是 <code>V(s′)</code> 不带下标 k</b>——到了 TD 里它变成「你当前对 s′ 的估计」，而这个估计会随时间变。<b>所以 TD 的「目标」是会动的</b>，这和监督学习里固定标签的情形根本不同，也是它分析起来更难的原因。"
+   ]
+  },
+  {
+   "r": [
+    33,
+    34
+   ],
+   "t": "TD(0) 与 TD 误差",
+   "star": 3,
+   "quote": "<b>TD(0) Learning</b> — Simplest TD learning: update value towards estimated value<br><em>V<sup>π</sup>(s<sub>t</sub>) = V<sup>π</sup>(s<sub>t</sub>) + α( [r<sub>t</sub> + γV<sup>π</sup>(s<sub>t+1</sub>)] − V<sup>π</sup>(s<sub>t</sub>) )</em>　其中 <b>[r<sub>t</sub> + γV<sup>π</sup>(s<sub>t+1</sub>)]</b> 叫 <b>TD target</b><br><b>TD error</b>: <em>δ<sub>t</sub> = r<sub>t</sub> + γV<sup>π</sup>(s<sub>t+1</sub>) − V<sup>π</sup>(s<sub>t</sub>)</em><br><em>Can immediately update value estimate after (s,a,r,s′) tuple · Don't need episodic setting</em>",
+   "one": "<b>TD 目标 = 即时奖励 + γ × 下一状态的估计。TD 误差 = 目标减去当前估计。整个算法就这一行。</b>",
+   "pts": [
+    "<b>对照 p23 那个模板看，槽位换了什么一目了然</b>：<code>V ← V + α(<b>目标</b> − V)</code>，MC 的目标是 <code>G<sub>t</sub></code>，TD 的目标是 <code>r<sub>t</sub> + γV(s<sub>t+1</sub>)</code>。<span class='k'>后面十几讲的算法差别几乎全在这一个槽位里</span>。",
+    "<b>「TD 误差」这个名字容易误导：它不是「错误」，是「两个时刻的估计之差」。</b> <code>δ<sub>t</sub></code> 比较的是「在 t 时刻我以为 s<sub>t</sub> 值多少」与「走了一步之后我认为 s<sub>t</sub> 值多少」。<b>temporal difference 字面意思就是「时间上的差」</b>，名字来自这里。",
+    "<b>一个关键事实：TD 误差不会趋于 0，即使数据无穷多。</b> 讲稿里她专门讲了这一点——因为 <code>r<sub>t</sub> + γV(s<sub>t+1</sub>)</code> 永远只是<b>一个样本</b>（你实际走到的那一个 s<sub>t+1</sub>），而 <code>V(s<sub>t</sub>)</code> 是对所有可能 s<sub>t+1</sub> 的期望。<span class='w'>只有在环境确定（只有一个后继状态）时它才会归零</span>。",
+    "<b>所以 δ 的期望为 0，但 δ 本身一直在抖</b>。这正是 TD 仍然需要步长 α 去平均的原因——<b>α 的作用是把这些抖动平掉</b>，而不是「慢慢逼近」。",
+    "⚠️ <b>p34 只是把 p33 的式子装进循环</b>，多了一行 <code>Input: α</code> 和 <code>Initialize V(s)=0</code>。<b>初值全 0 这个选择在下一页的检验题里会直接影响答案。</b>",
+    "<b>TD 误差 δ 有个容易被忽略的身份：它是「这一步之后，世界比我预期的好多少」。</b>正号表示这一步的实际走向比当前估计乐观，负号表示悲观。<span class='k'>把一整条轨迹的 δ 列出来，就能看出这条轨迹在哪一步「出乎意料」</span>——这正是第六讲优先经验回放拿来排序的量（那里叫 DQN 误差，是同一个东西）。",
+    "<b>一个记号上的坑</b>：课件把 <code>r + γV(s′)</code> 叫 <em>TD target</em>（TD 目标），把 <code>r + γV(s′) − V(s)</code> 叫 <em>TD error</em>（TD 误差）。<span class='w'>「目标」是你要挪向的那个值，「误差」是你和它的差距</span>，两个词常被混用，读论文时注意。"
+   ],
+   "eq": "TD 目标：  r_t + γ V^π(s_{t+1})\nTD 误差：  δ_t = r_t + γ V^π(s_{t+1}) − V^π(s_t)\n更新：     V^π(s_t) ← V^π(s_t) + α · δ_t\n\nE[δ_t] = 0，但 δ_t 本身不会归零 —— 除非环境确定",
+   "say": "她用开车去机场的例子讲 TD 误差为什么不归零：<em>if half the time when I try to drive to the airport I hit traffic and half the time I don't, then that's two different next states … so this TD error will not necessarily go to zero even with infinite data, because one is an expected thing from the current state and the other is which actual next state did you reach.</em><b>一个是期望，一个是你碰巧走到的那一个。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>TD 误差这个量在你的项目里有个直接对应物：Q̂ 的残差。</b><br>简报 §4e 的方案是用 <b>FQE</b> 估准确率那一半。FQE 的每一步更新正是这一页的式子换成 Q：<code>Q̂(s,a) ← Q̂(s,a) + α(r + γ·max Q̂(s′,·) − Q̂(s,a))</code>。<span class='k'>所以这一页不是背景知识，它就是 FQE 的内核</span>。<br><b>一个实操建议</b>：终局奖励下，中间节点的 r 恒为 0，于是 δ 退化成 <code>γ·Q̂(s′,·) − Q̂(s,a)</code> —— <b>纯粹是两个估计之差，没有任何真实信号</b>。这意味着 FQE 在你的设定里，信息只能从最后一个节点一格一格往回爬，<span class='w'>和 p35 那条轨迹的处境完全一样</span>。H 越长，爬得越久、偏差堆得越厚。",
+    "ref": "课件 p33 原文 · 简报 §4e（FQE + cross-fitting，已核）· 第六讲 p55（优先回放用 DQN 误差排序）"
+   }
+  },
+  {
+   "r": [
+    35,
+    36
+   ],
+   "t": "检验题：同一条轨迹，TD 给什么",
+   "star": 3,
+   "quote": "<b>Check Your Understanding: TD Learning</b><br>Mars rover, <em>π(s)=a₁ ∀s, γ=1</em>, Trajectory = <em>(s₃,a₁,0, s₂,a₁,0, s₂,a₁,0, s₁,a₁,1, terminal)</em><br><b>TD estimate of all states (init at 0) with α = 1 is [1 0 0 0 0 0 0]</b>",
+   "one": "<b>同一条轨迹，首次访问 MC 给 [1 1 1 0 0 0 0]，而 TD（初值 0、α=1）只给 [1 0 0 0 0 0 0]。</b>",
+   "pts": [
+    "<b>逐步算一遍就明白差在哪（α=1 意味着「直接把估计换成目标」）</b>：<br>t=1，s₃→s₂：目标 = 0 + 1×V(s₂) = <b>0</b>（V 还是初值）→ V(s₃) = 0<br>t=2，s₂→s₂：目标 = 0 + V(s₂) = <b>0</b> → V(s₂) = 0<br>t=3，s₂→s₁：目标 = 0 + V(s₁) = <b>0</b> → V(s₂) = 0<br>t=4，s₁→终止：目标 = 1 + 0 = <b>1</b> → <b>V(s₁) = 1</b><br>结果 <code>[1 0 0 0 0 0 0]</code>。",
+    "<b>原因一句话：奖励在最后一步才出现，而 TD 每次只往回传一步。</b> 这一遍轨迹只够把信息从终点传到 s₁。<span class='k'>要把它传到 s₃，还得再跑两遍同样的轨迹</span>。",
+    "<b>这就是「TD(0) 只用一次数据」的代价</b>，课件在 p42 明说：<em>TD(0) only uses a data point (s,a,r,s′) once · Monte Carlo takes entire return from s to end of episode</em>。<b>MC 一遍就把整条链贯通，TD 要 L 遍。</b>",
+    "<b>但别因此断定 MC 更好。</b> 这个例子特意选成「一条轨迹、奖励在末尾」——最不利于 TD 的情形。<span class='w'>换成状态会反复访问、数据很多的情形，TD 的低方差与 Markov 结构利用就会反超</span>。p46 的 AB 例子展示的正是另一边。",
+    "⚠️ <b>α=1 是为了手算方便，不是实践取值。</b> α=1 意味着完全丢弃旧估计，方差极大。实践中 α 通常在 0.01–0.1。",
+    "<b>把「要跑几遍」算清楚，这个例子才算读完。</b>第 1 遍之后只有 <code>V(s₁)=1</code>；第 2 遍跑同一条轨迹时，t=3 那一步的目标变成 <code>0 + V(s₁) = 1</code>，于是 <code>V(s₂)=1</code>；第 3 遍 t=1 的目标才变成 <code>0 + V(s₂) = 1</code>，<code>V(s₃)=1</code>。<b>三遍之后才追平 MC 一遍的结果。</b>",
+    "<b>注意这个「三遍」等于链条长度，不是巧合。</b> 信息每遍只能往回传一格，所以把终点的奖励传到起点需要 <b>O(链长)</b> 遍。<span class='k'>链越长，TD 越吃亏</span>——而链长正是第六讲引入经验回放、以及这一页之后 p43 引入「批量设定」要对付的东西。",
+    "<b>还有一个更省的办法：换个顺序回放。</b> 如果把这条轨迹<b>倒着</b>更新（先 s₁→终止，再 s₂→s₁，再 s₃→s₂），<span class='k'>一遍就能贯通</span>，结果和 MC 一样。第六讲 p53–p54 用的就是这个例子来讲优先回放，并指出最优顺序能让收敛所需更新次数<b>指数级下降</b>。"
+   ],
+   "tbl": {
+    "head": [
+     "时间步",
+     "转移",
+     "TD 目标 = r + γV(s′)",
+     "更新后"
+    ],
+    "rows": [
+     [
+      "t=1",
+      "s₃ → s₂",
+      "0 + V(s₂)=0 → <b>0</b>",
+      "V(s₃)=0"
+     ],
+     [
+      "t=2",
+      "s₂ → s₂",
+      "0 + V(s₂)=0 → <b>0</b>",
+      "V(s₂)=0"
+     ],
+     [
+      "t=3",
+      "s₂ → s₁",
+      "0 + V(s₁)=0 → <b>0</b>",
+      "V(s₂)=0"
+     ],
+     [
+      "t=4",
+      "s₁ → 终止",
+      "1 + 0 → <b>1</b>",
+      "<b>V(s₁)=1</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页演示的「信息一格一格往回爬」，正是你那个开放问题的技术根源。</b><br>简报 §8 第一条：<em>终局奖励下的 DAG 信用分配——能否用 O(H) 或 O(H log H) 次 rollout（而非 O(2^H)）估计节点对端到端准确率的边际贡献？</em><br><b>为什么这是个真问题</b>：你的奖励只在最后一个节点出现，中间全是 0。TD/FQE 这条路要靠自举把信号往回传，<span class='w'>每传一格就堆一层偏差</span>；而穷举 oracle 这条路直接跑到底拿真值，<b>不传、不堆，但要 O(2^k) 次调用</b>。<br><b>这一页给了你一个可写进论文的观察</b>：两条路的代价形状不同——<span class='k'>自举省样本但偏差随 H 累积，枚举无偏但调用数随 k 指数增长</span>。简报 §4d 之所以在 k≤4 时推荐枚举，正是因为 2⁴=16 还付得起；k 一大就只能回到自举那条路，而那时这一页的「爬」就成了瓶颈。",
+    "ref": "课件 p35 原文 · 简报 §8（DAG 信用分配，开放问题）· §4d（穷举 oracle，已核）"
+   }
+  },
+  {
+   "r": [
+    37,
+    39
+   ],
+   "t": "三方性质表：本讲最该记住的一张",
+   "star": 3,
+   "quote": "<b>Some Important Properties to Evaluate Policy Evaluation Algorithms</b><br><em>Usable when no models</em>: DP 否 · MC 是 · TD 是<br><em>Handles continuing (non-episodic) domains</em>: DP 是 · MC 否 · TD 是<br><em>Handles Non-Markovian domains</em>: DP 否 · <b>MC 是</b> · TD 否<br><em>Converges to true value in limit</em>¹: 三者皆是<br><em>Unbiased estimate of value</em>: DP 不适用 · MC 是 · TD 否<br><em>¹ For tabular representations of value function. More on this in later lectures</em>",
+   "one": "<b>五条性质、三个方法。这张表是整讲的浓缩，值得抄下来。</b>",
+   "pts": [
+    "<b>横着读是「这个方法行不行」，竖着读才是本讲的内容</b>：每一行都是一笔交易。<span class='k'>没有一个方法五项全优，而且缺的那几项各不相同</span>——所以不存在「最好的方法」，只存在「在你这个问题上代价最小的方法」。",
+    "<b>第三行最值得停留：只有 MC 能处理非 Markov 环境。</b> 这是 MC 在整张表上唯一独占的优势，而且它的根源在 p13——<b>MC 不自举，所以不需要「状态是未来的充分统计量」这个假设</b>。p46 的 AB 例子会把这一条的后果演示出来。",
+    "<b>第四行那个脚注是整张表最要紧的一行小字</b>：<em>For tabular representations of value function. More on this in later lectures.</em> <span class='w'>换成函数逼近，「三者皆收敛」这一行就不成立了</span>——而真实问题里几乎一定要用函数逼近。那个「later lectures」指的是 <b>L05 的致命三件套</b>。",
+    "<b>第五行「DP 不适用（NA）」不是遗漏</b>：DP 不是从数据估出来的，它直接算，所以「偏差」这个概念对它没有定义。<b>它的误差来自别处——模型如果不准，它会精确地算出一个错答案。</b>",
+    "⚠️ <b>p38 是同一张表的空白版（留给学生填）</b>，p39 是答案。本精读合成一条。",
+    "<b>把五行按「对你有多要紧」重排，这张表就变成一张选型表。</b>第一行（无模型可用）几乎总是硬约束，先筛掉 DP；第三行（非 Markov）决定你敢不敢自举；第四行那个脚注决定前三行的结论在函数逼近下还成不成立。<span class='k'>第二、五行反而最不重要</span>——回合制与否通常由问题给定，而无偏性在样本有限时远没有均方误差要紧（见 p41）。",
+    "<b>第三行和第五行有个容易混的关系</b>：MC 在这两行都是「是」，但理由不同。<b>不怕非 Markov</b> 是因为它不自举；<b>无偏</b> 是因为它用的是真实回报。<span class='w'>两件事都来自「不自举」，但不是同一件事</span>——每次访问 MC 仍然不怕非 Markov，<b>却是有偏的</b>（见 p22）。",
+    "<b>课件把这张表拆成两页（p38 空白、p39 填好）是有意的</b>：它想让你先自己填一遍。<span class='k'>值得照做</span>——五行里真正需要想的只有第三行和第五行，其余三行从定义直接读出。能独立填对第三行，说明你真的理解了自举和 Markov 性的关系。"
+   ],
+   "tbl": {
+    "head": [
+     "性质",
+     "DP",
+     "MC",
+     "TD",
+     "根源"
+    ],
+    "rows": [
+     [
+      "无模型时可用",
+      "<b>否</b>",
+      "是",
+      "是",
+      "DP 要对 s′ 求和"
+     ],
+     [
+      "处理连续（非回合）任务",
+      "是",
+      "<b>否</b>",
+      "是",
+      "MC 要等回合结束"
+     ],
+     [
+      "处理非 Markov 环境",
+      "否",
+      "<b>是</b>",
+      "否",
+      "<b>只有 MC 不自举</b>"
+     ],
+     [
+      "极限收敛到真值<sup>※</sup>",
+      "是",
+      "是",
+      "是",
+      "※<span class='w'>仅限表格表示</span>"
+     ],
+     [
+      "无偏",
+      "不适用",
+      "<b>是</b>",
+      "否",
+      "TD 目标含自身估计"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>把这五行对着你的两条技术路线打勾，选型就落地了。</b><br><table><tr><th>性质</th><th>FQE（TD 路线）</th><th>穷举 oracle（MC 路线）</th></tr><tr><td>无模型可用</td><td>是</td><td>是</td></tr><tr><td>怕不怕非 Markov</td><td><b>怕</b></td><td><b>不怕</b></td></tr><tr><td>偏差</td><td>有，且随 H 累积</td><td><b>零</b>（跑到底拿真值）</td></tr><tr><td>代价</td><td>样本省</td><td><b>O(2^k) 次调用</b></td></tr></table><b>结论和简报 §4e 的拆法一致，但这里给出了理由</b>：准确率那一半用 FQE 是因为终局奖励下只能自举；<span class='w'>而自举要 Markov 性，所以 P2/P3 消融没做之前，FQE 的结果不能当定论</span>。<br><b>成本那一半则完全不受这张表约束</b>——简报 §4e 说它用直接回归、<em>完全不用重要性权重</em>，因为 token 成本给定保真度和输入长度近乎确定。<span class='k'>那根本不是一个策略评估问题，是个监督回归问题</span>，所以这张表的五行对它一条都不适用。<b>把两半分开，正是为了让这张表只管该管的那一半。</b>",
+    "ref": "课件 p37–p39 原文 · 简报 §4e（两半分开，已核）· §5（P2/P3 消融）· L05（函数逼近下收敛行不成立）"
+   }
+  },
+  {
+   "r": [
+    40,
+    40
+   ],
+   "t": "拿什么标准比较（第一版）",
+   "star": 1,
+   "quote": "<b>Some Important Properties to Evaluate Model-free Policy Evaluation Algorithms</b> — <em>Bias/variance characteristics</em> · <em>Data efficiency</em> · <em>Computational efficiency</em>",
+   "one": "<b>三把尺子：偏差/方差、数据效率、计算效率。</b>",
+   "pts": [
+    "<b>这三条和 p39 那张表是两个层次</b>：p39 问「能不能用」（定性），这三条问「用了之后有多好」（定量）。<span class='k'>先过能不能用，再比有多好</span>。",
+    "<b>数据效率与计算效率要分开，它们经常相反。</b> 一个方法可能每条数据榨得很干（数据效率高）但每次更新很贵（计算效率低）——确定性等价（p48）就是典型。<b>哪个更要紧取决于你的瓶颈是数据贵还是算力贵。</b>",
+    "⚠️ <b>这张清单在 p51 会被补上第四条</b>：「对 Markov 假设的稳健性」。<b>那一条是 AB 例子之后才加上去的</b>——因为要先看到它的后果，才知道它值得单列。",
+    "<b>这三条有个共同点：都是「代价」维度，没有一条是「对不对」。</b>正确性在上一页那张表里已经交代完（收敛、无偏），<span class='k'>这里开始问的是「多快、多省」</span>。两组问题要分开看——一个方法可以收敛到真值却慢到没法用。",
+    "⚠️ <b>这张清单 p51 还会再出现一次，而且多一条。</b>多出来的那条是 <em>Robustness to Markov assumption</em>（对 Markov 假设的鲁棒性）。<b>课件为什么分两次给？</b> 因为那一条要等 AB 例子（p44–p46）演示完才有说服力——<span class='w'>在看到「两个方法收敛到不同答案」之前，这条维度听起来只是个理论顾虑</span>。"
+   ]
+  },
+  {
+   "r": [
+    41,
+    41
+   ],
+   "t": "偏差与方差：MC 对 TD",
+   "star": 3,
+   "quote": "<b>Bias/Variance of Model-free Policy Evaluation</b><br><em>Return G<sub>t</sub> is an <b>unbiased</b> estimate of V<sup>π</sup>(s<sub>t</sub>)</em> · <em>TD target [r<sub>t</sub>+γV<sup>π</sup>(s<sub>t+1</sub>)] is a <b>biased</b> estimate</em> · <em>But often much lower variance</em><br><em>Return function of <b>multi-step</b> sequence of random actions, states &amp; rewards · TD target only has <b>one</b> random action, reward and next state</em><br><b>MC</b>: Unbiased · High variance · <em>Consistent even with function approximation</em><br><b>TD</b>: Some bias · Lower variance · <em>TD(0) converges with tabular representation</em> · <em><b>TD(0) does not always converge with function approximation</b></em>",
+   "one": "<b>MC 无偏但方差大，TD 有偏但方差小。而最后一行埋了一颗雷：TD 加上函数逼近不保证收敛。</b>",
+   "pts": [
+    "<b>方差差距的来源课件讲得很精确：随机性的「步数」不同。</b> <code>G<sub>t</sub></code> 把<b>多步</b>的随机动作、随机转移、随机奖励全累加；TD 目标只含<b>一步</b>。<span class='k'>方差大致随步数累积，所以长轨迹上差距是数量级的</span>。",
+    "<b>偏差的来源同样清楚</b>：TD 目标里的 <code>V<sup>π</sup>(s<sub>t+1</sub>)</code> 是你自己的估计，而它此刻多半是错的。<b>用错的东西当目标，自然有偏。</b> 但随着估计变准，偏差会缩小——这是它一致的原因。",
+    "<b>两行小字的对比才是这一页最值钱的部分</b>：<br>MC：<em>consistent <b>even with</b> function approximation</em><br>TD：<em><b>does not always converge</b> with function approximation</em><br><span class='w'>换成函数逼近之后，MC 仍然收敛，TD 可能不收敛</span>。",
+    "<b>为什么？因为自举 + 函数逼近 + 离策略三者同时出现时会发散</b>，这就是 <b>L05 的「致命三件套」</b>。MC 不自举，所以永远只踩其中两件，安全。<b>TD 三件都可能踩齐。</b>",
+    "⚠️ <b>这一页改变了前面的结论。</b> 在表格情形下「TD 有偏但 MSE 更好」几乎总成立；<b>一旦上函数逼近，TD 可能连收敛都没有</b>——那时「方差小」毫无意义。<b>所以比较必须说清楚是在哪种表示下做的。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "MC",
+     "TD"
+    ],
+    "rows": [
+     [
+      "偏差",
+      "<b>无偏</b>",
+      "有偏（目标含自身估计）"
+     ],
+     [
+      "方差",
+      "<b>高</b>（累积多步随机性）",
+      "<b>低</b>（只含一步）"
+     ],
+     [
+      "表格表示下",
+      "收敛",
+      "收敛"
+     ],
+     [
+      "<b>函数逼近下</b>",
+      "<b>仍然一致</b>",
+      "<span class='w'>不一定收敛</span>"
+     ],
+     [
+      "为什么",
+      "不自举 ⇒ 最多踩两件",
+      "<b>可能踩齐致命三件套</b>（L05）"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页最后一行就是「FQE 可能发散」的出处，而简报让你用 FQE 估准确率那一半。</b><br>FQE（fitted Q evaluation）是 <b>TD 式的自举</b> + <b>函数逼近</b> + <b>离策略数据</b> —— <span class='w'>三件齐了</span>。所以它不是「实现得好就一定收敛」的方法，<b>发散是结构性风险，不是 bug</b>。<br>三条可操作的后果：<br>① <b>必须监控而不是假设收敛</b>。报结果时要给出 FQE 迭代过程中 Q̂ 的范数或 Bellman 残差曲线 —— 发散时它会很明显地抬头。<br>② <b>穷举 oracle 不只是 ground truth，还是安全网</b>。它是 MC 式的（不自举），所以不踩这三件。当 FQE 的结果与 oracle 在留出集上对不上时，<b>先怀疑 FQE 而不是 oracle</b>。<br>③ <b>这给了「两半用不同估计量」第二个理由</b>。成本那一半用回归（不自举、不离策略，只是监督学习），<span class='k'>结构上就不可能踩三件套</span>；只有准确率那一半暴露在风险里。把它们混成一个估计量，等于让确定的那一半也去承担发散风险。<br>L05 精读会把致命三件套整讲展开，届时要回来把这条接上。",
+    "ref": "课件 p41 原文 · 简报 §4e（FQE + cross-fitting，已核）· L05 致命三件套（原课）"
+   }
+  },
+  {
+   "r": [
+    42,
+    42
+   ],
+   "t": "三种估计并排看：同一条轨迹，不同答案",
+   "star": 3,
+   "quote": "<b>Mars rover</b>, same trajectory<br><em>First visit MC estimate</em>: <b>[1 1 1 0 0 0 0]</b><br><em>Every visit MC estimate of V(s₂)</em>: <b>1</b><br><em>TD estimate of all states (init at 0) with α=1</em>: <b>[1 0 0 0 0 0 0]</b><br><em>TD(0) only uses a data point (s,a,r,s′) <b>once</b> · Monte Carlo takes <b>entire return</b> from s to end of episode</em>",
+   "one": "<b>同一条轨迹，三种方法三个答案。差别不在谁对谁错，在于一遍数据各自榨出了多少。</b>",
+   "pts": [
+    "<b>把三个答案并排放，差别一眼可见</b>：MC 一遍就把 s₃、s₂、s₁ 全填上；TD 一遍只填上 s₁。<span class='k'>不是 TD 更差，是它把同一条信息分成 L 次往回传</span>。",
+    "<b>课件给的解释是两句对仗</b>：<em>TD(0) only uses a data point once</em>（一个四元组用完就丢）· <em>MC takes entire return from s to end of episode</em>（从 s 一直加到结尾）。<b>这就是「数据效率」在这个例子里的具体含义。</b>",
+    "<b>但「用一次就丢」是 TD(0) 的实现选择，不是 TD 的本质。</b> 把同一批数据反复喂给 TD（经验回放 / 批量 TD），信息就能传遍全链——<b>而那正是下一页 p43 要问的问题</b>。",
+    "⚠️ <b>别把这一页的结论推广成「MC 数据效率更高」。</b> 这个例子是单条轨迹、奖励在末尾、状态几乎不重复——<span class='w'>专挑了 TD 最吃亏的设定</span>。p46 的 AB 例子给的是反面。"
+   ],
+   "tbl": {
+    "head": [
+     "方法",
+     "这条轨迹上的估计",
+     "一遍数据传多远"
+    ],
+    "rows": [
+     [
+      "首次访问 MC",
+      "<b>[1 1 1 0 0 0 0]</b>",
+      "<b>整条链</b>（从 s 加到结尾）"
+     ],
+     [
+      "每次访问 MC",
+      "V(s₂) = 1，其余同上",
+      "整条链"
+     ],
+     [
+      "TD(0)，α=1",
+      "<b>[1 0 0 0 0 0 0]</b>",
+      "<b>一步</b>"
+     ],
+     [
+      "确定性等价（p50）",
+      "<b>[1 1 1 0 0 0 0]</b>",
+      "整条链（先建模再精确求解）"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    43,
+    43
+   ],
+   "t": "如果允许把数据反复用呢",
+   "star": 2,
+   "quote": "<b>Batch MC and TD</b> — Batch (Offline) solution for finite dataset<br>Given set of K episodes · <em>Repeatedly sample an episode from K · Apply MC or TD(0) to the sampled episode</em><br><b><em>What do MC and TD(0) converge to?</em></b>",
+   "one": "<b>换一个设定：数据固定，但允许反复喂。这时 MC 和 TD 会收敛到同一个答案吗？</b>",
+   "pts": [
+    "<b>这个设定去掉了「数据效率」这个变量。</b> 既然可以反复用，「一遍传多远」就不重要了——<span class='k'>剩下的差别就是两种方法各自在追求什么</span>。这是一个很干净的实验设计。",
+    "<b>「批量 / 离线」这个词在这里是中性的，但它正是 L15 的主场。</b> 数据固定、不能再采集、反复利用——<b>这是真实世界里「不能试错」的问题的标准形态</b>。",
+    "<b>课件把问题抛出来就翻页了。</b> 答案在 p46，而 p44–p45 先用一个最小例子把直觉建起来。<span class='w'>这里值得自己先猜一下再往下翻</span>——两种方法会收敛到同一个值吗？",
+    "<b>「批量」这个词在这里有个很具体的含义：数据固定了，但计算还可以加。</b>在线设定里每条数据用一次就扔，受限于数据；批量设定里你可以把同一批数据反复过，<span class='k'>于是瓶颈从「有多少数据」变成「愿意算多久」</span>。",
+    "<b>这一页其实是在问一个更深的问题</b>：前面比较 MC 和 TD 时，一部分差异来自「谁用数据用得更充分」（TD 只用一次，MC 用整条回报）。<b>如果允许反复用，这部分差异就被抹掉了。</b><span class='w'>那么剩下的差异是什么？</span> 下一页的 AB 例子给出答案：剩下的是<b>对世界的假设不同</b>——那才是本质的分歧。"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页描述的正是你的处境，而且是好消息。</b><br>你手上是一批<span class='k'>已经跑完、不会再增加</span>的 AFlow 日志——这是教科书式的批量设定。<b>所以「用数据用得够不够充分」这个维度上，你不必在 MC 和 TD 之间取舍</b>，两种都可以把数据榨干。<br><b>真正要选的是下一页那个分歧</b>：要不要假设 Markov 性。<span class='w'>这也正是简报 §4c 把顺序定成「先做敏感度扫描与可加性检验，再谈 OPE」的理由</span>——先把假设验了，再挑估计量，而不是反过来。",
+    "ref": "课件 p43 原文 · 简报 §4c（顺序：先扫描后 OPE，已核）"
+   }
+  },
+  {
+   "r": [
+    44,
+    45
+   ],
+   "t": "AB 例子：八个回合，两个状态",
+   "star": 3,
+   "quote": "<b>AB Example</b> (Ex. 6.4, Sutton &amp; Barto, 2018)<br>Two states A, B with <em>γ = 1</em> · Given <b>8 episodes</b>:<br><em>A, 0, B, 0</em>　（一次）<br><em>B, 1</em>　（<b>观察到 6 次</b>）<br><em>B, 0</em>　（一次）<br><b>V(B) = 0.75 by TD or MC</b> · <em>What about V(A)?</em>",
+   "one": "<b>八个回合。A 只出现过一次，而且那一次最终拿到 0。B 出现了八次，其中六次拿到 1。</b>",
+   "pts": [
+    "<b>先把数据数清楚</b>：共 8 个回合。其中 <b>1 个</b>是 <code>A → 0 → B → 0</code>（经过 A，再经过 B，总回报 0）；<b>6 个</b>是 <code>B → 1</code>；<b>1 个</b>是 <code>B → 0</code>。所以 <b>B 一共出现 8 次</b>（6 次得 1，2 次得 0），<b>A 只出现 1 次</b>。",
+    "<b>V(B) 两种方法一致，都是 0.75</b>：B 的八次经历里六次回报 1、两次回报 0，平均 6/8 = <b>0.75</b>。<span class='k'>这里没有分歧，因为 B 之后就结束了，不涉及自举</span>。",
+    "<b>分歧全在 V(A) 上，而 A 只有一个样本。</b> 这正是这个例子的设计：<span class='w'>把「数据极少时该怎么推断」这个问题逼到极限</span>。",
+    "<b>先自己想一想再翻页</b>：从 A 出发那唯一一次，最终总回报是 0。那么 V(A) 应该是 0 吗？还是说——既然 A 之后必然到 B，而 B 的值是 0.75，所以 V(A) 应该是 0.75？<b>两种推理都成立，而它们正是 MC 和 TD 的推理方式。</b>",
+    "⚠️ <b>这个例子来自 Sutton &amp; Barto 第 6.4 节</b>，是 RL 教学里最经典的例子之一。γ=1 且回合极短，所以可以完全手算。",
+    "<b>把两种推理写成两句话，分歧就看得很清楚了。</b><br><b>MC 的推理</b>：「我只见过 A 一次，那一次的回报是 0。所以 V(A)=0。」——<span class='k'>只认亲眼见过的结果</span>。<br><b>TD 的推理</b>：「A 之后必然到 B（一次里一次都到了），而 B 值 0.75。所以 V(A) = 0 + 0.75 = 0.75。」——<span class='k'>借用了关于 B 的另外七条数据</span>。",
+    "<b>关键在于 TD 凭什么能借</b>：它默认「到了 B 之后会发生什么，与怎么到的 B 无关」。<b>这就是 Markov 性。</b> 假设成立时这一借是白赚的——A 的样本只有 1 条，B 的样本有 8 条，<span class='k'>借过来相当于把样本量放大了八倍</span>；<span class='w'>假设不成立时，这一借就是系统性的错误</span>。",
+    "<b>这个例子之所以经典，是因为它把「样本极少」和「假设是否成立」这两件事叠在了一起。</b>现实里两者几乎总是同时出现：<b>正因为某个状态的数据少，你才想借；也正因为数据少，你没法检验借得对不对。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "回合形态",
+     "出现次数",
+     "A 的回报",
+     "B 的回报"
+    ],
+    "rows": [
+     [
+      "A, 0, B, 0",
+      "<b>1</b>",
+      "<b>0</b>",
+      "0"
+     ],
+     [
+      "B, 1",
+      "<b>6</b>",
+      "—",
+      "1"
+     ],
+     [
+      "B, 0",
+      "1",
+      "—",
+      "0"
+     ],
+     [
+      "<b>合计</b>",
+      "8",
+      "A 出现 <b>1</b> 次",
+      "B 出现 <b>8</b> 次，均值 <b>0.75</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>A 只有一个样本——你的日志里到处都是这种「A」。</b><br>k 个决策节点、每节点 2 个保真度，构型空间 2^k。<span class='w'>固定配置跑出来的日志里，绝大多数构型的样本数是 0，少数是 1</span>。这一页问的「只见过一次该怎么推断」，就是你每天面对的问题。<br><b>但要注意一处关键差别，别把类比用过头</b>：AB 例子里 A 至少<b>被访问过</b>，所以 MC 还能给出一个（高方差的）估计。<span class='w'>而简报 §4a 说的 deficient support 是更坏的情形——那些构型的 π_b(a|h) = 0，连一条都没有</span>，<b>MC 不是估得差，是无从估起</b>。<br><b>这恰好解释了为什么 TD 路线（FQE）在你这里有不可替代的吸引力</b>：它像 TD 对待 A 一样，用模型结构把别处的数据借过来，<span class='k'>对没见过的构型也能给出一个数</span>。代价就是这一页的代价：<b>借对了是八倍样本，借错了是系统性偏差，而且数据再多也不会自己暴露</b>。简报 §4d 的穷举 oracle 之所以值得花那个钱，正是为了<b>造一个能检验这件事的 ground truth</b>。",
+    "ref": "课件 p44 原文 · 简报 §4a（deficient support，推断）· §4d（穷举 oracle，已核）"
+   }
+  },
+  {
+   "r": [
+    46,
+    46
+   ],
+   "t": "批量下它们收敛到不同的东西",
+   "star": 3,
+   "quote": "<b>Batch MC and TD: Converges</b><br><em>Monte Carlo in batch setting converges to <b>min MSE</b> (mean squared error) — minimize loss with respect to observed returns. In AB example, <b>V(A) = 0</b></em><br><em>TD(0) converges to <b>DP policy V<sup>π</sup> for the MDP with the maximum likelihood model estimates</b></em><br><em>P̂(s′|s,a) = (1/N(s,a)) Σ 1(s<sub>k,t</sub>=s, a<sub>k,t</sub>=a, s<sub>k,t+1</sub>=s′)</em>",
+   "one": "<b>MC 收敛到「最拟合已观察回报」的值，给 V(A)=0；TD 收敛到「先用数据估出 MDP 再精确求解」的值，给 V(A)=0.75。</b>",
+   "pts": [
+    "<b>MC 的推理</b>：从 A 出发只观察过一次，那次总回报是 0。要最小化对<b>已观察回报</b>的均方误差，答案就是 <b>V(A) = 0</b>。<span class='k'>它只相信自己亲眼见过的完整轨迹</span>。",
+    "<b>TD 的推理</b>：数据说 A 之后必然到 B（唯一一次观察如此），而 B 的值是 0.75；γ=1 且中间奖励为 0，所以 <b>V(A) = 0 + 1×0.75 = 0.75</b>。<span class='k'>它借用了关于 B 的全部八次数据</span>，哪怕那些回合根本没经过 A。",
+    "<b>课件给了 TD 收敛目标的精确刻画</b>：它收敛到「<b>用最大似然估计出的 MDP 模型</b>上做 DP 所得的值」。也就是说 <b>TD 隐式地在建模型</b>——它从不显式写出 P̂，但收敛到的结果等价于先估 P̂ 再求解。",
+    "<b>谁对？取决于世界是不是 Markov 的。</b> 如果 A→B 这个结构是真的，TD 的 0.75 利用了更多数据，<b>估得更准</b>。如果世界不是 Markov（比如经过 A 再到 B 时 B 的行为其实不同），<span class='w'>TD 的借用就是错的</span>，而 MC 的保守反而对。",
+    "<b>这就是 p39 第三行「只有 MC 处理非 Markov」的全部含义</b>，也是 p51 要把「对 Markov 假设的稳健性」单列成一条标准的原因。"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "MC（批量）",
+     "TD(0)（批量）"
+    ],
+    "rows": [
+     [
+      "收敛到什么",
+      "<b>最小化对已观察回报的 MSE</b>",
+      "<b>MLE 模型上做 DP 的值</b>"
+     ],
+     [
+      "AB 例子里 V(A)",
+      "<b>0</b>",
+      "<b>0.75</b>"
+     ],
+     [
+      "用了哪些数据",
+      "只用经过 A 的那 1 个回合",
+      "<b>借用了 B 的全部 8 次</b>"
+     ],
+     [
+      "世界真是 Markov 时",
+      "估得差（样本少）",
+      "<b>估得准</b>"
+     ],
+     [
+      "世界不是 Markov 时",
+      "<b>对</b>",
+      "<span class='w'>系统性地错</span>"
+     ]
+    ]
+   },
+   "say": "讲稿里她把取舍说得比课件直白：<em>if your world is <b>not</b> Markovian you don't want to converge to something as if it's Markovian, so Monte Carlo was better. But if your world really <b>is</b> Markov, then you're getting a big benefit from TD here — because it can leverage the Markov structure, and so <b>even though you never got a reward from A</b>, you can leverage the fact that you got lots of data about B and use that to get better estimates.</em><b>「你从没在 A 拿到过奖励，却能用 B 的数据去估它」——这一句就是 TD 的全部好处与全部风险。</b>"
+  },
+  {
+   "r": [
+    47,
+    47
+   ],
+   "t": "数据效率与计算效率",
+   "star": 2,
+   "quote": "<b>Data efficiency &amp; Computational efficiency</b><br><em>In simplest TD, use (s,a,r,s′) <b>once</b> to update V(s) · <b>O(1)</b> operation per update · In an episode of length L, <b>O(L)</b></em><br><em>In MC have to wait till episode finishes, then also <b>O(L)</b></em><br><em>MC can be more data efficient than simple TD · <b>But TD exploits Markov structure</b> · If in Markov domain, leveraging this is helpful</em>",
+   "one": "<b>计算上两者都是 O(L)；数据上简单 TD 吃亏（用一次就丢），但它能利用 Markov 结构扳回来。</b>",
+   "pts": [
+    "<b>计算效率两者相同，这一点容易被误以为 TD 更省。</b> TD 每个四元组 O(1)，一个长度 L 的回合共 O(L)；MC 等回合结束后<b>也是</b> O(L)（从后往前累加一遍）。<span class='k'>TD 省的不是总计算量，是「等待」</span>——它可以边走边更新。",
+    "<b>课件说「MC 可能比简单 TD 数据效率更高」，指的是 p42 那个现象</b>：一遍轨迹，MC 把整条链贯通，TD(0) 只推进一步。<b>注意限定词是「简单 TD」</b>——批量 TD 或经验回放不受这条限制。",
+    "<b>而后半句是反向的理由</b>：<em>TD exploits Markov structure</em>。AB 例子里 TD 用 B 的八次数据去估 V(A)，<span class='k'>这是 MC 做不到的数据复用</span>。<b>所以「谁数据效率高」没有统一答案，取决于状态重复程度和 Markov 性是否成立。</b>",
+    "⚠️ <b>两条效率的瓶颈不同，要分清你受制于哪个。</b> 数据贵（真实交互昂贵）时，优先数据效率；算力贵（状态空间巨大）时，优先计算效率。<b>这两件事经常被混成一句「哪个更快」。</b>"
+   ]
+  },
+  {
+   "r": [
+    48,
+    50
+   ],
+   "t": "第四条路：确定性等价",
+   "star": 3,
+   "quote": "<b>Alternative: Certainty Equivalence V<sup>π</sup> MLE MDP Model Estimates</b><br><em>Model-based option for policy evaluation without true models</em><br>After each (s,a,r,s′): recompute MLE MDP model · <em>P̂(s′|s,a) = (1/N(s,a)) Σ 1(···)</em> · <em>r̂(s,a) = (1/N(s,a)) Σ 1(···)r</em> · then compute V<sup>π</sup> using MLE MDP<br>p50: <em>r̂ = [1 0 0 0 0 0 0], p̂(terminate|s₁,a₁) = p̂(s₁|s₂,a₁) = p̂(s₂|s₃,a₁) = 1, <b>V = [1 1 1 0 0 0 0]</b></em>",
+   "one": "<b>第四条路：用数据估出一个 MDP，然后把它当真的，在上面做 DP。</b>",
+   "pts": [
+    "<b>名字的意思就是「把估计出来的东西当成确定的」</b>——你估出 P̂ 和 r̂ 之后，<span class='w'>不再考虑它们本身的不确定性</span>，直接拿去精确求解。这个「假装它是真的」正是它的名字由来，也是它的主要风险。",
+    "<b>它在 p39 那张表上的位置很特别：它是 model-based 的，但不需要真实模型。</b> 所以它既不是 DP（DP 要真模型），也不是 MC/TD（那两个是 model-free）。<b>课件把它放在最后，是因为它在数据效率上通常最好。</b>",
+    "<b>火星车上它给 [1 1 1 0 0 0 0]，和 MC 一样</b>，但<span class='k'>理由完全不同</span>：MC 是因为真的观察到了那些回报；确定性等价是因为它从一条轨迹里估出了 <code>p̂(s₂|s₃,a₁)=1</code> 这样的转移，然后<b>精确地把信息传遍全链</b>。<b>一遍数据，效果和跑很多遍 TD 一样。</b>",
+    "<b>和批量 TD 的关系值得点明</b>：p46 说批量 TD(0) 收敛到「MLE 模型上做 DP 的值」——<span class='k'>那正是确定性等价的定义</span>。所以<b>确定性等价 = 批量 TD 的收敛目标，只是直接算出来而不是迭代逼近</b>。",
+    "<b>代价是计算与存储</b>：要维护 <code>N(s,a)</code>、<code>P̂</code>、<code>r̂</code>，而 P̂ 的大小是 |S|²|A|。每来一个数据点就重算一次 DP 更是昂贵——<span class='w'>这是整讲里计算效率最差的方法</span>。",
+    "⚠️ <b>它继承了 L01 p59 那句警告：model may be wrong。</b> 数据少时 P̂ 会很不准，而确定性等价对此<b>毫无防备</b>——它把一个噪声很大的估计当成了真值。L13 的 PAC 方法与 L16 的模型误差复合都在处理这件事。"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "怎么得到 V",
+     "数据效率",
+     "计算效率",
+     "风险"
+    ],
+    "rows": [
+     [
+      "MC",
+      "平均观察到的回报",
+      "中",
+      "O(L)/回合",
+      "方差大"
+     ],
+     [
+      "TD(0)",
+      "一步自举，迭代",
+      "<b>低</b>（用一次就丢）",
+      "O(L)/回合",
+      "有偏 · 函数逼近下可能发散"
+     ],
+     [
+      "批量 TD",
+      "反复喂同一批数据",
+      "高",
+      "高",
+      "收敛到 MLE 模型的解"
+     ],
+     [
+      "<b>确定性等价</b>",
+      "<b>估出 MDP 再精确求解</b>",
+      "<b>高</b>",
+      "<span class='w'>最差</span>",
+      "<b>把噪声模型当真值</b>"
+     ]
+    ]
+   },
+   "say": "讲稿最后一段她专门提了一句：<em>I encourage you to think about how you would compute these sort of models — it's called certainty equivalence … take your data, compute your estimated dynamics and reward model, and then do dynamic programming with that, and that <b>often can be much more data efficient</b> than these other methods.</em><b>这是她在这一讲结束前留下的最后一条建议。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>你的成本模型就是确定性等价，而且是它最顺利的那种情形。</b><br>流程一模一样：用日志估一个模型（给定保真度与输入长度 → token 成本），然后<b>不再考虑它的不确定性</b>，直接拿去精确求值。<br><span class='k'>而这一页列的主要风险在成本这一半几乎不存在</span>：确定性等价怕的是「P̂ 噪声大却被当成真值」，但你的成本关系<b>近乎确定性</b>（预期 R² &gt; 0.95），估计误差本来就小。<b>所以这条路在成本上是安全的，在准确率上才是危险的</b> —— 准确率的「模型」（Q̂）噪声大得多。<br>这给了「两半分开」第三个理由，而且现在三个理由指向同一个结论：<br>① 可学性差一个数量级（§4e）<br>② 只有准确率那一半暴露在致命三件套下（p41）<br>③ <b>确定性等价的核心风险只打中准确率那一半</b>（本页）<br><b>还有一个具体做法可以借</b>：课件的 MLE 公式是逐 (s,a) 计数平均。你的成本模型可以做得更好 —— 不必按节点分桶，<b>直接回归</b>（保真度 × 输入长度 → 成本），因为成本有参数化的结构而转移概率没有。<span class='w'>这是你比课件这一页更有利的地方，值得在论文里说明</span>。<br>标【推断】：这整段对应是我做的；成本模型的 R² 预期与两半拆分在简报里是【已核】。",
+    "ref": "课件 p48–p50 原文 · 简报 §4e（已核）· L01 p59「model may be wrong」（原课）"
+   }
+  },
+  {
+   "r": [
+    51,
+    51
+   ],
+   "t": "比较维度：补上第四条",
+   "star": 2,
+   "quote": "<b>Some Important Properties to Evaluate Policy Evaluation Algorithms</b> — <b><em>Robustness to Markov assumption</em></b> · <em>Bias/variance characteristics</em> · <em>Data efficiency</em> · <em>Computational efficiency</em>",
+   "one": "<b>和 p40 同一张清单，但最前面加了一条：对 Markov 假设的稳健性。</b>",
+   "pts": [
+    "<b>这一条是 AB 例子之后才加上去的，而且被放在了第一位。</b> <span class='k'>顺序变化本身就是结论</span>——看过 V(A) 那 0 与 0.75 的分歧之后，「这个方法在 Markov 假设不成立时会怎样」就不再是技术细节，而是首要问题。",
+    "<b>四条标准对应四种失败方式</b>：Markov 假设不成立 → 收敛到错的东西（TD）；偏差方差差 → 估不准；数据效率低 → 数据不够用；计算效率低 → 跑不动。<b>前两条关乎对不对，后两条关乎做不做得到。</b>",
+    "<b>按这四条给三个方法打分，没有赢家</b>：MC 稳健但方差大；TD 方差小但不稳健；确定性等价数据效率高但计算最贵且把噪声当真值。<span class='w'>选哪个取决于你最怕哪种失败</span>。",
+    "<b>新加的那条排在第一位，不是排在最后。</b> 课件把 <em>Robustness to Markov assumption</em> 放在偏差方差、数据效率、计算效率<b>之前</b>。<span class='k'>这个顺序是有主张的</span>：假设不成立时，后面三条讨论的都是「一个错答案算得多快多省」。"
+   ],
+   "res": {
+    "tag": "已核",
+    "v": "<b>这条维度对你不是理论顾虑，是已经写进计划的一个实验。</b><br>简报 §5 的 <b>P2 vs P3 消融</b>：策略只看 <code>(query, 节点 id)</code>，还是也看部分轨迹？<span class='k'>若序贯信息带来的提升不到 2 个百分点，就不要用 MDP 框架</span>。配套的<b>可加性检验</b>是比较 <code>Σ_h Δ_h^down</code> 与 <code>Acc(全强) − Acc(全弱)</code>——在置信区间内一致，就说明节点效应近似可加，<b>这个问题实质上不是 MDP，而是「每节点代价敏感选择」</b>。<br><b>这一页给了你一个把实验写进论文的角度</b>：那不是「我们检查了一下假设」，而是<span class='w'>「我们先确定这条维度上站在哪一边，再去挑估计量」</span>。简报 §7 第一拳问的正是「为什么是 MDP 而不是 H 个独立决策」，<b>而这张四条维度的表就是回答的框架</b>。",
+    "ref": "课件 p51 原文 · 简报 §5（可加性检验与 P2/P3 消融，已核）· §7 第 1 拳"
+   }
+  },
+  {
+   "r": [
+    52,
+    53
+   ],
+   "t": "小结与路线图",
+   "star": 1,
+   "quote": "<b>Summary: Policy Evaluation</b> — Dynamic Programming · Monte Carlo policy evaluation（<em>given on policy samples</em> / <em><b>given off policy samples</b></em>）· Temporal Difference (TD) · Metrics to evaluate and compare algorithms",
+   "one": "<b>小结页在 MC 那一支下面分出了两条：on-policy 与 off-policy。后者就是接下来九页的内容。</b>",
+   "pts": [
+    "<b>注意这张清单比 p3 和 p30 多了一行</b>：<em>Given off policy samples</em>。<span class='k'>它是在这里才被补进清单的</span>——前面三次出现时都没有。",
+    "<b>off-policy 挂在 MC 那一支下面，不是独立的一支。</b> 这个归类是对的：重要性采样<b>就是</b>蒙特卡洛，只不过把等权平均换成加权平均（p29 的原话是 <em>reweighted empirical average</em>）。",
+    "⚠️ <b>接下来九页（p54–p62）讲座没有讲到。</b> 讲稿在 AB 例子与确定性等价之后就结束了，最后一句是 <em>next time we'll start to talk a little bit about control</em>。<b>所以这张小结页实际上是讲座的终点，而不是中点。</b>",
+    "<b>整讲收束成一句话</b>：无模型的策略评估有三条路——<b>直接平均</b>（MC）、<b>一步自举</b>（TD）、<b>先估模型再规划</b>（确定性等价）。<span class='k'>三条路的分歧不在算法形式，在对世界的假设强弱</span>：MC 什么都不假设；TD 假设 Markov 性；确定性等价把这个假设显式写成一个模型。",
+    "<b>再往回看，会发现本讲其实只讲了一件事的两面。</b>正面是 p18 那条分解 <code>V(s) = R(s) + γΣP(s′|s)V(s′)</code>——<b>Markov 性让值函数可以递归地拆开</b>；反面是 p46 的 AB 例子——<span class='w'>这条分解一旦不成立，用它的方法会收敛到一个自信的错答案</span>。<b>所有的偏差/方差讨论，都是在这条分解的「用」与「不用」之间取舍。</b>",
+    "<b>一张自检表，离开这一讲前值得逐条过</b>：① 能不能说出 MC 与 TD 各自不需要什么假设？② 能不能解释为什么只有 MC 不怕非 Markov？③ 能不能手算 AB 例子的两个答案并说出分歧来自哪？④ 能不能说出批量 TD(0) 收敛到的到底是什么？<span class='k'>这四问覆盖了本讲全部的承重内容</span>。"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "蒙特卡洛",
+     "时序差分",
+     "确定性等价"
+    ],
+    "rows": [
+     [
+      "怎么估",
+      "平均真实回报",
+      "一步奖励 + 自举",
+      "先估 P̂ 和 r̂，再做 DP"
+     ],
+     [
+      "假设了什么",
+      "<b>什么都不假设</b>",
+      "Markov 性",
+      "<b>Markov 性（显式写成模型）</b>"
+     ],
+     [
+      "偏差 / 方差",
+      "无偏 · 高方差",
+      "<b>有偏 · 低方差</b>",
+      "有偏 · 低方差"
+     ],
+     [
+      "批量下收敛到",
+      "最小均方误差解",
+      "<b>极大似然 MDP 的 DP 解</b>",
+      "同左（就是它本身）"
+     ],
+     [
+      "数据效率",
+      "中",
+      "低（朴素）/ 高（批量）",
+      "<b>最高</b>"
+     ],
+     [
+      "计算代价",
+      "低",
+      "低",
+      "<b>高（每步重估模型）</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>整讲落到你项目上，是三句话。</b><br><b>① 你的处境是批量 off-policy</b>（p43 + p54 起那一段）：数据固定、不能重跑、目标策略没跑过。<span class='w'>而讲座在这里就结束了，p54–p62 只有课件没有讲解</span>——也就是说，<b>这门课把你的问题陈述摆出来了，却没有给解法</b>。<br><b>② 该用哪条路，取决于一个还没做的实验</b>（p37–p39 + p51）：Markov 性成立 ⇒ TD 路线（FQE）能借到别处的数据；不成立 ⇒ 只能走 MC 路线。<span class='k'>P2/P3 消融与可加性检验必须排在估计量选择之前</span>。<br><b>③ 两半要分开估</b>（p41 + 简报 §4e）：成本那一半是监督回归，<b>和这一讲讲的全部内容都无关</b>；准确率那一半才是策略评估问题。<span class='w'>把它们混在一个估计量里，是在给本来不需要重要性权重的那一半平白添方差。</span><br><b>下一讲（L04）讲的是控制</b>——先把评估弄明白是对的顺序，因为<span class='k'>你的项目现阶段要的就是评估，不是控制</span>：你要的是「不重跑就知道新配置好不好」，不是「在线学一个策略」。",
+    "ref": "课件 p52–p53 原文 · 简报 §4a §4c §4e（已核）· §5（可加性检验）"
+   }
+  }
+ ],
+ "quiz": {
+  "31": [
+   {
+    "q": "TD 在「自举 / 采样」这张 2×2 上的位置是？",
+    "o": [
+     "两样都做",
+     "只自举",
+     "只采样",
+     "两样都不做"
+    ],
+    "a": 0,
+    "why": "课件原文 <em>bootstraps and samples</em>。DP 只自举（把期望算出来），MC 只采样（走到底用真实回报），<b>TD 两样都做</b>——这正是 Sutton &amp; Barto 说它是 RL 特有思想的原因，统计学和控制论里都没有正好对应的东西。"
+   }
+  ],
+  "33": [
+   {
+    "q": "TD 误差 δ<sub>t</sub> = r<sub>t</sub> + γV(s<sub>t+1</sub>) − V(s<sub>t</sub>) 会随着数据增多趋于 0 吗？",
+    "o": [
+     "只在表格表示下会",
+     "会，这是收敛的标志",
+     "不会，除非环境是确定性的（只有一个后继状态）",
+     "只有 α 足够小才会"
+    ],
+    "a": 2,
+    "why": "前一项永远只是<b>一个样本</b>（你实际走到的那个 s<sub>t+1</sub>），后一项是对所有可能后继的<b>期望</b>。她的例子：去机场一半时间堵车一半不堵，两个不同的后继状态。<b>E[δ]=0，但 δ 本身一直在抖</b>——α 的作用就是把这些抖动平掉。"
+   }
+  ],
+  "35": [
+   {
+    "q": "火星车那条轨迹上，TD（初值 0、α=1）跑一遍得到的估计是？",
+    "o": [
+     "[0 0 0 0 0 0 0]，什么都没学到",
+     "[1 1 1 0 0 0 0]，和 MC 相同",
+     "[1 0 0 0 0 0 0]，只有 s₁ 被更新",
+     "[1 1 0 0 0 0 0]"
+    ],
+    "a": 2,
+    "why": "奖励在最后一步才出现，而 TD 每次只往回传一步。前三次更新的目标都是 0（因为 V 还是初值），只有最后一步 s₁→终止时目标是 1。<b>要把信息传到 s₃ 还得再跑两遍同样的轨迹。</b>"
+   },
+   {
+    "q": "这个例子说明 MC 的数据效率一定比 TD 高吗？",
+    "o": [
+     "是，MC 一遍就贯通整条链",
+     "不是：这个例子专挑了 TD 最吃亏的设定（单条轨迹、奖励在末尾、状态几乎不重复）",
+     "无法判断",
+     "是，课件明确这么说了"
+    ],
+    "a": 1,
+    "why": "p46 的 AB 例子给的是反面——那里 TD 能借用 B 的八次数据去估 V(A)，是 MC 做不到的复用。<b>谁数据效率高取决于状态重复程度与 Markov 性是否成立。</b>另外「用一次就丢」是 TD(0) 的实现选择，批量 TD 不受此限。"
+   }
+  ],
+  "37": [
+   {
+    "q": "三方性质表里，MC 唯一独占的优势是哪一条？",
+    "o": [
+     "无模型时可用",
+     "计算效率",
+     "处理非 Markov 环境",
+     "极限收敛到真值"
+    ],
+    "a": 2,
+    "why": "无模型 MC 和 TD 都行；极限收敛三者都行（<b>但仅限表格表示</b>）。<b>只有「处理非 Markov 环境」是 MC 独占的</b>，根源在于它不自举，所以不需要「状态是未来的充分统计量」这个假设。"
+   },
+   {
+    "q": "「极限收敛到真值：三者皆是」那一行带了一个脚注。脚注说了什么，为什么要紧？",
+    "o": [
+     "只对回合制任务成立",
+     "只对表格表示成立——换成函数逼近这一行就不成立了",
+     "只对折扣因子 γ<1 成立",
+     "只对确定性环境成立"
+    ],
+    "a": 1,
+    "why": "原文：<em>For tabular representations of value function. More on this in later lectures.</em> 而真实问题几乎一定要用函数逼近。那个「later lectures」指的是 <b>L05 的致命三件套</b>——p41 最后一行已经预告：<em>TD(0) does not always converge with function approximation</em>。"
+   }
+  ],
+  "41": [
+   {
+    "q": "MC 方差比 TD 大的根本原因是？",
+    "o": [
+     "G 累积了多步的随机动作、转移和奖励，而 TD 目标只含一步",
+     "MC 需要回合终止",
+     "MC 的步长更大",
+     "MC 不用模型"
+    ],
+    "a": 0,
+    "why": "课件原话：<em>Return function of multi-step sequence of random actions, states &amp; rewards · TD target only has one random action, reward and next state</em>。<b>方差大致随步数累积，所以长轨迹上差距是数量级的。</b>"
+   },
+   {
+    "q": "换成函数逼近之后，MC 与 TD 的收敛性分别如何？",
+    "o": [
+     "MC 仍然一致，TD(0) 不一定收敛",
+     "两者都不收敛",
+     "MC 不收敛，TD 收敛",
+     "两者都仍然收敛"
+    ],
+    "a": 0,
+    "why": "课件两行小字：MC <em>consistent even with function approximation</em>；TD <em>does not always converge with function approximation</em>。原因是自举 + 函数逼近 + 离策略三者同时出现会发散（L05 的致命三件套）。<b>MC 不自举，最多踩两件。</b>"
+   }
+  ],
+  "44": [
+   {
+    "q": "AB 例子里 V(B) = 0.75 是怎么来的？",
+    "o": [
+     "B 出现 8 次，其中 6 次回报 1、2 次回报 0，平均 6/8",
+     "由 MLE 模型算出",
+     "由 TD 自举算出",
+     "B 出现 7 次，6 次回报 1"
+    ],
+    "a": 0,
+    "why": "8 个回合里 6 个是 <code>B,1</code>、1 个是 <code>B,0</code>、还有 1 个 <code>A,0,B,0</code> 里 B 也得 0。所以 B 共 8 次、6 次得 1，均值 0.75。<b>这里 MC 和 TD 不分歧</b>，因为 B 之后就结束了，不涉及自举。"
+   }
+  ],
+  "46": [
+   {
+    "q": "批量设定下，MC 与 TD(0) 分别收敛到什么？",
+    "o": [
+     "都收敛到 0",
+     "MC 收敛到最小化对已观察回报的 MSE；TD 收敛到 MLE 模型上做 DP 的值",
+     "MC 收敛到 MLE 模型的值；TD 收敛到最小 MSE",
+     "都收敛到真值"
+    ],
+    "a": 1,
+    "why": "AB 例子里这导致 V(A) 分别是 <b>0</b> 与 <b>0.75</b>。MC 只相信亲眼见过的完整轨迹；<b>TD 隐式地在建模型</b>——它从不写出 P̂，但收敛结果等价于先估 P̂ 再求解。"
+   },
+   {
+    "q": "V(A) 该是 0 还是 0.75？",
+    "o": [
+     "取决于 γ 的取值",
+     "取决于世界是不是 Markov 的",
+     "一定是 0，因为那是唯一观察到的回报",
+     "一定是 0.75，因为用了更多数据"
+    ],
+    "a": 1,
+    "why": "她在讲稿里说得很直白：<em>if your world is not Markovian you don't want to converge to something as if it's Markovian, so MC was better. But if your world really is Markov, then you're getting a big benefit from TD</em>。<b>「你从没在 A 拿到过奖励，却能用 B 的数据去估它」——这是 TD 的全部好处与全部风险。</b>"
+   }
+  ],
+  "48": [
+   {
+    "q": "确定性等价这个名字里的「确定」指的是什么？",
+    "o": [
+     "策略是确定性的",
+     "收敛是确定的",
+     "环境是确定性的",
+     "把估计出来的 P̂ 和 r̂ 当成确定的真值，不再考虑它们本身的不确定性"
+    ],
+    "a": 3,
+    "why": "估出模型后直接拿去精确求解，<b>对模型本身的噪声毫无防备</b>。数据少时 P̂ 很不准，而它把一个噪声很大的估计当成了真值——这继承了 L01 p59 那句 <em>model may be wrong</em>。L13 的 PAC 方法与 L16 的模型误差复合都在处理这件事。"
+   },
+   {
+    "q": "确定性等价与批量 TD(0) 的关系是？",
+    "o": [
+     "它是 MC 的一种",
+     "两者无关",
+     "确定性等价是批量 TD(0) 的收敛目标，只是直接算出来而不是迭代逼近",
+     "批量 TD 比它更准"
+    ],
+    "a": 2,
+    "why": "p46 说批量 TD(0) 收敛到「MLE 模型上做 DP 的值」，<b>那正是确定性等价的定义</b>。所以火星车上它给 [1 1 1 0 0 0 0]——一遍数据，效果和跑很多遍 TD 一样。代价是计算与存储最贵（P̂ 的大小是 |S|²|A|）。"
+   }
+  ]
+ }
+}

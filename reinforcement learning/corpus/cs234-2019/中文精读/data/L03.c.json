@@ -1,0 +1,430 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "p60 课件原文：V^π1(s) ≈ Σ_{j=1..n} [p(h_j|π1,s)/p(h_j|π2,s)] · G(h_j) —— 【记号】课件没写 1/n，照抄会得到随 n 线性增长的量",
+  "p59 轨迹概率：p(h_j|π,s) = Π_{t=1}^{L_j−1} π(a_{j,t}|s_{j,t})·p(r_{j,t}|s_{j,t},a_{j,t})·p(s_{j,t+1}|s_{j,t},a_{j,t})",
+  "p55 原文：If π2 is stochastic, can often use it to estimate the value of an alternate policy (formal conditions to follow)",
+  "⚠ 那句 formal conditions to follow 在本讲**从未兑现**；p61 只说 under some assumptions",
+  "⚠ 讲稿全文 13350 词，importance sampling 出现 0 次 —— 这一段课件有、讲座没讲"
+ ],
+ "notes": [
+  {
+   "r": [
+    54,
+    54
+   ],
+   "t": "为什么需要 off-policy 评估",
+   "star": 3,
+   "quote": "<b>MC Off-Policy Evaluation</b> — <em>Sometimes trying actions out is costly or high stakes</em> · <em>Would like to use <b>old data</b> about policy decisions and their outcomes to estimate the potential value of an <b>alternate policy</b></em>",
+   "one": "<b>有时候「试一下」代价太高或赌注太大。于是想用旧数据——别的策略跑出来的——去估一个还没跑过的策略值多少。</b>",
+   "pts": [
+    "<b>这一页是整段的问题陈述，两句话各管一件事。</b> 「costly or high stakes」说的是<span class='k'>为什么不能直接试</span>；「use old data to estimate an alternate policy」说的是<span class='k'>那要怎么办</span>。",
+    "<b>注意措辞是 <em>potential</em> value</b>——你要估的是一个<b>还没发生过的</b>策略的值。这和前面 53 页做的事根本不同：前面是「我跑了这个策略，它值多少」，这里是「我没跑过它，但我想知道它值多少」。",
+    "<b>「高赌注」在哪些领域是字面意思</b>：医疗（换一套用药方案不能先在病人身上试）、金融（新策略先上线会真亏钱）、教育（一届学生只有一次）。L01 p11–p12 那两页应用正是这几个。",
+    "⚠️ <b>这一页开始，本讲进入一个讲座实际没讲到的区段。</b> 讲稿里她说过 <em>we're gonna talk about important sampling at the end of class if we have time, otherwise we'll probably end up pushing that towards later</em>——结果讲稿在 AB 例子之后就结束了，<b>全文 13350 词里 importance sampling 出现 0 次</b>。所以 p54–p62 只有课件，没有讲解。本精读对这一段全部标【补课】。"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "p1–p53（已讲）",
+     "p54–p62（本段）"
+    ],
+    "rows": [
+     [
+      "要估谁的值",
+      "<b>你正在跑的那个策略</b>",
+      "<b>另一个还没跑过的策略</b>"
+     ],
+     [
+      "数据来自",
+      "同一个策略",
+      "<b>行为策略 π₂</b>"
+     ],
+     [
+      "叫什么",
+      "on-policy 评估",
+      "<b>off-policy 评估</b>"
+     ],
+     [
+      "讲座讲了吗",
+      "讲了",
+      "<span class='w'>没讲</span>（讲稿 0 次提及）"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "补课",
+    "v": "这一段的全部讲解都是补的——课件有，讲座没讲。好在 <b>L15（批量离线强化学习）整讲都在做这件事</b>，而且那是 Brunskill 自己的研究讲座。<b>这 9 页可以当作 L15 的提纲来读。</b>"
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页是你的问题陈述，几乎一字不差。</b><br>「trying actions out is costly」——你每跑一次完整的 workflow 配置都要真实的 LLM 调用；72B 那一档尤其贵。<br>「use <b>old data</b> about policy decisions and their outcomes」——你的 AFlow 运行日志，记了每个节点用了哪个模型、结果如何。<br>「estimate the potential value of an <b>alternate policy</b>」——一套新的节点级保真度分配，<b>在把它跑一遍之前</b>就想知道 Acc 和 Cost。<br>所以你的课题不是「RL 的一个应用」，它<span class='k'>就是这一页定义的那个问题</span>。<br><b>但下一页会给出一个条件，而你的日志不满足它。</b>",
+    "ref": "课件 p54 原文 · 简报 §4a"
+   }
+  },
+  {
+   "r": [
+    55,
+    55
+   ],
+   "t": "形式化，以及那个从未兑现的承诺",
+   "star": 3,
+   "quote": "<b>Monte Carlo (MC) Off-Policy Evaluation</b><br>Aim: estimate value of policy π₁, <em>V<sup>π₁</sup>(s)</em>, given episodes generated under <b>behavior policy π₂</b><br><em>If π₂ is <b>stochastic</b>, can often use it to estimate the value of an alternate policy <b>(formal conditions to follow)</b></em><br><em>Again, no requirement that have a model nor that state is Markov</em>",
+   "one": "<b>目标策略 π₁，行为策略 π₂。课件给了一个前提——「如果 π₂ 是随机的」——并承诺稍后给出形式条件。</b>",
+   "pts": [
+    "<b>两个策略必须分清楚，本段所有符号都挂在这组命名上</b>：<span class='k'>π₁ 是目标策略</span>（你想知道它值多少，但没跑过它）、<span class='k'>π₂ 是行为策略</span>（数据实际是它跑出来的）。文献里更常写 π_e（evaluation）与 π_b（behavior）。",
+    "<b>「If π₂ is stochastic」这个前提不是修辞，是硬条件。</b> 如果 π₂ 是确定性的，它在每个状态只会选一个动作，于是<span class='w'>你永远看不到 π₁ 想选而 π₂ 不选的那些动作的后果</span>。这一条在 L01 p70 以「agent 只经历它试过的动作」的形式出现过，这里是它的正式版本。",
+    "<b>「formal conditions to follow」——这个承诺在本讲没有兑现。</b> 往后翻到 p61，给的是 <em>under some assumptions, unbiased &amp; consistent</em>，仍然没有把条件写出来。<b>整讲到结束都没有出现 coverage、support 或任何形式陈述。</b>",
+    "<b>那些条件是什么？</b> 标准说法是 <b>coverage（支撑集覆盖）</b>：凡是 π₁ 会以正概率选的动作，π₂ 也必须以正概率选。写成式子就是<br><code>π₁(a|s) &gt; 0 ⟹ π₂(a|s) &gt; 0</code><br>不满足时重要性权重的分母为 0，<span class='w'>估计量不是方差大，是没有定义</span>。",
+    "<b>最后一句「no requirement that have a model nor that state is Markov」值得单独记。</b> 重要性采样是<b>纯蒙特卡洛</b>的——它对整条轨迹的回报做加权平均，不碰转移概率，也不需要状态是充分统计量。这是它相对后面各种方法的唯一优势：<span class='k'>假设极少</span>。代价是方差极大，L15 会详细讲。"
+   ],
+   "eq": "π₁ = 目标策略（想评估，没跑过）\nπ₂ = 行为策略（数据实际来自它）\n\ncoverage：π₁(a|s) > 0  ⟹  π₂(a|s) > 0\n（课件承诺「formal conditions to follow」，但本讲未兑现）",
+   "tbl": {
+    "head": [
+     "课件说的",
+     "原文",
+     "本讲兑现了吗"
+    ],
+    "rows": [
+     [
+      "前提",
+      "<em>If π₂ is stochastic</em>",
+      "说了，但没解释为什么必须"
+     ],
+     [
+      "形式条件",
+      "<em>(formal conditions to follow)</em>",
+      "<span class='w'>没有</span>"
+     ],
+     [
+      "p61 的说法",
+      "<em>under some assumptions</em>",
+      "<span class='w'>仍然没有</span>"
+     ],
+     [
+      "不需要什么",
+      "模型 · Markov 性",
+      "说清楚了"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "补课",
+    "v": "课件承诺的形式条件，本讲没给。<b>正式处理在 L15</b>（批量离线 RL），那里会讲 IS / 逐步 IS / 加权 IS / 双重稳健，以及它们各自需要什么假设。读到这里觉得「好像少了点什么」是对的——确实少了。"
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>「If π₂ is stochastic」这个前提，你的日志不满足——而课件没告诉你不满足会怎样。</b><br>AFlow 每次运行<b>固定</b>模型配置。你的 fork 记了哪个模型执行了哪个节点，但<span class='w'>没有随机化、没有动作分布</span>，所以 π_b(a|h) ∈ {0,1}。<br>于是 coverage 条件在每一个「候选策略与已跑配置不同」的节点上都破掉：权重分母为 0。<br><b>这不是「高方差的 IS」，是 IS 无定义。加再多数据也不会好转</b>——缺的不是样本量，是支撑集。文献里叫 <em>deficient support</em>（Sachdeva / Su / Joachims）。<br>所以 p54 定义的那个问题，你<b>目前解不了</b>，而解法不在估计量里，在<b>数据采集</b>里：把节点执行器改成随机策略并记 propensity。这是第 1 周的动作项，成本几乎为零，<b>但不记就永远补不回来</b>。<br>⚠️ 别急着对所有节点均匀随机化——下一条科研格会说为什么。",
+    "ref": "课件 p55 原文 · 简报 §4a（deficient support，推断）· §9 动作表第 2 条（已核）"
+   }
+  },
+  {
+   "r": [
+    56,
+    56
+   ],
+   "t": "分布不匹配：问题的几何形状",
+   "star": 2,
+   "quote": "<b>MC Off-Policy Evaluation: Distribution Mismatch</b> — <em>Distribution of episodes &amp; resulting returns differs between policies</em>",
+   "one": "<b>换一个策略，你会走到不同的地方，于是回报的分布也不同。这就是全部困难所在。</b>",
+   "pts": [
+    "<b>「不匹配」不匹配在两个层面，而课件这一句把它们合并了。</b><br>① <b>轨迹分布</b>不同：π₁ 和 π₂ 会走出不同的状态序列。<br>② <b>回报分布</b>不同：即使走到同一个状态，后续动作不同，回报也不同。<br><span class='k'>第一层是第二层的原因</span>。",
+    "<b>为什么「取平均」直接失效？</b> 因为你手上那堆回报是<b>按 π₂ 的频率</b>出现的。π₂ 常去的地方样本多，π₁ 常去的地方样本可能很少甚至没有。<b>直接平均等于在用 π₂ 的权重回答 π₁ 的问题。</b>",
+    "<b>重要性采样的全部想法就是「把权重改回来」</b>：一条轨迹在 π₁ 下本该出现得更频繁，就给它更大的权重；本该更少，就给更小的权重。下一页给一般形式。",
+    "⚠️ <b>这一页只有一句话和一张图，但它是这一段的枢纽。</b> 后面三页都是在把这一句话写成式子。"
+   ]
+  },
+  {
+   "r": [
+    57,
+    57
+   ],
+   "t": "重要性采样：一般形式（以及课件这一页的三处笔误）",
+   "star": 3,
+   "quote": "<b>Importance Sampling</b><br>Goal: estimate <em>E<sub>x∼p</sub>[f(x)]</em>, the expected value of f(x) under distribution <em>p(x)</em><br>Have data x₁, x₂, …, xₙ sampled from distribution <em>q(s)</em><br>Under a few assumptions, we can use samples to obtain an unbiased estimate of <em>E<sub>x∼q</sub>[f(x)]</em><br>E<sub>x∼q</sub>[f(x)] = ∫<sub>x</sub> q(x)f(x)",
+   "one": "<b>想要 p 下的期望，手上只有 q 的样本——办法是乘上比值 p(x)/q(x)。</b>",
+   "pts": [
+    "<b>完整的推导只有两步，课件这一页印不下，所以补在这里</b>：<br><code>E_{x∼p}[f(x)] = ∫ p(x)f(x) dx</code><br><code>= ∫ q(x) · [p(x)/q(x)] · f(x) dx</code>（乘 1，写成 q/q）<br><code>= E_{x∼q}[ (p(x)/q(x)) · f(x) ]</code><br><span class='k'>整个技巧就是「乘一个 1」</span>——把 q 提出来当采样分布，剩下的 p/q 当权重。",
+    "<b>这一步要成立，q 必须在 p 有质量的地方也有质量</b>：<code>p(x) &gt; 0 ⟹ q(x) &gt; 0</code>。否则 q(x)=0 处没法除。<b>这就是 p55 承诺而未给的那个 formal condition</b>，在一般形式下就是这么一行。",
+    "<b>估计量是样本平均</b>：<code>(1/n) Σᵢ [p(xᵢ)/q(xᵢ)] f(xᵢ)</code>。它是<b>无偏</b>的——期望等于 E_p[f]；但<span class='w'>方差可能极大</span>，当 p/q 在某些点很大时，少数样本会主导整个估计。",
+    "⚠️ <b>本页课件有三处笔误，照抄会推不下去</b>，逐条列在下表。这不是刁难——数学陈述必须与课件对齐后才能落笔，对不上就要标出来。"
+   ],
+   "tbl": {
+    "head": [
+     "处",
+     "课件印的",
+     "应该是",
+     "为什么要紧"
+    ],
+    "rows": [
+     [
+      "数据来源",
+      "sampled from distribution <em>q(<b>s</b>)</em>",
+      "q(<b>x</b>)",
+      "笔误，不影响理解"
+     ],
+     [
+      "那句承诺",
+      "unbiased estimate of <em>E<sub>x∼<b>q</b></sub>[f(x)]</em>",
+      "<b>E<sub>x∼p</sub>[f(x)]</b>",
+      "<span class='w'>下标反了</span>。按印的读，等于说「用 q 的样本估 q 的期望」——那直接平均就行，整页没有内容"
+     ],
+     [
+      "那个式子",
+      "E<sub>x∼q</sub>[f(x)] = ∫ q(x)f(x)",
+      "只是期望的定义，<b>推导没走完</b>",
+      "缺了「乘 q/q」那一步，比值 p/q 没出现"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "记号",
+    "v": "本课 13 讲共统计出 <b>165 条记号陷阱</b>。这一页占三条。遇到这种情形的硬规矩是：<b>以 Sutton &amp; Barto 或标准教材对齐后再落笔，并把差异标出来</b>——不要默默「修好」，那样下次看课件还会再困惑一次。"
+   }
+  },
+  {
+   "r": [
+    58,
+    60
+   ],
+   "t": "用到策略评估上：动力学会约掉",
+   "star": 3,
+   "quote": "<b>IS for Policy Evaluation</b> — Let h<sub>j</sub> be episode j: <em>h<sub>j</sub> = (s<sub>j,1</sub>, a<sub>j,1</sub>, r<sub>j,1</sub>, …, s<sub>j,L<sub>j</sub></sub>)</em><br>p(h<sub>j</sub>|π, s) = <em>Π<sub>t=1</sub><sup>L<sub>j</sub>−1</sup> π(a<sub>j,t</sub>|s<sub>j,t</sub>) · p(r<sub>j,t</sub>|s<sub>j,t</sub>,a<sub>j,t</sub>) · p(s<sub>j,t+1</sub>|s<sub>j,t</sub>,a<sub>j,t</sub>)</em><br><b>V<sup>π₁</sup>(s) ≈ Σ<sub>j=1</sub><sup>n</sup> [ p(h<sub>j</sub>|π₁,s) / p(h<sub>j</sub>|π₂,s) ] · G(h<sub>j</sub>)</b>",
+   "one": "<b>把「x」换成「整条轨迹」，p 和 q 换成两个策略下的轨迹概率——重要性采样就落到策略评估上了。</b>",
+   "pts": [
+    "<b>p59 把轨迹概率拆成了三样东西的连乘</b>：策略项 <code>π(aₜ|sₜ)</code>、奖励项 <code>p(rₜ|sₜ,aₜ)</code>、转移项 <code>p(sₜ₊₁|sₜ,aₜ)</code>。<span class='k'>这个分解是整段的关键</span>。",
+    "<b>关键在于：求比值时，奖励项和转移项完全相同，于是约掉。</b> 它们只依赖环境，不依赖策略。所以<br><code>p(h|π₁,s)/p(h|π₂,s) = Π_t π₁(aₜ|sₜ) / Π_t π₂(aₜ|sₜ)</code><br><b>这就是为什么重要性采样不需要模型</b>——环境那一半自己消失了。p55 那句 <em>no requirement that have a model</em> 的根据就在这里。",
+    "<b>权重是逐步比值的连乘</b>：<code>w_j = Π_{t=1}^{L_j−1} [π₁(a_{j,t}|s_{j,t}) / π₂(a_{j,t}|s_{j,t})]</code>。<span class='w'>连乘是方差的来源</span>——每多一步就多乘一个可能远离 1 的数，长轨迹下权重会指数地散开。",
+    "⚠️ <b>p60 的估计量漏了 1/n。</b> 课件印的是 <code>V^π₁(s) ≈ Σ_{j=1}^n w_j·G(h_j)</code>，没有除以样本数。照这样写，估计量会<b>随 n 线性增长</b>。正确形式是 <code>(1/n) Σ_j w_j·G(h_j)</code>，即普通重要性采样（ordinary IS）。",
+    "<b>还有一个变体课件没提：加权重要性采样（WIS）</b>，用 <code>Σ_j w_j G_j / Σ_j w_j</code> 代替 <code>(1/n)Σ_j w_j G_j</code>。它<b>有偏但一致</b>，方差通常小得多。L15 会讲这一对的取舍。"
+   ],
+   "eq": "权重（动力学已约掉）：\n  w_j = Π_{t=1}^{L_j−1}  π₁(a_{j,t}|s_{j,t}) / π₂(a_{j,t}|s_{j,t})\n\n普通 IS：   V̂ = (1/n) Σ_j w_j G(h_j)        ← 课件 p60 漏了 1/n\n加权 IS：   V̂ = Σ_j w_j G(h_j) / Σ_j w_j   ← 课件未提，有偏但一致",
+   "tbl": {
+    "head": [
+     "轨迹概率的三项",
+     "依赖策略吗",
+     "求比值时"
+    ],
+    "rows": [
+     [
+      "π(a<sub>t</sub>\\|s<sub>t</sub>) 策略",
+      "<b>依赖</b>",
+      "<b>留下</b>"
+     ],
+     [
+      "p(r<sub>t</sub>\\|s<sub>t</sub>,a<sub>t</sub>) 奖励",
+      "不依赖",
+      "<b>约掉</b>"
+     ],
+     [
+      "p(s<sub>t+1</sub>\\|s<sub>t</sub>,a<sub>t</sub>) 转移",
+      "不依赖",
+      "<b>约掉</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>连乘那一项，在你的问题里就是 ESS 坍缩的根源。</b><br>把式子换成你的符号：节点 h 的「动作」是保真度档位，权重 <code>w = Π_h [π_e(a_h|·) / π_b(a_h|·)]</code>。<br>设你在 k 个决策节点上<b>均匀</b>随机化 2 个选项，评估一个<b>确定性</b>目标策略：匹配的轨迹权重 <code>w = 2^k</code>，不匹配的 <code>w = 0</code>。于是<span class='w'>有效样本量 ESS = m</span>（匹配轨迹数），而 <code>E[m] = n·2^(−k)</code>。<br><b>推论：均匀日志 + 确定性目标下，加权 IS 精确退化为拒绝采样</b>——它字面上就是「碰巧和你的策略一致的那些轨迹的平均回报」。k=10 时 ESS = n/1024。<br><b>所以必须先降有效时域，再谈估计量。</b> 做法：对每个节点 j 跑「节点 j 用 7B、其余 72B」vs「全 72B」，约 100 条 query，按准确率跌幅与 token 占比排序，<b>只保留 top k=3~4 作为随机化节点，其余按扫描结果钉死</b>。ESS 从 n·2^−10 提到 n·2^−4，<b>64 倍</b>。而且那张敏感度表本身就是论文插图。<br><b>另外注意「动力学约掉」这件事在你这里不成立得那么干净</b>：节点 h 的输出<b>就是</b> h+1 的输入，所以「转移」依赖于你在 h 选了哪个模型。<span class='k'>你的转移项是依赖策略的</span>——这正是 L01 p18–19 那格说的「后续节点不可交换」，也是为什么 conformal / Learn-then-Test 不能直接套。",
+    "ref": "课件 p59–p60 原文 · 简报 §4b（ESS 推导，已核）· §4c（先扫描后 OPE，已核）· §8 开放问题第 5 条"
+   }
+  },
+  {
+   "r": [
+    61,
+    61
+   ],
+   "t": "小结：它要什么、不要什么",
+   "star": 3,
+   "quote": "<b>Importance Sampling for Policy Evaluation</b><br><em>IS = Monte Carlo estimate given off-policy data</em> · <em>Model-free method</em> · <em>Does not require Markov assumption</em> · <em>Under some assumptions, unbiased &amp; consistent estimator of V<sup>π₁</sup></em> · <em>Can be used when agent is interacting with environment to estimate value</em>",
+   "one": "<b>重要性采样 = 用 off-policy 数据做的蒙特卡洛估计。无模型、不要 Markov 性、在某些假设下无偏且一致。</b>",
+   "pts": [
+    "<b>把「不要什么」读清楚，才知道它为什么值钱。</b> 不要模型（动力学约掉了）、不要 Markov 性（它对整条轨迹加权，不对状态做任何假设）。<span class='k'>这是本课假设最少的估计量</span>，没有之一。",
+    "<b>「要什么」只剩两样</b>：① <b>coverage</b>（p55 承诺而未给的那个条件）；② 知道 <b>π₂ 的动作概率</b>——你必须能算出 <code>π₂(aₜ|sₜ)</code>，否则权重算不出来。<b>第二条经常被忽略：光记下「做了什么」不够，必须记下「以多大概率做的」。</b>",
+    "<b>「unbiased &amp; consistent」这两个词不是一回事。</b> 无偏＝估计量的期望等于真值（普通 IS 有，加权 IS 没有）；一致＝样本趋于无穷时收敛到真值（两者都有）。<b>有限样本下你真正关心的是方差，而这一页一个字没提方差。</b>",
+    "<b>最后一句「can be used when agent is interacting with environment」指向一个实际用法</b>：在线学习时，用旧策略的数据评估新策略，决定要不要切换。这是 L15「安全策略改进」的雏形。",
+    "⚠️ <b>到这一页，p55 承诺的 formal conditions 仍然没有出现</b>——换成了 <em>under some assumptions</em>。<b>整讲到结束都没有把 coverage 写出来。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "IS 要求",
+     "本课其它方法的对比"
+    ],
+    "rows": [
+     [
+      "模型",
+      "<b>不要</b>",
+      "确定性等价（p48–49）要"
+     ],
+     [
+      "Markov 性",
+      "<b>不要</b>",
+      "TD 要（靠它才能自举）"
+     ],
+     [
+      "coverage",
+      "<b>要</b>（课件未明说）",
+      "on-policy 方法不涉及"
+     ],
+     [
+      "知道 π₂ 的动作概率",
+      "<b>要</b>",
+      "on-policy 方法不涉及"
+     ],
+     [
+      "方差",
+      "<span class='w'>很大，随轨迹长度指数增长</span>",
+      "TD 方差小得多"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>把这一页的「要什么」逐条对着你的日志打勾，结论是两条全不满足——而且第二条比第一条更容易修。</b><br><b>① coverage</b>：不满足（确定性日志）。修法是改数据采集，见 p55 那格。<br><b>② 知道 π₂ 的动作概率</b>：<span class='w'>这一条你现在多半也不满足</span>，而且它独立于第一条。就算你明天开始随机化，<b>如果只记「这个节点用了 7B」而不记「选 7B 的概率是 0.5」，权重照样算不出来</b>。<br>所以简报把「<b>审计现有日志：有没有记动作分布，还是只有实际 model id</b>」列为<b>第 1 天</b>的动作，排在随机化之前——先搞清楚现在记了什么，再决定要补什么。<br><b>而「不要什么」那两条在你这里是真便宜</b>：你不需要 workflow 的转移模型（本来也建不出来），也不需要假设节点状态是充分统计量（那正是 P2/P3 消融在检验的东西）。<span class='k'>IS 的低假设正好匹配你对 workflow 几乎一无所知的处境</span>——代价是方差，而方差可以用穷举 oracle 在留出集上绕过去。<br>标【推断】：逐条对账是我做的；两条动作项在简报里是【已核】。",
+    "ref": "课件 p61 原文 · 简报 §9 动作表第 1、2 条（已核）· §4d（oracle，已核）"
+   }
+  },
+  {
+   "r": [
+    62,
+    62
+   ],
+   "t": "下一讲：从评估走到控制",
+   "star": 1,
+   "quote": "<b>Today's Plan</b> — <em>Last Time</em>: policy evaluation &amp; control when have true model · <em>Today</em>: policy evaluation when don't have a model · <em>Next Time</em>: <b>control</b> when don't have a model",
+   "one": "<b>三讲一条线：有模型（L02）→ 无模型但只做评估（本讲）→ 无模型且要做控制（L04）。</b>",
+   "pts": [
+    "<b>这条线就是 L01 p73「评估与控制」那一对的展开</b>，而且顺序从不颠倒：<span class='k'>先会评估，才能控制</span>——因为控制方法的内核是「评估 → 改进 → 再评估」。",
+    "<b>本讲拿掉的是「模型」这一项</b>，下一讲拿掉的是「只评估」这个限制。两步各拿掉一样，不同时拿。",
+    "⚠️ 讲稿最后一句是 <em>next time we'll start to talk a little bit about control</em>——<b>她确实在这里结束了</b>，p54–p62 没讲到。"
+   ]
+  }
+ ],
+ "quiz": {
+  "54": [
+   {
+    "q": "off-policy 评估与前 53 页做的事，根本差别是什么？",
+    "o": [
+     "off-policy 要估的是一个还没跑过的策略的值",
+     "off-policy 不需要折扣因子",
+     "off-policy 只能用于有限时域",
+     "off-policy 不需要奖励"
+    ],
+    "a": 0,
+    "why": "课件原文是 <em>estimate the <b>potential</b> value of an <b>alternate</b> policy</em>。前面是「我跑了它，它值多少」，这里是「我没跑过它，但想知道它值多少」。动机是 <em>trying actions out is costly or high stakes</em>。"
+   }
+  ],
+  "55": [
+   {
+    "q": "课件说「<em>If π₂ is stochastic</em>, can often use it...」。π₂ 如果是确定性的，会怎样？",
+    "o": [
+     "需要改用 TD",
+     "估计量无定义——看不到 π₁ 想选而 π₂ 不选的动作的后果",
+     "估计量有偏但仍可用",
+     "方差变大，需要更多数据"
+    ],
+    "a": 1,
+    "why": "确定性策略在每个状态只选一个动作，coverage 条件 π₁(a|s)&gt;0 ⟹ π₂(a|s)&gt;0 破掉，权重分母为 0。<span class='w'>这不是高方差，是没有定义</span>——加再多数据也不会好转，缺的是支撑集不是样本量。"
+   },
+   {
+    "q": "课件在 p55 写了「formal conditions to follow」。这些条件在本讲哪里给出？",
+    "o": [
+     "p57 的一般形式里",
+     "p61 的小结里",
+     "p59 的轨迹分解里",
+     "本讲从未给出"
+    ],
+    "a": 3,
+    "why": "p61 只说 <em>under some assumptions</em>，仍然没写出来。整讲到结束都没出现 coverage 或 support。正式处理在 <b>L15（批量离线 RL）</b>——那是 Brunskill 自己的研究讲座。这 9 页可以当 L15 的提纲读。"
+   }
+  ],
+  "57": [
+   {
+    "q": "重要性采样那个「乘一个 1」的技巧，具体乘的是什么？",
+    "o": [
+     "乘 q(x)/q(x)，把 q 提出来当采样分布，剩下 p/q 当权重",
+     "乘折扣因子 γ",
+     "乘样本数 n",
+     "乘 p(x)/p(x)"
+    ],
+    "a": 0,
+    "why": "E<sub>x∼p</sub>[f] = ∫p·f = ∫q·(p/q)·f = E<sub>x∼q</sub>[(p/q)·f]。整个技巧就是把 q 乘进来再除出去。要成立必须 p(x)&gt;0 ⟹ q(x)&gt;0，这就是 p55 承诺而未给的那个条件在一般形式下的样子。"
+   },
+   {
+    "q": "课件 p57 第三条写「unbiased estimate of <em>E<sub>x∼q</sub>[f(x)]</em>」。按字面读会怎样？",
+    "o": [
+     "下标反了：按字面是「用 q 的样本估 q 的期望」，直接平均即可，整页没有内容",
+     "正确，无需修改",
+     "应该是 E<sub>x∼p</sub>[f(x)/q(x)]",
+     "少了折扣因子"
+    ],
+    "a": 0,
+    "why": "目标是 E<sub>x∼p</sub>[f(x)]（第一条写明了），所以这里的下标应该是 p。本页共三处笔误（还有 q(s) 应为 q(x)，以及推导只走了一步没出现 p/q）。本课 13 讲共统计出 165 条记号陷阱。"
+   }
+  ],
+  "58": [
+   {
+    "q": "为什么重要性采样不需要环境模型？",
+    "o": [
+     "因为它用了 Markov 假设",
+     "因为它假设环境是确定性的",
+     "因为它只用终局回报",
+     "因为求比值时奖励项与转移项相同，直接约掉"
+    ],
+    "a": 3,
+    "why": "p59 把轨迹概率拆成 策略项 × 奖励项 × 转移项，而后两项只依赖环境、不依赖策略，所以在比值里消掉，只剩 Π π₁/π₂。这就是 p55 那句 <em>no requirement that have a model</em> 的根据。"
+   },
+   {
+    "q": "课件 p60 写 <code>V<sup>π₁</sup>(s) ≈ Σ<sub>j=1..n</sub> w<sub>j</sub>G(h<sub>j</sub>)</code>。这个式子的问题是？",
+    "o": [
+     "G 应该不打折扣",
+     "应该用 TD 而不是 MC",
+     "权重方向反了",
+     "漏了 1/n —— 照这样写，估计量会随样本数线性增长"
+    ],
+    "a": 3,
+    "why": "正确的普通 IS 估计量是 <code>(1/n)Σ<sub>j</sub> w<sub>j</sub>G(h<sub>j</sub>)</code>。课件漏了除以 n。顺带：课件也没提加权 IS（<code>Σw·G / Σw</code>），它有偏但一致，方差通常小得多，L15 会讲这一对的取舍。"
+   },
+   {
+    "q": "你在 k 个节点上均匀随机化 2 个选项，评估一个<b>确定性</b>目标策略。有效样本量会怎样？",
+    "o": [
+     "E[ESS] = n·2<sup>−k</sup>，指数下降；加权 IS 退化为拒绝采样",
+     "ESS = n/k，线性下降",
+     "ESS = n/2，固定折半",
+     "ESS ≈ n，基本不损失"
+    ],
+    "a": 0,
+    "why": "匹配轨迹权重 2<sup>k</sup>，不匹配为 0，所以 ESS 就等于匹配条数 m，E[m]=n·2<sup>−k</sup>。k=10 时 ESS=n/1024。<b>所以必须先降有效时域再谈估计量</b>：一步偏离扫描 → 只留 top k=3~4 个随机化节点 → ESS 提升 64 倍。"
+   }
+  ],
+  "61": [
+   {
+    "q": "重要性采样「要什么」，除了 coverage 之外还有一条常被忽略的是？",
+    "o": [
+     "状态必须是 Markov 的",
+     "轨迹长度必须固定",
+     "必须知道环境的转移概率",
+     "必须知道行为策略 π₂ 的动作概率，而不只是它做了什么"
+    ],
+    "a": 3,
+    "why": "权重是 Π π₁(a|s)/π₂(a|s)，分母要能算出来。<b>只记「这个节点用了 7B」不够，必须记「选 7B 的概率是 0.5」</b>。这一条独立于 coverage——就算明天开始随机化，不记 propensity 权重照样算不出来。所以「审计日志记了什么」是第 1 天的动作。"
+   },
+   {
+    "q": "「unbiased」与「consistent」的差别是？",
+    "o": [
+     "是同一件事的两种说法",
+     "无偏＝期望等于真值；一致＝样本趋于无穷时收敛到真值。加权 IS 一致但有偏",
+     "一致比无偏强，一致必然无偏",
+     "无偏保证方差小"
+    ],
+    "a": 1,
+    "why": "普通 IS 无偏且一致；加权 IS 有偏但一致，方差通常小得多。<b>而这一页一个字没提方差</b>——有限样本下你真正关心的恰恰是它。"
+   }
+  ]
+ }
+}

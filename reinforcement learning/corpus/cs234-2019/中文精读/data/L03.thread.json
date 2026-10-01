@@ -1,0 +1,83 @@
+{
+ "title": "L03 接上课题的哪一段：问题陈述在这里，条件没给",
+ "arc": "<b>这一讲的最后 9 页（p54–p62）是你课题的问题陈述，几乎一字不差</b>：<em>trying actions out is costly or high stakes · use old data about policy decisions and their outcomes to estimate the potential value of an alternate policy</em>。<br><br>但它同时留下了两个窟窿，而这两个窟窿正好是你现在卡住的地方：<br><b>一、形式条件从未给出。</b> p55 写着「<em>If π₂ is stochastic, can often use it …（formal conditions to follow）</em>」，p61 换成「<em>under some assumptions</em>」——<span class='w'>整讲到结束都没有把 coverage 写出来</span>。而你的日志不满足的恰恰就是它。<br><b>二、这 9 页讲座根本没讲。</b> 讲稿全文 13350 词里 importance sampling 出现 <b>0 次</b>；她在 53% 处说「if we have time, otherwise we'll push it later」，然后讲稿结束在 AB 例子。<br><br>所以 L03 对你的用法是：<b>拿它当问题陈述和符号表，不要指望它给条件</b>。条件、方差分析、各种变体（PDIS / WIS / DR / FQE）全在 <b>L15</b>——那是 Brunskill 自己的研究讲座，几乎全建在 Philip Thomas 的工作上。<b>这 9 页可以当作 L15 的提纲来读。</b><br><br>前 53 页（MC / TD / 偏差方差 / AB 例子 / 确定性等价）与你的关系是间接但真实的：<b>MC vs TD 的偏差-方差权衡，就是你在「穷举 oracle（无偏、零方差、但只覆盖留出集）」与「FQE（有偏、低方差、覆盖全集）」之间的那个选择</b>。p46 那个 AB 例子说的「世界不是 Markov 时 MC 更好，是 Markov 时 TD 更好」，在你这里就是 P2/P3 消融的结论会决定你该用哪一边。",
+ "pitfalls": [
+  {
+   "v": "<b>把「π₂ 是随机的」当成软性建议。</b> 它是硬条件。确定性日志下 π_b(a|h) ∈ {0,1}，coverage 破掉，<span class='w'>重要性权重的分母为 0 —— 估计量不是方差大，是没有定义</span>。加再多数据也不会好转，缺的是支撑集不是样本量（deficient support）。",
+   "tag": "推断",
+   "ref": "课件 p55 · 简报 §4a（基于 agent 对执行器的分析 + OPE 标准理论）"
+  },
+  {
+   "v": "<b>只记「做了什么」不记「以多大概率做的」。</b> 权重是 Π π₁(a|s)/π₂(a|s)，分母必须能算出来。就算明天开始随机化，<b>不记 propensity 权重照样算不出来</b>。这一条独立于 coverage，而且补不回来——没记就是没记。所以第 1 天的动作是<b>审计日志</b>：现在记的是动作分布，还是只有实际 model id？",
+   "tag": "已核",
+   "ref": "课件 p61 · 简报 §9 动作表第 1 条"
+  },
+  {
+   "v": "<b>随机化了就对所有节点均匀随机。</b> 匹配轨迹权重 2^k、不匹配为 0，<code>ESS = m</code>，<code>E[m] = n·2^(−k)</code>。k=10 时 ESS = n/1024，加权 IS 精确退化为拒绝采样。<b>必须先降有效时域</b>：一步偏离扫描 → 只留 top k=3~4 → ESS 提升 64 倍。",
+   "tag": "已核",
+   "ref": "简报 §4b §4c"
+  },
+  {
+   "v": "<b>以为「动力学会约掉」在你这里也成立得那么干净。</b> 课件 p59 的约分成立，是因为转移 p(s'|s,a) 不依赖策略。但在 workflow 里<b>节点 h 的输出就是 h+1 的输入</b>——你在 h 选了哪个模型，直接改变 h+1 看到什么。<span class='w'>你的「转移项」是依赖策略的</span>。这也是为什么 conformal / Learn-then-Test 不能直接套：它们要求校准点与测试点可交换，而后续节点不可交换。",
+   "tag": "推断",
+   "ref": "课件 p59 · 简报 §8 开放问题第 5 条（不可交换，已核）"
+  },
+  {
+   "v": "<b>照抄 p60 的估计量。</b> 课件印的是 <code>V^π₁ ≈ Σ_j w_j G(h_j)</code>，<b>漏了 1/n</b>，照这样写估计量会随样本数线性增长。正确是 <code>(1/n)Σ_j w_j G(h_j)</code>。课件也没提加权 IS（<code>Σw·G / Σw</code>，有偏但一致、方差小得多）。",
+   "tag": "已核",
+   "ref": "课件 p60 原文（逐页核对过）"
+  },
+  {
+   "v": "<b>先挑估计量，后补数据。</b> 正确顺序是：审计日志 → 一步偏离扫描（带止损闸与可加性检验）→ 穷举 oracle 表 → <b>才轮到估计量</b>。扫描在决定状态表示，而状态表示决定了你还剩多少有效数据——先对一个还没定下来的分母做优化是白做。",
+   "tag": "已核",
+   "ref": "简报 §4c §9 动作表"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你为什么不直接用重要性采样评估？",
+   "a": "因为<b>估计量在我们的日志上没有定义</b>，不是方差大。AFlow 固定模型配置，π_b(a|h) ∈ {0,1}，违反 coverage —— 这是 deficient support，不是数据不够。我们因此把工作分成两半：<b>改数据采集</b>（propensity 采样与记录）与 <b>在留出集上建穷举 oracle</b>（方差为零的 ground truth）。",
+   "tag": "推断",
+   "ref": "简报 §4a §4d"
+  },
+  {
+   "q": "既然 IS 不行，你的 oracle 表凭什么可信？",
+   "a": "它<b>不是估计量，是全因子实验</b>。200–300 条留出 query，枚举 k 个决策节点的全部 2^k 种分配，跨分支共享前缀（拓扑前缀一致的分支，节点输出可逐字复用）。k=4 时每 query ≤16 个叶子、约 30 次节点调用，300 条 ≈ 9000 次调用且多数是 7B。得到精确表 <code>R(x, a₁..a_k)</code>，<b>任何确定性节点级策略都能查表精确求值，方差为零</b>。在我们付得起的规模上，它碾压任何估计量。",
+   "tag": "已核",
+   "ref": "简报 §4d（含成本估算）"
+  },
+  {
+   "q": "准确率和成本为什么用两种不同的估计量？",
+   "a": "因为两者的可学性差一个数量级。<b>成本</b>给定保真度与输入长度近乎确定 → 直接回归，预期 R² &gt; 0.95，<b>完全不用重要性权重</b>；<b>准确率</b>是终局奖励 → FQE + 5 折 cross-fitting。混在一个估计量里，等于让确定的那一半去承担随机那一半的方差。<b>这是真实且可辩护的方差缩减，不是工程细节。</b><br>顺带：奖励在 t=H 时，per-decision IS 对准确率那一半<b>算术上等同于轨迹 IS</b>，买不到任何东西——它只对逐节点累积的成本有用。",
+   "tag": "已核",
+   "ref": "简报 §4e"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Precup, Sutton &amp; Singh — Eligibility Traces for Off-Policy Policy Evaluation",
+   "id": "ICML 2000",
+   "why": "逐步重要性采样（per-decision IS）的出处。你需要它来论证「终局奖励下 PDIS 对准确率那一半无增益」这个判断——那是从它的构造直接读出来的。"
+  },
+  {
+   "t": "Thomas &amp; Brunskill — Data-Efficient Off-Policy Policy Evaluation",
+   "id": "ICML 2016",
+   "why": "双重稳健 OPE。L15 整讲建在 Thomas 的工作上，这篇是主干。你的「成本回归 + 准确率 FQE」拆分，就是 DR 把 nuisance 分量与 IS 分量分开那个思路的特例。"
+  },
+  {
+   "t": "Thomas, Theocharous &amp; Ghavamzadeh — High-Confidence Off-Policy Evaluation",
+   "id": "AAAI 2015",
+   "why": "把 OPE 从点估计推到<b>置信下界</b>。你要的「上线前确信不更差」就是这一类陈述，而不是「期望更高」。"
+  },
+  {
+   "t": "Sachdeva, Su &amp; Joachims — Off-policy Bandits with Deficient Support",
+   "id": "KDD 2020",
+   "why": "<b>你现在处境的正式名字。</b> 日志支撑集不足时该怎么办——限制目标策略类、或接受有偏但可控的估计。引用它比自己论证「IS 无定义」有力。"
+  },
+  {
+   "t": "Le, Voloshin &amp; Yue — Batch Policy Learning under Constraints",
+   "id": "ICML 2019",
+   "why": "带约束的离线策略学习（FQE 在约束下的用法）。你的 <code>G = Acc − λ·Cost</code> 若改写成「成本受限下最大化准确率」，形式化可以直接引这一篇。"
+  }
+ ]
+}

@@ -143,6 +143,35 @@ def check_res(notes):
     return out
 
 
+def check_quiz_leak(quiz):
+    """两层泄题都要拦。判据与 `_kit/coursekit` 那份一致（同一个事故的两处修复）。
+
+    第一层：**选项里加粗**。写题时习惯把正确答案加粗好自己核对，结果直接印在
+    页面上。题干与解析里的加粗是正常的，只查 `o` 里的。
+
+    第二层：**答案位置集中**。CS234 实测过：329 题里 302 题（92%）答案在 B，
+    闭眼选 B 得 92 分，自测等于失效。题数少时不判 —— 4 题全在 B 只是巧合。
+
+    这一条**不许**因为「这讲题少」而跳过：它防的正是作者的习惯，
+    而作者每写一讲都会再犯一次。
+    """
+    bad, pos, n = [], {}, 0
+    for page in sorted(quiz, key=lambda k: int(k)):
+        for i, q in enumerate(quiz[page]):
+            for j, o in enumerate(q.get("o") or []):
+                if "<b>" in o or "</b>" in o:
+                    bad.append("p%s 第 %d 题的第 %d 个选项里有 <b> —— 正确答案被加粗就是泄题"
+                               % (page, i + 1, j + 1))
+            pos[q["a"]] = pos.get(q["a"], 0) + 1
+            n += 1
+    if n >= 8:
+        for k in sorted(pos):
+            if pos[k] > n * 0.5:
+                bad.append("答案位置集中：%d/%d 题都在第 %d 项 —— 跑 reshuffle_quiz 打散"
+                           % (pos[k], n, k + 1))
+    return bad
+
+
 def check(co, L, d):
     """把能机械检查的都查掉。放过去的错，在页面上只表现为『那道题不见了』。
 
@@ -251,6 +280,9 @@ def check(co, L, d):
     # 科研格：格式错误一律硬拦，与有没有声明目标无关。
     # **不设数量下限** —— 允许整讲为 0。L04/L06 预期就是 0。设了下限会逼出
     # 凑出来的连接，而凑出来的连接比没有连接更坏：它会让人以后分不清哪条是真的。
+    # 防泄题。不看分片有没有声明 `_目标` —— 这是格式错误，任何时候都该拦。
+    bad += check_quiz_leak(d.get("quiz") or {})
+
     bad += check_res(notes)
     nres = sum(1 for n in notes if n.get("res"))
     print("   %s  科研格 %d 条（%s）" % (tag, nres, " ".join(
