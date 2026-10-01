@@ -1,0 +1,89 @@
+{
+ "title": "L07 接上课题的哪一段：你的节点 h 就是课件里的时间步 t",
+ "arc": "<b>这一讲只有一句原文是你必须背下来的</b>，在 p30：<em>Supervised learning assumes iid. (s, a) pairs and <b>ignores temporal structure</b></em>。<span class='k'>它解释了为什么监督学习式的保证一搬到序贯决策上就失效</span>，而它的后果被课件量化成了一个非常具体的形状：<b><code>εT</code> 变成 <code>εT²</code></b>。<br><br><b>这个机制在你的问题里是字面成立的，不是类比。</b>课件的 t 是时间步，<span class='k'>你的 t 是节点编号 h</span>；课件的「走错一步」是选错动作，<span class='k'>你的是在节点 h 换了一档保真度</span>。<b>后果完全同构：节点 h 一换档，它交给 h+1 的中间产物就变了（更短、更糙、格式也可能变），于是 h+1 面对的输入分布不再是日志里那个。</b><span class='w'>你在原日志上拟合的一切——成本模型、准确率模型、FQE 的 Q̂——在那一刻同时离开了各自的训练分布。</span><br><br><b>这给简报 §8 那个开放问题一个干净的表述。</b>§8 说的是：conformal risk control 要求校准点与测试点可交换，而节点 h 的决策破坏了后续节点的可交换性。<span class='k'>p30 那句原文正是同一件事的课堂版本——iid 之于监督学习，等于可交换性之于 conformal</span>。<b>两者都是「样本之间没有结构」的假设，都被「决策改变后续分布」打破。</b><span class='w'>所以这不是 conformal 方法特有的毛病，而是把序贯决策交给监督学习式保证时的通病，在模仿学习里的经典表现就是 <code>εT²</code>（Ross et al. 2011）。这句话可以原样进 related work。</span><br><br><b>然后是这一讲给你的两条好消息，两条都值得主动写出来。</b><br><b>① 你的 T 很小。</b><span class='k'>H ≈ 5–10，放大倍数是 5 到 10 倍</span>，而机器人那边 T 上千、放大上千倍。<b>短流水线天然抗分布漂移，这是结构性优势。</b><br><b>② 杀死 DAGGER 的那条理由，在你这里不成立。</b><span class='w'>老师判它工程上不现实，唯一理由是专家必须一直在回路里</span>；<b>而你的「专家标签」是把配置真跑一遍，那是 API 调用，不是人类标注——可批量、可并行、花的是钱不是人力。</b><span class='k'>于是这条在机器人领域被现实判死刑的路线，在你这里是可行的。</span><br><br><b>最后，这一讲还顺手给了 λ 一个能算出来的东西。</b><code>G = Acc − λ·Cost</code> 字面上就是 p36 的 <code>R(s) = wᵀx(s)</code>，<span class='k'>特征两维、<code>w = (1, −λ)</code></span>。<b>把 p39 的约束逐条写出来，就能从日志里夹出一个 λ 的可辨识区间</b>（<b>比专家贵的配置给下界，比专家便宜的给上界</b>）。<span class='w'>p43 的「无穷多个奖励函数」在 n=2 且尺度钉死之后，塌缩成一条线段</span>——<b>而线段是可以画出来、可以当结论报告的。</b>",
+ "pitfalls": [
+  {
+   "v": "<b>以为「多收集一些日志」能治分布漂移。</b> p33 整页都在说这件事：要的不是更多数据，是<span class='k'>你自己策略走出来的那条路上的</span>数据。<span class='w'>再多原日志也采样自原配置的分布</span>，<b>而你的问题恰恰出在原配置没覆盖的地方。</b><span class='k'>加数据、加参数、调正则针对的都是「拟合得不够好」；分布不匹配是「拟合得很好，但拟合的是别的东西」。两种病的曲线能长得一模一样。</span>",
+   "tag": "已核",
+   "ref": "课件 p33 原文 along the path taken by the policy"
+  },
+  {
+   "v": "<b>把 DAGGER 原样写进方法节。</b> 你做的不是 DAGGER。<span class='k'>DAGGER 的专家给的是「该选哪个动作」，而你重跑一个配置只拿到「结果如何」</span>——<b>前者是动作标签，后者是回报。</b><span class='w'>该引的是它的诊断（训练分布必须覆盖你将要走的分布），不是它的算法。</span><b>严格说你做的是「按当前策略做定向的 on-policy 采样」，这个区分不说清会被审稿人抓住。</b>",
+   "tag": "推断",
+   "ref": "课件 p33 · 本讲 p33 科研格"
+  },
+  {
+   "v": "<b>拿「不比专家差」当卖点。</b> p40 的保证是相对专家的，<span class='w'>而你的专家是 AFlow，不是最优策略</span>。<b>「不比 AFlow 差」比你想要的结论弱得多。</b><span class='k'>p46 老师亲口说的那条困难——医疗、教育、推荐根本没人知道最优策略——把工作流配置加进这个名单，完全符合。</span><b>真正该当基准的是 §4d 的穷举 oracle 表。</b>",
+   "tag": "已核",
+   "ref": "课件 p40 p46 原文 · 简报 §4d"
+  },
+  {
+   "v": "<b>把 λ 区间的宽度解释成「数据不够」。</b> 区间之所以是区间而不是点，原因在 p35：<span class='k'>行为只能定出奖励的序，定不出尺度</span>。<span class='w'>再多日志也不会把它缩成一个点。</span><b>这件事必须主动说在 limitation 里，否则读者会以为是你采样不足。</b>",
+   "tag": "推断",
+   "ref": "课件 p35 p43 · 本讲 p39 p43 科研格"
+  },
+  {
+   "v": "<b>直接采纳 p41 算出来的混合策略。</b> 专家次优时，结果是一堆策略的混合（p42）。<span class='w'>而混合策略不是「折中的行为」，是「随机挑一种行为」</span>——<b>在工作流选择里，用户要的是一个确定的配置，不是每次调用随机换一套。</b><span class='k'>课件给的补救正好可用：挑混合里最好的那一个确定性策略，并说明这是一次有意的退让。</span>",
+   "tag": "已核",
+   "ref": "课件 p42 原文（convex hull；pick the best one of this set）"
+  },
+  {
+   "v": "<b>把成本那一半也套进这一讲的框架。</b> 逆 RL 处理的是「偏好未知」，<span class='k'>而你的成本给定保真度与输入长度近乎确定，偏好问题只出在 λ 上</span>。<b>需要辨识的只有一个标量，不是一个函数。</b><span class='w'>这正是 n=2 让整件事可解的原因，别把它复杂化回去。</span>",
+   "tag": "推断",
+   "ref": "本讲 p36 p39 科研格 · L05 p27 · 简报 §4e"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你们的日志来自固定配置，换了策略之后那些模型还准吗？",
+   "a": "<b>不准，而且我们知道它为什么不准。</b>节点 h 的决策会改变 h+1 的输入分布，这正是模仿学习里 <code>εT²</code> 的那个机制（CS234 L07 p30：<em>supervised learning assumes iid (s,a) pairs and ignores temporal structure</em>）。<span class='k'>我们的应对是按当前策略做定向补采，而不是堆更多原分布的日志</span>——这是 DAGGER 给出的诊断。<b>而我们的流水线只有 5–10 个节点，所以放大倍数是个位数，不是机器人那种上千倍。</b>",
+   "tag": "推断",
+   "ref": "课件 p30 p33 · Ross et al. 2011 · 简报 §4c"
+  },
+  {
+   "q": "DAGGER 那套不是因为要人标注才没人用吗，你们凭什么能用？",
+   "a": "<b>因为我们的专家不是人。</b>在机器人里专家标签要人逐帧给，所以不可行；<span class='k'>我们要的「标签」是把一个配置真跑一遍拿到 Acc 和 Cost，那是一次 API 调用，可批量可并行</span>。<b>成本是钱和时间，不是人力。</b><span class='w'>我们借的是 DAGGER 的诊断而不是它的算法</span>——严格说这是按当前策略做的定向 on-policy 采样，论文里我们这样写。",
+   "tag": "推断",
+   "ref": "课件 p33 老师问答 · 本讲 p33 科研格"
+  },
+  {
+   "q": "λ 是怎么定的？不就是拍脑袋吗？",
+   "a": "<b>我们报告的是一个区间，不是一个拍出来的数。</b><code>G = Acc − λ·Cost</code> 本身就是线性特征奖励 <code>R = wᵀx</code> 的 <code>n = 2</code> 情形，<code>w = (1, −λ)</code>。<span class='k'>把逆 RL 的最优性约束 <code>wᵀμ(π*) ≥ wᵀμ(π)</code> 逐条写出来，比参照配置贵的给 λ 下界、便宜的给上界，交起来就是与示范相容的 λ 区间</span>。<b>我们的敏感度扫描就在这个区间上做，而不是在 [0, ∞) 上做。</b><span class='w'>区间不会随数据增多收缩成点——行为只能定序不能定尺度，这一条我们写在 limitation 里。</span>",
+   "tag": "推断",
+   "ref": "课件 p36 p39 p35 · 本讲 p39 科研格"
+  },
+  {
+   "q": "既然有专家演示，为什么不直接做行为克隆当基线？",
+   "a": "<b>可以做，而且我们做了，但它只能当基线不能当方法。</b><span class='k'>行为克隆的上限是专家，而我们的专家是一个搜索过程的产物，不是最优策略</span>。<b>复刻它等于把它的偏好固化下来。</b><span class='w'>我们要的是能超过它，而这需要先把它隐含的目标反推出来，再重新求最优</span>——也就是课件 p26 的第三条路，老师在课上明确说过这条路可以超过专家。",
+   "tag": "已核",
+   "ref": "课件 p26 问答 · p28 · 简报 §4d"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Ross, Gordon &amp; Bagnell — A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning (DAGGER)",
+   "id": "AISTATS 2011",
+   "why": "p30 的 <code>εT²</code> 和 p33 的 DAGGER 都出自这里。<b>你需要它的是那个「训练分布必须覆盖你将要走的分布」的论证</b>，<span class='k'>而不是它的算法</span>——你的标签形态和它不同（回报 vs 动作标签）。引它来给「节点 h 改变 h+1 输入分布」一个有名字的先例。"
+  },
+  {
+   "t": "Abbeel &amp; Ng — Apprenticeship Learning via Inverse Reinforcement Learning",
+   "id": "ICML 2004",
+   "why": "p36–p41 整节的出处：<code>V^π = wᵀμ(π)</code> 的推导、特征匹配的界、以及 p41 那个算法。<b>你真正要用的是 p39 那组线性约束</b>——<span class='k'>它在 n=2 时就是你那个 λ 区间的推导依据</span>。"
+  },
+  {
+   "t": "Ng &amp; Russell — Algorithms for Inverse Reinforcement Learning",
+   "id": "ICML 2000",
+   "why": "奖励不可辨识（R ≡ 0、加常数）的原始出处，也是 max-margin 这个补救的出处。<b>你写 limitation 解释「为什么 λ 只能是区间」时，该引的是这一篇</b>，<span class='w'>而不是只引课件</span>。"
+  },
+  {
+   "t": "Ziebart et al. — Maximum Entropy Inverse Reinforcement Learning",
+   "id": "AAAI 2008",
+   "why": "p44 点名的那条线，正面处理 p43 的「该挑哪个」。<b>对你特别相关的是它对次优专家的宽容</b>——<span class='k'>专家偶尔的失误可以被解释成「以小概率选了次优动作」，而不必被解释成「这个动作其实最优」</span>。AFlow 的配置正是这种「大体上合理、个别地方随意」的专家。"
+  },
+  {
+   "t": "Ho &amp; Ermon — Generative Adversarial Imitation Learning",
+   "id": "NeurIPS 2016",
+   "why": "p44 的另一篇。它的动机对你不成立（你的特征只有两维，<code>μ</code> 写得下来），<b>但它确立的那个视角有用：模仿 = 两个分布对齐</b>。<span class='k'>若你以后要把特征从 (Acc, Cost) 扩到更高维，这是该读的起点。</span>"
+  }
+ ]
+}
