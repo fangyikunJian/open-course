@@ -1,0 +1,502 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p38 致命三件套原文：function approximation / bootstrapping / off-policy learning，课件用词 intersection",
+  "p44 Baird off-policy：目标策略恒取 a1；行为策略 6/7 取 a2、1/7 取 a1；γ=0.99；丢掉不合规 tuple 后仍发散",
+  "p45 收敛表：表格三者皆收敛；线性下 MC/SARSA 收敛（会抖）、Q-learning 可能发散；非线性基本没保证",
+  "p46 Dai et al. ICML 2018：批量 RL 在非线性 VFA 下可收敛，用原始–对偶优化",
+  "p48 课件清单四条，第四条是：列出导致不稳定的三样东西并定性说明"
+ ],
+ "notes": [
+  {
+   "r": [
+    37,
+    37
+   ],
+   "t": "目录：进入控制，气候要变了",
+   "star": 2,
+   "quote": "<b>Table of Contents</b> — <em>1 Introduction · 2 VFA for Prediction · <b>3 Control using Value Function Approximation</b></em>",
+   "one": "<b>第二节有定理，这一节几乎全是反例。读法要换。</b>",
+   "pts": [
+    "<b>先把第二节的成果清点一遍，因为接下来要逐条失效</b>：<br><span class='k'>MC + 线性 VFA 收敛到最优逼近（等式）</span>；<br><span class='k'>TD + 线性 VFA 收敛到最优逼近的 1/(1−γ) 倍之内（不等式）</span>。<br><b>这两条的前提都是 on-policy——数据来自你正在评估的那个策略。</b>",
+    "<b>控制为什么必然破坏这个前提</b>：做控制就要改策略，<span class='w'>而策略一改，产生数据的分布 d(s) 就跟着变</span>。<b>于是「按 d 加权的误差」里的 d 在你优化它的过程中一直在动</b>——p24 埋下的那句「d 是由策略决定的」，到这里才显出分量。",
+    "<b>这一节只有 13 页，但它是本讲唯一会影响你技术选型的一节。</b><span class='k'>前两节告诉你「能做到多好」，这一节告诉你「什么时候会彻底失败」</span>。<b>工程上后者更要紧。</b>",
+    "<b>一个读法上的建议：这一节的每一页都先问「它在拆哪一条保证」。</b>p38 拆的是「on-policy」这个前提；p43 拆的是「贝尔曼算子是压缩」；p44 拆的是「数据合规就安全」这个直觉。<span class='k'>三页拆的是三件不同的东西，而它们的交集正好是第二节全部定理的立足点</span>。<b>把这三页读成「反例三连」，比逐页记结论有用得多。</b>"
+   ]
+  },
+  {
+   "r": [
+    38,
+    38
+   ],
+   "t": "致命三件套",
+   "star": 3,
+   "quote": "<b>Control using Value Function Approximation</b><br><em>Use value function approximation to represent state-action values Q̂<sup>π</sup>(s,a;w) ≈ Q<sup>π</sup></em><br><em>Interleave: Approximate policy evaluation using VFA · Perform ϵ-greedy policy improvement</em><br><b><em>Can be unstable. Generally involves intersection of the following: Function approximation · Bootstrapping · Off-policy learning</em></b>",
+   "one": "<b>函数逼近 + 自举 + off-policy，<span class='w'>三者凑齐就可能发散</span>。</b>",
+   "eq": "三件套：\n  ① 函数逼近   —— 值写不下，只能拟合\n  ② 自举       —— 目标里含自己的估计\n  ③ off-policy —— 数据来自别的策略\n\n任意两样都安全；三样齐了，就没有收敛保证",
+   "pts": [
+    "<b>最该记住的是「任意两样都安全」这件事</b>，课件没明说但可以从前面推出来：<br><b>①+②，没有③</b> = 本讲第二节的 TD + 线性 VFA ⇒ <span class='k'>收敛（p34）</span>；<br><b>①+③，没有②</b> = off-policy 的 MC ⇒ <span class='k'>收敛</span>（MC 不自举）；<br><b>②+③，没有①</b> = 表格式 Q-learning ⇒ <span class='k'>收敛（第四讲证过）</span>。<br><b>三样齐了才出事。</b>",
+    "<b>做控制为什么必然带上第③样</b>：ε-贪婪意味着你<b>行动时</b>会以 ε 的概率乱走，<span class='w'>而你要评估的是贪婪策略</span>。<b>行为策略和目标策略天生不同</b>——Q-learning 的那个 <code>max</code> 就是这个差异的来源。<span class='k'>所以「做控制」几乎等同于「off-policy」。</span>",
+    "<b>第③样坏在哪，一句话</b>：它<span class='w'>毁掉了那个稳定的 d(s)</span>。前两节所有的误差界都写成「按 d 加权的 MSVE」，<b>而 d 一旦既不稳定又不是你关心的那个分布，这些界就失去了意义</b>。",
+    "<b>Sutton 把这三样叫做 <em>the deadly triad</em>（致命三件套）</b>，出处是 Sutton &amp; Barto 第 11 章。<span class='k'>注意课件在这里用的词是 <em>intersection</em>（交集）而不是「之一」</span>——<b>它要强调的正是「必须同时具备」。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "组合",
+     "典型算法",
+     "收敛？",
+     "出处"
+    ],
+    "rows": [
+     [
+      "① + ②（on-policy）",
+      "TD + 线性 VFA",
+      "<span class='k'>收敛</span>",
+      "本讲 p34"
+     ],
+     [
+      "① + ③（不自举）",
+      "off-policy MC / 重要性采样",
+      "<span class='k'>收敛</span>",
+      "L03"
+     ],
+     [
+      "② + ③（表格）",
+      "表格式 Q-learning",
+      "<span class='k'>收敛</span>",
+      "L04 p40"
+     ],
+     [
+      "<b>① + ② + ③</b>",
+      "<b>Q-learning + VFA</b>",
+      "<span class='w'>可能发散</span>",
+      "<b>本讲 p44</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页是整门课对你的项目最直接的一次警告：FQE 把三条腿全占了。</b><br><b>① 函数逼近</b>：你的状态是 (query 特征, 节点, 部分轨迹)，<span class='k'>必须拟合，不可能查表</span>。✓<br><b>② 自举</b>：FQE 的定义就是用 <code>Q̂(s′,·)</code> 顶替未来。<span class='k'>终局奖励下中间步骤全靠它</span>。✓<br><b>③ off-policy</b>：你的日志来自 AFlow 跑过的固定配置，<span class='k'>目标策略从来没跑过</span>。✓<br><b>三样齐全。所以「FQE 可能不收敛」对你不是小概率的角落情形，而是<span class='w'>默认配置</span>。</b><br><b>这一条该怎么用，有三个落点</b>：<br><b>（甲）不要把 FQE 的输出当定论。</b> 简报 §4d 的穷举 oracle 不是「锦上添花的验证」，<span class='k'>它是唯一能告诉你 FQE 有没有跑飞的东西</span>。<br><b>（乙）监控发散，而不是只看最终数字。</b> 记录 Q̂ 的权重范数与预测值的量级随迭代的变化；<b>发散的征兆是量级单调爆炸</b>，而不是损失不降。<br><b>（丙）这是论文里「我们不主张什么」那一节的现成素材。</b>简报 §7 第 2 拳预判了审稿人会问 bound 的假设——<span class='w'>坦白承认「FQE 在我们的设定下没有收敛保证，所以我们用 oracle 表做校验」，比含糊其辞强得多</span>。",
+    "ref": "课件 p38 原文（intersection of the following）· 简报 §4e（FQE）· §4a（off-policy）· §4d（oracle）· §7 第 2 拳"
+   }
+  },
+  {
+   "r": [
+    39,
+    40
+   ],
+   "t": "Q 的线性逼近",
+   "star": 2,
+   "quote": "<b>Action-Value Function Approximation with an Oracle</b><br><em>J(w) = E<sub>π</sub>[(Q<sup>π</sup>(s,a) − Q̂<sup>π</sup>(s,a;w))²]</em><br><b>Linear State Action Value Function Approximation</b><br><em>Use features to represent <b>both the state and action</b>: x(s,a) = [x₁(s,a), …, x<sub>n</sub>(s,a)]<sup>T</sup></em><br><em>Q̂(s,a;w) = x(s,a)<sup>T</sup>w</em>",
+   "one": "<b>和 V 的版本逐字对应，只是特征同时编码状态和动作。</b>",
+   "eq": "Q̂(s,a; w) = x(s,a)ᵀw\n\nJ(w) = E_π[ ( Q^π(s,a) − Q̂(s,a;w) )² ]\n\nΔw = α·( Q^π(s,a) − Q̂(s,a;w) )·x(s,a)",
+   "pts": [
+    "<b>两种做法，课件选了后者</b>：<br><b>（甲）每个动作各一套权重</b>：<code>Q̂(s,a) = x(s)ᵀw_a</code>。<span class='w'>动作之间完全不共享</span>，参数量翻 |A| 倍。<br><b>（乙）把动作也编进特征</b>：<code>x(s,a)</code>。<span class='k'>动作之间能共享结构</span>，参数量不随 |A| 增长。<br><b>（乙）在动作多、动作之间有相似性时明显更好</b>；（甲）在动作少且彼此无关时更简单，<b>深度 Q 网络实际用的是（甲）的变体</b>（输出层每个动作一个头）。",
+    "<b>为什么控制必须用 Q 而不能用 V</b>：挑动作要做 <code>arg max_a</code>，<span class='k'>而 V 不带动作这一维</span>。<b>用 V 挑动作需要模型</b>（第二讲 <code>arg max_a [R + γΣPV]</code>），而本讲全程无模型。<b>所以从预测转到控制，V → Q 不是风格选择，是硬性要求。</b>",
+    "<b>一个实践上的提醒：<code>x(s,a)</code> 的构造比 <code>x(s)</code> 难得多。</b>最朴素的做法是把动作 one-hot 后与状态特征做外积，<span class='w'>这会让特征维数乘以 |A|，等于退回做法（甲）</span>。<b>要真正共享，特征必须捕捉「这个动作在这个状态下意味着什么」</b>——<span class='k'>这又回到 p19 那句：特征定了上限就定了。</span>"
+   ]
+  },
+  {
+   "r": [
+    41,
+    42
+   ],
+   "t": "三个算法的 VFA 版",
+   "star": 3,
+   "quote": "<b>Incremental Model-Free Control Approaches</b><br><em>In Monte Carlo methods, use a return G<sub>t</sub> as a substitute target:</em> <em>Δw = α(G<sub>t</sub> − Q̂(s<sub>t</sub>,a<sub>t</sub>;w))∇<sub>w</sub>Q̂</em><br><em>For <b>SARSA</b> instead use a TD target r + γQ̂(s′,a′;w)</em><br><em>For <b>Q-learning</b> instead use a TD target r + γ max<sub>a′</sub> Q̂(s′,a′;w)</em>",
+   "one": "<b>结构完全一样，<b>只换目标值</b>。和第四讲的表格版逐字对应。</b>",
+   "eq": "MC：        Δw = α( G_t − Q̂(s_t,a_t;w) )·∇_w Q̂\nSARSA：     Δw = α( r + γ·Q̂(s′,a′;w) − Q̂(s,a;w) )·∇_w Q̂\nQ-learning：Δw = α( r + γ·max_{a′} Q̂(s′,a′;w) − Q̂(s,a;w) )·∇_w Q̂\n\n线性时 ∇_w Q̂ = x(s,a)",
+   "pts": [
+    "<b>三个目标值对应三种「未来怎么算」</b>：<br><b>MC</b> 用<span class='k'>真实走出来的回报</span>——不自举；<br><b>SARSA</b> 用<span class='k'>实际要做的下一个动作</span>的 Q̂——自举，但仍是 on-policy；<br><b>Q-learning</b> 用<span class='w'>最好的下一个动作</span>的 Q̂——自举，<b>而且是 off-policy</b>。",
+    "<b>那个 <code>max</code> 就是 off-policy 的全部来源，也是三件套第③样的入口。</b><span class='k'>你按 ε-贪婪行动，却用「假设下一步最优」来更新</span>——<b>更新用的那个策略，和产生数据的那个策略不是同一个。</b><span class='w'>p45 那张表里只有 Q-learning 那一格坏掉，原因就在这一个 max 上。</span>",
+    "<b>SARSA 在这张表上的位置值得注意</b>：它自举、也用函数逼近，<span class='k'>但它是 on-policy 的</span>，所以只占三件套的两样。<b>这就是为什么 p45 里 SARSA 在线性 VFA 下仍然（抖着）收敛，而 Q-learning 不。</b><span class='k'>第四讲那个「悬崖漫步里 SARSA 早期更好」的现象，在这里有了第二重、而且更严重的理由。</span>",
+    "<b>唯一新增的符号是 <code>∇_w Q̂</code>，线性时它就是 <code>x(s,a)</code>。</b><span class='k'>换成神经网络时它由反向传播给出</span>——<b>第六讲的 DQN 就是把这一行的 Q̂ 换成卷积网络，其余一字不改。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "算法",
+     "目标值",
+     "自举",
+     "on/off-policy",
+     "线性 VFA 下"
+    ],
+    "rows": [
+     [
+      "MC 控制",
+      "G_t",
+      "<span class='k'>否</span>",
+      "on",
+      "收敛（会抖）"
+     ],
+     [
+      "SARSA",
+      "r + γQ̂(s′,a′)",
+      "是",
+      "<span class='k'>on</span>",
+      "收敛（会抖）"
+     ],
+     [
+      "Q-learning",
+      "r + γ<b>max</b>Q̂(s′,·)",
+      "是",
+      "<span class='w'>off</span>",
+      "<span class='w'>可能发散</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    43,
+    43
+   ],
+   "t": "为什么会出问题：压缩 vs 扩张",
+   "star": 3,
+   "quote": "<b>Convergence of TD Methods with VFA</b><br><em><b>TD with value function approximation is not following the gradient of an objective function</b></em><br><em>Informally, updates involve doing an (approximate) Bellman backup followed by best trying to fit underlying value function to a particular feature representation</em><br><em><b>Bellman operators are contractions, but value function approximation fitting can be an expansion</b></em>",
+   "one": "<b>贝尔曼算子是压缩的，但「把结果投影回可表示的函数空间」这一步可能是扩张的。</b>",
+   "eq": "一步更新其实是两步：\n  ① 做一次（近似的）贝尔曼备份    ← 压缩，系数 γ\n  ② 把结果投影回线性函数空间      ← 可能扩张，系数可以 > 1\n\n两步合起来的系数 = γ × (扩张系数)，未必 < 1",
+   "pts": [
+    "<b>第二讲证过：压缩 ⇒ 唯一不动点 ⇒ 必然收敛。</b><span class='w'>这里第二步把这个保证毁了。</span><b>只要投影的扩张系数大于 <code>1/γ</code>，合成算子就不再是压缩</b>——<span class='k'>此时不动点可以不存在，迭代可以跑到无穷。</span>",
+    "<b>为什么投影会扩张，直觉上说</b>：投影是按某个度量找最近点，<span class='k'>而这个度量由数据分布 d(s) 决定</span>。<b>如果 d 在某些状态上几乎没有权重，投影就「不在乎」那些状态上的误差</b>，<span class='w'>于是可以为了拟合常去的状态，把罕至状态的估值推得非常离谱</span>。<b>而自举又会把那个离谱的值当作目标传回来。</b>",
+    "<b>这解释了为什么 on-policy 时没事</b>：on-policy 下投影所用的 d<span class='k'>恰好就是自举时会访问到的那个分布</span>，<b>「不在乎」的状态也正好是「不会去」的状态，两者对齐</b>。<span class='w'>off-policy 下这个对齐被打破</span>——<b>你在 d_b 上做投影，却要在 d_e 上自举</b>。p44 就是这件事的具体演示。",
+    "<b>另一个等价的说法：TD + VFA 并不是在沿着某个目标函数的梯度走</b>（p29 说的「半梯度」）。<span class='k'>没有目标函数，就没有「下降」可言</span>，<b>于是「更新会不会让事情变好」这个问题根本没有定义</b>。"
+   ],
+   "tip": {
+    "t": "想读原始讨论",
+    "v": "Sutton &amp; Barto 第 11 章；早期讨论见 Jeff Gordon 1995 关于 averagers 的论文，那里讲了线性值函数逼近为什么可能是扩张。"
+   }
+  },
+  {
+   "r": [
+    44,
+    44
+   ],
+   "t": "Baird：off-policy 真的会炸",
+   "star": 3,
+   "quote": "<b>Challenges of Off-Policy Control: Baird Example</b><br><em>Behavior policy and target policy are not identical</em> · <em><b>Value can diverge</b></em>",
+   "one": "<b>权重可以发散到无穷——<span class='w'>而且连数据都是「合规」的。</span></b>",
+   "eq": "目标策略：恒取 a1（实线）\n行为策略：6/7 取 a2，1/7 取 a1\nγ = 0.99\n\n做法：把 a ≠ π(s) 的 tuple 全部丢掉，只留合规的，再跑 TD\n结果：权重发散",
+   "pts": [
+    "<b>这个做法叫「拒绝采样式的 off-policy 修正」，而且它在「动作」这一层是完全正确的</b>——留下来的每条数据，动作都确实是目标策略会选的。<span class='w'>可它还是炸了。</span><b>这说明问题不在「动作对不对」，而在别处。</b>",
+    "<b>根子在状态分布不匹配。</b><br>真按目标策略走：s1 → s7，然后<span class='k'>一直待在 s7</span>——数据几乎全在 s7；<br>按行为策略走：a2 不停把你<span class='k'>传送回 s1–s6</span>——数据几乎全在前六个状态。<br><b>两个分布差得极远</b>，而你是在<b>前者的目标</b>下、用<b>后者的分布</b>做投影。",
+    "<b>把 p33 那条观察接进来，发散的机制就完整了</b>：s1 与 s7 共享第 8 个权重；行为策略反复喂来 s1–s6 的数据，于是第 8 个权重被反复推动；<span class='w'>而推动它的 TD 误差是自举出来的「假平静」</span>（两个同样错的估值相减）。<b>每推一次，两边的估值一起抬高一点，下一次的目标又因此更高</b>——<span class='k'>正反馈，于是跑到无穷。</span>",
+    "<b>最该带走的一句话</b>：<span class='w'>发散不需要恶意的数据，也不需要错误的实现</span>。<b>一个逼近误差为 0 的函数类、一份动作完全合规的数据、一个教科书式的 TD 更新，三者凑在一起照样炸。</b><span class='k'>这就是为什么「致命三件套」被叫做三件套，而不是三个注意事项。</span>"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页描述的「做法」，几乎就是你手上日志的处境，只是更乐观一点。</b><br>课件的做法是：<em>把 a ≠ π(s) 的 tuple 全部丢掉</em>。<span class='k'>这正是简报 §4b 说的「WIS 在确定性目标下精确退化为拒绝采样」</span>——字面上就是「留下碰巧和你的策略一致的那些」。<br><b>而你的处境更差一层</b>：Baird 例子里行为策略<b>有</b> 1/7 的概率取 a1，所以还留得下一些数据；<span class='w'>你的日志 π_b(a|h) ∈ {0,1}，凡是目标策略与已跑配置不同的节点，一条都留不下</span>（§4a 的 deficient support）。<br><b>所以这一页对你的教训是双重的</b>：<br><b>（甲）就算你随机化了日志、拿到了合规数据，也不等于安全</b>——<span class='k'>Baird 的数据全部合规，照样发散</span>。动作对齐只解决了重要性权重有没有定义，<b>没解决状态分布对不对</b>。<br><b>（乙）简报 §4c 那条「先把随机化节点压到 k=3–4」除了提 ESS，还有这一层好处</b>：<span class='k'>k 越小，目标策略与行为策略能产生的状态分布差距越小</span>，<b>投影与自举所用的分布越接近对齐</b>。<span class='w'>这是降低发散风险的结构性手段，比调学习率可靠得多。</span>",
+    "ref": "课件 p44 原文 · 简报 §4a（deficient support）· §4b（WIS 退化为拒绝采样，已核）· §4c（k 压到 3–4，已核）· 本讲 p33"
+   }
+  },
+  {
+   "r": [
+    45,
+    45
+   ],
+   "t": "收敛性总表",
+   "star": 3,
+   "quote": "<b>Convergence of Control Methods with VFA</b><br><em>Algorithm | Tabular | Linear VFA | Nonlinear VFA</em><br><em>Monte-Carlo Control · Sarsa · Q-learning</em>",
+   "one": "<b>表格全绿；线性能抖着收；<b>Q-learning 在线性下就可能发散</b>；非线性基本没保证。</b>",
+   "eq": "                 表格      线性 VFA        非线性 VFA\nMC 控制          收敛      收敛（会抖）     基本没保证\nSARSA            收敛      收敛（会抖）     基本没保证\nQ-learning       收敛      可能发散         基本没保证",
+   "pts": [
+    "<b>「会抖」（chatter）和「发散」要分清，这是读这张表最容易混的一处。</b><br><span class='k'>抖</span>：基本收敛，但会在最优附近<b>来回振荡、不完全停下来</b>——原因是策略改进这一步是离散的（ε-贪婪的 arg max 会跳变），值估计的微小变化能让策略翻转。<br><span class='w'>发散</span>：<b>权重的量级炸到无穷</b>，完全不是「在附近晃」。",
+    "<b>横着读，纵着读，结论不同</b>：<br>横着看一行 ⇒ <span class='k'>表达力越强，保证越弱</span>（这是 p8 那条谱的直接后果）；<br>纵着看一列 ⇒ <span class='w'>off-policy 的那个算法单独坏掉</span>。<br><b>前者是程度问题，后者是性质问题。</b>",
+    "<b>最后一列「基本没保证」要正确理解</b>：<span class='k'>它不等于「一定不行」</span>——<b>DQN 就在非线性那一列里，而且管用</b>。它只是说<b>没有定理替你兜底</b>，所以第六讲才要靠经验回放和固定目标这类<span class='w'>工程手段</span>去换稳定性，而那些手段<b>同样没有收敛保证</b>（第六讲明说过）。"
+   ],
+   "tbl": {
+    "head": [
+     "算法",
+     "表格",
+     "线性 VFA",
+     "非线性 VFA",
+     "坏在哪"
+    ],
+    "rows": [
+     [
+      "MC 控制",
+      "<span class='k'>收敛</span>",
+      "收敛（会抖）",
+      "基本没保证",
+      "—"
+     ],
+     [
+      "SARSA",
+      "<span class='k'>收敛</span>",
+      "收敛（会抖）",
+      "基本没保证",
+      "—"
+     ],
+     [
+      "Q-learning",
+      "<span class='k'>收敛</span>",
+      "<span class='w'>可能发散</span>",
+      "基本没保证",
+      "<b>那个 max ⇒ off-policy</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    46,
+    46
+   ],
+   "t": "这是个活跃的研究方向",
+   "star": 2,
+   "quote": "<b>Hot Topic: Off-Policy Function Approximation Convergence</b><br><em>Extensive work in better TD-style algorithms with VFA, some with convergence guarantees: see Chp 11 S&amp;B</em><br><em>Exciting recent work on <b>batch RL</b> that can converge with nonlinear VFA (Dai et al. ICML 2018): uses primal dual optimization</em><br><em><b>An important issue is not just whether the algorithm converges, but what solution it converges to</b></em><br><em>Critical choices: objective function and feature representation</em>",
+   "one": "<b>有带收敛保证的 TD 类算法了；但<b>更要紧的问题是「收敛到什么」</b>。</b>",
+   "pts": [
+    "<b>课件这句话值得抄下来：<em>not just whether the algorithm converges, but what solution it converges to</em>。</b><span class='k'>收敛但逼近得很烂，一样没用</span>。<b>一个收敛到常数函数的算法是完美稳定的，也是完全无用的。</b>",
+    "<b>两个关键选择：目标函数、特征表示。</b><span class='k'>这两样都不在算法里</span>——<b>它们是你在跑算法之前就定死的东西</b>，而本讲所有的定理都只管算法那一段。<span class='w'>这意味着「用了有收敛保证的算法」并不能让你免于想清楚这两件事。</span>",
+    "<b>那条「批量 RL 在非线性下也能收敛」（Dai et al. ICML 2018，用原始–对偶优化）对你格外相关</b>：<span class='k'>批量正是你的设定</span>——数据固定、不能重新采。<b>这是本讲唯一一条明确指向「你这种处境有专门的办法」的线索。</b>",
+    "<b>顺带一提，这一页也是全课少数几处明确说「这是开放问题」的地方。</b><span class='w'>遇到这种标记要当成信号</span>：它意味着你在这一块上<b>不能指望从教材里读到现成答案</b>，只能靠实测和文献跟踪。"
+   ]
+  },
+  {
+   "r": [
+    47,
+    47
+   ],
+   "t": "那张几何图",
+   "star": 2,
+   "quote": "<b>Linear Value Function Approximation</b><br><em>Figure from Sutton and Barto 2018</em>",
+   "one": "<b>一个平面代表「线性类能表示的所有值函数」，贝尔曼备份把你顶出平面，投影再把你拉回来。</b>",
+   "pts": [
+    "<b>这张图把 p43 那两步画成了几何</b>：你在平面上的某点 <code>V̂</code>，做一次贝尔曼备份 <code>BV̂</code> <span class='w'>一般会落在平面外</span>（因为真实的贝尔曼备份结果未必是线性可表示的），<b>然后投影 Π 把它拉回平面</b>。TD 的不动点就是 <code>ΠB</code> 的不动点。",
+    "<b>图上好几段不同的距离，对应好几种不同的误差，也就是好几个可选的目标函数</b>：<br><b>到真值 V^π 的距离</b> ⇒ 均方值误差（MSVE），本讲全程用的就是它；<br><b>到 BV̂ 的距离</b> ⇒ 贝尔曼误差；<br><b>投影后与投影前的差</b> ⇒ 投影贝尔曼误差（TD 实际在压的那个）。",
+    "<b>这一讲只用了其中一个（均方值误差）；<span class='w'>它未必是最好的那个</span></b>——<b>误差最小的逼近器，不一定是在真实问题上表现最好的那个</b>。<span class='k'>因为你最终要的是好策略，而不是好估值</span>，而值函数上一点点误差落在 arg max 上可能毫无影响，也可能彻底翻转。"
+   ]
+  },
+  {
+   "r": [
+    48,
+    49
+   ],
+   "t": "这一讲你该掌握什么",
+   "star": 2,
+   "quote": "<b>What You Should Understand</b><br><em>Be able to implement TD(0) and MC on policy evaluation with linear VFA</em><br><em>Be able to define what TD(0) and MC on policy evaluation with linear VFA are <b>converging to</b> and when this solution has 0 error and non-zero error</em><br><em>Be able to implement Q-learning and SARSA and MC control algorithms</em><br><em><b>List the 3 issues that can cause instability</b>: function approximation, bootstrapping and off-policy learning</em>",
+   "one": "<b>课件自己给的清单，四条里有两条是「说得清」而不是「会实现」。</b>",
+   "pts": [
+    "<b>第二条和第四条才是这一讲的真正产出。</b><span class='k'>实现 TD 和 MC 的线性版本是第三讲的延伸，不难</span>；<b>难的是说清「它收敛到什么」以及「什么时候误差为 0」</b>——<span class='w'>那要求你同时记住 d(s)、min_w、以及 1/(1−γ) 这三样东西的角色。</span>",
+    "<b>一张自检表，离开这一讲前逐条过</b>：<br>① 能说出 MC 与 TD 在线性 VFA 下各自收敛到什么吗？（等式 vs 不等式）<br>② 能说出什么时候两者的误差都是 0 吗？（函数类装得下真值）<br>③ 能说出致命三件套是哪三样、并举出「只占两样所以安全」的例子吗？<br>④ 能解释为什么 Q-learning 在线性 VFA 下单独坏掉吗？（那个 max）<br><span class='k'>这四问覆盖本讲全部承重内容。</span>",
+    "<b>下一讲：深度强化学习。</b><span class='w'>注意它做的事情正好是本讲说「基本没保证」的那一列</span>——<b>DQN 把 Q̂ 换成卷积网络，三件套一样不少</b>。<span class='k'>所以第六讲的经验回放和固定 Q 目标，读的时候要当成「对这一讲三件套的两个工程对策」来读</span>，而不是两个孤立的技巧。"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>整讲落到你项目上，是三条可直接写进方法节的话。</b><br><b>① 成本那一半不受本讲约束。</b> p27 明确标注 <em>not making any Markov assumptions</em>，解析解存在、不自举、不需要分布假设——<span class='k'>它是监督回归，不是策略评估</span>。简报 §4e 的拆分在这里拿到了理论依据。<br><b>② 准确率那一半踩满三件套。</b> FQE = 函数逼近 + 自举 + off-policy，<span class='w'>没有任何收敛保证</span>。<b>所以 oracle 表（§4d）不是可选的验证步骤，是必需的量尺</b>；而「监控权重范数是否爆炸」应当作为训练日志的固定一项。<br><b>③ 降低风险的结构性手段是减小 k，不是调超参。</b> p44 说明了发散的根源是行为策略与目标策略的状态分布差距；<span class='k'>§4c 把随机化节点压到 3–4，同时压小了这个差距</span>。<br><b>一条可写进 limitation 的话</b>：<em>我们采用 FQE 估计准确率分量，但在我们的设定（函数逼近 + 自举 + off-policy 日志）下该估计量不具备收敛保证；因此所有 FQE 结果均以枚举 oracle 表为基准做了校验。</em><span class='k'>这正是简报 §7 第 2 拳建议的「写一小节说明我们不主张什么」。</span>",
+    "ref": "课件 p48 原文 · 简报 §4d §4e（已核）· §4c · §7 第 2 拳 · 本讲 p27 p38 p44"
+   }
+  }
+ ],
+ "quiz": {
+  "38": [
+   {
+    "q": "致命三件套是哪三样？",
+    "o": [
+     "探索 · 利用 · 泛化",
+     "高方差 · 高偏差 · 高计算",
+     "函数逼近 · 自举 · off-policy",
+     "采样 · 自举 · 折扣"
+    ],
+    "a": 2,
+    "why": "课件用的词是 intersection（交集），强调必须同时具备。任意两样都安全。"
+   },
+   {
+    "q": "下面哪个组合是<b>安全</b>的（只占两样）？",
+    "o": [
+     "表格式 Q-learning（没有函数逼近）",
+     "Q-learning + 线性 VFA",
+     "DQN",
+     "FQE"
+    ],
+    "a": 0,
+    "why": "①+②=本讲 TD+线性 VFA 收敛；①+③=off-policy MC 收敛；②+③=表格 Q-learning 收敛（L04 p40 证过）。"
+   },
+   {
+    "q": "为什么说「做控制几乎等同于 off-policy」？",
+    "o": [
+     "控制不需要数据",
+     "控制必须用神经网络",
+     "控制需要模型",
+     "ε-贪婪行动，却要评估贪婪策略——行为策略和目标策略天生不同"
+    ],
+    "a": 3,
+    "why": "Q-learning 的那个 max 就是这个差异的来源。"
+   }
+  ],
+  "39": [
+   {
+    "q": "控制为什么必须用 Q 而不能用 V？",
+    "o": [
+     "V 不可微",
+     "Q 更准",
+     "挑动作要 arg max_a，而 V 不带动作这一维；用 V 挑动作需要模型，而本讲无模型",
+     "Q 收敛更快"
+    ],
+    "a": 2,
+    "why": "所以从预测转到控制，V → Q 不是风格选择，是硬性要求。"
+   },
+   {
+    "q": "把动作编进特征 <code>x(s,a)</code> 相对「每个动作一套权重」的好处是？",
+    "o": [
+     "更容易求导",
+     "动作之间能共享结构，参数量不随 |A| 增长",
+     "不需要特征工程",
+     "参数更多"
+    ],
+    "a": 1,
+    "why": "但朴素地把动作 one-hot 后与状态特征做外积，会让维数乘以 |A|，等于退回「每个动作一套」。"
+   }
+  ],
+  "41": [
+   {
+    "q": "三个算法里，哪一个引入了 off-policy？引入它的是哪个符号？",
+    "o": [
+     "Q-learning，那个 max",
+     "SARSA，那个 a′",
+     "MC，那个 G_t",
+     "三者都是"
+    ],
+    "a": 0,
+    "why": "你按 ε-贪婪行动，却用「假设下一步最优」来更新。p45 里只有 Q-learning 那一格坏掉，原因就在这个 max。"
+   },
+   {
+    "q": "SARSA 占了三件套的几样？",
+    "o": [
+     "三样",
+     "一样",
+     "一样都不占",
+     "两样——它自举、用函数逼近，但是 on-policy"
+    ],
+    "a": 3,
+    "why": "这就是为什么它在线性 VFA 下仍然（抖着）收敛，而 Q-learning 不。"
+   }
+  ],
+  "43": [
+   {
+    "q": "一步 TD+VFA 更新其实是两步，哪一步可能是扩张的？",
+    "o": [
+     "贝尔曼备份",
+     "求梯度",
+     "把结果投影回可表示的函数空间",
+     "采样"
+    ],
+    "a": 2,
+    "why": "只要投影的扩张系数大于 1/γ，合成算子就不再是压缩，此时不动点可以不存在。"
+   },
+   {
+    "q": "为什么 on-policy 时这个问题不出现？",
+    "o": [
+     "on-policy 的 γ 更小",
+     "on-policy 不自举",
+     "on-policy 用表格",
+     "投影所用的 d 恰好就是自举时会访问到的分布，两者对齐"
+    ],
+    "a": 3,
+    "why": "「不在乎」的状态也正好是「不会去」的状态。off-policy 下这个对齐被打破：在 d_b 上投影，却要在 d_e 上自举。"
+   }
+  ],
+  "44": [
+   {
+    "q": "Baird 的 off-policy 例子里，把动作不合规的 tuple 全丢掉之后还是发散。说明问题不在哪？",
+    "o": [
+     "不在「动作对不对」——留下的每条数据动作都合规",
+     "不在 γ",
+     "不在函数类表达力",
+     "不在学习率"
+    ],
+    "a": 0,
+    "why": "根子是状态分布不匹配：目标策略几乎一直待在 s7，行为策略不停被传送回 s1–s6。"
+   },
+   {
+    "q": "这一页最该带走的一句话是？",
+    "o": [
+     "要用更小的学习率",
+     "发散不需要恶意数据、也不需要错误实现——逼近误差为 0、数据全合规、教科书式更新，三者凑一起照样炸",
+     "off-policy 数据不可信",
+     "要用非线性逼近"
+    ],
+    "a": 1,
+    "why": "这就是为什么它被叫做「三件套」，而不是三个注意事项。"
+   }
+  ],
+  "45": [
+   {
+    "q": "「会抖」（chatter）和「发散」的区别是？",
+    "o": [
+     "抖只出现在表格情形",
+     "没有区别",
+     "抖是在最优附近振荡不停；发散是权重量级炸到无穷",
+     "抖更严重"
+    ],
+    "a": 2,
+    "why": "抖的原因是策略改进这一步是离散的：值估计的微小变化能让 ε-贪婪的 arg max 翻转。"
+   },
+   {
+    "q": "「非线性 VFA 基本没保证」这一列该怎么理解？",
+    "o": [
+     "不等于不行——DQN 就在这一列而且管用；只是没有定理兜底，要靠工程手段换稳定",
+     "只在 γ 大时不行",
+     "只对 Q-learning 不行",
+     "一定不行"
+    ],
+    "a": 0,
+    "why": "第六讲的经验回放和固定目标就是那些工程手段，而第六讲明说过它们同样没有收敛保证。"
+   }
+  ],
+  "46": [
+   {
+    "q": "课件说比「算法收不收敛」更要紧的问题是？",
+    "o": [
+     "收敛到什么——一个收敛到常数函数的算法完美稳定，也完全无用",
+     "收敛多快",
+     "实现难度",
+     "内存占用"
+    ],
+    "a": 0,
+    "why": "两个关键选择是目标函数和特征表示，而它们都不在算法里——是你跑算法之前就定死的。"
+   }
+  ],
+  "47": [
+   {
+    "q": "那张几何图上，TD 实际在最小化的是哪一段距离？",
+    "o": [
+     "投影后与投影前的差（投影贝尔曼误差）",
+     "到真值 V^π 的距离",
+     "到 BV̂ 的距离",
+     "到原点的距离"
+    ],
+    "a": 0,
+    "why": "本讲全程用的 MSVE 是「到真值的距离」，两者的最小点不是同一个 w——这正是 p34 那条不等式界的东西。"
+   }
+  ],
+  "48": [
+   {
+    "q": "课件清单里，哪两条是这一讲真正的产出（而不是第三讲的延伸）？",
+    "o": [
+     "说清「收敛到什么」，以及列出致命三件套",
+     "实现 TD 和 MC",
+     "画出几何图",
+     "实现 Q-learning 和 SARSA"
+    ],
+    "a": 0,
+    "why": "说清收敛到什么，要求你同时记住 d(s)、min_w、1/(1−γ) 这三样东西的角色。"
+   },
+   {
+    "q": "读第六讲的 DQN 时，应该把经验回放和固定 Q 目标当成什么？",
+    "o": [
+     "降低计算量的手段",
+     "收敛性证明的一部分",
+     "两个孤立的技巧",
+     "对本讲三件套的两个工程对策"
+    ],
+    "a": 3,
+    "why": "DQN 把 Q̂ 换成卷积网络，三件套一样不少——它做的正是本讲说「基本没保证」的那一列。"
+   }
+  ]
+ }
+}

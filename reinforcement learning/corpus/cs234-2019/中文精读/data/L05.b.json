@@ -1,0 +1,630 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p23/p33 Baird：x(s1)=[2 0 0 0 0 0 0 1]，x(s7)=[0 0 0 0 0 0 1 2]，w 全 1 ⇒ V̂=3",
+  "p23 MC 一次更新 α=0.5、G=0 ⇒ Δw=−1.5·x(s1)，新 w=[−2 1 1 1 1 1 1 −0.5]",
+  "p33 TD 同一条 tuple、γ=0.9 ⇒ TD 误差 = 0 + 0.9·3 − 3 = −0.3（MC 是 −3）",
+  "p26 MSVE(w_MC) = min（等式）· p34 MSVE(w_TD) ≤ 1/(1−γ)·min（不等式）",
+  "p35 表格表示（one-hot）时两者都为 0",
+  "p27 批量 MC 解析解 w = (XᵀX)⁻¹XᵀG，课件标注 not making any Markov assumptions",
+  "出处 Tsitsiklis & Van Roy 1997（p25/p34 两条结论同出一篇）"
+ ],
+ "notes": [
+  {
+   "r": [
+    20,
+    20
+   ],
+   "t": "线性 VFA：更新式读成三个因子",
+   "star": 3,
+   "quote": "<b>Linear Value Function Approximation for Prediction With An Oracle</b><br><em>V̂(s;w) = Σ<sub>j</sub> x<sub>j</sub>(s)w<sub>j</sub> = x(s)<sup>T</sup>w</em><br><em>J(w) = E<sub>π</sub>[(V<sup>π</sup>(s) − V̂(s;w))²]</em> · <em>Δw = −½α∇<sub>w</sub>J(w)</em><br><b><em>Update = step-size × prediction error × feature value</em></b>",
+   "one": "<b>值 = 特征与权重的内积；更新量 = 步长 × 预测误差 × 特征值。</b>",
+   "eq": "V̂(s; w) = Σ_j x_j(s)·w_j = x(s)ᵀw\n\nΔw = α·( V^π(s) − x(s)ᵀw )·x(s)\n      └步长┘ └──预测误差──┘ └特征┘",
+   "pts": [
+    "<b>课件那行小字值得背下来：<em>Update = step-size × prediction error × feature value</em>。</b>三个因子各管一件事——<b>步长</b>管挪多少，<b>预测误差</b>管往哪边挪，<span class='k'><b>特征值</b>管改哪几个权重、各改多少</span>。",
+    "<b>第三个因子的后果最值得停留：只有特征非零的那些权重会被改动。</b><span class='k'>这就是「泛化」在式子里的样子</span>——你在状态 s 上学到的东西，会通过共享的那几个权重，<b>自动改变所有在这些维度上非零的状态的估值</b>。<span class='w'>好处与坏处都从这一条来</span>：p23 的算例会把它演示一遍，而 p44 的发散也是它。",
+    "<b>线性情形下梯度特别干净：<code>∇_w V̂(s;w) = x(s)</code>。</b><span class='k'>梯度就是特征本身</span>，不依赖 w。<b>这是线性 VFA 所有好性质的技术来源</b>——目标函数是 w 的二次函数，于是它只有一个最小值，没有局部最优的烦恼。<span class='w'>换成神经网络，这一条立刻失效。</span>",
+    "<b>注意这一页标题里还挂着 <em>With An Oracle</em>。</b>也就是说式子里的 <code>V^π(s)</code> 还是真值，<b>还没被顶替掉</b>。下一页才换成 <code>G_t</code>。<span class='k'>课件坚持把「形式」和「估计」分两步讲，是为了让你看清后面出的所有问题都来自第二步，不是第一步。</span>"
+   ]
+  },
+  {
+   "r": [
+    21,
+    22
+   ],
+   "t": "蒙特卡洛 VFA",
+   "star": 3,
+   "quote": "<b>Monte Carlo Value Function Approximation</b><br><em>Return G<sub>t</sub> is an <b>unbiased but noisy</b> sample of the true expected return V<sup>π</sup>(s<sub>t</sub>)</em><br><em>Therefore can reduce MC VFA to doing <b>supervised learning</b> on a set of (state, return) pairs: ⟨s₁,G₁⟩, ⟨s₂,G₂⟩, …</em><br><em>Δw = α(G<sub>t</sub> − x(s<sub>t</sub>)<sup>T</sup>w)x(s<sub>t</sub>)</em> · <em>Note: G<sub>t</sub> may be a very noisy estimate of true return</em>",
+   "one": "<b>用回报 <code>G_t</code> 顶替真值，于是变成对 <code>⟨s_t, G_t⟩</code> 做监督学习。</b>",
+   "eq": "Δw = α·( G_t − V̂(s_t; w) )·∇_w V̂(s_t; w)\n   = α·( G_t − x(s_t)ᵀw )·x(s_t)\n\n算法：\n  w = 0, k = 1\n  循环：按 π 采第 k 个片段\n    对片段里首次访问到的 s：G_t(s) = Σ_{j≥t} r_{k,j}\n    更新 w\n    k += 1",
+   "pts": [
+    "<b>「reduce to supervised learning」这句话是这一页的全部内容，但它有个前提值得说破</b>：<span class='k'>只有当标签（这里是 G_t）与 w 无关时，这个归约才成立</span>。<b>MC 满足这一条</b>——回报是实际跑出来的，不含任何估计。<span class='w'>TD 不满足，所以它只是「看起来像」监督学习。</span>",
+    "<b><code>G_t</code> 无偏，所以 MC VFA 是在真正地下降 <code>E[(V^π − V̂)²]</code>。</b>这是 p26 能给出<b>等式</b>的根本原因。<span class='k'>无偏 ⇒ 期望意义上目标正确 ⇒ SGD 的收敛理论原样适用</span>。",
+    "<b>代价写在课件最后一行：<em>G_t may be a very noisy estimate</em>。</b>在函数逼近下这个噪声的后果和表格时不同——<b>表格下噪声只污染那一格，函数逼近下它会通过共享权重污染一片</b>。<span class='w'>所以 MC + VFA 往往需要更小的步长、更多的数据</span>。",
+    "<b>首次访问 / 每次访问的取舍和第三讲完全一样</b>：首次访问无偏、每次访问有偏但数据更省。课件的算法框里写的是 <em>if First visit</em>，<span class='k'>但两种都可以</span>。",
+    "<b>「每个首次访问的状态各更新一次」这件事在函数逼近下有个新含义。</b>表格情形下这些更新互不干扰（各改各的格子）；<span class='w'>函数逼近下它们会互相拉扯</span>——同一个片段里的状态特征往往相似，<b>于是对后面状态的更新会部分抵消对前面状态的更新</b>。<span class='k'>这是「一个片段里的样本不是 i.i.d.」在权重空间里的具体后果。</span>"
+   ],
+   "say": "有人问 episodic 情形下要不要写 γ。老师答：<b>episodic 时 γ 取 1 总是安全的</b>（γ&lt;1 的主要作用是保证有界，而片段必然终止时这个顾虑没了），但写上 γ 也完全可以。<br>还有人问「一个片段里更新几次」——答：<b>片段里每个首次访问的状态各更新一次</b>，不是一次。"
+  },
+  {
+   "r": [
+    23,
+    23
+   ],
+   "t": "Baird 例子：MC 走一步",
+   "star": 3,
+   "quote": "<b>Baird (1995)-Like Example with MC Policy Evaluation</b><br><em>MC update: Δw = α(G<sub>t</sub> − x(s<sub>t</sub>)<sup>T</sup>w)x(s<sub>t</sub>)</em><br><em>Small prob s₇ goes to terminal state, x(s₇)<sup>T</sup> = [0 0 0 0 0 0 1 2]</em>",
+   "one": "<b>7 个状态、<b>8 个特征</b>，奖励处处为 0。先把 MC 的一次更新亲手算出来。</b>",
+   "eq": "x(s1) = [2 0 0 0 0 0 0 1]      x(s7) = [0 0 0 0 0 0 1 2]\nw 初始化为全 1  ⇒  V̂(s1) = x(s1)ᵀw = 2 + 1 = 3\nα = 0.5，某片段从 s1 出发，回报 G = 0\n\nΔw = 0.5 · (0 − 3) · x(s1) = −1.5 · [2 0 0 0 0 0 0 1]\n   ⇒ 第 1 个权重 −3，第 8 个权重 −1.5\n\n新的 w = [−2  1  1  1  1  1  1  −0.5]",
+   "pts": [
+    "<b>先把这个环境记清楚，后面还要用两次（p33、p44）</b>：动作 <code>a1</code>（实线）<span class='k'>确定地</span>把你送到 s7；动作 <code>a2</code>（虚线）以 1/6 的概率均匀送回 s1–s6。<b>奖励处处为 0，所以真值 <code>V^π(s) ≡ 0</code> 对任何策略都成立。</b>",
+    "<b>特征数（8）多于状态数（7），完全合法。</b><span class='w'>但这并不意味着函数类装得下真值</span>——真值是全零向量，而全零显然可以表示（取 w=0）。<b>所以这个例子的逼近误差是 0</b>，发散跟「装不下」无关。<span class='k'>这正是它作为反例的价值：排除掉最容易想到的那个解释。</span>",
+    "<b>算例里只有两个权重被改动</b>，因为 <code>x(s1)</code> 只有第 1、8 位非零。<b>这就是 p20 第三个因子的直接后果。</b><span class='k'>注意第 8 位是 s1 和 s7 共享的</span>——改它会同时影响这两个状态的估值，<b>而这正是后面出事的那条通道</b>。",
+    "<b>更新幅度 −3 和 −1.5 都相当大，值得记住这个量级</b>，下一处（p33）要和 TD 的 −0.3 对比。<span class='w'>大不等于错</span>——MC 看到的是「从 s1 出发实际拿到 0」，而当前估值是 3，<b>差 3 是真实的误差，不是噪声</b>。"
+   ],
+   "tip": {
+    "t": "现在还看不出毛病",
+    "v": "老师特意说明：<b>这一页一切正常</b>。Baird 例子的凶险要到 p44 的<span class='w'>off-policy 控制</span>才露出来——on-policy 做策略评估时，函数逼近其实很太平。"
+   }
+  },
+  {
+   "r": [
+    24,
+    24
+   ],
+   "t": "平稳分布 d(s)",
+   "star": 3,
+   "quote": "<b>Convergence Guarantees for Linear VFA for Policy Evaluation: Preliminaries</b><br><em>The Markov Chain defined by a MDP with a particular policy will eventually converge to a probability distribution over states d(s)</em><br><em>d(s) is called the <b>stationary distribution</b> over states of π</em> · <em>Σ<sub>s</sub> d(s) = 1</em><br><em>d(s) satisfies the balance equation</em>",
+   "one": "<b>策略定死之后，MDP 就是一条马尔可夫链，它最终会稳定到一个状态分布。</b>",
+   "eq": "Σ_s d(s) = 1\n\nd(s′) = Σ_s Σ_a π(a|s)·p(s′|s,a)·d(s)\n\n读法：下一步的状态分布 = 当前分布按动态推一步；平稳就是「推一步还是它自己」",
+   "pts": [
+    "<b>直观：长期来看，你有百分之几的时间待在每个状态。</b><span class='k'>这是第二讲平稳分布那一页的原样复用</span>，但这里它第一次有了实质作用——<b>下一页的误差度量要拿它加权</b>。",
+    "<b>为什么误差要按 d(s) 加权，而不是对所有状态一视同仁？</b>因为<span class='k'>你更在乎常去的状态上的误差</span>。一个几乎不会到达的状态估错了，对实际回报几乎没有影响。<b>这个加权不是数学上的方便，是对「什么叫估得好」的一次定义。</b>",
+    "<span class='w'>它不告诉你要多久才混合到位</span>——可能几步，也可能几百万步。<b>而所有的收敛结论都是「混合之后」的结论</b>，<span class='k'>于是「跑了多久才算够」这个实践问题，理论上没有回答</span>。",
+    "<b>最要紧的一句话在这一页没写，但贯穿后半讲</b>：<span class='k'>d(s) 是由策略决定的</span>。换一个策略，d 就换一个。<b>于是「按 d 加权的误差最小」这件事，只对产生这些数据的那个策略成立</b>——<span class='w'>这正是 p44 发散的全部来源，也是 off-policy 一切困难的根。</span>"
+   ],
+   "say": "有人问混合时间有没有界。老师答：<b>据我所知没有好办法</b>，而且「有没有简单的检验能判断已经混合了」同样很难。这是 off-policy 评估里的真痛点。",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页是你整个 OPE 问题的数学根。</b><br>你的日志由行为策略（AFlow 跑过的那些固定配置）产生，<span class='k'>它的状态分布就是那个策略的 d_b(s)</span>。你想评估的目标策略有另一个 <code>d_e(s)</code>，而<b>你手上没有任何来自 d_e 的数据</b>。<br><b>所以「按 d 加权的误差最小」这条保证，保的是错的那个 d。</b>你拟合出来的 Q̂ 会在「行为策略常去的那些 (query, 节点, 部分轨迹)」上很准，<span class='w'>而在目标策略常去、行为策略罕至的地方很差——偏偏后者才是你要下结论的地方</span>。<br><b>这给了简报 §4a 那条结论一个更深的说法</b>：deficient support 不只是「权重分母为 0」这个代数现象，<b>它的几何形态就是这一页的 d_b ≠ d_e</b>。<span class='k'>而且它不随数据量减轻</span>——采再多来自 d_b 的样本，也不会在 d_e 的区域上多出一个点。<br><b>可操作的推论</b>：报告 FQE 结果时，应当同时报<b>目标策略的访问分布与日志分布的重叠程度</b>（如有效样本量或密度比的分位数）。简报 §7 第 6 拳问「提升在统计上是真的吗」，这是预案的一部分。",
+    "ref": "课件 p24 原文 · 简报 §4a（deficient support，推断）· §7 第 6 拳 · 本讲 p44"
+   }
+  },
+  {
+   "r": [
+    25,
+    26
+   ],
+   "t": "MC + 线性 VFA 收敛到哪",
+   "star": 3,
+   "quote": "<b>Convergence Guarantees for Linear VFA for Policy Evaluation</b><br><em>MSVE(w) = Σ<sub>s∈S</sub> d(s)(V<sup>π</sup>(s) − V̂<sup>π</sup>(s;w))²</em><br><em><b>Monte Carlo policy evaluation with VFA converges to the weights w<sub>MC</sub> which has the minimum mean squared error possible</b></em><br><em>Tsitsiklis and Van Roy. An Analysis of Temporal-Difference Learning with Function Approximation. 1997.</em>",
+   "one": "<b>收敛到你这个函数类里能做到的最小均方误差。<span class='k'>是等式，不是不等式。</span></b>",
+   "eq": "MSVE(w) = Σ_s d(s)·( V^π(s) − V̂^π(s; w) )²\n\nMC 收敛到 w_MC：\n  MSVE(w_MC) = min_w Σ_s d(s)·( V^π(s) − V̂^π(s; w) )²",
+   "pts": [
+    "<b>这是本讲最强的一条保证，而且它是等式。</b><span class='k'>MC 不只是收敛，它收敛到「在你这个函数类里能做到的最好」</span>。<b>说白了：MC 就是在做你能做的最好的那次线性回归。</b>",
+    "<b>但这个最小值<span class='w'>不一定是 0</span>。</b>如果你的线性类装不下真值，<code>min_w</code> 就是个正数——<b>而 MC 只保证够到这个正数，不保证够到真值</b>。<span class='k'>这是整讲第一次把「特征选得好不好」变成式子里的一项。</span>",
+    "<b>读这条结论时要一直记着那个 d(s)</b>：误差是按平稳分布加权的。<span class='w'>换个策略，连「什么叫最优逼近」都会变</span>——<b>同一组特征、同一个真值函数，对不同策略的最优 w 不同</b>。这一点在 on-policy 下无所谓（因为就那一个策略），<b>到第三节就成了灾难。</b>",
+    "<b>出处值得记一笔</b>：Tsitsiklis &amp; Van Roy 1997。<span class='k'>这篇论文同时给出了本页的 MC 结论和 p34 的 TD 结论</span>——<b>两条结论来自同一篇、同一套分析，所以它们的强弱差异是实质的，不是证明技巧的差别。</b>",
+    "<b>有一个常见误读值得点破：这条结论不保证「MC 估出来的值接近真值」。</b>它保证的是<span class='k'>「接近你这个函数类里离真值最近的那个」</span>。<b>如果特征选得差，这两件事可以相差很远，而算法本身一点问题都没有。</b><span class='w'>换句话说，收敛性结论不替你检查特征——那是你自己的事。</span>",
+    "<b>这也解释了为什么 p19 说「特征定了上限就定了」。</b>p26 这条等式的右边是一个<span class='k'>只依赖于特征和真值、不依赖于算法</span>的量。<b>任何算法都不可能做得比它更好，MC 只是恰好做到了它。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "收敛吗",
+     "收敛到",
+     "式子形态"
+    ],
+    "rows": [
+     [
+      "MC + 线性 VFA",
+      "是",
+      "<b>最优线性逼近</b>",
+      "<span class='k'>等式</span>"
+     ],
+     [
+      "TD + 线性 VFA",
+      "是",
+      "最优逼近的常数倍之内",
+      "<span class='w'>不等式（p34）</span>"
+     ],
+     [
+      "逼近误差为 0 时",
+      "—",
+      "<b>两者都到真值</b>",
+      "p35 的检验题"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "出处",
+    "v": "Tsitsiklis &amp; Van Roy, <i>An Analysis of Temporal-Difference Learning with Function Approximation</i>, 1997。老师顺口提了一句：Van Roy 就在斯坦福。"
+   }
+  },
+  {
+   "r": [
+    27,
+    27
+   ],
+   "t": "批量 MC：直接解出来",
+   "star": 3,
+   "quote": "<b>Batch Monte Carlo Value Function Approximation</b><br><em>May have a set of episodes from a policy π · Can <b>analytically solve</b> for the best linear approximation that minimizes mean squared error on this data set</em><br><em>arg min<sub>w</sub> Σ<sub>i=1</sub><sup>N</sup> (G(s<sub>i</sub>) − x(s<sub>i</sub>)<sup>T</sup>w)²</em> → <em>w = (X<sup>T</sup>X)<sup>−1</sup>X<sup>T</sup>G</em><br><b><em>Note: not making any Markov assumptions</em></b>",
+   "one": "<b>手里已有一批片段时，这就是一个线性回归，可以解析求解。</b>",
+   "eq": "arg min_w Σ_{i=1}^N ( G(s_i) − x(s_i)ᵀw )²\n\n求导置零：w = (XᵀX)^{-1} Xᵀ G\n\nX 是 N×n 的特征矩阵，G 是 N 维回报向量",
+   "pts": [
+    "<b>课件最后那行小字是整页最值钱的一句：<em>not making any Markov assumptions</em>。</b><span class='k'>这是 MC 路线在本讲唯一一次被明确标注「不需要 Markov 性」</span>。<b>它用的是整条真实回报，不自举，所以根本不关心「状态是不是未来的充分统计量」。</b>",
+    "<b>代价是求一次矩阵逆。</b> <code>XᵀX</code> 是 n×n（n 是特征维数），求逆大致 <code>O(n³)</code>；而且 <b>X 可能大到根本写不下</b>（N 是样本数）。<span class='w'>特征维数一高，这条路就不通。</span>",
+    "<b>和增量式 SGD 的关系</b>：两者收敛到同一个解（都是最小二乘解），<span class='k'>区别只在你是愿意一次性付清计算，还是分期付</span>。<b>数据量小、特征少时直接解更省事，也更精确</b>（没有步长、没有收敛判据）。"
+   ],
+   "say": "老师给的判断：数据不多、特征不多时值得直接解；「<b>Facebook 不可能这么干</b>」。中间路线是小批量——她提到近年的工作表明，在深度学习里掺一点这种解析步骤常常很有帮助。",
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页就是简报 §4e 里「成本那一半」的完整方案，一字不差。</b><br>简报说：<em>给定保真度和输入长度，token 成本近乎确定 → 直接回归（预期 R² &gt; 0.95），完全不用重要性权重。</em><br><b>而这一页给了它两条理论支撑</b>：<br>① <span class='k'>解析解存在</span>，<code>w = (XᵀX)⁻¹XᵀG</code>，不需要调步长、不需要判收敛；<br>② <span class='k'>不需要 Markov 假设</span>——<b>于是简报 §5 那个还没做的可加性检验，对成本这一半根本不构成前提</b>。成本模型现在就能拟，不必等实验结果。<br><b>这是本讲对你最直接可用的一页</b>：它说明「把 G 拆成两半分别估」不只是方差上的改进，<span class='w'>更是把一半的工作从「有前提的策略评估」搬到了「无前提的监督回归」</span>。<b>这句话可以原样写进 method 一节。</b>",
+    "ref": "课件 p27 原文（含 <em>not making any Markov assumptions</em>）· 简报 §4e（成本回归，已核）· §5"
+   }
+  },
+  {
+   "r": [
+    28,
+    28
+   ],
+   "t": "复习：查表式 TD",
+   "star": 1,
+   "quote": "<b>Recall: Temporal Difference Learning w/ Lookup Table</b><br><em>Uses <b>bootstrapping and sampling</b> to approximate V<sup>π</sup></em><br><em>V<sup>π</sup>(s) = V<sup>π</sup>(s) + α(r + γV<sup>π</sup>(s′) − V<sup>π</sup>(s))</em><br><em>Target is r + γV<sup>π</sup>(s′), a <b>biased</b> estimate · Represent value for each state with a separate table entry</em>",
+   "one": "<b>第三讲的 TD 原样搬过来，最后一句是本页的关键：每个状态一个表格项。</b>",
+   "eq": "V^π(s) ← V^π(s) + α·( r + γV^π(s′) − V^π(s) )",
+   "pts": [
+    "<b>课件特意在最后写了 <em>separate table entry</em>，是为了让下一页的改动显出来</b>：<span class='k'>下一页唯一变的就是这一句</span>——表格项换成函数。<b>其余一个字都不动。</b>",
+    "<b>「bootstrapping and sampling」这两个词的分工</b>：<b>采样</b>指用实际到达的那一个 s′代替对所有 s′ 求期望；<b>自举</b>指用 <code>V(s′)</code> 这个估计代替真实的未来回报。<span class='w'>两者都引入误差，但性质不同</span>——采样带来方差，自举带来偏差。",
+    "<b>这一页还值得提一句第三讲没强调的事：TD 的更新是「就地」的。</b>拿到一条 <code>(s,a,r,s′)</code> 就改 <code>V(s)</code>，<span class='k'>不需要等这条轨迹走完，也不需要保留它</span>。<b>这是 TD 能做在线学习的全部原因</b>，而 MC 做不到。",
+    "<b>但「就地更新」在函数逼近下会变成一个问题。</b>表格情形下改 <code>V(s)</code> 不影响别人；<span class='w'>函数逼近下每次就地更新都会微调所有状态的估值</span>，<b>而目标值本身又依赖这些估值</b>——<span class='k'>于是「目标」在你追它的过程中一直在动</span>。下一页会把这件事写成式子。"
+   ]
+  },
+  {
+   "r": [
+    29,
+    31
+   ],
+   "t": "TD(0) + 值函数逼近：三层近似",
+   "star": 3,
+   "quote": "<b>Temporal Difference (TD(0)) Learning with Value Function Approximation</b><br><em>In value function approximation, target is r + γV̂<sup>π</sup>(s′;w), a <b>biased and approximated</b> estimate of the true value V<sup>π</sup>(s)</em><br><em><b>3 forms of approximation</b></em><br><em>Δw = α(r + γx(s′)<sup>T</sup>w − x(s)<sup>T</sup>w)x(s)</em>",
+   "one": "<b>目标换成 <code>r + γV̂(s′;w)</code>——<b>既有偏，又是近似的</b>。</b>",
+   "eq": "Δw = α·( r + γV̂(s′;w) − V̂(s;w) )·∇_w V̂(s;w)\n   = α·( r + γ·x(s′)ᵀw − x(s)ᵀw )·x(s)\n\n三层近似：\n  ① 采样   —— 用实际的 s′ 代替对所有 s′ 求期望\n  ② 自举   —— 用 V̂(s′) 代替真实未来回报\n  ③ 函数逼近 —— V̂ 本身装不下真值",
+   "pts": [
+    "<b>课件自己点明「三层近似」，这是本讲第一次把三者并排摆出来。</b><span class='k'>MC 只有①和③，DP 只有②和③，TD 三样全有</span>。<b>这个计数直接预告了 p38 的致命三件套</b>——那里会把「off-policy」补成第四样。",
+    "<b>有一处极易被忽略，但它是整讲的技术核心</b>：目标 <code>r + γx(s′)ᵀw</code> <span class='w'>里面也含 w</span>。<b>严格求梯度的话，这一项也要对 w 求导</b>；<span class='k'>但 TD 把它当成常数处理了</span>。<b>这种做法叫「半梯度」（semi-gradient）——它意味着 TD 的更新不是任何目标函数的真梯度</b>。p43 会把这件事的后果摊开。",
+    "<b>为什么不干脆算真梯度？</b> 可以，那叫残差梯度（residual gradient）法，<span class='k'>它确实收敛</span>，<b>但实测收敛得很慢，而且需要双采样</b>（同一个状态要独立采两次下一状态）。<span class='w'>所以实践里几乎都用半梯度，拿保证换速度。</span>",
+    "<b>但只要还在 on-policy，日子就好过。</b><span class='k'>数据分布稳定在 d(s) 上，接近监督学习的情形</span>，p34 仍然能给出一条（弱一些的）保证。<b>真正的灾难要等到分布开始漂。</b>",
+    "<b>把三层近似各自的「代价形态」分开记，后面读任何算法都能用上这张清单。</b><br><b>① 采样</b>：用实际到达的那一个 <code>s′</code> 代替对所有 <code>s′</code> 求期望。<span class='k'>带来方差，不带来偏差</span>——多采几次就平掉了。<br><b>② 自举</b>：用 <code>V̂(s′)</code> 代替真实未来回报。<span class='w'>带来偏差，而且数据再多也不会自己消失</span>，只有当 <code>V̂</code> 本身变准了它才变小。<br><b>③ 函数逼近</b>：<code>V̂</code> 的函数类可能根本装不下真值。<span class='w'>这一层的误差是结构性的</span>——换多少数据、跑多少轮都在那里。",
+    "<b>三层里只有第①层是「越多数据越好」，另外两层不是。</b><span class='k'>这条区分在实践里极其有用</span>：当你的估计不准时，<b>先判断是哪一层出了问题</b>——方差大（多次运行结果抖）就加数据；系统性偏移（多次运行一致地偏）就要么换函数类，要么减少自举。",
+    "<b>再把本讲前面的内容对进这张清单，MC 和 TD 的全部差异就一目了然了</b>：MC 有①③、没有②，<span class='k'>于是它无偏，于是 p26 给等式</span>；TD 三样全有，<span class='w'>于是它有偏，于是 p34 只能给不等式</span>。<b>第三节会补上第④样（off-policy），那时连不等式都没有了。</b>"
+   ],
+   "say": "老师澄清了记号：<b>全课说的 TD 都是 TD(0)</b>。书上还有 TD(λ) 等变体，这里不展开。",
+   "tbl": {
+    "head": [
+     "近似",
+     "来自",
+     "误差类型",
+     "多采数据能治吗",
+     "谁有"
+    ],
+    "rows": [
+     [
+      "采样",
+      "只看到实际的 s′",
+      "<b>方差</b>",
+      "<span class='k'>能</span>",
+      "MC · TD"
+     ],
+     [
+      "自举",
+      "拿 V̂(s′) 当未来",
+      "<b>偏差</b>",
+      "<span class='w'>不能</span>",
+      "TD · DP"
+     ],
+     [
+      "函数逼近",
+      "函数类装不下真值",
+      "<b>结构性误差</b>",
+      "<span class='w'>不能</span>",
+      "三者皆有"
+     ],
+     [
+      "（第四样）",
+      "off-policy，分布漂移",
+      "<b>可能发散</b>",
+      "<span class='w'>不能</span>",
+      "p38 起"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    32,
+    32
+   ],
+   "t": "TD(0) 线性 VFA 算法",
+   "star": 1,
+   "quote": "<b>TD(0) Linear Value Function Approximation for Policy Evaluation</b><br><em>1: Initialize w = 0, k = 1 · 2: loop · 3: Sample tuple (s<sub>k</sub>,a<sub>k</sub>,r<sub>k</sub>,s<sub>k+1</sub>) given π · 4: Update weights: w = w + α(r + γx(s′)<sup>T</sup>w − x(s)<sup>T</sup>w)x(s) · 5: k = k+1</em>",
+   "one": "<b>三行。和 MC 版的唯一差别在第 3–4 行：采的是一条 tuple，不是一个片段。</b>",
+   "eq": "w = 0\n循环：\n  按 π 采一个 (s, a, r, s′)\n  w ← w + α·( r + γ·x(s′)ᵀw − x(s)ᵀw )·x(s)",
+   "pts": [
+    "<b>把它和 p22 的 MC 算法并排看，差别只有两处</b>：<span class='k'>MC 采「一个片段」并等它结束，TD 采「一条转移」立刻就更新</span>；MC 的目标是 <code>G_t</code>，TD 的目标是 <code>r + γx(s′)ᵀw</code>。<b>其余完全一致——这正是第三讲那套对比在函数逼近下的复刻。</b>",
+    "<b>实现上有个坑值得提前说</b>：更新式里 <code>w</code> 出现了三次（两次在目标与预测里，一次是被更新的对象）。<span class='w'>必须先用旧的 w 把整个 Δw 算完，再一次性加上去</span>——<b>边算边改会得到一个完全不同（而且错误）的算法</b>。",
+    "<b>把这个算法和 p27 的批量解析解对照一下，能看出一件事</b>：<span class='w'>TD 没有对应的解析解</span>。原因正是 p29 那条——<b>它不是在最小化任何一个写得出来的目标函数</b>，<span class='k'>所以没有「求导置零」这一步可做</span>。<b>这是 TD 和 MC 在方法论上最深的一条分界。</b>",
+    "<b>有一类折中做法值得知道名字：LSTD（最小二乘 TD）。</b>它通过解一个线性方程组直接求 TD 的不动点，<span class='k'>不需要步长</span>，样本效率也更高，代价是 <code>O(n²)</code> 的内存与 <code>O(n³)</code> 的计算。<b>本讲不展开，但它说明「没有目标函数」不等于「没有不动点」。</b>"
+   ]
+  },
+  {
+   "r": [
+    33,
+    33
+   ],
+   "t": "Baird 例子：TD 走一步",
+   "star": 3,
+   "quote": "<b>Baird Example with TD(0) On Policy Evaluation</b><br><em>TD update: Δw = α(r + γx(s′)<sup>T</sup>w − x(s)<sup>T</sup>w)x(s)</em><br><em>Figure from Sutton and Barto 2018</em>",
+   "one": "<b>同一条 tuple，TD 挪的幅度比 MC 小十倍。</b>",
+   "eq": "同样 x(s1)=[2 0 0 0 0 0 0 1]，w 全 1，α=0.5，γ=0.9\ntuple = (s1, a1, r=0, s7)\n\nV̂(s1) = 3      V̂(s7) = x(s7)ᵀw = 1 + 2 = 3\n\nTD 误差 = 0 + 0.9·3 − 3 = −0.3      （MC 那边是 0 − 3 = −3）",
+   "pts": [
+    "<b>为什么小得多，一句话</b>：MC 认定「从 s1 出发的回报是 0」，和当前估值 3 差了整整 3；TD 只说「下一步是 s7，它现在估 3」，<span class='k'>于是差距只有折扣带来的那一点</span>。",
+    "<b>这正是第三讲「MC 高方差、TD 低方差」在权重空间里的样子。</b><span class='k'>同一条数据，MC 推 10 倍远</span>——<b>推得远意味着对单条数据反应大，也就是方差大。</b>",
+    "<b>但这一页也埋了一个陷阱，值得现在就看出来</b>：TD 误差小，<span class='w'>不代表 TD 更对</span>。此刻 <code>V̂(s1)=V̂(s7)=3</code>，而真值都是 0——<b>TD 之所以觉得「差不多」，是因为它拿一个同样错的估计当了参照</b>。<span class='k'>两个错得一样的数相减，差值当然小。</span><b>这就是自举在估计很差时的典型表现：它会显得很平静。</b>",
+    "<b>把这条和 p44 连起来</b>：那里行为策略不停回到 s1–s6，目标策略却只待在 s7。<span class='w'>于是「s1 和 s7 共享第 8 个权重」这条通道会被反复推动，而推动它的误差又是自举出来的假平静</b>——<b>权重就这样一步步跑到无穷。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "目标值",
+     "与 V̂(s1)=3 的差",
+     "权重改动量"
+    ],
+    "rows": [
+     [
+      "MC（p23）",
+      "G = 0",
+      "<b>−3</b>",
+      "第 1 位 −3，第 8 位 −1.5"
+     ],
+     [
+      "TD（本页）",
+      "0 + 0.9×3 = 2.7",
+      "<b>−0.3</b>",
+      "<span class='k'>约为 MC 的 1/10</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    34,
+    34
+   ],
+   "t": "TD + 线性 VFA 收敛到哪",
+   "star": 3,
+   "quote": "<b>Convergence Guarantees for Linear VFA for Policy Evaluation</b><br><em><b>TD(0) policy evaluation with VFA converges to weights w<sub>TD</sub> which is within a constant factor of the minimum mean squared error possible</b></em><br><em>MSVE(w<sub>TD</sub>) ≤ (1/(1−γ)) min<sub>w</sub> Σ<sub>s∈S</sub> d(s)(V<sup>π</sup>(s) − V̂<sup>π</sup>(s;w))²</em>",
+   "one": "<b>不如 MC，但只差一个常数倍。<span class='k'>注意这里是不等式。</span></b>",
+   "eq": "MSVE(w_TD)  ≤  1/(1−γ) · min_w Σ_s d(s)·( V^π(s) − V̂^π(s;w) )²",
+   "pts": [
+    "<b><code>1/(1−γ)</code> 大致就是有效 horizon。</b>γ=0.9 时是 10，γ=0.99 时是 100，<span class='w'>γ=0.999 时是 1000</span>。<b>所以这个「常数倍」在长 horizon 问题上一点也不小。</b>",
+    "<b>误差被乘上这个因子，<span class='w'>根源是 bootstrap</span>。</b>你把逼近误差一步步往回传，<span class='k'>每传一步它就被累加一次</span>，传了大约 <code>1/(1−γ)</code> 步。<b>MC 不 bootstrap，所以没有这份损失。</b>",
+    "<b>为什么只能给不等式而不是等式</b>：MC 的目标无偏，于是它真的在最小化 MSVE；<span class='w'>TD 最小化的是另一个东西</span>（贝尔曼误差的投影），<b>那个东西的最小点和 MSVE 的最小点不是同一个 w</b>。<span class='k'>这条不等式界的正是两个最小点之间的距离。</span>",
+    "<b>但别据此判 TD 的死刑。</b> 这是<b>最坏情况</b>的界，<span class='k'>实测里 TD 的解往往离 MC 的解很近，而且收敛快得多</span>（p36）。<b>而且逼近误差为 0 时，这个因子乘的是 0</b>——p35 就是在确认这一点。"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>这条界对你的 workflow 有个直接的量化含义，而且结论是乐观的。</b><br>你的 horizon 很短：<span class='k'>k 个决策节点，H ≈ 5–10</span>，而且简报 §4c 建议把随机化节点压到 <b>k = 3–4</b>。episodic 情形下 γ 可取 1，但有效 horizon 由 H 决定而非 γ——<b>对应的放大因子大致是 H，不是 1/(1−γ) 那种上百的量级</b>。<br><b>所以本讲这条「TD 比 MC 差一个常数倍」的坏消息，在你这里相对温和</b>——<span class='k'>这是 FQE 路线在你的问题上比在一般 RL 问题上更可行的一个具体理由</span>，值得在 method 里写明，而不是默认读者知道。<br><span class='w'>但要注意它治不了另一个问题</span>：这条界的前提是 <b>on-policy</b>（误差按产生数据的那个策略的 d 加权）。<b>你是 off-policy，所以这条界对你根本不适用</b>——适用的是 p44 那张「可能发散」的图。<span class='k'>短 horizon 缓解的是偏差累积，不是分布不匹配。</span>",
+    "ref": "课件 p34 原文 · 简报 §4b（H=5~10）· §4c（k 压到 3–4，已核）· 本讲 p44"
+   }
+  },
+  {
+   "r": [
+    35,
+    35
+   ],
+   "t": "检验题：表格表示时误差是多少",
+   "star": 3,
+   "quote": "<b>Check Your Understanding</b><br><em>If the VFA is a <b>tabular representation</b> (one feature for each state), what is the MSVE for MC and TD?</em>",
+   "one": "<b>两者都是 0。</b>",
+   "pts": [
+    "<b>表格表示 = 每个状态一个特征（one-hot）。</b>这时线性类<span class='k'>装得下真值</span>——把 <code>w_s</code> 设成 <code>V^π(s)</code> 就精确相等，所以 <code>min_w (…) = 0</code>。",
+    "<b>于是两条结论同时塌缩</b>：MC 的 MSVE <b>等于</b>那个 min，所以是 0；TD 的界是 <code>1/(1−γ)</code> 乘以同一个 min，<span class='k'>0 乘以任何常数还是 0</span>。<b>两者都收敛到真值。</b>",
+    "<b>这道题真正的用意是划一条界</b>：<span class='k'>前四讲全是表格情形，所以从来没遇到过「收敛到的不是真值」这件事</span>。<b>本讲所有的新麻烦，都是从「函数类装不下真值」这一刻开始的。</b>",
+    "<b>还可以反过来问一句，答案更有用：什么时候那个常数因子真的咬人？</b><span class='k'>当 <code>min_w</code> 大、而且 γ 接近 1 的时候</span>。<b>也就是：特征不够好 + horizon 很长。</b><span class='w'>这两件事在真实问题里往往同时出现</span>——状态空间大所以特征只能粗糙，任务长所以 γ 接近 1。<b>于是这个在课堂例子里看着无害的因子，在真实系统里可能放大上百倍。</b>"
+   ],
+   "tip": {
+    "t": "这题真正的用意",
+    "v": "<b>逼近误差为 0 时，MC 和 TD 收敛到同一处</b>，那个 1/(1−γ) 一点也不吃亏。只有当你的函数类装不下真值时，这个因子才开始咬人。——前四讲全是表格情形，所以从来没遇到过这件事。"
+   }
+  },
+  {
+   "r": [
+    36,
+    36
+   ],
+   "t": "谁收敛得更快",
+   "star": 2,
+   "quote": "<b>Convergence Rates for Linear VFA for Policy Evaluation</b><br><em>Does TD or MC converge faster to a fixed point?</em> · <em><b>Not (to my knowledge) definitively understood</b></em><br><em>Practically TD learning often converges faster to its fixed value function approximation point</em>",
+   "one": "<b>课件自己承认：不确定。但实践中 TD 往往更快。</b>",
+   "pts": [
+    "<b>注意最后那句话里的限定词：<em>to <span class='k'>its</span> fixed point</em>。</b><span class='w'>TD 收敛得快，是收敛到它自己那个（略差的）不动点快</span>，<b>不是比 MC 更快地逼近真值</b>。两件事混起来就会得出错误的结论。",
+    "<b>把 p34 和这一页合起来，才是完整的取舍</b>：<span class='k'>TD 的终点略差（最多差 1/(1−γ) 倍），但到得快</span>；<b>MC 的终点最优，但走得慢、方差大。</b><span class='w'>样本有限时，走得快往往比终点好更要紧</span>——这和第三讲「MSE = 偏差² + 方差」那条是同一个道理。",
+    "<b>课件用「据我所知没有定论」这种措辞，本身是个信号</b>：<span class='k'>这是个 1997 年就有收敛性结论、但到 2019 年仍没有干净收敛速率结论的问题</span>。<b>遇到这种地方要意识到：实践里的选择只能靠实测，不要指望从理论里读出答案。</b>",
+    "<b>最后给一条实践上的判据，本讲没写但从前面几页能推出来</b>：<span class='k'>数据贵、horizon 短、特征可信 ⇒ 偏向 TD</span>（收敛快、样本省，而那个 1/(1−γ) 因子在短 horizon 下不大）；<br><span class='k'>数据便宜、horizon 长、特征存疑 ⇒ 偏向 MC</span>（无偏、不吃 Markov 假设，而它的方差可以靠数据量压下去）。<br><b>注意这条判据的两端都不是「哪个算法更先进」，而是「你手上缺的是什么」。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "你的处境",
+     "偏向",
+     "理由"
+    ],
+    "rows": [
+     [
+      "数据贵 · horizon 短 · 特征可信",
+      "<b>TD</b>",
+      "收敛快、样本省；1/(1−γ) 在短 horizon 下不大"
+     ],
+     [
+      "数据便宜 · horizon 长 · 特征存疑",
+      "<b>MC</b>",
+      "无偏、不吃 Markov 假设；方差可用数据量压"
+     ],
+     [
+      "<b>不确定特征好不好</b>",
+      "<span class='k'>先用 MC 当量尺</span>",
+      "它收敛到的就是「这个特征类的上限」"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "20": [
+   {
+    "q": "更新式 <code>Δw = α·(目标 − 预测)·x(s)</code> 里，第三个因子 <code>x(s)</code> 管什么？",
+    "o": [
+     "学习率衰减",
+     "改哪几个权重、各改多少——只有特征非零的权重会被改动",
+     "挪多少",
+     "往哪边挪"
+    ],
+    "a": 1,
+    "why": "这就是「泛化」在式子里的样子：共享的权重会把一个状态上学到的东西传给特征相近的其它状态。"
+   },
+   {
+    "q": "线性情形下 <code>∇_w V̂(s;w)</code> 等于什么？为什么这件事重要？",
+    "o": [
+     "等于 0",
+     "等于 w，所以更新稳定",
+     "等于 x(s)，不依赖 w——于是目标函数是 w 的二次函数，只有一个最小值",
+     "等于 V̂ 本身"
+    ],
+    "a": 2,
+    "why": "这是线性 VFA 所有好性质的技术来源。换成神经网络这一条立刻失效。"
+   }
+  ],
+  "21": [
+   {
+    "q": "「MC VFA 可以归约成监督学习」这句话的前提是什么？",
+    "o": [
+     "数据是 i.i.d. 的",
+     "标签 G_t 与 w 无关——MC 满足，TD 不满足",
+     "特征是线性的",
+     "γ=1"
+    ],
+    "a": 1,
+    "why": "TD 的目标里含 V̂(s′;w)，标签会随学习而移动，所以它只是「看起来像」监督学习。"
+   },
+   {
+    "q": "函数逼近下，<code>G_t</code> 的噪声后果和表格时有什么不同？",
+    "o": [
+     "完全一样",
+     "噪声会被平均掉",
+     "函数逼近下噪声更小",
+     "表格下只污染那一格，函数逼近下会通过共享权重污染一片"
+    ],
+    "a": 3,
+    "why": "所以 MC + VFA 往往需要更小的步长、更多的数据。"
+   }
+  ],
+  "23": [
+   {
+    "q": "Baird 例子里奖励处处为 0，所以真值 <code>V^π ≡ 0</code>。这对「函数类装不装得下真值」意味着什么？",
+    "o": [
+     "装不下，所以会发散",
+     "装得下（取 w=0 即可），所以逼近误差是 0——发散跟「装不下」无关",
+     "无法判断",
+     "取决于 γ"
+    ],
+    "a": 1,
+    "why": "这正是它作为反例的价值：排除掉最容易想到的那个解释。"
+   },
+   {
+    "q": "<code>x(s1)=[2 0 0 0 0 0 0 1]</code>，α=0.5，G=0，w 全 1。这次更新改动了几个权重？",
+    "o": [
+     "只有 2 个——第 1 位和第 8 位",
+     "全部 8 个",
+     "7 个",
+     "1 个"
+    ],
+    "a": 0,
+    "why": "特征为 0 的位置乘出来还是 0。注意第 8 位是 s1 和 s7 共享的，那正是后面出事的通道。"
+   }
+  ],
+  "24": [
+   {
+    "q": "误差度量 MSVE 为什么要按 <code>d(s)</code> 加权？",
+    "o": [
+     "你更在乎常去的状态上的误差——这是对「什么叫估得好」的一次定义",
+     "保证收敛",
+     "数学上方便",
+     "保证无偏"
+    ],
+    "a": 0,
+    "why": "一个几乎不会到达的状态估错了，对实际回报几乎没有影响。"
+   },
+   {
+    "q": "这一页没写但贯穿后半讲的一句话是？",
+    "o": [
+     "d(s) 可以精确算出",
+     "d(s) 与 γ 无关",
+     "d(s) 总是均匀的",
+     "d(s) 是由策略决定的——换个策略就换一个 d"
+    ],
+    "a": 3,
+    "why": "于是「按 d 加权的误差最小」只对产生这些数据的那个策略成立。这正是 p44 发散的全部来源。"
+   }
+  ],
+  "25": [
+   {
+    "q": "MC + 线性 VFA 的收敛结论是等式还是不等式？这个区别意味着什么？",
+    "o": [
+     "等式——它收敛到「这个函数类里能做到的最好」，不多不少",
+     "等式，但只在 γ=1 时",
+     "不等式，意味着只有上界",
+     "两者都有"
+    ],
+    "a": 0,
+    "why": "说白了 MC 就是在做你能做的最好的那次线性回归。TD 那边（p34）只能给不等式。"
+   },
+   {
+    "q": "这个「最小均方误差」一定是 0 吗？",
+    "o": [
+     "是",
+     "只在表格时不是 0",
+     "不一定——如果线性类装不下真值，它就是个正数，而 MC 只保证够到这个正数",
+     "只在 γ<1 时不是 0"
+    ],
+    "a": 2,
+    "why": "这是整讲第一次把「特征选得好不好」变成式子里的一项。"
+   }
+  ],
+  "27": [
+   {
+    "q": "批量 MC 那一页最值钱的一句小字是？",
+    "o": [
+     "需要矩阵逆",
+     "<em>not making any Markov assumptions</em>——它用整条真实回报，不自举",
+     "适合大数据",
+     "可以解析求解"
+    ],
+    "a": 1,
+    "why": "这是 MC 路线在本讲唯一一次被明确标注「不需要 Markov 性」。"
+   },
+   {
+    "q": "解析解 <code>w=(XᵀX)⁻¹XᵀG</code> 和增量式 SGD 的关系是？",
+    "o": [
+     "SGD 更准",
+     "解析解有偏",
+     "解不同",
+     "收敛到同一个解，区别只在一次性付清计算还是分期付"
+    ],
+    "a": 3,
+    "why": "数据量小、特征少时直接解更省事，也更精确（没有步长、没有收敛判据）。"
+   }
+  ],
+  "29": [
+   {
+    "q": "TD + VFA 的「三层近似」是哪三层？",
+    "o": [
+     "采样、自举、函数逼近",
+     "线性、非线性、表格",
+     "偏差、方差、噪声",
+     "模型、值、策略"
+    ],
+    "a": 0,
+    "why": "MC 只有采样和函数逼近，DP 只有自举和函数逼近，TD 三样全有。p38 会把 off-policy 补成第四样。"
+   },
+   {
+    "q": "TD 更新里目标 <code>r + γx(s′)ᵀw</code> 也含 w，但求梯度时把它当常数。这种做法叫？",
+    "o": [
+     "全梯度",
+     "自然梯度",
+     "半梯度（semi-gradient）——意味着 TD 的更新不是任何目标函数的真梯度",
+     "随机梯度"
+    ],
+    "a": 2,
+    "why": "p43 会把这件事的后果摊开。算真梯度的做法叫残差梯度，它收敛但很慢、还要双采样。"
+   }
+  ],
+  "33": [
+   {
+    "q": "同一条 tuple，TD 误差是 −0.3 而 MC 是 −3。TD 误差小是不是说明它更对？",
+    "o": [
+     "取决于 α",
+     "不是——此刻 V̂(s1)=V̂(s7)=3 而真值都是 0，TD 拿一个同样错的估计当参照",
+     "取决于特征",
+     "是"
+    ],
+    "a": 1,
+    "why": "两个错得一样的数相减，差值当然小。这是自举在估计很差时的典型表现：它会显得很平静。"
+   }
+  ],
+  "34": [
+   {
+    "q": "TD 的误差界里那个 <code>1/(1−γ)</code> 因子，根源是什么？",
+    "o": [
+     "步长太大",
+     "bootstrap——逼近误差被一步步往回传，传了约 1/(1−γ) 步，每步累加一次",
+     "采样噪声",
+     "特征选得不好"
+    ],
+    "a": 1,
+    "why": "MC 不 bootstrap，所以没有这份损失。γ=0.99 时这个因子是 100，一点也不小。"
+   },
+   {
+    "q": "为什么 TD 只能给不等式而 MC 能给等式？",
+    "o": [
+     "TD 最小化的是另一个东西（贝尔曼误差的投影），它的最小点和 MSVE 的最小点不是同一个 w",
+     "证明技巧不同",
+     "TD 收敛慢",
+     "TD 有噪声"
+    ],
+    "a": 0,
+    "why": "这条不等式界的正是两个最小点之间的距离。两条结论来自同一篇论文（Tsitsiklis & Van Roy 1997）。"
+   }
+  ],
+  "35": [
+   {
+    "q": "表格表示（one-hot 特征）下，MC 和 TD 的 MSVE 各是多少？",
+    "o": [
+     "取决于 γ",
+     "MC 是 0，TD 不是",
+     "都不是 0",
+     "两者都是 0"
+    ],
+    "a": 3,
+    "why": "线性类装得下真值 ⇒ min 为 0；TD 的界是 1/(1−γ) 乘同一个 min，0 乘常数还是 0。"
+   },
+   {
+    "q": "这道检验题真正想划的那条界是？",
+    "o": [
+     "TD 总是更差",
+     "表格更好",
+     "前四讲全是表格情形，所以从没遇到「收敛到的不是真值」；本讲的新麻烦全从「装不下」开始",
+     "γ 应该取小"
+    ],
+    "a": 2,
+    "why": "只有当函数类装不下真值时，那个常数因子才开始咬人。"
+   }
+  ],
+  "36": [
+   {
+    "q": "「实践中 TD 往往收敛更快」这句话里，容易被误读的限定词是？",
+    "o": [
+     "<em>to its fixed point</em>——是更快到它自己那个略差的不动点，不是更快逼近真值",
+     "实践中",
+     "往往",
+     "收敛"
+    ],
+    "a": 0,
+    "why": "两件事混起来就会得出错误的结论。完整的取舍是：TD 终点略差但到得快，MC 终点最优但慢。"
+   }
+  ]
+ }
+}

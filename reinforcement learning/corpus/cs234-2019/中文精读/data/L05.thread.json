@@ -1,0 +1,78 @@
+{
+ "title": "L05 接上课题的哪一段：你选的估计量，三条腿全踩在雷上",
+ "arc": "<b>这一讲的 p38 用一句话给了你一张风险清单</b>：<em>Can be unstable. Generally involves <b>intersection</b> of the following: Function approximation · Bootstrapping · Off-policy learning</em>。注意课件用的词是 <b>intersection</b>（交集）——<span class='k'>三样必须同时具备才出事，任意两样都有收敛保证</span>。<br><br><b>把 FQE 对着这三条打勾，三条全中。</b><br><b>① 函数逼近</b>：状态是 (query 特征, 节点 id, 部分轨迹)，查表不可能。<br><b>② 自举</b>：FQE 的定义就是用 <code>Q̂(s′,·)</code> 顶替未来；<span class='w'>终局奖励下中间节点 r≡0，整条信号全靠自举往回爬</span>。<br><b>③ off-policy</b>：日志来自 AFlow 跑过的固定配置，目标策略从未跑过。<br><br><b>所以「FQE 可能不收敛」对你不是角落情形，是默认配置。</b>这不是劝你别用 FQE——简报 §4e 推荐它是对的，终局奖励下你几乎没有别的选择。<span class='k'>这是在说：用它就必须配一把量尺</span>，而那把量尺就是 §4d 的穷举 oracle 表。<br><br><b>这一讲还顺带给了另一半一个干净的理论依据。</b> p27 的批量 MC 解析解<code>w = (XᵀX)⁻¹XᵀG</code> 旁边印着一行小字：<em>not making any Markov assumptions</em>。<b>成本那一半正是这个形状</b>——不自举、不需要分布假设、解析可解。<span class='k'>§4e 把 G 拆成两半分别估，不只是方差上的改进：它把一半的工作从「有前提的策略评估」搬进了「无前提的监督回归」。</span><b>这句话可以原样写进 method 一节。</b>",
+ "pitfalls": [
+  {
+   "v": "<b>以为「随机化了日志、动作对齐了」就安全。</b> p44 的 Baird 例子把不合规的 tuple <span class='k'>全部丢掉</span>，留下的每条数据动作都合规，<span class='w'>照样发散</span>。动作对齐只解决了重要性权重有没有定义，<b>没解决状态分布对不对</b>。",
+   "tag": "推断",
+   "ref": "课件 p44 · 简报 §4a"
+  },
+  {
+   "v": "<b>把 FQE 的损失下降当成「它在收敛」。</b> p43 说得很直接：<em>TD with VFA is not following the gradient of an objective function</em>。<span class='w'>没有目标函数，损失曲线就不是收敛的证据</span>。<b>该监控的是权重范数与预测值的量级</b>——发散的征兆是量级单调爆炸，不是损失不降。",
+   "tag": "推断",
+   "ref": "课件 p43 · p29（半梯度）"
+  },
+  {
+   "v": "<b>用「我们用了带收敛保证的算法」来回避特征问题。</b> p46 的原话是<em>not just whether the algorithm converges, but what solution it converges to</em>，而两个关键选择是<b>目标函数</b>与<b>特征表示</b>——<span class='k'>它们都不在算法里</span>。收敛到一个烂逼近和不收敛，对你同样没用。",
+   "tag": "已核",
+   "ref": "课件 p46 原文"
+  },
+  {
+   "v": "<b>以为短 horizon 能抵消 off-policy 的风险。</b> p34 那条 <code>1/(1−γ)</code> 的放大因子确实因为你 H≈5–10 而温和，<span class='w'>但那条界的前提是 on-policy</span>。<b>短 horizon 缓解的是偏差累积，不是分布不匹配</b>——后者对应的是 p44 那张发散图。",
+   "tag": "推断",
+   "ref": "课件 p34 p44 · 简报 §4b"
+  },
+  {
+   "v": "<b>在成本那一半上也堆重要性权重。</b> 成本给定保真度与输入长度近乎确定，<span class='k'>它根本不是策略评估问题</span>。按 p27 的形式直接回归即可，<b>加权只会给一个本来无噪声的回归平白添方差</b>。",
+   "tag": "已核",
+   "ref": "课件 p27（not making any Markov assumptions）· 简报 §4e"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你们用 FQE，可它有收敛保证吗？",
+   "a": "<b>没有，我们明确不主张有。</b>我们的设定同时具备函数逼近、自举与 off-policy 日志，正是 Sutton 所说的 deadly triad（CS234 L05 p38 的 <em>intersection</em> 三条）。<span class='k'>因此我们不把 FQE 的输出当作结论，而是以留出集上的枚举 oracle 表为基准做校验</span>，并在训练日志中监控权重范数以检测发散。",
+   "tag": "推断",
+   "ref": "课件 p38 p43 · 简报 §4d §7 第 2 拳"
+  },
+  {
+   "q": "成本那一半为什么不需要 OPE 的那一套？",
+   "a": "因为给定保真度与输入长度，token 成本近乎确定，<b>它是监督回归不是策略评估</b>。这一点有现成的理论依据：批量蒙特卡洛的最小二乘解<span class='k'>不作任何 Markov 假设</span>，解析可得。<b>所以把 G = Acc − λ·Cost 拆成两半分别估，是把一半工作搬出了假设依赖区。</b>",
+   "tag": "已核",
+   "ref": "课件 p27 · 简报 §4e"
+  },
+  {
+   "q": "你们怎么降低 FQE 跑飞的风险？",
+   "a": "<b>结构性手段，不是调超参。</b>发散的根源是行为策略与目标策略的状态分布差距（p44）。我们按敏感度扫描把随机化决策节点压到 k=3–4，<span class='k'>这同时提升 ESS 并压小两个分布的差距</span>，比调学习率可靠得多。",
+   "tag": "推断",
+   "ref": "课件 p44 · 简报 §4c"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Tsitsiklis &amp; Van Roy — An Analysis of Temporal-Difference Learning with Function Approximation",
+   "id": "IEEE TAC 1997",
+   "why": "本讲 p25 与 p34 两条结论的同一个出处：MC 收敛到最小 MSVE（等式），TD 收敛到它的 1/(1−γ) 倍之内（不等式）。<b>你需要它来说明「为什么 on-policy 的保证不能搬到你的 off-policy 设定」</b>——两条结论的前提都写在同一篇里。"
+  },
+  {
+   "t": "Sutton &amp; Barto — Reinforcement Learning: An Introduction, 第 11 章",
+   "id": "2018, 2nd ed.",
+   "why": "deadly triad 的正式处理，以及带收敛保证的 gradient-TD 系列算法。<b>本讲 p43、p46 两次指过去而不展开</b>；你写 limitation 一节时需要引它，而不是只引课件。"
+  },
+  {
+   "t": "Dai et al. — SBEED / Learning from Conditional Distributions via Dual Embeddings",
+   "id": "ICML 2018",
+   "why": "本讲 p46 点名的那条线：<b>批量 RL 在非线性 VFA 下可收敛</b>，用原始–对偶优化。<span class='k'>批量正是你的设定</span>——数据固定、不能重采。这是本讲唯一一条明确指向「你这种处境有专门办法」的线索，值得读方法节。"
+  },
+  {
+   "t": "Baird — Residual Algorithms: Reinforcement Learning with Function Approximation",
+   "id": "ICML 1995",
+   "why": "p23/p33/p44 那个反例的原始出处，也是「残差梯度法」的提出处。<b>它给出了「算真梯度确实收敛但很慢、且需要双采样」这个取舍</b>——若你想论证为何仍用半梯度的 FQE，这是该引的那一篇。"
+  },
+  {
+   "t": "Gordon — Stable Function Approximation in Dynamic Programming",
+   "id": "ICML 1995",
+   "why": "p43「投影可能是扩张」的早期讨论（averagers）。<b>它刻画了哪一类函数逼近器能保证不扩张</b>（如最近邻、核平均），若你愿意用表达力换稳定性，这是起点。"
+  }
+ ]
+}
