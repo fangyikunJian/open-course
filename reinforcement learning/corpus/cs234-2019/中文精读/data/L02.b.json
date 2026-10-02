@@ -1,0 +1,863 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p22 MDP 五元组 (S, A, P, R, γ)；脚注：本课默认 R 是 (state, action) 的函数",
+  "p23 火星车两个动作都是确定性的：a1 左移一格、a2 右移一格，到头原地",
+  "p25 塌缩公式：R^π(s) = Σ_a π(a|s)R(s,a)；P^π(s'|s) = Σ_a π(a|s)P(s'|s,a)",
+  "p27 γ=0、π≡a1 时 V^π = [1 0 0 0 0 0 10]",
+  "p28 练习：p(s6|s6,a1)=0.5、p(s7|s6,a1)=0.5，γ=0.5，V_k=[1 0 0 0 0 0 10] ⇒ V_{k+1}(s6)=2.5",
+  "p30 确定性策略数 2⁷=128；一般为 |A|^|S|；最优策略未必唯一（Q* 可能打平）",
+  "p31 无限 horizon 最优策略：确定性、平稳、未必唯一",
+  "p34 Q^π(s,a) = R(s,a) + γ Σ_{s'} P(s'|s,a) V^π(s')；语义是「做 a，然后follow π」",
+  "p42 策略迭代轮数上界 |A|^|S|；策略不变则永远不变"
+ ],
+ "notes": [
+  {
+   "r": [
+    22,
+    22
+   ],
+   "t": "马尔可夫决策过程（MDP）",
+   "star": 3,
+   "one": "MDP = MRP + 动作。",
+   "eq": "MDP = (S, A, P, R, γ)\nP(s_{t+1}=s′ | s_t=s, a_t=a)\nR(s_t=s, a_t=a) = E[r_t | s_t=s, a_t=a]",
+   "pts": [
+    "转移模型现在<b>每个动作各有一份</b>。",
+    "奖励可以定义成 s、(s,a) 或 (s,a,s′) 的函数；这门课<b>多数时候用 (s,a)</b>。",
+    "<b>和 MRP 比，变的只有一处：<code>P</code> 和 <code>R</code> 都多吃了一个参数 <code>a</code>。</b><span class='k'>从 <code>P(s′|s)</code> 变成 <code>P(s′|s,a)</code>，从 <code>R(s)</code> 变成 <code>R(s,a)</code></span>。<b>就这一个改动，让「你」第一次成为这个系统里的角色</b>——<span class='w'>在 MRP 里世界自己往前滚，你只能看；在 MDP 里世界等你出手。</span><b>整门课剩下的全部内容，都建立在这一个参数上。</b>",
+    "<b>课件那个脚注值得认真读一遍，因为奖励的三种写法在不同教材里混用，不看清会算错。</b><span class='k'>① <code>R(s)</code>：只看你在哪</span>（MRP 和火星车早期用的）；<span class='k'>② <code>R(s,a)</code>：看你在哪、做了什么</span>（<b>本课默认</b>）；<span class='k'>③ <code>R(s,a,s′)</code>：还要看落到了哪</span>。<b>三者的表达力是递增的，而且后者总能化归成前者</b>——<span class='w'>比如 <code>R(s,a) = Σ_{s′} P(s′|s,a) R(s,a,s′)</code>。</span><b>所以选哪种是方便问题，不是表达力问题。</b>",
+    "<b>注意 <code>R(s,a)</code> 的定义里仍然有期望，和 p10 一样。</b><span class='k'>它是「在 s 做 a 能拿到的平均奖励」</span>，<b>所以单次执行拿到的 <code>r_t</code> 可能和它差很远。</b><span class='w'>这一讲因为直接算不估计，所以随机性被提前平均掉了</span>；<b>但从第三讲起你要从样本里估它，那时奖励的方差会直接决定你需要多少数据。</b>",
+    "<b>最后把五元组 <code>(S, A, P, R, γ)</code> 当成一张检查清单记住，它比看起来有用。</b><span class='k'>你以后碰到任何一个序贯决策问题，第一件事就是逐项把它填出来</span>：<b>状态是什么？动作是什么？转移怎么写？奖励怎么定？γ 取多少？</b><span class='w'>这五个问题里，前两个决定了问题的规模，后三个决定了问题的性质</span>。<b>填不出来，说明你还没想清楚自己要解什么——这比选错算法严重得多。</b>"
+   ],
+   "say": "有人问「为什么转移要是随机的，我都指定动作了」。老师答：<b>因为模型不够好</b>——机器人在地毯上有时卡住、开车有时堵车。你可以把更多变量塞进状态让它变确定，也可以就用随机性把这份不确定性兜住。",
+   "quote": "Markov Decision Process is Markov Reward Process + actions &nbsp;·&nbsp; P specifies P(s_{t+1}=s′ | s_t=s, <b>a_t=a</b>) &nbsp;·&nbsp; R(s_t=s, <b>a_t=a</b>) = E[r_t | s_t=s, a_t=a] &nbsp;·&nbsp; MDP is a tuple <b>(S, A, P, R, γ)</b> &nbsp;|&nbsp; footnote: Reward is sometimes defined as a function of the current state, or as a function of the (state, action, next state) tuple. <b>Most frequently in this class, we will assume reward is a function of state and action</b>"
+  },
+  {
+   "r": [
+    23,
+    23
+   ],
+   "t": "火星车 MDP：两个确定性动作",
+   "star": 2,
+   "one": "<code>a1</code> 往左，<code>a2</code> 往右，都是<b>确定</b>的。",
+   "eq": "a1：能左就左，到 s1 就停在 s1\na2：能右就右，到 s7 就停在 s7",
+   "pts": [
+    "两个转移矩阵都只有 0 和 1——这是为了后面手算方便，不是一般情形。",
+    "<span class='w'>注意 p28 会临时换成随机动态</span>（s6 各 0.5），别把两页的数字混用。",
+    "<b>这一页把 p8 那个随机晃的火星车改造成了可控的，而改造方式很干脆：两个动作都是确定性的。</b><span class='k'><code>a1</code> 往左走一格，<code>a2</code> 往右走一格，到头就原地不动</span>——<b>两个转移矩阵里全是 0 和 1，没有中间值。</b><span class='w'>这和 p8 那个 0.4/0.2/0.4 的随机矩阵形成鲜明对比</span>：<b>p8 的车子没法选，这一页的车子完全说了算。</b>",
+    "<b>为什么课件要把随机性全部去掉，这个选择是有教学意图的。</b><span class='k'>确定性转移让你能在脑子里手算</span>——<b>往右走到底就是 <code>s7</code>，不用算概率。</b><span class='w'>于是 p27、p28、p30 那几道检验题才有可能当堂做出来。</span><b>但要记住这是简化：真实 MDP 的 <code>P</code> 通常是随机的，</b><span class='k'>而随机性恰恰是值函数这个概念存在的理由（p9–p16 演示过）</span>。<b>p28 的练习会把随机性加回来一点，让你体会差别。</b>",
+    "<b>顺便留意一个细节：两个矩阵都是在边界「撞墙原地」而不是「越界」。</b><span class='k'><code>a1</code> 在最左端 <code>s1</code> 是 <code>P(s1|s1,a1) = 1</code></span>，<b>也就是你可以在那儿一直往左撞墙。</b><span class='w'>这个设定会在 p27 产生一个有趣的后果</span>：<b>策略「永远往左」会把车子推到 <code>s1</code> 然后永远留在那里，于是每步都稳拿 +1。</b><span class='k'>这是个次优但不坏的策略——真正的最优是去右边吃 +10。</span>"
+   ],
+   "quote": "Example: Mars Rover MDP &nbsp;·&nbsp; <b>2 deterministic actions</b> &nbsp;·&nbsp; P(s′|s, a1) = (shift left, the leftmost state stays) &nbsp;·&nbsp; P(s′|s, a2) = (shift right, the rightmost state stays)"
+  },
+  {
+   "r": [
+    24,
+    24
+   ],
+   "t": "MDP 的策略",
+   "one": "策略规定每个状态该做什么动作。",
+   "eq": "π(a|s) = P(a_t = a | s_t = s)",
+   "pts": [
+    "可以是确定性的，也可以是随机的；为了一般性写成条件分布。",
+    "这门课大部分时候用<b>确定性策略</b>，到策略搜索那几讲才大量用随机策略。",
+    "<b>策略被定义成一个条件分布，而不是一个函数，这个选择值得想一下为什么。</b><span class='k'>写成 <code>π(a|s)</code> 就同时装下了确定性和随机性两种情形</span>——<b>确定性策略只是「在某个动作上放概率 1」的特例。</b><span class='w'>用更一般的形式当默认，可以让后面的公式只写一遍</span>（<b>比如 p25 的那两个求和</b>）。<span class='k'>这是数学写作的常见手法：选一个能覆盖全部情形的表示，哪怕你主要用的是特例。</span>",
+    "<b>但要立刻记住 p31 的那个结论，否则你会高估随机策略的地位：<span class='w'>无限 horizon 的 MDP，最优策略一定可以是确定性的</span>。</b><b>也就是说，随机性在这里<span class='w'>买不到任何好处</span>。</b><span class='k'>这和你在别处见到的直觉可能冲突</span>——<b>在博弈里随机化是必要的（否则对手能预判你），在探索时随机化是必要的（否则你不会尝试新东西）。</b><span class='w'>但在「已知模型、单方决策、只求期望回报」这个设定里，随机化纯属多余。</span><b>把这三个前提记住，你就知道什么时候随机策略才真的需要。</b>",
+    "<b>还有一个限定藏在符号里：<code>π(a|s)</code> 只依赖 <code>s</code>，不依赖时刻 t。</b><span class='k'>这叫平稳策略</span>。<b>它看起来理所当然，其实是个假设</b>——<span class='w'>完全可以想象一个「第一步这么做、第二步那么做」的策略</span>。<b>p31 会告诉你无限 horizon 下不需要这种策略，</b><span class='k'>而 p56 会告诉你有限 horizon 下你<b>必须</b>用这种策略</span>。<b>所以这个符号里省掉的那个 t，后面会被专门请回来。</b>"
+   ],
+   "quote": "Policy specifies what action to take in each state &nbsp;·&nbsp; Can be deterministic or stochastic &nbsp;·&nbsp; For generality, consider as a conditional distribution &nbsp;·&nbsp; <b>Policy: π(a|s) = P(a_t = a | s_t = s)</b>"
+  },
+  {
+   "r": [
+    25,
+    25
+   ],
+   "t": "MDP + 策略 = MRP",
+   "star": 3,
+   "one": "把策略定死，动作这一维就被积掉了，剩下的就是一个 MRP。",
+   "eq": "R^π(s) = Σ_a π(a|s) · R(s,a)\nP^π(s′|s) = Σ_a π(a|s) · P(s′|s,a)",
+   "pts": [
+    "<span class='k'>这一页是整讲的枢纽。</span>它意味着：评估一个策略的值，<b>不需要新工具</b>——前面算 MRP 的三种办法原样拿来用。",
+    "<b>这一页做的事用一句话说：把动作这一维「积掉」。</b><span class='k'>原来 <code>P(s′|s,a)</code> 有三个下标，你不知道该用哪个 a；现在策略告诉你每个 a 的概率，于是按 <code>π(a|s)</code> 加权平均，a 就消失了</span>。<b>剩下的 <code>P^π(s′|s)</code> 只有两个下标——这正是 MRP 的形状。</b><span class='w'>奖励同理。</span>",
+    "<b>为什么说它是整讲的枢纽：因为它让 p17–p21 那三条路一次性全部复活。</b><span class='k'>你想评估一个策略？把它塌成 MRP，然后模拟、或解析解、或动态规划，三选一</span>。<b>不需要任何新工具。</b><span class='w'>课件自己的原话就是 <em>we can use same techniques</em></span>——<b>这不是一句客套，它是在宣布前面 11 页的投资现在开始回本。</b>",
+    "<b>这个化归还有一个更深的含义，值得专门点出来：它把「评估」和「控制」彻底切开了。</b><span class='k'>评估一个固定策略，是个 MRP 问题，有闭式解，难度完全可控</span>；<span class='w'>而控制（找最好的策略）之所以难，难的不是评估，是「策略有指数多个」</span>（<b>p30 会给出那个数</b>）。<b>于是整个 MDP 控制问题的结构变成了：在一个指数大的集合里搜，而集合里每一个元素的评估都很便宜。</b><span class='k'>p33 的策略迭代正是利用了这个结构。</span>",
+    "<b>最后留意一个容易忽略的前提：这个塌缩要求策略是平稳的。</b><span class='k'>如果 <code>π</code> 随时间变，<code>P^π</code> 也会随时间变，那就不是一个标准的 MRP 了</span>（<b>它是个时变的马尔可夫链</b>）。<span class='w'>这一点在 p56 的有限 horizon 情形会变得要紧</span>——<b>那时最优策略不平稳，于是这个干净的塌缩要做一点修改：每个时刻一个 MRP。</b>"
+   ],
+   "quote": "<b>MDP + π(a|s) = Markov Reward Process</b> &nbsp;·&nbsp; Precisely, it is the MRP (S, R^π, P^π, γ), where &nbsp;·&nbsp; R^π(s) = Σ_{a∈A} π(a|s) R(s,a) &nbsp;·&nbsp; P^π(s′|s) = Σ_{a∈A} π(a|s) P(s′|s,a) &nbsp;|&nbsp; <b>Implies we can use same techniques to evaluate the value of a policy for a MDP as we could to compute the value of a MRP</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你课题里最常做的那件事一个准确的名分：固定一套配置去评估它，就是把 MDP 塌成 MRP。</b><br><br><span class='k'>你的「策略」是「每个节点选哪一档保真度」。</span><b>一旦这套配置定死，整条流水线就不再有决策，它退化成一个「输入进来 → 按固定流程走 → 出一个 (Acc, Cost)」的随机过程</b>——<span class='w'>也就是一个 MRP</span>。<b>而 MRP 的值有三条现成的算法（p17 / p20 / p21），其中第一条连马尔可夫假设都不要。</b><br><br><b>这解释了一件你可能已经凭经验知道、但没想清楚为什么的事：评估一个已知配置很容易，难的是比较所有配置。</b><span class='k'>难不在单次评估，难在候选有 <code>k^H</code> 个</span>（<b>见 p30 的科研格</b>）。<span class='w'>认清这一点能帮你把力气花对地方</span>——<b>别去优化「怎么把单个配置评得更准」，去优化「怎么少评几个配置」。</b><br><br><b>还有一个直接可用的推论：你的 off-policy 困难，全部来自「策略不固定」这件事。</b><span class='k'>如果你只关心日志里跑过的那些配置，那根本没有 off-policy 问题，直接按 MRP 算就行</span>。<span class='w'>L05 那一整套致命三件套的顾虑，是在你要评估「没跑过的配置」时才出现的。</span><b>所以「哪些配置跑过、哪些没跑过」这条界线，比任何算法选择都更该先画清楚。</b>",
+    "ref": "课件 p25 原文 · 本讲 p17 p20 p21 p30 · L05 p38 · 简报 §4d"
+   }
+  },
+  {
+   "r": [
+    26,
+    26
+   ],
+   "t": "策略评估的迭代算法",
+   "one": "和 MRP 的迭代算法一模一样，只是奖励和转移都按策略选好的动作去查表。",
+   "eq": "V^π_k(s) = r(s, π(s)) + γ · Σ_{s′} p(s′|s, π(s)) · V^π_{k-1}(s′)",
+   "pts": [
+    "这叫<b>给定策略的贝尔曼备份</b>（Bellman backup）。",
+    "<b>把这个式子和 p21 并排放，你会发现它们一模一样，只是把 <code>R(s)</code> 换成了 <code>r(s, π(s))</code>、<code>P(s′|s)</code> 换成了 <code>p(s′|s, π(s))</code>。</b><span class='k'>这正是 p25 承诺的那件事在兑现</span>——<b>策略把动作填进去之后，算法原样复用。</b><span class='w'>所以这一页严格来说没有新内容</span>，<b>它的价值在于让你亲眼看到「同一个算法」。</b>",
+    "<b>课件给这个操作起了个名字，而这个名字后面会反复出现：<em>Bellman backup</em>，贝尔曼备份。</b><span class='k'>「备份」的意思是把未来的值往回搬一步</span>——<b><code>V_{k−1}(s′)</code> 是未来，经过一次备份它贡献进了 <code>V_k(s)</code>。</b><span class='w'>注意这里的备份是「针对某个特定策略的」</span>，<b>它只看 <code>π(s)</code> 那一个动作，不做任何比较。</b><span class='k'>p45 会出现另一个版本：对所有动作取 max。</span><b>两个备份算子的差别，就是评估和控制的全部差别。</b>",
+    "<b>这里值得先把两个备份摆在一起对比一次，因为这一讲后半全靠这个区分。</b><br><b>策略备份</b>（本页）：<code>V(s) ← r(s,π(s)) + γΣ p(s′|s,π(s)) V(s′)</code>，<span class='k'>照着策略走，不做选择</span>。<br><b>最优备份</b>（p45）：<code>V(s) ← max_a [ R(s,a) + γΣ P(s′|s,a) V(s′) ]</code>，<span class='k'>每一步都挑最好的动作</span>。<br><span class='w'>前者收敛到 <code>V^π</code>（这个策略值多少），后者收敛到 <code>V*</code>（最好能值多少）。</span><b>一个 max 的有无，分出了策略迭代和值迭代两条路。</b>"
+   ],
+   "quote": "Initialize V_0(s) = 0 for all s &nbsp;·&nbsp; For k = 1 until convergence: For all s in S: <b>V_k(s) = r(s, π(s)) + γ Σ_{s′∈S} p(s′|s, π(s)) V_{k−1}(s′)</b> &nbsp;·&nbsp; <b>This is a Bellman backup for a particular policy</b>",
+   "tbl": {
+    "head": [
+     "",
+     "策略备份（p26）",
+     "最优备份（p45）"
+    ],
+    "rows": [
+     [
+      "式子里有 max 吗",
+      "<span class='w'>没有</span>",
+      "<span class='k'>有</span>"
+     ],
+     [
+      "用哪个动作",
+      "<code>π(s)</code> 指定的那一个",
+      "<b>让右边最大的那一个</b>"
+     ],
+     [
+      "收敛到",
+      "<code>V^π</code>",
+      "<b><code>V*</code></b>"
+     ],
+     [
+      "回答的是",
+      "<span class='k'>这个策略值多少（评估）</span>",
+      "<span class='k'>最好能值多少（控制）</span>"
+     ],
+     [
+      "用在哪个算法里",
+      "策略迭代的内循环",
+      "<b>值迭代</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    27,
+    27
+   ],
+   "t": "检验题：γ=0 时这个策略值多少",
+   "star": 2,
+   "one": "策略是「处处做 <code>a1</code>」，<code>γ=0</code>。",
+   "eq": "V^π = [1  0  0  0  0  0  10]",
+   "pts": [
+    "<code>γ=0</code> 把整个求和项乘没了，只剩当下这一步的奖励。",
+    "<b>这道题的答案之所以是 <code>[1 0 0 0 0 0 10]</code>，全在于 γ = 0 这个设定，它把整个问题砍成了一步。</b><span class='k'>γ = 0 时，<code>V(s) = r(s,π(s)) + 0·(未来) = r(s,π(s))</code></span>——<b>值函数退化成即时奖励，和转移、和策略的长期后果统统无关。</b><span class='w'>于是只有 <code>s1</code>（+1）和 <code>s7</code>（+10）非零，其余全是 0。</span>",
+    "<b>这道题的教学价值在于它让你看到 γ 不是个小参数，它能改变问题的种类。</b><span class='k'>γ = 0 的 MDP 根本不是序贯决策问题</span>——<b>它是 <code>|S|</code> 个互不相干的单步选择，也就是 p5 说的老虎机。</b><span class='w'>「延迟后果」这整个维度消失了</span>。<b>所以当你看到某人把 γ 设得很小时，要意识到他其实在说「我认为这个问题的长期结构不重要」</b>——<span class='k'>那是个很强的断言，应该被论证而不是被默认。</span>",
+    "<b>顺便把这个策略本身看一眼：<code>π(s) = a1</code>，也就是「永远往左」。</b><span class='k'>在 γ = 0 下它的值是 <code>[1 0 0 0 0 0 10]</code></span>，<b>但如果 γ 大一点，这个策略的值会完全不同</b>——<span class='w'>因为往左走最终会撞到 <code>s1</code> 然后每步稳拿 +1</span>，<b>于是中间那些 0 会被未来的 +1 流逐渐填起来。</b><span class='k'>而最优策略显然是往右去吃 +10。</span><b>γ = 0 把这两个策略的差别彻底抹平了，这正是它危险的地方。</b>"
+   ],
+   "say": "老师说这题<b>故意是个陷阱</b>：她没给转移模型。而答案根本不需要转移模型——γ=0 的时候它压根用不上。",
+   "quote": "Reward: for all actions, +1 in state s1, +10 in state s7, 0 otherwise &nbsp;·&nbsp; Let π(s) = a1 ∀s. <b>γ = 0.</b> What is the value of this policy? &nbsp;·&nbsp; <b>V^π = [1 0 0 0 0 0 10]</b>"
+  },
+  {
+   "r": [
+    28,
+    28
+   ],
+   "t": "练习：做一次备份",
+   "star": 3,
+   "one": "这一页把动态换成随机的，让你亲手算一格。",
+   "eq": "已知：p(s6|s6,a1)=0.5, p(s7|s6,a1)=0.5\nV_k = [1 0 0 0 0 0 10],  γ = 0.5\n\nV_{k+1}(s6) = 0 + 0.5·0.5·0 + 0.5·0.5·10 = 2.5",
+   "pts": [
+    "s6 原本的值是 0，一次备份之后变成 <b>2.5</b>。",
+    "<b>这道练习值得自己动手算一遍，因为它是整讲唯一一次把备份拆到最细。</b><span class='k'>三项分别是：即时奖励 <code>r(s6,a1) = 0</code>；以 0.5 的概率留在 <code>s6</code>，贡献 <code>γ·0.5·V_k(s6) = 0.5·0.5·0 = 0</code>；以 0.5 的概率去 <code>s7</code>，贡献 <code>γ·0.5·V_k(s7) = 0.5·0.5·10 = 2.5</code></span>。<b>加起来 2.5。</b>",
+    "<b>注意这里的转移变随机了——<code>p(s6|s6,a1) = 0.5</code>、<code>p(s7|s6,a1) = 0.5</code>。</b><span class='w'>这和 p23 那两个确定性矩阵不一致</span>，<b>是课件为了让练习更有代表性而临时改的设定。</b><span class='k'>随机转移下，备份里的那个求和才真的要算多项</span>；<b>确定性转移时求和只剩一项，看不出结构。</b><span class='w'>做题时别被这个不一致绊住，按题面给的动力学算就对了。</span>",
+    "<b>从这个数字里能读出备份的工作方式：值是从有奖励的地方往外「渗」的。</b><span class='k'>这一轮之前 <code>V(s6) = 0</code>，这一轮之后变成 2.5</span>——<b>而 <code>s6</code> 自己一分奖励都没有，这 2.5 全部来自邻居 <code>s7</code> 的 10。</b><span class='w'>再迭代一轮，<code>s5</code> 也会从 <code>s6</code> 这里分到一点</span>。<b>于是奖励像墨水一样，一轮扩散一格。</b><span class='k'>这正是 p21 说的「迭代 k 轮 = 视野推远 k 步」的具象版本，也解释了为什么稀疏奖励的问题需要很多轮才能把信号传到起点。</b>"
+   ],
+   "tip": {
+    "t": "这题真正想给你看的",
+    "v": "<b>信息在往回流。</b>第一次备份只把即时奖励铺开，此后每一轮，s7 那个 +10 就往左渗一格。「我现在没奖励，但再走几步可能够得着」——迭代就是在把这句话算出来。"
+   },
+   "quote": "Dynamics: p(s6|s6, a1) = 0.5, p(s7|s6, a1) = 0.5, ... &nbsp;·&nbsp; assume V_k = [1 0 0 0 0 0 10], k = 1, γ = 0.5 &nbsp;|&nbsp; V_{k+1}(s6) = r(s6,a1) + γ·0.5·V_k(s6) + γ·0.5·V_k(s7) &nbsp;·&nbsp; = 0 + 0.5·0.5·0 + 0.5·0.5·10 &nbsp;·&nbsp; <b>= 2.5</b>"
+  },
+  {
+   "r": [
+    29,
+    29
+   ],
+   "t": "MDP 控制",
+   "star": 2,
+   "one": "不再是评估某个策略，而是<b>找出最好的那个</b>。",
+   "eq": "π*(s) = arg max_π V^π(s)",
+   "pts": [
+    "<span class='k'>最优值函数是唯一的。</span>",
+    "无限 horizon 的有限状态 MDP，最优策略一定<b>存在确定性的一个</b>。",
+    "<b>这一页第一次出现「控制」，而它的定义里藏着一个不平凡的断言，值得挑明。</b><span class='k'><code>π*(s) = arg max_π V^π(s)</code> 这个写法默认了「存在一个策略，它在<b>每一个</b>状态上都同时最优」</span>。<b>这件事一点都不显然</b>——<span class='w'>完全可以想象策略 A 在 <code>s1</code> 更好、策略 B 在 <code>s2</code> 更好，谁也压不倒谁。</span><b>MDP 的一条基本定理保证了这种情况不会发生，而这正是整套理论能成立的地基。</b>",
+    "<b>「最优值函数唯一」和「最优策略未必唯一」这对说法要分清，它们一点都不矛盾。</b><span class='k'><code>V*</code> 是一个数值表，它唯一</span>；<span class='w'>而能达到这个表的策略可以有好几个</span>——<b>只要两个动作的 <code>Q*(s,a)</code> 打平，挑哪个都行。</b><span class='k'>打个比方：山顶的高度唯一，但上山的路可以有好几条。</span><b>p30 的检验题正是在问这件事。</b>",
+    "<b>「最优策略是确定性的」这条结论，直觉上可以这么理解。</b><span class='k'>随机策略的值是各动作值的加权平均，而平均永远不会超过其中最大的那个</span>。<b>所以把全部概率压到最好的那个动作上，至少不会更差。</b><span class='w'>注意这个论证用到了「值是线性可加的期望」这个性质</span>——<b>一旦你的目标不是期望回报（比如要控制风险、要满足约束），这条结论就可能不成立</b>，<span class='k'>那时随机策略真的可能严格更好</span>。"
+   ],
+   "quote": "Compute the optimal policy: <b>π*(s) = arg max_π V^π(s)</b> &nbsp;·&nbsp; <b>There exists a unique optimal value function</b> &nbsp;·&nbsp; Optimal policy for a MDP in an infinite horizon problem is deterministic"
+  },
+  {
+   "r": [
+    30,
+    30
+   ],
+   "t": "检验题：有多少个策略",
+   "star": 3,
+   "one": "7 个状态、2 个动作。",
+   "eq": "确定性策略个数 = 2⁷ = 128\n一般地：|A|^|S|",
+   "pts": [
+    "<b>指数级</b>，不是线性。每个状态各自挑一个动作，挑法相乘。",
+    "最优策略<span class='w'>不一定唯一</span>——两个动作的最优值打平就有并列。",
+    "<b>为什么是 <code>2⁷</code> 而不是 <code>2×7</code>，这里的计数逻辑要彻底搞清，因为后面 p42 的轮数上界直接用它。</b><span class='k'>一个确定性策略必须给<b>每一个</b>状态指定一个动作</span>——<b>它是一张有 7 行的表，每行填 L 或 R。</b><span class='w'>7 个独立的二选一，所以是 <code>2×2×…×2 = 2⁷ = 128</code></span>。<b>老师用两个状态演示的四种组合（a1a1 / a1a2 / a2a1 / a2a2）就是这个道理的最小版本。</b>",
+    "<b>把一般公式 <code>|A|^{|S|}</code> 的量级感建立起来，你才知道「搜索策略」有多绝望。</b><span class='k'>7 个状态 2 个动作：128 个，随便枚举</span>；<span class='k'>100 个状态 4 个动作：<code>4¹⁰⁰ ≈ 10⁶⁰</code>，宇宙里的原子都不够数</span>。<b>而 100 个状态在真实问题里算是极小的。</b><span class='w'>所以「把所有策略列出来比一比」这条路，在几乎所有实际问题上都是死的</span>——<b>p32 会正式宣判它。</b>",
+    "<b>但这个指数有一个很重要的性质常被忽略：它是<span class='k'>有限</span>的。</b><span class='w'>指数大，但不是无穷大</span>。<b>这一点在 p42 会变成策略迭代的终止性证明</b>——<span class='k'>因为策略只有有限个，而每轮都严格变好，所以不可能无限循环下去</span>。<b>「指数但有限」这五个字，是策略迭代能保证停机的全部依据。</b>",
+    "<b>第二问「最优策略唯一吗」答案是否，而这个「否」在实践里有具体后果。</b><span class='k'>两个动作的 <code>Q*</code> 打平时，<code>arg max</code> 的结果取决于实现细节</span>——<b>numpy 的 <code>argmax</code> 返回第一个最大值，换个库可能返回最后一个。</b><span class='w'>于是同样正确的代码可能给出不同的策略</span>，<b>而它们的值完全一样。</b><span class='k'>如果你在对比两份实现时发现策略不同，先检查是不是打平，再怀疑有 bug。</span>"
+   ],
+   "say": "有同学正是按「线性」猜的。老师用两个状态演示：a1a1 / a1a2 / a2a1 / a2a2，四个都是不同的策略——所以是 <b>2²</b> 而不是 2。",
+   "quote": "7 discrete states, 2 actions: Left or Right &nbsp;·&nbsp; How many deterministic policies are there? <b>2⁷</b> &nbsp;·&nbsp; Is the optimal policy for a MDP always unique? <b>No, there may be two actions that have the same optimal value function</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页请你把自己的策略数算出来，因为答案会让你对整个课题的难度重新估计。</b><br><br><span class='k'>你的「状态」在策略这一层就是节点编号 h，共 H ≈ 5–10 个；每个节点的动作是 k ≈ 3 档保真度。</span><b>于是确定性策略数 = <code>k^H</code>。</b><span class='w'>k=3、H=7 时是 <code>3⁷ = 2187</code>；k=3、H=10 时是 <code>3¹⁰ = 59049</code>；k=4、H=10 时是 <code>4¹⁰ ≈ 10⁶</code>。</span><br><br><b>2187 是个什么概念？它是你可以<span class='k'>全部跑一遍</span>的数。</b><b>这正是简报 §4d 那张穷举 oracle 表能存在的理由</b>——<span class='w'>而绝大多数 RL 问题里这件事根本做不到</span>（<b>p30 那个 <code>4¹⁰⁰</code> 的例子就是常态</b>）。<span class='k'>所以你手上有一个几乎没人有的东西：一个真实的最优基准。</span><b>这不是细节，这是你实验设计里最硬的一张牌，该在 paper 里明说。</b><br><br><b>但要诚实地标出它的边界，否则会被问穿：</b><br><b>① </b><span class='w'><code>k^H</code> 对 H 是指数的</span>——H 从 7 涨到 15，就从 2187 变成一千四百万，穷举立刻失效。<b>所以「可穷举」是你当前规模的性质，不是方法的性质。</b><br><b>② </b><span class='k'>穷举的是<b>策略</b>，不是<b>评估</b></span>——每个配置还要在一批 query 上跑才能得到可靠的 (Acc, Cost)，<b>真实成本是 <code>k^H × 样本数</code>。</b><span class='w'>这才是你 oracle 表的实际预算，算清楚再承诺。</span><br><b>③ </b><b>一旦策略允许依赖状态（而不只是节点编号），策略数就从 <code>k^H</code> 涨成 <code>k^{状态数}</code></b>——<span class='k'>这是 p30 原本的那个公式，而它会立刻爆炸</span>。<b>你的「可穷举」其实依赖于一个很强的限制：策略只按节点位置决定，不看中间产物。</b><span class='w'>这个限制是真的限制（见 p56 和 L07 p30），该写进 limitation。</span>",
+    "ref": "课件 p30 p32 · 本讲 p42 p56 · L07 p30 科研格 · 简报 §4d"
+   }
+  },
+  {
+   "r": [
+    31,
+    31
+   ],
+   "t": "最优策略的三个性质",
+   "star": 2,
+   "one": "确定性 · 平稳 · 不一定唯一。",
+   "pts": [
+    "<b>平稳</b>＝不依赖时间步。在 s7 该做什么，第 1 步和第 242 步是同一个答案。",
+    "理由：无限 horizon 下，<span class='k'>无论你在哪一步，前面都还剩无穷多步</span>，处境完全一样。",
+    "唯一性：值函数唯一，策略不一定。",
+    "<b>这三条性质要连着它们的前提一起背，否则会用错地方——而课件把前提写在括号里：<em>in an infinite horizon problem (agent acts forever)</em>。</b><span class='w'>三条里有两条依赖这个前提</span>，<b>而且 p56 会亲自来拆掉其中一条。</b><span class='k'>所以请把「无限 horizon」当成这一页真正的主语。</span>",
+    "<b>逐条拆：确定性——这条最稳，前面 p29 已经论证过（平均不超过最大）。</b><span class='k'>它不依赖 horizon，有限 horizon 下最优策略同样可以是确定性的</span>。<b>这条你可以放心用。</b>",
+    "<b>平稳性——这条<span class='w'>完全依赖</span>无限 horizon，而理由非常简单。</b><span class='k'>无限 horizon 下，无论你现在是第 3 步还是第 3000 步，你面前都还剩无穷多步，处境一模一样</span>。<b>既然处境相同，最优做法当然相同，所以不需要看时钟。</b><span class='w'>而有限 horizon 下处境不同</span>——<b>还剩 2 步和还剩 200 步，该做的事可以完全相反。</b><span class='k'>p55–p56 会把这件事讲透，而那正是这一讲和你的问题最相关的一段。</span>",
+    "<b>唯一性——这条是「否」，而课件给的理由是打平。</b><span class='k'>注意它说的是 <em>state-actions with identical optimal values</em></span>，<b>也就是 <code>Q*(s,a1) = Q*(s,a2)</code> 的情形。</b><span class='w'>这时两个策略都是最优的，值函数完全相同，没有任何办法区分优劣</span>。<b>如果你需要在它们之间挑，判据必须来自模型之外</b>（比如更简单、更可解释、更保守）——<span class='k'>这又是一次「约束不够，要自己补一条」，和 L07 那条暗线是同一个结构。</span>"
+   ],
+   "quote": "Optimal policy for a MDP in an infinite horizon problem (agent acts forever) is: <b>Deterministic</b> &nbsp;·&nbsp; <b>Stationary (does not depend on time step)</b> &nbsp;·&nbsp; Unique? <b>Not necessarily</b>, may have state-actions with identical optimal values",
+   "tbl": {
+    "head": [
+     "性质",
+     "无限 horizon",
+     "有限 horizon",
+     "依据"
+    ],
+    "rows": [
+     [
+      "确定性",
+      "<span class='k'>成立</span>",
+      "<span class='k'>成立</span>",
+      "平均不超过最大（p29）"
+     ],
+     [
+      "平稳（不看时钟）",
+      "<span class='k'>成立</span>",
+      "<span class='w'>不成立</span>",
+      "<b>剩几步不同，处境就不同（p56）</b>"
+     ],
+     [
+      "唯一",
+      "<span class='w'>不保证</span>",
+      "<span class='w'>不保证</span>",
+      "<code>Q*</code> 可能打平（p30）"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    32,
+    32
+   ],
+   "t": "策略搜索：能不能直接枚举",
+   "one": "可以，但一般不划算。",
+   "pts": [
+    "确定性策略共 <code>|A|^|S|</code> 个，有限但指数级。",
+    "机器多到不像话时，<b>并行枚举反而可能更快</b>；串行就该用策略迭代。",
+    "<b>这一页只有三行，但它是整讲的转折点：它先摆出最笨的办法，然后宣布有更好的。</b><span class='k'>最笨的办法是枚举——把 <code>|A|^{|S|}</code> 个策略全部评估一遍，挑最好的</span>。<b>它一定正确，而且 p25 已经告诉你每个策略的评估都不难。</b><span class='w'>唯一的问题是数量。</span>",
+    "<b>值得想清楚枚举为什么「笨」，因为笨在一个很具体的地方：它不利用策略之间的关系。</b><span class='k'>枚举把 128 个策略当成 128 个互不相干的候选，一个个试</span>。<b>但它们之间明明有结构</b>——<span class='w'>两个只在一个状态上不同的策略，它们的值应该差不多，而且你能从其中一个的值<b>算出</b>该往哪改</span>。<b>策略迭代用的正是这个结构：不盲目试，而是从当前策略算出改进方向。</b><span class='k'>这和「随机搜索 vs 梯度下降」的区别是同一回事。</span>",
+    "<b>课件那句 <em>generally more efficient</em> 里的 <em>generally</em> 很克制，值得照着说。</b><span class='w'>策略迭代的最坏情况轮数上界仍然是 <code>|A|^{|S|}</code></span>（<b>p42 会给出这个界</b>），<span class='k'>也就是理论上它可能退化成枚举</span>。<b>但实践中它通常几轮到几十轮就收敛，远远用不到那个界。</b><span class='w'>「最坏情况一样差，平均情况好得多」是算法里非常常见的一种局面</span>——<b>单纯形法也是这样。</b>"
+   ],
+   "say": "老师特意补了这句：如果你在乎的是墙钟时间、而且有非常多处理器，穷举是可以的。策略迭代的优势是<b>串行</b>算得省。",
+   "quote": "One option is searching to compute best policy &nbsp;·&nbsp; Number of deterministic policies is <b>|A|^{|S|}</b> &nbsp;·&nbsp; <b>Policy iteration is generally more efficient than enumeration</b>"
+  },
+  {
+   "r": [
+    33,
+    33
+   ],
+   "t": "策略迭代（PI）",
+   "star": 3,
+   "one": "手里始终攥着一个策略：评估它 → 改进它 → 再评估，直到不再变。",
+   "eq": "i = 0，π₀ 随机初始化\n当 i==0 或 ‖π_i − π_{i-1}‖₁ > 0：\n    V^{π_i} ← 策略评估\n    π_{i+1} ← 策略改进\n    i = i + 1",
+   "pts": [
+    "停止条件就是<b>策略不再变化</b>（L1 范数为 0）。",
+    "评估这一步是老工具（MDP+策略=MRP）；<span class='k'>新东西只有「改进」</span>。",
+    "<b>策略迭代就是两步交替，而这两步各自都已经讲过了，这一页只是把它们拼起来。</b><span class='k'>① 评估：给定 <code>π_i</code>，算出 <code>V^{π_i}</code></span>（<b>p25 塌成 MRP，然后用 p21 的迭代或 p20 的解析解</b>）；<span class='k'>② 改进：给定 <code>V^{π_i}</code>，算出更好的 <code>π_{i+1}</code></span>（<b>p35，下面马上讲</b>）。<span class='w'>然后回到①，直到策略不再变。</span>",
+    "<b>停机判据值得单独看一眼，因为它和后面值迭代的判据性质完全不同。</b><span class='k'>这里判的是 <code>‖π_i − π_{i−1}‖₁ &gt; 0</code>，也就是「策略有没有变」——这是个<b>离散</b>的判断</span>。<b>策略是一张「每个状态选哪个动作」的表，它要么变了要么没变，没有中间状态。</b><span class='w'>所以这个判据是精确的：一旦不变，就是真的收敛了，没有误差</span>（<b>p43 会证明「不变之后永远不变」</b>）。<span class='k'>对比值迭代：那里判的是值的变化小于 ε，而 ε 小不等于误差小</span>——<b>这是两条路最实际的一个差别。</b>",
+    "<b>初始化是随机的，而这不要紧，值得说明为什么。</b><span class='k'>因为每一轮都严格变好（p39 的单调改进定理）</span>，<b>所以无论从哪里出发，都在往上爬，而且爬的是同一座山（最优值唯一，p29）。</b><span class='w'>初始策略只影响你走多少轮，不影响你走到哪</span>。<b>这是一条很强的保证</b>——<span class='k'>对比深度 RL，那里初始化能决定成败（第六讲 p12 要你跑两个种子就是因为这个）</span>。"
+   ],
+   "quote": "Set i = 0 &nbsp;·&nbsp; Initialize π_0(s) randomly for all states s &nbsp;·&nbsp; While i == 0 or <b>‖π_i − π_{i−1}‖_1 &gt; 0</b> (L1-norm, measures if the policy changed for any state): &nbsp;·&nbsp; V^{π_i} ← MDP V function policy evaluation of π_i &nbsp;·&nbsp; π_{i+1} ← Policy improvement &nbsp;·&nbsp; i = i + 1"
+  },
+  {
+   "r": [
+    34,
+    34
+   ],
+   "t": "新定义：状态–动作值 Q",
+   "star": 3,
+   "one": "先做动作 <code>a</code>（哪怕策略不这么说），<b>之后</b>再按 π 走。",
+   "eq": "Q^π(s,a) = R(s,a) + γ · Σ_{s′} P(s′|s,a) · V^π(s′)",
+   "pts": [
+    "和 <code>V</code> 的差别只在<b>第一步</b>：V 从头到尾听 π 的，Q 的第一步是你指定的。",
+    "有了它才能问出「换个动作会不会更好」——这正是改进要的。",
+    "<b>课件那句 <em>Take action a, then follow the policy π</em> 是 Q 的全部定义，而它的结构是「先叛变一步，再归队」。</b><span class='k'>第一步你做 <code>a</code>（可能不是 <code>π</code> 会选的那个），之后老老实实按 <code>π</code> 走到底</span>。<b>所以 <code>Q^π(s,a)</code> 回答的是：「在这里破例做一次 a，值不值？」</b><span class='w'>这正是「改进」所需要的全部信息。</span>",
+    "<b>为什么需要 Q 而不能只用 V，理由很实际，值得说死。</b><span class='k'><code>V(s)</code> 告诉你「这个状态值多少」，但没告诉你「该做什么」</span>——<b>要从 V 推出动作，你必须算 <code>R(s,a) + γΣP(s′|s,a)V(s′)</code>，而这需要 <code>P</code> 和 <code>R</code>。</b><span class='w'><code>Q(s,a)</code> 把这一步预先算好了，于是选动作只要取 <code>arg max_a Q(s,a)</code>，什么模型都不用。</span><b>这个差别在这一讲无所谓（你有模型），</b><span class='k'>但到第四讲没有模型时，它就是 Q-learning 存在而不是「V-learning」的唯一原因</span>。",
+    "<b>还有一条关系式要记牢，它在这一讲和后面都会反复用：<code>V^π(s) = Σ_a π(a|s) Q^π(s,a)</code>。</b><span class='k'>V 是 Q 按策略加权的平均</span>。<b>确定性策略下更简单：<code>V^π(s) = Q^π(s, π(s))</code></b>——<span class='w'>「照着策略做」正是 Q 定义里那个「破例」恰好不破例的情形</span>。<b>这个等式是 p37 那个关键不等式的起点。</b>"
+   ],
+   "quote": "State-action value of a policy &nbsp;·&nbsp; <b>Q^π(s, a) = R(s, a) + γ Σ_{s′∈S} P(s′|s, a) V^π(s′)</b> &nbsp;·&nbsp; <b>Take action a, then follow the policy π</b>"
+  },
+  {
+   "r": [
+    35,
+    35
+   ],
+   "t": "策略改进",
+   "star": 3,
+   "one": "对每个状态，挑让 Q 最大的那个动作。",
+   "eq": "对所有 s, a：Q^{π_i}(s,a) = R(s,a) + γ Σ P(s′|s,a) V^{π_i}(s′)\nπ_{i+1}(s) = arg max_a  Q^{π_i}(s,a)",
+   "quote": "Compute state-action value of a policy π_i: For s in S and a in A: <b>Q^{π_i}(s, a) = R(s, a) + γ Σ_{s′∈S} P(s′|s, a) V^{π_i}(s′)</b> &nbsp;·&nbsp; Compute new policy π_{i+1}, for all s ∈ S: <b>π_{i+1}(s) = arg max_a Q^{π_i}(s, a)</b>",
+   "pts": [
+    "<b>改进这一步简单到只有一行，但它干的事值得说清楚：它在每个状态上独立地「贪一步」。</b><span class='k'>对每个 <code>s</code>，把所有动作的 <code>Q^{π_i}(s,a)</code> 算出来，挑最大的那个</span>。<b>注意各个状态是分开挑的，互不协商。</b><span class='w'>这正是下一页要问的那个奇怪之处</span>：<b>每个状态各自贪心，凭什么合起来整体更好？</b>",
+    "<b>把这一步的计算量算一下，你会看到它为什么便宜。</b><span class='k'>每个 <code>(s,a)</code> 对要做一次求和，代价 <code>O(|S|)</code>；一共 <code>|S|·|A|</code> 个对</span>——<b>所以改进一步是 <code>O(|S|²|A|)</code>。</b><span class='w'>而评估那一步要么是 <code>O(|S|³)</code>（解析解）、要么是若干轮 <code>O(|S|²)</code>（迭代）</span>。<b>两边量级相当，所以策略迭代的每一轮都不便宜</b>——<span class='k'>它赢在轮数少，不是赢在每轮快。这一点 p57 会正面对比。</span>",
+    "<b>这里的 <code>arg max</code> 还隐含了一件事：新策略一定是确定性的。</b><span class='k'>哪怕你从一个随机策略出发，一次改进之后它就变成确定性的了</span>。<b>这和 p29「最优策略是确定性的」是同一条脉络</b>——<span class='w'>随机化在这个设定里不买任何东西，所以算法自动把它扔掉了。</span>"
+   ]
+  },
+  {
+   "r": [
+    36,
+    36
+   ],
+   "t": "把两步拼起来",
+   "one": "p33 的流程图再放一遍——现在「策略改进」那一格有内容了。",
+   "pts": [
+    "评估用的是 p26 的老办法（MDP+策略=MRP）；改进用的是 p34–35 的 Q 与 arg max。",
+    "剩下的问题只有一个：<span class='k'>这样改真的会更好吗？</span>下一页开始回答。",
+    "<b>课件用 <em>Delving Deeper</em> 开一页，说明接下来要处理的是一个真正值得停下来想的问题。</b><span class='k'>到此为止，策略迭代的每一步你都看懂了，但整件事还没被证明是对的</span>——<b>你只知道「每个状态上贪一步」，不知道「这样做出来的新策略真的更好」。</b><span class='w'>这中间的缝隙比看上去大，下一页会把它展开。</span>",
+    "<b>先把这个缝隙说准，带着问题读下一页会清楚得多。</b><span class='k'><code>Q^{π_i}(s,a)</code> 这个量的含义是「破例一步，然后<b>按旧策略</b> <code>π_i</code> 走到底」</span>。<b>所以 <code>max_a Q^{π_i}(s,a)</code> 保证的只是「破例一次更好」。</b><span class='w'>但新策略 <code>π_{i+1}</code> 要做的是<b>每一步都破例</b></span>——<b>它在 <code>s</code> 破例，到了 <code>s′</code> 还要破例，一直破例下去。</b><span class='k'>「破例一次更好」和「一直破例更好」之间，差着一个需要证明的跳跃。</span>",
+    "<b>读证明之前先建立一个心理预期：这个缺口是真的，不是作者故意卖关子。</b><span class='k'>在一般的优化问题里，「每个分量各自取最优」做出来的解通常不是全局最优</span>——<b>坐标下降法会卡在非最优点，多人各自最优化会得到纳什均衡而非社会最优。</b><span class='w'>所以 MDP 这里能成立，一定用到了某个特殊结构</span>，<b>而那个结构就是贝尔曼方程的递归形式加上 γ 的衰减。</b><span class='k'>带着「特殊在哪」这个问题去读 p40，收获会大得多。</span>"
+   ],
+   "quote": "Delving Deeper Into Policy Improvement Step &nbsp;·&nbsp; Q^{π_i}(s, a) = R(s, a) + γ Σ_{s′∈S} P(s′|s, a) V^{π_i}(s′)"
+  },
+  {
+   "r": [
+    37,
+    38
+   ],
+   "t": "改进这一步为什么奇怪",
+   "star": 3,
+   "one": "算的时候假设「只换第一步，之后还听老策略」；<b>用的时候却全程换新策略</b>。",
+   "eq": "max_a Q^{π_i}(s,a)  ≥  R(s, π_i(s)) + γ Σ P(s′|s, π_i(s)) V^{π_i}(s′)  =  V^{π_i}(s)",
+   "pts": [
+    "不等式这一半很容易：最大值至少不比「照旧」差，因为照旧也在候选里。",
+    "<span class='w'>难的是另一半</span>：凭什么「只换一步会更好」能推出「全程换掉也更好」？",
+    "<b>先把那个不等式读懂，它其实平凡得可爱：对所有动作取最大，当然不小于取其中某一个。</b><span class='k'>右边那一项正是「照旧策略 <code>π_i(s)</code> 做」的 Q 值，而它等于 <code>V^{π_i}(s)</code></span>（<b>这就是 p34 最后那条关系式</b>）。<b>于是得到 <code>max_a Q^{π_i}(s,a) ≥ V^{π_i}(s)</b>。<span class='w'>翻译成话：破例一步，不会比不破例差。</span><b>这一步谁都会同意。</b>",
+    "<b>奇怪的地方全在课件最后那句话：<em>But new proposed policy is to always follow π_{i+1}</em>。</b><span class='k'>你证明的是「破例一次」，你要用的是「永远破例」</span>——<b>这两件事之间没有自动的桥。</b><span class='w'>直觉上甚至可以怀疑它是错的</span>：<b>一个在每一步都偏离原计划的策略，完全可能把自己带到一个原计划从没考虑过的烂地方去</b>（<span class='k'>这正是第七讲行为克隆 <code>εT²</code> 的剧本</span>）。<b>所以这里需要一个真正的证明，而不是一句「显然」。</b>",
+    "<b>老师在课上点破的那个反直觉之处，值得用自己的话再说一遍。</b><span class='w'>每个状态上的改进是「局部」的、各自独立做的，没有任何人在协调它们</span>；<b>而结论要的是「全局」更好。</b><span class='k'>在大多数优化问题里，局部各自变好并不蕴含全局变好</span>（<b>比如多人各自最优化自己的收益，总收益可能更差——这是博弈论的日常</b>）。<b>MDP 在这里的特殊之处是：它有一个贝尔曼结构，让局部改进可以一层层地往外传递而不互相抵消。</b><span class='w'>p40–p41 的证明就是把这个传递过程写出来。</span>",
+    "<b>顺带记一个对照，它能让你对这个缺口的重要性有实感：同样是「每一步都偏离」，在第七讲就真的出事了。</b><span class='k'>行为克隆每一步以 ε 的概率偏离专家，结果误差是 <code>εT²</code> 而不是 <code>εT</code></span>——<b>正是因为偏离会把你带到训练分布之外。</b><span class='w'>这里之所以没出事，是因为你有真实的 <code>P</code>，<code>Q^{π_i}</code> 对任何状态都算得准，不存在「数据没覆盖」这回事</span>。<b>所以 p40 的证明能成立，靠的是「已知模型」这个前提，不是靠贪心本身。</b>"
+   ],
+   "say": "老师原话大意：<b>这件事应该让你觉得至少有点不清楚才对。</b>你证明的是「换一步然后回老路」，你要做的却是「从此走新路」。下一页就是补这个缺口。",
+   "quote": "<b>max_a Q^{π_i}(s,a) ≥ R(s, π_i(s)) + γ Σ_{s′} P(s′|s, π_i(s)) V^{π_i}(s′) = V^{π_i}(s)</b> &nbsp;|&nbsp; Suppose we take π_{i+1}(s) for one action, then follow π_i forever &nbsp;·&nbsp; Our expected sum of rewards is at least as good as if we had always followed π_i &nbsp;·&nbsp; <b>But new proposed policy is to always follow π_{i+1} ...</b>",
+   "tbl": {
+    "head": [
+     "",
+     "破例一次（p37 证了的）",
+     "永远破例（p39 要的）"
+    ],
+    "rows": [
+     [
+      "做什么",
+      "在 s 做 <code>π_{i+1}(s)</code>，之后按 <b>π_i</b> 走到底",
+      "每一步都按 <b>π_{i+1}</b> 走"
+     ],
+     [
+      "对应的量",
+      "<code>max_a Q^{π_i}(s,a)</code>",
+      "<code>V^{π_{i+1}}(s)</code>"
+     ],
+     [
+      "证明难度",
+      "<span class='k'>平凡：max 不小于其中一项</span>",
+      "<span class='w'>需要 p40–p41 的层层代入</span>"
+     ],
+     [
+      "为什么不能跳过",
+      "—",
+      "<b>一直偏离可能把你带到旧策略没考虑过的地方</b>（参见 L07 p30）"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    39,
+    39
+   ],
+   "t": "单调改进",
+   "star": 3,
+   "one": "新策略在<b>每一个</b>状态上都不比旧的差。",
+   "eq": "V^{π_1} ≥ V^{π_2}  即  V^{π_1}(s) ≥ V^{π_2}(s), ∀s ∈ S\n\n命题：V^{π_{i+1}} ≥ V^{π_i}，若 π_i 非最优则严格大于",
+   "pts": [
+    "注意是<b>对所有状态</b>成立，不是平均意义上更好。",
+    "<b>先看那个定义，它比看起来重要：策略之间的「更好」被定义成<span class='k'>逐状态</span>的。</b><span class='w'><code>V^{π_1} ≥ V^{π_2}</code> 要求在<b>每一个</b>状态上都不差</span>，<b>而不是「平均起来更好」或者「在起始状态更好」。</b><span class='k'>这是一个很强的要求——它意味着两个策略可能无法比较</span>（<b>各有胜场时谁也不 ≥ 谁</b>）。<b>而策略改进定理说的是：改进出来的策略强到足以在每个状态上都赢。</b>",
+    "<b>这条定理是策略迭代的全部理论支撑，它一口气给了三样东西。</b><br><b>① 单调性</b>：<span class='k'>每一轮不会变差</span>，所以不会反复横跳。<br><b>② 严格性</b>：<span class='k'>只要还没最优，就<b>严格</b>变好</span>——所以不会卡在原地空转。<br><b>③ 终止性</b>：<span class='k'>配合「策略只有有限个」（p30），严格变好意味着不可能重复访问同一个策略</span>，<b>于是必定在有限轮内停下</b>（<span class='w'>p42 会把这个数算出来</span>）。<br><b>三条合起来，策略迭代是一个有完整保证的算法。</b>",
+    "<b>把「严格」那半句单独说一下，因为它堵掉了一个很烦人的可能。</b><span class='w'>如果只有「不会变差」，算法完全可能每轮都原地不动，永远跑不完</span>。<span class='k'>有了「次优则严格变好」，你就知道：要么这一轮变好了，要么已经最优了</span>——<b>没有第三种情况。</b><span class='w'>这也正是 p33 那个停机判据（策略不变就停）为什么是对的</span>：<b>策略不变 ⇒ 没有严格改进 ⇒ 已经最优。</b>"
+   ],
+   "quote": "Definition: <b>V^{π_1} ≥ V^{π_2} : V^{π_1}(s) ≥ V^{π_2}(s), ∀s ∈ S</b> &nbsp;|&nbsp; Proposition: <b>V^{π_{i+1}} ≥ V^{π_i}</b> with strict inequality if π_i is suboptimal"
+  },
+  {
+   "r": [
+    40,
+    41
+   ],
+   "t": "证明：把不等式一层层套进去",
+   "star": 2,
+   "one": "反复用同一个技巧：拿 <code>max_a Q</code> 去顶掉 <code>V^{π_i}</code>。",
+   "pts": [
+    "第一步：<code>V^{π_i}(s) ≤ max_a Q^{π_i}(s,a)</code>——定义直给。",
+    "第二步：按 <code>π_{i+1}</code> 的定义把 max 换成具体动作。",
+    "第三步：里面那个 <code>V^{π_i}(s′)</code> 又可以被 <code>max_a Q</code> 顶掉，<b>再展开一层</b>。",
+    "一直套下去，每一层都换成 <code>π_{i+1}</code>——套到底，右边就是 <code>V^{π_{i+1}}</code>。",
+    "<b>这个证明的结构其实只有一招，而且这一招会反复用三次：把刚证的那个不等式，再代进去一次。</b><span class='k'>第一步：<code>V^{π_i}(s) ≤ max_a Q^{π_i}(s,a)</code></span>（p37 已证）。<span class='k'>第二步：按 <code>π_{i+1}</code> 的定义，右边那个 max 就是 <code>R(s,π_{i+1}(s)) + γΣ P(s′|s,π_{i+1}(s)) V^{π_i}(s′)</code></span>。<b>注意这里出现了一个 <code>V^{π_i}(s′)</code>——它和你最开始要处理的 <code>V^{π_i}(s)</code> 是同一种东西，只是换了个状态。</b>",
+    "<b>于是关键的一招来了：对这个 <code>V^{π_i}(s′)</code> 再用一次第一步的不等式。</b><span class='k'><code>V^{π_i}(s′) ≤ max_{a′} Q^{π_i}(s′,a′)</code></span>，<b>代进去，又多出一层「用 <code>π_{i+1}</code> 走一步」。</b><span class='w'>再代一次，又多一层</span>……<b>每代一次，就把「按新策略走」的步数往后推一步。</b><span class='k'>课件里那个 <code>...</code> 就是「一直这样代下去」。</span>",
+    "<b>代到无穷远时，右边变成了什么？变成了「从头到尾全程按 <code>π_{i+1}</code> 走」的回报，也就是 <code>V^{π_{i+1}}(s)</code>。</b><span class='k'>于是链条两头接上：<code>V^{π_i}(s) ≤ … ≤ V^{π_{i+1}}(s)</code></span>。<b>这就是整个证明。</b><span class='w'>它把 p37 那个「破例一次更好」的保证，通过一层层代入，推成了「每一步都破例也更好」</span>——<b>而这正是 p37 结尾那个缺口。</b>",
+    "<b>这个证明技巧值得记住名字，它在这门课里会再出现：<span class='k'>展开 + 递归代入</span>。</b><span class='w'>它成立的前提是那个被代入的量（这里是 V）出现在不等式的两边，而且系数带 γ 在衰减</span>——<b>γ 的衰减保证了无穷次代入之后余项趋于零，链条才能真的接上。</b><span class='k'>p52 证明备份算子是压缩时，用的是同一类论证</span>，<b>而第五讲那些关于收敛的结论，骨架也都是这个。</b>",
+    "<b>最后提醒一处读证明时容易看漏的地方：那个 <code>…</code> 掩盖了一个收敛性论证。</b><span class='w'>「一直代入下去」听起来理所当然，但严格说你需要说明无穷次代入之后余项趋于零</span>。<span class='k'>余项的量级是 <code>γⁿ·(值的上界)</code>，而 <code>γ &lt; 1</code> 保证它趋于零</span>。<b>所以这个证明<span class='w'>依赖 γ &lt; 1</b></span>——<b>γ = 1 且过程不结束时它不成立，和 p20 的解析解塌掉是同一个原因。</b><span class='k'>有限 horizon 下则没问题：代入次数本来就有限，根本不需要取极限。</span>"
+   ],
+   "tip": {
+    "t": "两个关键动作",
+    "v": "① <code>V^{π_i}</code> 永远是 <code>max_a Q^{π_i}</code> 的下界；② 用 <code>π_{i+1}</code> 的定义把 max 具体化。剩下的只是重复。"
+   },
+   "quote": "V^{π_i}(s) ≤ max_a Q^{π_i}(s,a) = R(s, π_{i+1}(s)) + γ Σ_{s′} P(s′|s, π_{i+1}(s)) V^{π_i}(s′) &nbsp;·&nbsp; <b>≤ R(s, π_{i+1}(s)) + γ Σ_{s′} P(s′|s, π_{i+1}(s)) max_{a′} Q^{π_i}(s′,a′)</b> &nbsp;·&nbsp; ... &nbsp;·&nbsp; <b>= V^{π_{i+1}}(s)</b>"
+  },
+  {
+   "r": [
+    42,
+    43
+   ],
+   "t": "检验题：会不会反复横跳",
+   "star": 2,
+   "one": "两个问题，答案都很干脆。",
+   "pts": [
+    "<b>策略一旦不变，还会再变吗？</b> 不会。π 不变 ⇒ Q 不变 ⇒ arg max 不变，从此锁死。",
+    "<b>最多迭代多少次？</b> <code>|A|^|S|</code>。因为单调改进，<span class='k'>同一个策略不可能出现两次</span>（除非它已是最优）。",
+    "<b>第一问的答案「不会」有个一行的证明，而且课件把它写出来了，值得跟一遍。</b><span class='k'>如果 <code>π_{i+1} = π_i</code>，那么 <code>V^{π_{i+1}} = V^{π_i}</code>，于是 <code>Q^{π_{i+1}} = Q^{π_i}</code></span>。<b>而下一轮的策略是 <code>π_{i+2} = arg max_a Q^{π_{i+1}}(s,a) = arg max_a Q^{π_i}(s,a) = π_{i+1}</code>。</b><span class='w'>一模一样的输入给出一模一样的输出，所以永远不会再变。</span><b>这就是 p33 那个停机判据的正确性证明。</b>",
+    "<b>第二问的轮数上界 <code>|A|^{|S|}</code>，它的论证把 p30 和 p39 两件事接在了一起。</b><span class='k'>p39 说每轮严格变好</span>，<b>所以一个非最优策略<span class='w'>不可能出现两次</span></b>——<span class='w'>第二次出现时它的值必须比第一次高，但同一个策略的值是同一个数，矛盾。</span><span class='k'>p30 说策略总共只有 <code>|A|^{|S|}</code> 个</span>。<b>于是轮数不可能超过策略总数。</b>",
+    "<b>这个界要正确理解它的性质：它是「有限」的证明，不是「快」的证明。</b><span class='w'><code>|A|^{|S|}</code> 大到完全没有实用价值</span>——<b>它和枚举所有策略一样贵。</b><span class='k'>但它干了一件枚举做不到的事：它保证算法一定会停</span>。<b>而实践中策略迭代通常几轮就收敛，和这个界差了天文数字。</b><span class='w'>「最坏情况的界很差，但实际表现很好」在算法里非常常见，</span><b>这也是 p32 那句 <em>generally more efficient</em> 要加 <em>generally</em> 的原因。</b>",
+    "<b>最后补一句课件没说但很值得知道的事：策略迭代的真实轮数界比这个好得多。</b><span class='k'>后来的结果表明，对固定的 γ，策略迭代的轮数是关于 <code>|S|</code> 和 <code>|A|</code> 的多项式</span>，<b>而不是指数。</b><span class='w'>这解释了为什么它在实践中表现那么好</span>——<b>不是运气，是真的有更强的保证，只不过这一讲不展开。</b>",
+    "<b>把这两问合起来看，策略迭代的完整保证就齐了，值得当作一个模板记住。</b><span class='k'>① 每轮不会更差（单调）；② 没到最优就严格更好（无平台期）；③ 候选有限（p30）；④ 于是必在有限轮内停；⑤ 停下来时一定是最优。</span><b>五条环环相扣，缺一条结论就垮。</b><span class='w'>你以后设计任何迭代算法，都可以照这五条去检查自己的保证全不全</span>——<b>最常见的漏洞是第②条：只证了「不会更差」，于是算法可能永远原地踏步。</b>"
+   ],
+   "quote": "If policy doesn't change, can it ever change again? <b>No</b> &nbsp;|&nbsp; Is there a maximum number of iterations of policy iteration? <b>|A|^{|S|}</b> since that is the maximum number of policies, and as the policy improvement step is monotonically improving, <b>each policy can only appear in one round</b> unless it is an optimal policy",
+   "tbl": {
+    "head": [
+     "问题",
+     "答案",
+     "依据"
+    ],
+    "rows": [
+     [
+      "策略不变后还会再变吗",
+      "<span class='k'>不会</span>",
+      "<b>同样的 Q 给出同样的 arg max</b>"
+     ],
+     [
+      "策略迭代会停吗",
+      "<span class='k'>一定会</span>",
+      "严格改进 + 策略只有有限个"
+     ],
+     [
+      "最多多少轮",
+      "<code>|A|^{|S|}</code>",
+      "<span class='w'>每个非最优策略只能出现一次</span>"
+     ],
+     [
+      "这个界有用吗",
+      "<span class='w'>只用来证明会停</span>",
+      "<b>实际轮数通常几轮到几十轮</b>"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "22": [
+   {
+    "q": "MDP 比 MRP 多了什么？",
+    "o": [
+     "状态",
+     "动作，且转移模型每个动作各有一份",
+     "折扣因子",
+     "奖励"
+    ],
+    "a": 1,
+    "why": "MDP = (S, A, P, R, γ)。奖励也随之可以依赖动作。"
+   },
+   {
+    "q": "课上问「都指定动作了，转移为什么还是随机的」。老师的理由是？",
+    "o": [
+     "随机算得快",
+     "为了数学方便",
+     "因为我们的模型不够好，用随机性兜住这份不确定",
+     "世界本质随机"
+    ],
+    "a": 2,
+    "why": "机器人在地毯上有时卡住、开车有时堵车。你也可以把更多变量塞进状态让它变确定。"
+   }
+  ],
+  "25": [
+   {
+    "q": "「MDP + 策略 = MRP」这件事为什么重要？",
+    "o": [
+     "因为可以去掉奖励",
+     "因为 MRP 更简单",
+     "因为评估一个策略的值不需要新工具，MRP 那三种办法直接拿来用",
+     "因为可以去掉折扣"
+    ],
+    "a": 2,
+    "why": "把策略定死，动作这一维被积掉。这是整讲的枢纽。"
+   },
+   {
+    "q": "为什么说 p25 是整讲的枢纽？",
+    "o": [
+     "它第一次给出了最优策略的定义",
+     "固定策略后 MDP 塌回 MRP，于是前面算 MRP 的三种办法原样可用",
+     "它引入了 Q 函数",
+     "它证明了策略迭代收敛"
+    ],
+    "a": 1,
+    "why": "课件原话就是 we can use same techniques。这也把「评估」和「控制」彻底切开了：难的不是评估，是策略有指数多个。"
+   },
+   {
+    "q": "这个塌缩有什么前提？",
+    "o": [
+     "策略必须是确定性的",
+     "γ 必须小于 1",
+     "奖励必须非负",
+     "策略必须是平稳的；若 π 随时间变，P^π 也随时间变，就不是标准 MRP"
+    ],
+    "a": 3,
+    "why": "这一点在 p56 的有限 horizon 情形会变得要紧——那时最优策略不平稳。"
+   }
+  ],
+  "26": [
+   {
+    "q": "策略备份和最优备份的唯一区别是什么？",
+    "o": [
+     "前者有 max_a，后者没有",
+     "后者有 max_a，前者照着策略走不做选择",
+     "前者作用于 Q，后者作用于 V",
+     "前者用 γ，后者不用"
+    ],
+    "a": 1,
+    "why": "一个 max 的有无，分出了策略迭代和值迭代两条路，也分出了 V^π 和 V*。"
+   }
+  ],
+  "27": [
+   {
+    "q": "这道题老师说是「陷阱」，陷在哪？",
+    "o": [
+     "她没给转移模型，而答案根本不需要转移模型",
+     "奖励写错了",
+     "策略不是确定性的",
+     "γ 写错了"
+    ],
+    "a": 0,
+    "why": "γ=0 把整个求和项乘没了，只剩即时奖励，转移模型用不上。"
+   }
+  ],
+  "28": [
+   {
+    "q": "<code>V(s6)</code> 从 0 变成 2.5，这一步真正想演示的是？",
+    "o": [
+     "随机动态更难算",
+     "信息在往回流：s7 的 +10 开始向左渗",
+     "γ 的作用",
+     "s6 是特殊状态"
+    ],
+    "a": 1,
+    "why": "第一次备份只铺开即时奖励，此后每一轮好消息往左传一格。"
+   },
+   {
+    "q": "<code>V_{k+1}(s6) = 0 + 0.5·0.5·0 + 0.5·0.5·10</code>。第一个 0.5 和第二个 0.5 分别是什么？",
+    "o": [
+     "都是 γ",
+     "都是转移概率",
+     "γ 和转移概率",
+     "γ 和奖励"
+    ],
+    "a": 2,
+    "why": "γ=0.5，转移 p(s6|s6,a1)=p(s7|s6,a1)=0.5。别把两者混成一个数。"
+   }
+  ],
+  "29": [
+   {
+    "q": "关于最优解，这一页断言的是？",
+    "o": [
+     "两者都唯一",
+     "最优策略唯一",
+     "最优值函数唯一",
+     "两者都不唯一"
+    ],
+    "a": 2,
+    "why": "值函数唯一；策略可能有并列——两个动作的最优值打平就是。"
+   }
+  ],
+  "30": [
+   {
+    "q": "7 个状态、2 个动作，确定性策略有多少个？",
+    "o": [
+     "7",
+     "2⁷ = 128",
+     "7² = 49",
+     "14"
+    ],
+    "a": 1,
+    "why": "每个状态各自挑一个动作，挑法相乘：|A|^|S|。指数级，不是线性。"
+   },
+   {
+    "q": "为什么确定性策略有 <code>2⁷</code> 个而不是 <code>2×7</code> 个？",
+    "o": [
+     "因为策略可以随机化",
+     "因为要考虑所有起始状态",
+     "一个策略要给每个状态各指定一个动作，7 个独立的二选一相乘",
+     "因为有 7 个动作"
+    ],
+    "a": 2,
+    "why": "老师用两个状态演示的 a1a1/a1a2/a2a1/a2a2 就是这个道理的最小版本。"
+   },
+   {
+    "q": "「策略数是指数的」这件事，在 p42 被用来证明什么？",
+    "o": [
+     "策略迭代一定会在有限轮内停：指数大，但是有限的",
+     "策略迭代比枚举快",
+     "最优策略唯一",
+     "值迭代收敛"
+    ],
+    "a": 0,
+    "why": "「指数但有限」这五个字，是策略迭代能保证停机的全部依据。"
+   }
+  ],
+  "31": [
+   {
+    "q": "无限 horizon 下最优策略「平稳」，靠的是什么直觉？",
+    "o": [
+     "γ < 1",
+     "奖励不随时间变",
+     "无论你在第几步，前面都还剩无穷多步，处境完全一样",
+     "状态数有限"
+    ],
+    "a": 2,
+    "why": "所以在 s7 该做什么，第 1 步和第 242 步是同一个答案。p56 会说有限 horizon 就不成立了。"
+   },
+   {
+    "q": "p31 那三条性质里，哪一条依赖「无限 horizon」这个前提？",
+    "o": [
+     "确定性",
+     "唯一性",
+     "平稳性",
+     "三条都依赖"
+    ],
+    "a": 2,
+    "why": "无限 horizon 下任何时刻面前都还剩无穷多步，处境相同；有限 horizon 下「剩 2 步」和「剩 200 步」完全不同。p56 会拆掉它。"
+   },
+   {
+    "q": "「最优策略可以是确定性的」这条结论的依据是什么？",
+    "o": [
+     "确定性策略更容易存储",
+     "随机策略会破坏马尔可夫性",
+     "随机策略的值是各动作值的加权平均，而平均不超过其中最大的那个",
+     "这是一条无法证明的公理"
+    ],
+    "a": 2,
+    "why": "注意这用到了「值是线性可加的期望」。一旦目标不是期望回报（要控风险、要满足约束），随机策略可能严格更好。"
+   }
+  ],
+  "32": [
+   {
+    "q": "什么时候穷举所有策略反而可能更划算？",
+    "o": [
+     "γ 很小时",
+     "你有非常多处理器、在乎的是墙钟时间时",
+     "动作只有两个时",
+     "状态很多时"
+    ],
+    "a": 1,
+    "why": "策略之间互不依赖，天然可并行。策略迭代的优势是串行算得省。"
+   }
+  ],
+  "33": [
+   {
+    "q": "策略迭代的停止条件是？",
+    "o": [
+     "策略不再变（L1 范数为 0）",
+     "跑满固定轮数",
+     "γ 衰减到 0",
+     "值函数不再变"
+    ],
+    "a": 0,
+    "why": "PI 手里始终攥着一个策略；策略锁死了就停。"
+   }
+  ],
+  "34": [
+   {
+    "q": "<code>Q^π(s,a)</code> 和 <code>V^π(s)</code> 的差别在哪？",
+    "o": [
+     "Q 不折扣",
+     "Q 只对最优策略有定义",
+     "Q 的第一步动作由你指定，之后才听 π 的",
+     "Q 不需要模型"
+    ],
+    "a": 2,
+    "why": "只差第一步。正因为能「先换一个动作试试」，才问得出「改进有没有余地」。"
+   },
+   {
+    "q": "<code>Q^π(s,a)</code> 的语义是什么？",
+    "o": [
+     "先在 s 做 a（可能不是 π 会选的），之后按 π 走到底",
+     "在 s 永远做 a 的回报",
+     "策略 π 在 s 选 a 的概率",
+     "最优策略在 s 做 a 的回报"
+    ],
+    "a": 0,
+    "why": "「先叛变一步，再归队」。这正是「改进」所需要的全部信息。"
+   },
+   {
+    "q": "为什么第四讲学的是 Q-learning 而不是「V-learning」？",
+    "o": [
+     "V 在大状态空间下存不下",
+     "Q 的方差更小",
+     "从 V 推出动作需要 P 和 R；而从 Q 取动作只要 arg max_a Q(s,a)，不需要模型",
+     "Q 收敛更快"
+    ],
+    "a": 2,
+    "why": "这个差别在这一讲无所谓（你有模型），但没有模型时它就是 Q 存在的唯一理由。"
+   }
+  ],
+  "37": [
+   {
+    "q": "策略改进那一步的「奇怪」之处是？",
+    "o": [
+     "π 可能不唯一",
+     "Q 可能算不出来",
+     "证明的是「只换第一步、之后回老路」，实际却是全程换新策略",
+     "max 可能不存在"
+    ],
+    "a": 2,
+    "why": "老师说这件事应该让你觉得至少有点不清楚才对。p39–41 才补上这个缺口。"
+   },
+   {
+    "q": "策略改进这一步「奇怪」在哪？",
+    "o": [
+     "证明的是「破例一次更好」，要用的却是「每一步都破例更好」",
+     "新策略可能不是确定性的",
+     "Q 的计算需要遍历所有动作",
+     "arg max 可能不唯一"
+    ],
+    "a": 0,
+    "why": "直觉上甚至可以怀疑它是错的：一个每步都偏离原计划的策略，可能把自己带到原计划没考虑过的烂地方——那正是第七讲 εT² 的剧本。"
+   },
+   {
+    "q": "这里每步偏离为什么没有像第七讲那样出事？",
+    "o": [
+     "因为这里的偏离幅度更小",
+     "因为这里的状态空间更小",
+     "因为这里用了折扣因子",
+     "因为你有真实的 P，Q 对任何状态都算得准，不存在「数据没覆盖」"
+    ],
+    "a": 3,
+    "why": "p40 的证明能成立靠的是「已知模型」这个前提，不是靠贪心本身。"
+   }
+  ],
+  "39": [
+   {
+    "q": "「单调改进」是什么意思？",
+    "o": [
+     "平均值更高",
+     "收敛更快",
+     "在每一个状态上都不比旧策略差",
+     "至少一个状态更好"
+    ],
+    "a": 2,
+    "why": "V^{π_{i+1}}(s) ≥ V^{π_i}(s) 对所有 s 成立；π_i 非最优时严格更好。"
+   }
+  ],
+  "40": [
+   {
+    "q": "单调改进证明用的核心技巧是什么？",
+    "o": [
+     "数学归纳法",
+     "构造一个辅助势函数",
+     "把刚证得的不等式对下一个状态再代入一次，层层展开",
+     "反证法"
+    ],
+    "a": 2,
+    "why": "每代一次，就把「按新策略走」的步数往后推一步；代到无穷远时右边就成了 V^{π_{i+1}}。"
+   },
+   {
+    "q": "这个证明里那个 <code>…</code> 掩盖了什么？",
+    "o": [
+     "一步数学归纳",
+     "一次对所有策略的枚举",
+     "一个关于 P 可逆的假设",
+     "一个收敛性论证：无穷次代入后余项要趋于零，而这依赖 γ<1"
+    ],
+    "a": 3,
+    "why": "所以这个证明依赖 γ<1，和 p20 解析解塌掉是同一个原因。有限 horizon 下则没问题：代入次数本来就有限。"
+   }
+  ],
+  "42": [
+   {
+    "q": "策略迭代里，策略一旦不再变化，还可能再变吗？",
+    "o": [
+     "只在有限 horizon 下不可能",
+     "可能，取决于初始化",
+     "可能，如果 γ 很大",
+     "不可能：π 不变 ⇒ Q 不变 ⇒ arg max 不变"
+    ],
+    "a": 3,
+    "why": "所以「策略不变」是个可靠的停止条件，不是启发式。"
+   },
+   {
+    "q": "策略迭代最多跑多少轮？",
+    "o": [
+     "|A|^|S|（策略总数）",
+     "|S|·|A|",
+     "无上界",
+     "|S|²"
+    ],
+    "a": 0,
+    "why": "单调改进保证同一个策略不会出现两次（除非已最优），所以轮数被策略总数卡死。"
+   },
+   {
+    "q": "「策略不变之后就永远不变」怎么证？",
+    "o": [
+     "因为策略空间是有限的",
+     "因为改进是单调的",
+     "π_{i+1}=π_i ⇒ V 相同 ⇒ Q 相同 ⇒ 下一轮 arg max 给出同样的策略",
+     "因为值函数已经收敛"
+    ],
+    "a": 2,
+    "why": "一模一样的输入给出一模一样的输出。这就是 p33 那个停机判据的正确性证明。"
+   }
+  ]
+ }
+}

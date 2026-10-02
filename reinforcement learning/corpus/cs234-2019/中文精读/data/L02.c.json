@@ -1,0 +1,765 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p45 最优备份算子 BV(s) = max_a [R(s,a) + γ Σ_{s'} p(s'|s,a) V(s')]",
+  "p47 策略备份算子 B^π V(s) = R^π(s) + γ Σ_{s'} P^π(s'|s) V(s')；策略评估 = 求 B^π 的不动点",
+  "p50 压缩定义：|OV − OV'| ≤ |V − V'|",
+  "p51 收敛条件：γ < 1，或以概率 1 进入终止状态",
+  "p52 证明用无穷范数 ‖V−V'‖_∞ = max_s |V(s)−V'(s)|；关键一步 Σ_{s'} P(s'|s,a) = 1；课件备注：即使所有不等式取等号，只要 γ<1 仍是压缩",
+  "p55 有限 horizon：V_k = 还能做 k 个决策时的最优值；for k = 1 : H",
+  "p56 原文：Is optimal policy stationary in finite horizon tasks? In general, no",
+  "p58 原问：Which policy evaluation methods require the Markov assumption?（答案见 p17）"
+ ],
+ "notes": [
+  {
+   "r": [
+    44,
+    44
+   ],
+   "t": "换一条路：值迭代",
+   "star": 2,
+   "one": "维护的不是策略，而是「还剩 k 步时的最优值」。",
+   "pts": [
+    "从 1 步算起，再算 2 步、3 步……越算越长。",
+    "<b>和 PI 算的根本不是同一样东西</b>：PI 手里永远有个<span class='k'>完整策略</span>（可能不好）；VI 手里永远是<span class='k'>最优的</span>（但只对 k 步有效）。",
+    "两者最终会收敛到同一处。",
+    "<b>课件给值迭代的那句定性是理解它的钥匙：<em>optimal value if have a finite number of steps k left</em>。</b><span class='k'><code>V_k</code> 不是「第 k 轮的估计」，它是「还剩 k 步时的最优值」</span>——<b>一个有确切含义的量，而不是一个中间产物。</b><span class='w'>这和 p21 的策略评估迭代是同一个解释</span>，<b>区别只在那里是「某个策略下」，这里是「最优」。</b>",
+    "<b>于是值迭代的工作方式可以说得很具体：它在逐步加长你能看多远。</b><span class='k'><code>V_0</code> = 还剩 0 步，什么也拿不到；<code>V_1</code> = 只能做一个决策的最优值；<code>V_2</code> = 能做两个……</span><b>每迭代一轮，就把 horizon 往后推一步。</b><span class='w'>无限 horizon 的最优值就是这个序列的极限</span>——<b>而 γ 的衰减保证了这个极限存在（p52 会证）。</b>",
+    "<b>和策略迭代对比一下，你立刻能看出两者手里拿的不是同一种东西。</b><span class='k'>策略迭代每一轮手里有一个<b>完整的策略</b>，以及它的<b>真实值</b>（无限 horizon 的、精确的）</span>；<span class='k'>值迭代每一轮手里是一个<b>值函数</b>，而它对应的是<b>有限 horizon</b> 的最优值</span>。<b>所以中途停下来时，两者给你的东西性质不同</b>——<span class='w'>策略迭代给你一个可以直接用的策略，值迭代给你一个还需要再取 arg max 的值表</span>。<b>p57 会把这个对比写完整。</b>"
+   ],
+   "quote": "Policy iteration computes optimal value and policy &nbsp;·&nbsp; Value iteration is another technique &nbsp;·&nbsp; <b>Idea: Maintain optimal value of starting in a state s if have a finite number of steps k left in the episode</b> &nbsp;·&nbsp; Iterate to consider longer and longer episodes"
+  },
+  {
+   "r": [
+    45,
+    45
+   ],
+   "t": "贝尔曼方程与备份算子",
+   "star": 3,
+   "one": "把那条约束看成一个<b>算子</b>：吃进一个值函数，吐出一个新的。",
+   "eq": "贝尔曼方程：V^π(s) = R^π(s) + γ Σ P^π(s′|s) V^π(s′)\n\n备份算子：BV(s) = max_a [ R(s,a) + γ Σ p(s′|s,a) V(s′) ]",
+   "pts": [
+    "和策略评估的式子只差一处：<span class='w'>这里多了 max_a</span>。",
+    "视角一换，「迭代算法」就变成了「反复施加同一个算子」——收敛性由此可证。",
+    "<b>把算子这个概念说清楚，后面几页会轻松很多：<code>B</code> 吃进一个值函数，吐出另一个值函数。</b><span class='k'>输入是一张有 <code>|S|</code> 个数的表，输出也是一张有 <code>|S|</code> 个数的表</span>。<b>它不是作用在某个状态上的函数，而是作用在<span class='w'>整张表</span>上的映射。</b><span class='k'>这个视角的好处是：你可以问「反复作用它会怎样」，而那正是 p50–p52 要回答的问题。</span>",
+    "<b>注意这个算子里有 <code>max_a</code>，这是它和 p26 那个策略备份的唯一区别，但这个区别是本质的。</b><span class='w'>策略备份照着策略走，不做选择，所以它收敛到 <code>V^π</code></span>；<span class='k'><code>B</code> 每一步都挑最好的动作，所以它收敛到 <code>V*</code></span>。<b>课件那句 <em>Improves the value if possible</em> 说的就是这个 max</b>——<span class='w'>它保证输出不会比「照某个固定策略走」更差。</span>",
+    "<b>把 <code>B</code> 和贝尔曼最优方程连起来，值迭代的意义就完整了。</b><span class='k'>最优值函数满足 <code>V*(s) = max_a [R(s,a) + γΣ P(s′|s,a) V*(s′)]</code>，也就是 <code>V* = BV*</code></span>——<b><code>V*</code> 是算子 <code>B</code> 的不动点。</b><span class='w'>于是「求最优值」变成了「求一个映射的不动点」</span>，<b>而求不动点有个标准办法：从任意点出发反复作用它。</b><span class='k'>这个办法能成立的条件，就是 <code>B</code> 必须是压缩的——p50 到 p52 在证这件事。</span>"
+   ],
+   "quote": "Bellman backup operator: Applied to a value function &nbsp;·&nbsp; Returns a new value function &nbsp;·&nbsp; <b>Improves the value if possible</b> &nbsp;|&nbsp; <b>BV(s) = max_a [ R(s,a) + γ Σ_{s′∈S} p(s′|s,a) V(s′) ]</b> &nbsp;·&nbsp; BV yields a value function over all states s"
+  },
+  {
+   "r": [
+    46,
+    46
+   ],
+   "t": "值迭代（VI）",
+   "star": 3,
+   "one": "从 0 出发，反复做带 max 的备份。",
+   "eq": "V₀(s) = 0\n循环：V_{k+1}(s) = max_a [ R(s,a) + γ Σ P(s′|s,a) V_k(s′) ]\n等价写法：V_{k+1} = B V_k\nπ_{k+1}(s) = arg max_a [ … ]",
+   "pts": [
+    "为什么初始化成 0 合理：<b>一步都不能走时，值本来就是 0</b>。",
+    "第一次备份给的是「只许走一步的最优动作」，之后每轮把可走步数加一。",
+    "<b>整个值迭代就是一行：<code>V_{k+1} = BV_k</code>，反复作用那个算子。</b><span class='k'>它比策略迭代简单得多——没有内外两层循环，没有「评估到收敛」那一步</span>。<b>可以这样理解它和策略迭代的关系：值迭代是「评估只做一轮就去改进」的策略迭代。</b><span class='w'>策略迭代要把 <code>V^π</code> 算到精确才改进，值迭代做一次备份就改进</span>——<b>于是两步合并成了一步，那个 max 同时完成了评估和改进。</b>",
+    "<b>这个合并带来的代价和收益要分清楚，因为 p57 的对比全在这里。</b><span class='k'>收益：每一轮便宜得多</span>——<b>只做一次 <code>O(|S|²|A|)</code> 的备份，不用解线性方程组。</b><span class='w'>代价：中途的 <code>V_k</code> 不是任何策略的真实值</span>——<b>它是「还剩 k 步」的最优值，而你真正想要的是无限 horizon 的。</b><span class='k'>所以值迭代轮数多，但每轮快。</span>",
+    "<b>还有一件实现上的事值得提：这个更新是同步的还是异步的，效果不同。</b><span class='k'>课件写的是同步——整轮都用 <code>V_k</code>，算完再统一替换成 <code>V_{k+1}</code></span>。<b>实践中常用异步版本（算出一个就立刻写回去，后面的状态用新值）</b>，<span class='w'>它通常收敛更快，而且仍然有收敛保证</span>——<b>代价是结果依赖遍历顺序，不同实现可能走出不同的中间轨迹。</b><span class='k'>终点一样，路径不同。</span>"
+   ],
+   "quote": "Set k = 1 &nbsp;·&nbsp; Initialize V_0(s) = 0 for all states s &nbsp;·&nbsp; Loop until [finite horizon, convergence]: For each state s: <b>V_{k+1}(s) = max_a [ R(s,a) + γ Σ_{s′} P(s′|s,a) V_k(s′) ]</b> &nbsp;·&nbsp; View as Bellman backup on value function: <b>V_{k+1} = B V_k</b>"
+  },
+  {
+   "r": [
+    47,
+    48
+   ],
+   "t": "用算子重述策略迭代",
+   "one": "固定策略的备份算子写作 <code>B^π</code>（没有 max）。",
+   "eq": "B^π V(s) = R^π(s) + γ Σ P^π(s′|s) V(s)\n\n策略评估 = 求 B^π 的不动点：V^π = B^π B^π … B^π V",
+   "pts": [
+    "策略评估＝反复施加 <code>B^π</code> 直到 V 不再变；策略改进＝那一步 arg max。",
+    "两个算法于是有了同一套语言：<b>VI 用 B，PI 用 B^π 加 arg max</b>。",
+    "<b>这两页在做一件很有价值的事：用同一套算子语言，把策略迭代重新讲一遍。</b><span class='k'>于是两个算法可以放在同一个框架里对比，而不是各说各话</span>。<b>关键是定义了第二个算子 <code>B^π</code>——它和 <code>B</code> 长得几乎一样，只是把 <code>max_a</code> 换成了「按 π 走」。</b><span class='w'>一个有 max，一个没有，这就是全部区别。</span>",
+    "<b>用算子语言重述之后，策略迭代的两步变得非常整齐。</b><br><b>评估</b>：<span class='k'>反复作用 <code>B^π</code> 直到不动，也就是求 <code>B^π</code> 的不动点</span>——课件写成 <code>V^π = B^π B^π ⋯ B^π V</code>。<br><b>改进</b>：<span class='k'>对 <code>V^{π_k}</code> 取一次 <code>arg max_a</code></span>，得到新策略。<br><span class='w'>于是策略迭代 = 「把 <code>B^π</code> 作用到底，再做一次 arg max」，循环</span>；<b>而值迭代 = 「把 <code>B</code> 作用到底」，就完了。</b>",
+    "<b>这个重述揭示了一件不容易自己看出来的事：两个算法其实在求同一个不动点，只是路径不同。</b><span class='k'>值迭代直接求 <code>B</code> 的不动点 <code>V*</code></span>；<span class='k'>策略迭代则在一串 <code>B^{π_i}</code> 的不动点之间跳</span>——<b>每个 <code>V^{π_i}</code> 都是某个 <code>B^{π_i}</code> 的不动点，而这一串不动点在往 <code>V*</code> 爬。</b><span class='w'>一个是在一个算子上走到底，一个是在一串算子的终点之间跳</span>。<b>这个几何图像比记两个伪代码有用得多。</b>",
+    "<b>算子语言还有一个好处，值得专门说：它让「收敛」这件事可以用统一的方式讨论。</b><span class='k'>两个算子都是压缩（γ&lt;1 时），所以两者都有唯一不动点，都从任意起点收敛</span>——<b>p50–p52 证一次，两个算法同时受益。</b><span class='w'>如果不用算子语言，你就得对策略评估和值迭代各证一遍，而那两个证明几乎一模一样。</span><b>把共同结构抽出来单独证，是数学写作里最常见的省力手法，也是最值得学的一个。</b>",
+    "<b>顺便厘清一个符号上的坑：<code>B</code> 和 <code>B^π</code> 在很多教材里都写成 <code>T</code> 和 <code>T^π</code>。</b><span class='k'>Sutton &amp; Barto 用的是 <code>T</code>，有些文献还把 <code>B</code> 叫做「最优贝尔曼算子」而把 <code>B^π</code> 叫「贝尔曼算子」</span>。<span class='w'>名字和字母都不统一，但指的是同一对东西</span>——<b>区分它们的唯一可靠办法是看式子里有没有 <code>max_a</code>。</b>"
+   ],
+   "quote": "Bellman backup operator B^π for a particular policy is defined as: <b>B^π V(s) = R^π(s) + γ Σ_{s′∈S} P^π(s′|s) V(s′)</b> &nbsp;·&nbsp; Policy evaluation amounts to computing the fixed point of B^π &nbsp;·&nbsp; To do policy evaluation, repeatedly apply operator until V stops changing: <b>V^π = B^π B^π ··· B^π V</b>",
+   "tbl": {
+    "head": [
+     "",
+     "<code>B^π</code>（策略备份）",
+     "<code>B</code>（最优备份）"
+    ],
+    "rows": [
+     [
+      "式子",
+      "<code>R^π(s) + γΣ P^π(s′|s) V(s′)</code>",
+      "<code>max_a [R(s,a) + γΣ P(s′|s,a) V(s′)]</code>"
+     ],
+     [
+      "有 max 吗",
+      "<span class='w'>没有</span>",
+      "<span class='k'>有</span>"
+     ],
+     [
+      "不动点是",
+      "<code>V^π</code>",
+      "<b><code>V*</code></b>"
+     ],
+     [
+      "谁反复用它",
+      "策略迭代的内循环（评估）",
+      "<b>值迭代（全部）</b>"
+     ],
+     [
+      "是压缩吗",
+      "<span class='k'>是（γ&lt;1）</span>",
+      "<span class='k'>是（γ&lt;1，p52 证）</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    49,
+    49
+   ],
+   "t": "回到值迭代：怎么取出策略",
+   "one": "值迭代本身只算值；策略是<b>最后单独取一次</b>的。",
+   "eq": "V_{k+1} = B V_k\n\n若还能走 k+1 步：π(s) = arg max_a [ R(s,a) + γ Σ P(s′|s,a) V_k(s′) ]",
+   "pts": [
+    "和 PI 的区别又清楚了一层：<b>PI 全程带着策略走，VI 到用的时候才取</b>。",
+    "取策略这一步用的是 <code>arg max</code>，算值那一步用的是 <code>max</code>——同一个式子的两个出口。",
+    "<b>这一页点出了值迭代一个容易被忽略的特点：它全程不维护策略。</b><span class='k'>整个循环里只有值函数在更新，策略是最后才「取出来」的</span>——<b>再做一次 <code>arg max</code> 就行。</b><span class='w'>这和策略迭代形成鲜明对比</span>：<b>那里策略是一等公民，每轮都显式地在更新。</b>",
+    "<b>「取出策略」这一步在实践中有个很实际的含义：它要额外的一遍计算，而且需要模型。</b><span class='k'>因为 <code>arg max_a [R(s,a) + γΣ P(s′|s,a) V(s′)]</code> 里有 <code>P</code> 和 <code>R</code></span>。<b>这一讲里无所谓（模型是给定的），</b><span class='w'>但到第四讲没模型时，这一步就做不了了</span>——<b>于是那里改成直接学 <code>Q</code> 而不是 <code>V</code>，因为从 <code>Q</code> 取策略只要 <code>arg max_a Q(s,a)</code>，不需要模型。</b><span class='k'>Q-learning 这个名字里的 Q，来历就在这里。</span>",
+    "<b>还要注意课件的措辞：<em>optimal policy if can act for k+1 more steps</em>。</b><span class='k'>从 <code>V_{k+1}</code> 取出来的策略，是「还剩 k+1 步」时的最优策略</span>，<b>而不是无限 horizon 的最优策略。</b><span class='w'>两者在 k 很大时会趋于一致（因为 <code>V_k → V*</code>），但不是一回事</span>。<b>这个区别在 p55–p56 处理有限 horizon 时会变成主角。</b>"
+   ],
+   "quote": "Equivalently, in Bellman backup notation: V_{k+1} = B V_k &nbsp;·&nbsp; <b>To extract optimal policy if can act for k + 1 more steps: π(s) = arg max_a [ R(s,a) + γ Σ_{s′} P(s′|s,a) V_{k+1}(s′) ]</b>"
+  },
+  {
+   "r": [
+    50,
+    50
+   ],
+   "t": "压缩算子",
+   "star": 2,
+   "one": "施加之后，两个东西之间的距离不会变大。",
+   "eq": "若 |OV − OV′| ≤ |V − V′|，则 O 是压缩算子",
+   "pts": [
+    "这里的 V 可以是任意两个值函数，<span class='w'>和值迭代没有关系</span>——是算子本身的性质。",
+    "<b>压缩这个概念用一句话就能抓住：作用之后，两个东西之间的距离不会变大。</b><span class='k'>你拿任意两个值函数 <code>V</code> 和 <code>V′</code>，各自作用一次算子，它们的距离不增</span>。<b>直觉上就是「这个映射把空间往里捏」。</b><span class='w'>反复捏下去，所有点都会被挤到同一个地方——那就是不动点。</span>",
+    "<b>但要注意课件这个定义写的是 <code>≤</code>，而真正能保证收敛的是<span class='k'>严格</span>压缩。</b><span class='w'>仅仅「距离不增」还不够</span>——<b>恒等映射也满足「距离不增」，但它什么也不收敛。</b><span class='k'>需要的是 <code>|OV − OV′| ≤ γ|V − V′|</code> 且 <code>γ &lt; 1</code>，也就是距离按固定比例缩小</span>。<b>p52 的证明给出的正是这个带 γ 的版本</b>，<span class='w'>而且课件在证明末尾特意补了一句「即使所有不等式都取等号，只要 γ&lt;1 仍然是压缩」</span>——<b>那句话就是在强调这个 γ。</b>",
+    "<b>压缩映射定理（Banach 不动点定理）保证了三件事，一次性解决所有问题。</b><span class='k'>① 不动点<b>存在</b>；② 不动点<b>唯一</b>；③ 从<b>任意</b>起点反复作用，都会收敛到它，而且是几何速度</span>。<b>这三条正好对应 p51 的三个问题：会收敛吗、收敛到哪、初始化重要吗。</b><span class='w'>所以证明「B 是压缩」这一件事，一口气把全部疑问都回答了</span>——<b>这就是为什么 p52 那一页值得花力气。</b>",
+    "<b>定义里 <em>(any) norm</em> 这个括号值得留意：压缩性是相对于某个范数说的。</b><span class='k'>同一个算子，在一个范数下是压缩，在另一个范数下可能不是</span>。<b>p52 用的是无穷范数 <code>‖V − V′‖_∞ = max_s |V(s) − V′(s)|</code>，</b><span class='w'>也就是「最差的那个状态差多少」</span>——<b>这个选择不是随便的，它正好让 <code>Σ_{s′} P(s′|s,a) = 1</code> 那一步能用上。</b><span class='k'>第五讲里 TD 的收敛性用的是另一个范数（按状态分布加权的 2-范数），而换范数正是那里麻烦的来源之一。</span>"
+   ],
+   "quote": "Let O be an operator, and |x| denote (any) norm of x &nbsp;·&nbsp; <b>If |OV − OV′| ≤ |V − V′|, then O is a contraction operator</b>"
+  },
+  {
+   "r": [
+    51,
+    51
+   ],
+   "t": "值迭代会收敛吗",
+   "star": 3,
+   "one": "会，只要 <code>γ &lt; 1</code>（或以概率 1 进入终止状态）。",
+   "pts": [
+    "理由：<code>γ&lt;1</code> 时贝尔曼备份是<b>压缩算子</b>。",
+    "拿两个任意的值函数各做一次备份，它们之间的距离会缩小。",
+    "压缩 ⇒ <span class='k'>存在唯一不动点</span>，反复施加必然收敛到它。",
+    "<b>这一页给的收敛条件有两个分支，而第二个分支常被忽略，但它对实践更重要。</b><span class='k'>分支一：<code>γ &lt; 1</code></span>——折扣本身提供压缩。<span class='k'>分支二：<code>γ = 1</code> 但<b>以概率 1 进入终止状态</b></span>——<b>此时回报本来就是有限和，不需要折扣来兜底。</b><span class='w'>这正好呼应 p13 那句「片段长度总是有限的话可以用 γ = 1」</span>，<b>而且它是那句话的严格版本：要求的不是「有限」而是「以概率 1 终止」。</b>",
+    "<b>两个分支的差别值得较真，因为它们对应两种不同的实际情形。</b><span class='w'>「总是在 H 步内结束」比「以概率 1 终止」强</span>——<b>后者允许偶尔跑很久，只要不会永远跑下去。</b><span class='k'>比如随机游走回到原点：期望步数有限，但没有上界</span>。<b>这类问题 γ = 1 仍然可用，但分析起来比固定 H 麻烦。</b><span class='w'>如果你的任务有硬性步数上限，那是最舒服的情形——直接用 p55 的有限 horizon 倒推，连收敛都不用讨论。</span>",
+    "<b>把「收敛」这件事的含义说准，因为它容易被误读成「更新越来越小所以停了」。</b><span class='w'>更新变小是<b>结果</b>，不是<b>原因</b></span>。<span class='k'>原因是算子把值函数空间往一个点上压，而压缩率是 γ</span>——<b>所以第 k 轮和真值的距离至多是 <code>γᵏ·(初始距离)</code>，按几何级数衰减。</b><b>先有压缩，才有「更新越来越小」。</b><span class='w'>搞反了的话，你会以为「更新小了就说明准了」，而那是错的</span>——<b>p54 的检验题和 L02 的停机判据问题正是冲着这个来的。</b>"
+   ],
+   "quote": "Will Value Iteration Converge? <b>Yes, if discount factor γ &lt; 1, or end up in a terminal state with probability 1</b> &nbsp;·&nbsp; Bellman backup is a contraction if discount factor γ &lt; 1 &nbsp;·&nbsp; If apply it to two different value functions, distance between value functions shrinks"
+  },
+  {
+   "r": [
+    52,
+    53
+   ],
+   "t": "证明：备份是压缩",
+   "star": 2,
+   "one": "用无穷范数，四步。",
+   "eq": "‖V − V′‖ = max_s |V(s) − V′(s)|   （无穷范数）",
+   "pts": [
+    "① 两个 max 各自取最优，其差被「共用一个 max」放大后的量上界；",
+    "② 奖励项相同，<b>相减抵消</b>；",
+    "③ 把 <code>|V_k(s′) − V_j(s′)|</code> 放大成它的最大值，移出求和；",
+    "④ 剩下的是一个概率分布求和，<span class='k'>等于 1</span>。于是整体 ≤ <code>γ·‖V_k − V_j‖</code>。",
+    "<b>这个证明的主干只有三步，每一步各用掉一个条件，拆开看一点都不难。</b><br><b>第一步</b>：<span class='k'>两个 max 相减，可以被「同一个 a 下两项相减的最大值」控制住</span>。<b>这一步用的是 <code>|max f − max g| ≤ max|f − g|</code>。</b><br><b>第二步</b>：<span class='k'>两项相减时，<code>R(s,a)</code> 消掉了</span>——<b>因为它和值函数无关。</b><span class='w'>于是只剩 <code>γ Σ P(s′|s,a)(V_k(s′) − V_j(s′))</code>。</span><br><b>第三步</b>：<span class='k'>把差值放大成它的最大值 <code>‖V_k − V_j‖_∞</code>，提到求和外面</span>，<b>而剩下的 <code>Σ_{s′} P(s′|s,a) = 1</code>。</b>",
+    "<b>第三步那个「求和等于 1」是整个证明的支点，值得单独说一句。</b><span class='k'>它成立是因为 <code>P(·|s,a)</code> 是一个概率分布</span>——<b>所有可能的下一状态概率加起来必然是 1。</b><span class='w'>如果这里不是 1（比如你用了一个不归一的「权重」），压缩性立刻就没了</span>。<b>第五讲 p43 说「投影可能是扩张」，本质上就是因为那里多了一个投影步骤，而投影不保证这个性质。</b><span class='k'>认清这一条，你就知道函数逼近为什么会破坏收敛。</span>",
+    "<b>课件最后那句备注是整页的点睛之笔：<em>Even if all inequalities are equalities, this is still a contraction if γ &lt; 1</em>。</b><span class='w'>它在回答一个很自然的担心：证明里用了好几个 ≤，会不会放得太松，导致结论其实没意义？</span><span class='k'>答案是不会——哪怕每个不等式都取到等号，你最后得到的仍然是 <code>γ‖V_k − V_j‖</code></span>，<b>而 <code>γ &lt; 1</code> 就是压缩。</b><b>换句话说，压缩性不是从那些放缩里来的，而是从 γ 来的。</b>",
+    "<b>把这个结论和 γ = 1 的情形对照，就知道为什么 γ 是生死线。</b><span class='k'>γ = 1 时，上面的推导给出 <code>‖BV_k − BV_j‖ ≤ ‖V_k − V_j‖</code></span>——<b>距离不增，但不保证缩小。</b><span class='w'>此时不动点可能不唯一（比如所有状态的值同时加一个常数），迭代也可能不收敛</span>。<b>这正是 p51 必须把 γ = 1 单列成一个分支、并额外要求「以概率 1 终止」的原因</b>——<span class='k'>终止性提供了另一种让距离缩小的机制。</span>"
+   ],
+   "tip": {
+    "t": "γ 在这里做了什么",
+    "v": "γ 就是那个收缩比例。<code>γ&lt;1</code> 距离才真的在缩；<code>γ=1</code> 时这个论证给不出收缩，收敛就得另找理由（比如必然终止）。"
+   },
+   "quote": "Let ‖V − V′‖_∞ = max_s |V(s) − V′(s)| be the infinity norm &nbsp;|&nbsp; ‖BV_k − BV_j‖ ≤ max_a |γ Σ_{s′} P(s′|s,a)(V_k(s′) − V_j(s′))| &nbsp;·&nbsp; ≤ γ ‖V_k − V_j‖ max_a Σ_{s′} P(s′|s,a) = <b>γ ‖V_k − V_j‖</b> &nbsp;|&nbsp; <b>Note: Even if all inequalities are equalities, this is still a contraction if γ &lt; 1</b>",
+   "tbl": {
+    "head": [
+     "证明的这一步",
+     "用掉了什么",
+     "如果这一条不成立"
+    ],
+    "rows": [
+     [
+      "<code>|max f − max g| ≤ max|f−g|</code>",
+      "max 的基本性质",
+      "—（这条总是成立）"
+     ],
+     [
+      "<code>R(s,a)</code> 消掉",
+      "奖励与值函数无关",
+      "<span class='w'>奖励依赖 V 时失效</span>"
+     ],
+     [
+      "<code>Σ_{s′} P(s′|s,a) = 1</code>",
+      "<b>P 是概率分布</b>",
+      "<span class='w'>函数逼近的投影不保证这条 → L05 p43</span>"
+     ],
+     [
+      "最后剩下 <code>γ</code>",
+      "<b><code>γ &lt; 1</code></b>",
+      "<span class='w'>γ=1 时只得到「距离不增」，不保证收敛</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    54,
+    54
+   ],
+   "t": "检验题：初始化重要吗",
+   "one": "两道留给你自己想的题。",
+   "pts": [
+    "证明 γ&lt;1 的离散状态动作空间下，值迭代收敛到唯一解。",
+    "值迭代的初始值影响什么？",
+    "<b>第二问的答案是：不影响<span class='k'>终点</span>，影响<span class='w'>到达终点要多久</span>。</b><span class='k'>压缩映射定理保证不动点唯一，而且从任意起点都收敛到它</span>——<b>所以 <code>V_0</code> 取什么都行。</b><span class='w'>但收敛速度是 <code>γᵏ·‖V_0 − V*‖</code></span>，<b>起点离 <code>V*</code> 越近，需要的轮数越少。</b>",
+    "<b>这就给了一个很实用的技巧：如果你对最优值有先验知识，用它初始化能省不少轮。</b><span class='k'>比如你知道奖励都是非负的，那就别从 0 开始，从一个合理的上界开始</span>；<b>或者你刚解过一个相似的 MDP，就拿它的解当起点。</b><span class='w'>这叫热启动，在需要反复解结构相似的 MDP 时能省大量计算</span>——<b>而策略迭代的内循环正好就是这种情形（每轮评估一个和上轮差不多的策略）。</b>",
+    "<b>把这个「初始化不影响结果」的保证和别处对比一下，你会更珍惜它。</b><span class='k'>这一讲：表格 + 已知模型 + γ&lt;1 ⇒ 初始化完全不影响最终答案</span>。<span class='w'>第六讲：深度网络 + 采样 ⇒ 初始化可以决定成败，所以要跑多个种子</span>。<b>中间丢掉的是什么？是压缩性。</b><span class='k'>一旦引入函数逼近，<code>B</code> 之后还要接一个投影，而「压缩 + 投影」未必还是压缩（L05 p43）</span>——<b>唯一性没了，于是你落在哪个解上就真的取决于从哪出发。</b>"
+   ],
+   "tip": {
+    "t": "提示",
+    "v": "上一页已经给了一半答案：压缩算子有<b>唯一</b>不动点。所以只要你算到收敛，初值影响的只是<span class='k'>花多少轮</span>，不是落在哪。但若你是拿 <code>V_k</code> 当「还剩 k 步的最优值」用，那初值就<b>必须</b>是 0。",
+    "w": 1
+   },
+   "quote": "Prove value iteration converges to a unique solution for discrete state and action spaces with γ &lt; 1 &nbsp;·&nbsp; <b>Does the initialization of values in value iteration impact anything?</b>"
+  },
+  {
+   "r": [
+    55,
+    55
+   ],
+   "t": "有限 horizon 的值迭代",
+   "one": "不跑到收敛，而是正好跑 H 轮。",
+   "eq": "V_k = 还能做 k 个决策时的最优值\nπ_k = 还能做 k 个决策时的最优策略\n\nV₀(s)=0；for k = 1 : H  做同样的备份",
+   "pts": [
+    "此时 <code>V_k</code> 的下标有了实在意义：<b>剩几步</b>。",
+    "<b>有限 horizon 的版本和无限 horizon 的值迭代，算法一模一样，只有停的方式不同。</b><span class='k'>无限 horizon：跑到收敛（值不再变）；有限 horizon：正好跑 H 轮，然后停</span>。<b>不需要收敛判据，不需要 ε，也不需要 <code>γ &lt; 1</code>。</b><span class='w'>这是有限 horizon 最舒服的一点：它把「收敛」这个问题整个绕开了</span>。<b>你不是在逼近一个极限，你是在做 H 步精确的倒推。</b>",
+    "<b>这里的 <code>V_k</code> 下标第一次有了字面意义，而且这个意义必须记住：<span class='k'>剩几步</span>。</b><span class='w'>注意它是<b>剩余</b>步数，不是<b>已过</b>步数——方向是倒着的</span>。<b><code>V_1</code> 是「只剩最后一步」时的最优值，<code>V_H</code> 是「刚开始、还剩 H 步」的。</b><span class='k'>所以这个算法是从结尾往开头倒推的，和你直觉上「从头走到尾」正好相反</span>。<b>这是动态规划的标准形态：先解小问题（剩 1 步），再用它解大问题（剩 2 步）。</b>",
+    "<b>策略也带上了下标 <code>π_k</code>，这是这一页和前面最大的区别，而它预告了下一页的结论。</b><span class='k'>无限 horizon 下只有一个 <code>π</code>，这里却有 H 个</span>——<b><code>π_1, π_2, …, π_H</code>，每个对应一个「还剩几步」的情境。</b><span class='w'>这不是算法的冗余，是问题本身就需要这么多</span>。<b>p56 会说明为什么。</b>"
+   ],
+   "quote": "<b>V_k = optimal value if making k more decisions</b> &nbsp;·&nbsp; <b>π_k = optimal policy if making k more decisions</b> &nbsp;·&nbsp; Initialize V_0(s) = 0 for all states s &nbsp;·&nbsp; <b>For k = 1 : H</b> &nbsp;·&nbsp; V_{k+1}(s) = max_a [R(s,a) + γ Σ_{s′} P(s′|s,a) V_k(s′)] &nbsp;·&nbsp; π_{k+1}(s) = arg max_a [...]"
+  },
+  {
+   "r": [
+    56,
+    56
+   ],
+   "t": "有限 horizon 下策略还平稳吗",
+   "star": 2,
+   "one": "<span class='w'>一般不。</span>",
+   "pts": [
+    "p31 说的「平稳」前提是<b>无限 horizon</b>：无论何时，前面都还剩无穷多步。",
+    "只剩 2 步和还剩 200 步，该做的事可以完全不同——所以 <code>π_k</code> 带着下标。",
+    "<b>这一页只有一句话，但它推翻了 p31 的三条性质之一，而且推翻得很彻底。</b><span class='k'>p31 说最优策略是平稳的，前提写在括号里：<em>in an infinite horizon problem</em></span>。<b>有限 horizon 下这个前提没了，结论也就没了。</b><span class='w'>理由在 p31 已经铺好：无限 horizon 下任何时刻你面前都还剩无穷多步，处境相同；有限 horizon 下「还剩 2 步」和「还剩 200 步」是两个完全不同的处境。</span>",
+    "<b>举个能立刻说服人的例子：假设有一条路要走 5 步才能拿到大奖，而原地每步能捡到一点小钱。</b><span class='k'>还剩 10 步时，该去走那条路——时间够，大奖拿得到</span>；<span class='w'>还剩 3 步时，就不该去了——走到一半时间就没了，大奖拿不到，小钱也没捡</span>。<b>同一个状态，同一个模型，最优动作完全相反，差别只在于剩多少步。</b><span class='k'>这就是「不平稳」的全部含义。</span>",
+    "<b>这件事的实践含义很直接：有限 horizon 问题里，你的策略<span class='w'>必须</span>把「还剩几步」当成输入。</b><span class='k'>如果你训了一个只看状态不看剩余步数的策略，它在接近结尾时一定是次优的</span>——<b>它会继续做那些「长期有利但来不及兑现」的事。</b><span class='w'>常见的两种补救：① 把剩余步数直接拼进状态；② 为每个 k 单独存一个策略（也就是 p55 那 H 个 <code>π_k</code>）</span>。<b>前者省空间，后者省查表时间，本质是同一件事。</b>"
+   ],
+   "quote": "<b>Is optimal policy stationary (independent of time step) in finite horizon tasks? In general, no</b>",
+   "tbl": {
+    "head": [
+     "",
+     "无限 horizon",
+     "有限 horizon"
+    ],
+    "rows": [
+     [
+      "最优策略平稳吗",
+      "<span class='k'>平稳</span>",
+      "<span class='w'>一般不平稳</span>"
+     ],
+     [
+      "要存几个策略",
+      "1 个",
+      "<b>H 个（每个剩余步数一个）</b>"
+     ],
+     [
+      "策略的输入",
+      "<code>s</code>",
+      "<b><code>(s, 还剩几步)</code></b>"
+     ],
+     [
+      "怎么停",
+      "跑到收敛",
+      "<span class='k'>正好跑 H 轮</span>"
+     ],
+     [
+      "需要 γ&lt;1 吗",
+      "<span class='w'>需要</span>",
+      "<span class='k'>不需要，γ=1 也行</span>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你的课题是一条硬结论，而且它和一个很自然的设计直觉是冲突的：</b><span class='k'>「每个节点选一档保真度」这种只看节点编号的策略，在有限 horizon 下不是最优的。</span><br><br><b>先把对应关系摆出来。</b><span class='w'>你的 horizon 就是节点数 H，是有限的；节点 h 的「剩余步数」就是 <code>H − h</code>，也就是后面还有几个节点</span>。<b>按 p56，最优策略必须依赖这个量。</b><br><br><b>而在你的问题里，这一点有一个特别具体的形态：剩余<span class='k'>预算</span>。</b><span class='w'>如果你在前几个节点都用了高保真度，成本已经花掉大半，那么后面节点的最优选择就该更省</span>；<b>反过来，如果前面都走的低保真度，后面就有余裕上高档。</b><span class='k'>也就是说，节点 h 的最优动作依赖于「前面花了多少」，而不只是「我是第几个节点」。</b><br><br><b>这给你三条可以立刻用的东西：</b><br><b>① 状态里必须带上累计成本</b>（或剩余预算）。<span class='w'>只用 (节点 id, query 特征) 当状态，就是在做一个结构上就次优的策略类</span>。<br><b>② 这和 p30 科研格那个「<code>k^H</code> 可穷举」有张力，必须一起想。</b><span class='k'>只按节点编号决定，策略数是 <code>k^H</code>，可穷举；一旦依赖累计成本，策略数就按状态数指数增长，穷举立刻失效</span>。<b>所以你的 oracle 表穷举的是「静态配置」，而最优策略可能是「自适应」的——两者不是一回事，这个差距该被量化而不是被忽略。</b><span class='w'>一个干净的做法：把累计成本离散成几档（比如 3 档），策略数变成 <code>k^{H×3}</code>，仍可能可算，而且能直接测出自适应比静态好多少。</span><br><b>③ γ = 1 在这里是对的</b>（<span class='k'>p51 的第二个分支 + p13</span>），<b>而且有限 horizon 的倒推完全绕开了收敛问题——你只要倒着算 H 步。</b>",
+    "ref": "课件 p55–p56 原文 · p31（平稳性的前提）· p13 p51 · 本讲 p30 科研格 · 简报 §4d"
+   }
+  },
+  {
+   "r": [
+    57,
+    57
+   ],
+   "t": "值迭代 vs 策略迭代",
+   "star": 3,
+   "one": "一句话：VI 算「k 步的最优」，PI 算「某个策略的无限 horizon 值」。",
+   "pts": [
+    "<b>值迭代</b>：算 horizon = k 的最优值 → 由它取出 k 步最优策略 → k 加一。",
+    "<b>策略迭代</b>：算某个策略的无限 horizon 值 → 用它挑一个更好的策略。",
+    "PI 这条路<span class='k'>和策略梯度关系很近</span>——后面几讲会接上。",
+    "<b>课件这个对比的角度很准：它比的不是「哪个快」，而是「每一轮手里拿着的是什么」。</b><span class='k'>值迭代手里是「horizon = k 的最优值」——它是最优的，但 horizon 是短的</span>；<span class='k'>策略迭代手里是「某个策略的无限 horizon 值」——horizon 是全的，但策略不是最优的</span>。<b>两者都在逼近 <code>V*</code>，但从不同的方向。</b><span class='w'>一个从「看得近但看得准」往外推，一个从「看得远但看得偏」往上爬。</span>",
+    "<b>这个区别决定了中途停下来时你能得到什么，而这在工程上很要紧。</b><span class='w'>值迭代中途停下，你手里的值不对应任何你会真正执行的策略</span>——<b>它是「只活 k 步」的最优值，而你要活很久。</b><span class='k'>策略迭代中途停下，你手里有一个完整可执行的策略，而且知道它的真实值</span>。<b>所以在「随时可能被叫停」的场合，策略迭代更让人安心</b>——<span class='w'>这类性质叫 anytime，是实用算法的一个重要优点。</span>",
+    "<b>每轮代价的对比也要记一下，因为它解释了为什么两者都活着。</b><span class='k'>策略迭代每轮贵（要把一个策略评估到精确，<code>O(|S|³)</code> 或多轮迭代），但轮数少（通常几轮到几十轮）</span>；<span class='k'>值迭代每轮便宜（一次备份 <code>O(|S|²|A|)</code>），但轮数多</span>。<b>状态少时策略迭代划算，状态多时值迭代划算。</b><span class='w'>还有一类折中叫修正策略迭代：评估时不解到精确，只跑固定几轮</span>——<b>它把两者连成一个连续谱，跑 1 轮就是值迭代，跑到收敛就是策略迭代。</b>",
+    "<b>最后那句 <em>Closely related to a very popular method in RL: policy gradient</em> 是给第八讲埋的线，值得现在就接上。</b><span class='k'>策略迭代的结构是「显式维护一个策略，反复改进它」</span>——<b>而策略梯度做的也是这件事，只不过改进的方式从「取 arg max」换成了「沿梯度走一小步」。</b><span class='w'>为什么要换？因为 arg max 需要模型，而且在连续动作空间上做不了</span>。<b>所以策略梯度可以看成「没有模型、动作连续」情形下的策略迭代。</b>"
+   ],
+   "quote": "<b>Value iteration</b>: Compute optimal value for horizon = k; Note this can be used to compute optimal policy if horizon = k; Increment k &nbsp;|&nbsp; <b>Policy iteration</b>: Compute infinite horizon value of a policy; Use to select another (better) policy; <b>Closely related to a very popular method in RL: policy gradient</b>",
+   "tbl": {
+    "head": [
+     "",
+     "值迭代",
+     "策略迭代"
+    ],
+    "rows": [
+     [
+      "每轮手里是什么",
+      "<b>horizon=k 的最优值</b>",
+      "<b>某个策略的无限 horizon 真值</b>"
+     ],
+     [
+      "中途停下能用吗",
+      "<span class='w'>值不对应你会执行的策略</span>",
+      "<span class='k'>有一个完整可执行的策略</span>"
+     ],
+     [
+      "每轮代价",
+      "<span class='k'>便宜 <code>O(|S|²|A|)</code></span>",
+      "<span class='w'>贵（要评估到精确）</span>"
+     ],
+     [
+      "轮数",
+      "<span class='w'>多</span>",
+      "<span class='k'>少</span>"
+     ],
+     [
+      "停机判据",
+      "<span class='w'>值变化 &lt; ε（ε 不等于误差）</span>",
+      "<span class='k'>策略不变（精确）</span>"
+     ],
+     [
+      "通向哪一讲",
+      "Q-learning（第四讲）",
+      "<b>策略梯度（第八讲）</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    58,
+    58
+   ],
+   "t": "这一讲你该掌握什么",
+   "one": "课件自己给的清单。",
+   "pts": [
+    "能<b>定义</b>：MP、MRP、MDP、贝尔曼算子、压缩、模型、Q 值、策略。",
+    "能<b>实现</b>：值迭代、策略迭代。",
+    "能说清几种策略评估方式的<b>利弊</b>，能证压缩性质。",
+    "知道这些方法和马尔可夫假设的<b>局限</b>：<span class='k'>哪一种评估方式不需要马尔可夫假设？</span>",
+    "<b>最后那个问句是整讲最该带走的一道题，而且它的答案你在 p17 就已经见过了。</b><span class='k'>三种策略评估方法里，只有<b>模拟求平均</b>不需要马尔可夫假设</span>——<b>课件 p17 的原话是 <em>Requires no assumption of Markov structure</em>。</b><span class='w'>解析解和动态规划都建立在贝尔曼方程上，而贝尔曼方程的推导第一步就用了马尔可夫性</span>（<b>p18</b>）。<b>所以答案是：后两种要，第一种不要。</b>",
+    "<b>这个区分值得当成一条通用的判据记住：凡是用了「未来只取决于当前状态」的方法，都吃马尔可夫假设。</b><span class='k'>自举（用 <code>V(s′)</code> 顶替未来）就是在用这一条</span>；<span class='w'>而直接把整条轨迹的回报加起来再平均，从头到尾没用过它</span>。<b>于是「要不要马尔可夫假设」和「要不要自举」几乎是同一个问题。</b><span class='k'>第三讲的 MC vs TD、第五讲的致命三件套，都可以用这条判据去看。</span>",
+    "<b>「能证明压缩性质」这一条也别跳过，因为它是这门课少数几个会反复用到的技术工具。</b><span class='k'>p52 那个三步证明的骨架（消掉奖励项、把差值放大、用概率和为 1）</span>，<b>在你分析任何一个迭代算法时都能套。</b><span class='w'>而第五讲之所以出问题，正是因为那里多了一个投影，打破了「概率和为 1」这一步</span>——<b>你只有先会证它成立，才能看懂它为什么失效。</b>",
+    "<b>最后把这一讲的坐标摆一次，作为收尾。</b><span class='k'>这一讲假设你知道 <code>P</code> 和 <code>R</code>，于是一切都能精确算</span>：<b>评估有三条路，控制有两条路，全都有收敛保证。</b><span class='w'>下一讲把 <code>P</code> 和 <code>R</code> 拿走</span>——<b>解析解和动态规划立刻失效，只剩下「模拟求平均」那条最笨的路，</b><span class='k'>而第三讲的全部工作，就是在没有模型的情况下，把动态规划的「自举」思想重新造出来。</span><b>造出来的东西叫时序差分，而它带来的偏差，会一直纠缠到第五讲的致命三件套。</b>"
+   ],
+   "tip": {
+    "t": "最后那道题的答案在 p17",
+    "v": "<b>模拟</b>。它只是在求平均，压根没用到马尔可夫结构——所以模型错了它也还站得住。"
+   },
+   "quote": "Define MP, MRP, MDP, Bellman operator, contraction, model, Q-value, policy &nbsp;·&nbsp; Be able to implement Value Iteration / Policy Iteration &nbsp;·&nbsp; Give pros and cons of different policy evaluation approaches &nbsp;·&nbsp; Be able to prove contraction properties &nbsp;·&nbsp; <b>Limitations of presented approaches and Markov assumptions: Which policy evaluation methods require the Markov assumption?</b>"
+  },
+  {
+   "r": [
+    59,
+    60
+   ],
+   "t": "附录：重复页",
+   "one": "p59/p60 是 p35 和 p33 的重排，没有新内容。",
+   "pts": [
+    "讲座结束在 p53 附近，后面几页是课件自带的补充。",
+    "<b>这两页是课件末尾的重复页，内容和前面一致，直接跳过即可。</b><span class='w'>讲义里出现重复页通常是因为同一张幻灯片做了分步动画，导出 PDF 时每一步各成一页</span>。<span class='k'>这一讲里 p37–p38、p40–p41、p47–p48 也是同样的情况</span>——<b>我们已经把它们合并成了一条讲解，所以你不会看到同样的内容被讲两遍。</b>"
+   ],
+   "quote": "(附录：与前页重复的内容)"
+  }
+ ],
+ "quiz": {
+  "44": [
+   {
+    "q": "值迭代和策略迭代，手里握着的东西有什么不同？",
+    "o": [
+     "两者一样",
+     "VI 有策略、PI 有值",
+     "VI 不需要模型",
+     "PI 手里永远有个完整策略（可能不好），VI 手里永远是最优的（但只对 k 步有效）"
+    ],
+    "a": 3,
+    "why": "算的根本不是同一样东西，只是最终会收敛到同一处。"
+   }
+  ],
+  "45": [
+   {
+    "q": "贝尔曼<b>备份算子</b> B 和策略评估的式子，差别在哪？",
+    "o": [
+     "B 不用转移模型",
+     "没有差别",
+     "B 多了 <code>max_a</code>",
+     "差一个折扣因子"
+    ],
+    "a": 2,
+    "why": "策略评估照 π 指定的动作走；B 在所有动作里取最好的。"
+   },
+   {
+    "q": "贝尔曼备份算子 <code>B</code> 作用的对象是什么？",
+    "o": [
+     "整张值函数表（输入一张 |S| 个数的表，输出另一张）",
+     "一条轨迹",
+     "一个状态",
+     "一个策略"
+    ],
+    "a": 0,
+    "why": "这个视角的好处是：你可以问「反复作用它会怎样」，而那正是 p50–p52 回答的问题。"
+   },
+   {
+    "q": "<code>V*</code> 和算子 <code>B</code> 是什么关系？",
+    "o": [
+     "<code>V*</code> 是 B 的最大特征值",
+     "<code>V*</code> 是 B 作用 |S| 次的结果",
+     "两者无关",
+     "<code>V*</code> 是 B 的不动点，即 <code>V* = BV*</code>"
+    ],
+    "a": 3,
+    "why": "于是「求最优值」变成「求一个映射的不动点」，而求不动点的标准办法就是从任意点反复作用它。"
+   }
+  ],
+  "46": [
+   {
+    "q": "值迭代把 <code>V₀</code> 初始化成 0，最自然的理由是？",
+    "o": [
+     "0 计算方便",
+     "一步都不能走时，值本来就是 0",
+     "习惯而已",
+     "0 是下界"
+    ],
+    "a": 1,
+    "why": "V_k 的含义是「还剩 k 步的最优值」，k=0 自然是 0。这也是 p54 那道题的关键。"
+   }
+  ],
+  "49": [
+   {
+    "q": "值迭代里，策略是什么时候产生的？",
+    "o": [
+     "不需要策略",
+     "值迭代只算值，策略是最后用 arg max 单独取一次",
+     "每一轮都在更新策略",
+     "一开始就固定了"
+    ],
+    "a": 1,
+    "why": "算值用 <code>max</code>，取策略用 <code>arg max</code>——同一个式子的两个出口。这正是和 PI 的分水岭。"
+   }
+  ],
+  "50": [
+   {
+    "q": "「压缩算子」说的是？",
+    "o": [
+     "施加之后两个东西之间的距离不会变大",
+     "把值函数缩小",
+     "让 γ 变小",
+     "减少状态数"
+    ],
+    "a": 0,
+    "why": "注意这里的两个 V 是任意的，和值迭代本身无关——是算子自己的性质。"
+   },
+   {
+    "q": "仅有「距离不增」为什么不够？",
+    "o": [
+     "因为需要先证不动点存在",
+     "恒等映射也满足「距离不增」，但它什么都不收敛；需要按固定比例 γ<1 缩小",
+     "因为值函数空间不完备",
+     "因为范数可能不存在"
+    ],
+    "a": 1,
+    "why": "所以课件在 p52 末尾特意补了「即使所有不等式取等号，只要 γ<1 仍是压缩」——强调的正是这个 γ。"
+   },
+   {
+    "q": "压缩映射定理一口气给了哪三件事？",
+    "o": [
+     "存在、有界、单调",
+     "收敛、无偏、相合",
+     "存在、唯一、从任意起点都收敛（且是几何速度）",
+     "唯一、线性、可微"
+    ],
+    "a": 2,
+    "why": "正好对应 p51 的三个问题：会收敛吗、收敛到哪、初始化重要吗。所以证明「B 是压缩」一次性解决全部疑问。"
+   }
+  ],
+  "51": [
+   {
+    "q": "值迭代收敛，根本依据是？",
+    "o": [
+     "奖励有界",
+     "状态有限",
+     "V₀ 初始化成 0",
+     "γ<1 时贝尔曼备份是压缩算子，而压缩算子有唯一不动点"
+    ],
+    "a": 3,
+    "why": "压缩 ⇒ 距离逐轮缩小 ⇒ 必然收敛到那个唯一的不动点。"
+   },
+   {
+    "q": "值迭代的收敛条件有两个分支，第二个是什么？",
+    "o": [
+     "γ=1 但以概率 1 进入终止状态",
+     "状态空间有限",
+     "奖励有界",
+     "初始值取 0"
+    ],
+    "a": 0,
+    "why": "这正好呼应 p13 那句「片段长度总是有限的话可以用 γ=1」，而且是它的严格版本。"
+   },
+   {
+    "q": "「更新越来越小」和「收敛」是什么关系？",
+    "o": [
+     "更新变小是结果，压缩才是原因；先有压缩才有更新变小",
+     "两者无关",
+     "两者等价",
+     "更新变小是原因，收敛是结果"
+    ],
+    "a": 0,
+    "why": "搞反了的话，你会以为「更新小了就说明准了」，而那是错的——ε 不是误差。"
+   }
+  ],
+  "52": [
+   {
+    "q": "压缩性证明的最后一步，「概率分布求和等于 1」这件事起了什么作用？",
+    "o": [
+     "保证 P 可逆",
+     "保证 V 有界",
+     "让式子变简洁",
+     "把求和整个消掉，只留下系数 γ"
+    ],
+    "a": 3,
+    "why": "于是 ‖BV_k − BV_j‖ ≤ γ·‖V_k − V_j‖。<b>γ 就是那个收缩比例。</b>"
+   },
+   {
+    "q": "压缩性证明里最关键的那一步用到了什么？",
+    "o": [
+     "V 有界",
+     "<code>Σ_{s′} P(s′|s,a) = 1</code>，因为 P 是概率分布",
+     "P 是对称的",
+     "R 非负"
+    ],
+    "a": 1,
+    "why": "第五讲说「投影可能是扩张」，本质上就是因为那里多了一个投影步骤，而投影不保证这个性质。"
+   },
+   {
+    "q": "证明用的是哪个范数，为什么？",
+    "o": [
+     "2-范数，因为可微",
+     "无穷范数（最差的那个状态差多少），因为它正好能用上「概率和为 1」那一步",
+     "加权 2-范数，按状态分布加权",
+     "1-范数，因为要求每个状态都匹配"
+    ],
+    "a": 1,
+    "why": "压缩性是相对于某个范数说的。第五讲 TD 用的是加权 2-范数，而换范数正是那里麻烦的来源之一。"
+   }
+  ],
+  "54": [
+   {
+    "q": "值迭代的初始值影响什么？",
+    "o": [
+     "完全没有影响",
+     "影响收敛到哪个解",
+     "影响是否收敛",
+     "只影响要跑多少轮；但若要拿 V_k 当「剩 k 步的最优值」用，初值必须是 0"
+    ],
+    "a": 3,
+    "why": "压缩算子的不动点唯一，所以落点不变。但 V_k 的「剩 k 步」这层含义是靠 V₀=0 撑起来的。"
+   },
+   {
+    "q": "值迭代的初始化影响什么？",
+    "o": [
+     "什么都不影响",
+     "只影响终点，不影响速度",
+     "既影响终点也影响速度",
+     "不影响终点（不动点唯一），只影响到达终点要多少轮"
+    ],
+    "a": 3,
+    "why": "收敛速度是 γᵏ·‖V_0 − V*‖，所以起点越近越省轮数。这给出了「热启动」这个实用技巧。"
+   },
+   {
+    "q": "为什么第六讲的深度 RL 要跑多个种子，而这一讲不用？",
+    "o": [
+     "函数逼近引入投影后不再保证压缩，唯一性没了，落在哪个解上就取决于从哪出发",
+     "因为深度网络参数多",
+     "因为深度 RL 用的是随机梯度下降",
+     "因为 Atari 的状态空间大"
+    ],
+    "a": 0,
+    "why": "中间丢掉的正是压缩性。这一讲有压缩，所以初始化完全不影响最终答案。"
+   }
+  ],
+  "55": [
+   {
+    "q": "有限 horizon 的值迭代和无限 horizon 版本，差别在哪？",
+    "o": [
+     "前者需要 γ<1，后者不需要",
+     "前者作用于 Q，后者作用于 V",
+     "算法一样，只有停的方式不同：一个跑到收敛，一个正好跑 H 轮",
+     "备份公式不同"
+    ],
+    "a": 2,
+    "why": "有限 horizon 不需要收敛判据、不需要 ε、也不需要 γ<1。你不是在逼近极限，是在做 H 步精确倒推。"
+   },
+   {
+    "q": "<code>V_k</code> 的下标在有限 horizon 下指什么？",
+    "o": [
+     "第几个状态",
+     "已经走了几步",
+     "剩几步（倒着数的）",
+     "第几轮迭代"
+    ],
+    "a": 2,
+    "why": "所以这个算法是从结尾往开头倒推的，和「从头走到尾」的直觉正好相反。"
+   }
+  ],
+  "56": [
+   {
+    "q": "有限 horizon 下，最优策略还平稳吗？",
+    "o": [
+     "取决于状态数",
+     "一般不平稳——只剩 2 步和还剩 200 步该做的事可以完全不同",
+     "还平稳",
+     "取决于 γ"
+    ],
+    "a": 1,
+    "why": "p31 的「平稳」前提是无限 horizon：无论何时前面都还剩无穷多步。所以 π_k 带着下标。"
+   },
+   {
+    "q": "有限 horizon 下最优策略为什么一般不平稳？",
+    "o": [
+     "因为 γ 必须等于 1",
+     "因为奖励会随时间衰减",
+     "「还剩 2 步」和「还剩 200 步」是完全不同的处境，该做的事可以相反",
+     "因为状态空间会随时间变化"
+    ],
+    "a": 2,
+    "why": "p31 那条平稳性的前提写在括号里：in an infinite horizon problem。前提没了，结论也没了。"
+   },
+   {
+    "q": "有限 horizon 下策略该怎么存？",
+    "o": [
+     "只存一个策略即可",
+     "必须存成随机策略",
+     "把剩余步数拼进状态，或为每个 k 单独存一个策略",
+     "存一张 Q 表就够"
+    ],
+    "a": 2,
+    "why": "前者省空间，后者省查表时间，本质是同一件事。只看状态不看剩余步数的策略，在接近结尾时一定次优。"
+   }
+  ],
+  "57": [
+   {
+    "q": "一句话区分 VI 和 PI：",
+    "o": [
+     "VI 算「k 步的最优值」，PI 算「某个策略的无限 horizon 值」",
+     "两者等价",
+     "VI 快、PI 慢",
+     "VI 要模型、PI 不要"
+    ],
+    "a": 0,
+    "why": "PI 这条路和策略梯度关系很近，后面几讲会接上。"
+   },
+   {
+    "q": "值迭代和策略迭代中途停下来，手里拿的东西有什么不同？",
+    "o": [
+     "值迭代的值不对应任何你会执行的策略；策略迭代有一个完整可执行的策略及其真值",
+     "值迭代有策略，策略迭代只有值",
+     "两者都有一个可执行的策略",
+     "两者都只有值函数"
+    ],
+    "a": 0,
+    "why": "所以在「随时可能被叫停」的场合策略迭代更让人安心——这类性质叫 anytime。"
+   },
+   {
+    "q": "两者的代价结构有什么差别？",
+    "o": [
+     "值迭代每轮便宜但轮数多，策略迭代每轮贵但轮数少",
+     "两者每轮代价相同",
+     "两者的总代价总是相同",
+     "值迭代每轮贵轮数少，策略迭代每轮便宜轮数多"
+    ],
+    "a": 0,
+    "why": "状态少时策略迭代划算，状态多时值迭代划算。折中做法叫修正策略迭代，把两者连成一个连续谱。"
+   },
+   {
+    "q": "课件说策略迭代和哪个后续方法密切相关？",
+    "o": [
+     "策略梯度",
+     "经验回放",
+     "Q-learning",
+     "蒙特卡洛树搜索"
+    ],
+    "a": 0,
+    "why": "两者都是「显式维护一个策略，反复改进它」，只是改进方式从取 arg max 换成了沿梯度走一小步——因为 arg max 需要模型，且连续动作下做不了。"
+   }
+  ],
+  "58": [
+   {
+    "q": "课件最后问「哪一种策略评估方式不需要马尔可夫假设」，答案是？",
+    "o": [
+     "动态规划",
+     "三种都需要",
+     "模拟",
+     "解析解"
+    ],
+    "a": 2,
+    "why": "见 p17。模拟只是在求平均，所以模型错了它也还站得住——代价是浪费了马尔可夫结构。"
+   },
+   {
+    "q": "课件最后那个问题「哪些策略评估方法需要马尔可夫假设」，答案是？",
+    "o": [
+     "只有动态规划需要",
+     "只有模拟求平均不需要；解析解和动态规划都建立在贝尔曼方程上",
+     "三种都不需要",
+     "三种都需要"
+    ],
+    "a": 1,
+    "why": "贝尔曼方程的推导第一步就用了马尔可夫性（p18）。「要不要马尔可夫假设」和「要不要自举」几乎是同一个问题。"
+   }
+  ]
+ }
+}
