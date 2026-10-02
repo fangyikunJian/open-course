@@ -1,0 +1,89 @@
+{
+ "title": "L08 接上课题的哪一段：一条假设负担比 FQE 轻得多的备选路线",
+ "arc": "<b>这一讲给了你一条和现方案完全不同的技术路线，而且它的假设比 FQE 干净得多——值得认真评估一次，而不是因为「我们已经选了 FQE」就跳过。</b><br><br><b>关键在 p40–p41 那一行：<em>no dynamics model required!</em></b><span class='k'>轨迹概率拆成「初始分布 × 转移 × 策略」的连乘，取 log 变连加，前两项不含 θ，求导直接归零</span>。<b>转移模型不是被近似掉的，是被<span class='w'>精确地消掉</span>的。</b><span class='w'>于是你一直纠结的「工作流的转移模型准不准」在这条路上根本不用问。</span><br><br><b>把两条路的假设摆在一起比，差别相当明显。</b><br><b>FQE</b>：<span class='w'>要自举（吃马尔可夫假设）、是 off-policy、配函数逼近——致命三件套三条腿全占（L05 p38）</span>。<span class='k'>换来的是能用现成日志，样本效率高。</span><br><b>REINFORCE 式的策略梯度</b>：<span class='k'>不要模型、不自举、假设只有「策略可微」这一条，而那是关于你自己代码的要求，不是关于世界的假设</span>。<span class='w'>换来的代价是 on-policy——采一批用一次就扔。</span><br><br><b>而 on-policy 这个代价，对你恰好比对别人轻。</b><span class='k'>L07 p33 已经论证过同一件事：你的「重新采样」是一次 API 调用，不是一次人类标注</span>。<b>机器人领域因为 on-policy 太贵而不得不想办法复用数据，你没有这个约束。</b><span class='w'>这是你该主动利用、而不是跟着别人一起回避的一个领域差异。</span><br><br><b>这一讲还顺手解决了另外两件事。</b><br><b>① 你的随机化决策节点（§4c）有了第二个、更强的理由。</b><span class='k'>p10–p12 说：状态混叠时，随机策略严格优于确定性策略</span>。<b>而如果你的策略只看节点编号，那么难题和简单题在同一节点上就是混叠的——最优保真度不同，特征却相同。</b><span class='w'>于是随机化不只是采数据的代价，它本身就可能是更优的策略形态。</span><b>但课件也明说了治本的办法是修表示（把 query 特征放进状态），随机化只是补救。</b><br><b>② p53–p56 的基线给了你一条可以照搬的降方差判据</b>，<span class='k'>而你手上恰好有两个现成的基线材料：可准确预测的成本，和 query 自身的难度</span>（<b>详见 p55 的科研格</b>）。",
+ "pitfalls": [
+  {
+   "v": "<b>把基线做成依赖决策的量。</b> p55 的证明里，唯一的实质性假设是<span class='k'>「基线不依赖动作」</span>——第②步要把 <code>b(s_t)</code> 提到对动作的期望外面。<span class='w'>一旦 b 含了决策信息，证明垮掉，估计量变成有偏的，而且不会报错</span>。<b>具体到你：「这道题的平均正确率」要在所有配置上平均；「成本的预测值」要用决策前就知道的量（输入长度），不能用实际跑出来的 token 数。</b>",
+   "tag": "已核",
+   "ref": "课件 p53（for any choice of b(s)）· p55–p56 证明第②步"
+  },
+  {
+   "v": "<b>照抄代码库默认的 <code>γ = 0.99</code>，然后在这一讲里继续用。</b> <span class='k'>L02 p13 已经定过：你的片段必然结束，γ 该是 1</span>。<b>策略梯度里这件事同样成立，而且后果更直接</b>——<span class='w'>折扣会让 <code>G_t</code> 低估结尾的奖励，而你的终局奖励全在最后一个节点</span>。",
+   "tag": "推断",
+   "ref": "L02 p13 p51 · 本讲 p47 p59"
+  },
+  {
+   "v": "<b>以为「策略梯度不要模型」等于「环境多复杂都不要紧」。</b> <span class='k'>消掉的是「需要知道 <code>P</code> 的显式形式」，不是「<code>P</code> 带来的难度」</span>。<span class='w'>环境越随机，你的梯度估计方差越大，需要的样本越多</span>。<b>而 LLM 的输出随机性正是你这里的主要噪声源，它会实打实地体现在采样预算上。</b>",
+   "tag": "推断",
+   "ref": "课件 p40–p41 · 本讲 p46"
+  },
+  {
+   "v": "<b>拿「随机策略在混叠下更优」当成随机化的充分理由。</b> <span class='w'>这个论证成立的前提是<b>确实存在混叠</b></span>。<span class='k'>老师回答学生时明说：更好的是维持信念状态然后确定性地走，随机化只是不会卡死</span>。<b>如果你把 query 特征放进了状态、混叠被消除了，随机化就只剩采数据那一个理由，而且会轻微损害表现。</b><span class='w'>这两件事必须绑在一起说，不能单独拿出来用。</span>",
+   "tag": "已核",
+   "ref": "课件 p10–p12 老师问答"
+  },
+  {
+   "v": "<b>在实现里忘了 detach 优势项。</b> <span class='k'><code>R(τ)</code> 和 <code>Â_t</code> 虽然是算出来的，但在数学上和 θ 无关（p32）</span>。<b>自动微分框架不会替你判断这件事，让梯度流进去会多出一堆不该有的项，而且不报错。</b><span class='w'>这是写策略梯度最常见的 bug，表现是「训着训着就崩了」而查不出原因。</span>",
+   "tag": "已核",
+   "ref": "课件 p57–p58（surrogate loss）· 本讲 p42"
+  },
+  {
+   "v": "<b>把这一讲当成「比基于值更先进」。</b> p8 那张表是实打实的取舍：<span class='w'>策略梯度的样本效率明显不如能用回放池的基于值方法</span>。<span class='k'>它赢的场合很明确：连续动作、需要随机策略、策略本身比值函数简单</span>。<b>你的动作是离散的几档保真度，所以第一条对你不成立；该不该用，要靠另外两条和「on-policy 对你便宜」来论证。</b>",
+   "tag": "推断",
+   "ref": "课件 p8 · L07 p33 科研格"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你们的转移模型是怎么建的？不准的话结论还成立吗？",
+   "a": "<b>如果走策略梯度这条路，我们根本不需要转移模型。</b><span class='k'>轨迹概率拆开后，初始分布项和转移项都不含策略参数，求导直接归零</span>（CS234 L08 p40–p41，课件原话是 <em>no dynamics model required!</em>）。<b>这不是近似，是恒等式。</b><span class='w'>环境的随机性只体现在「我们采到什么样本」上，会影响方差，不会影响正确性。</span>",
+   "tag": "已核",
+   "ref": "课件 p40–p41 原文"
+  },
+  {
+   "q": "既然 FQE 可能发散，为什么不干脆换一条路？",
+   "a": "<b>这正是我们评估过的另一条路。</b><span class='k'>REINFORCE 式的策略梯度不自举、不要模型，于是致命三件套里的第二条腿自动不成立</span>。<span class='w'>它的代价是 on-policy——采一批数据用一次就作废</span>；<b>而这个代价对我们比对机器人领域轻得多，因为我们重新采样只是一次 API 调用。</b><b>两条路的取舍是「样本效率 vs 假设负担」，我们报告了两者的对比。</b>",
+   "tag": "推断",
+   "ref": "课件 p8 p40 · L05 p38 · L07 p33 科研格"
+  },
+  {
+   "q": "你们为什么要在决策节点上随机化？这不是损害性能吗？",
+   "a": "<b>不一定，而且有两个独立的理由。</b><span class='k'>第一是采数据：随机化提升有效样本量、让日志覆盖多种配置</span>。<span class='k'>第二、也是更强的：如果策略只看节点位置，那么难度不同的 query 在同一节点上是<b>混叠</b>的——特征相同而最优动作不同</span>。<b>课件证明了混叠下随机策略严格优于确定性策略（L08 p10–p12）。</b><span class='w'>我们同时报告了治本的做法：把 query 特征放进状态以消除混叠。</span>",
+   "tag": "推断",
+   "ref": "课件 p10–p12 · 简报 §4c"
+  },
+  {
+   "q": "你们的方差这么大，结论可信吗？",
+   "a": "<b>我们用的是课件 p53–p59 那套标准降方差手段，而且它们都不引入偏差。</b><span class='k'>基线只要不依赖决策就一定不改变期望（p55 有完整证明）</span>，<b>而我们有两个很强的基线材料：成本在给定输入长度后近乎可预测，以及每道 query 自身的难度基线。</b><span class='w'>后者尤其关键——不同 query 的正确率差异和我们选哪套配置完全无关，纯属噪声。</span><b>减掉它之后，剩下的才是配置带来的差异。</b>",
+   "tag": "推断",
+   "ref": "课件 p53–p56 · 本讲 p55 科研格 · L02 p17 科研格"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Williams — Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning (REINFORCE)",
+   "id": "Machine Learning 1992",
+   "why": "p49 那个算法的原始出处。<b>你要引它来说明「不自举的策略梯度估计是无偏的」</b>——<span class='k'>这正是它相对 FQE 在假设上的优势所在</span>，而课件只给了算法没给这个论证。"
+  },
+  {
+   "t": "Sutton, McAllester, Singh &amp; Mansour — Policy Gradient Methods for Reinforcement Learning with Function Approximation",
+   "id": "NIPS 2000",
+   "why": "p44 那个策略梯度定理的出处。<b>关键是它处理了「带函数逼近」的情形</b>——<span class='k'>而这恰好是 L05 里基于值方法翻车的地方</span>。<span class='w'>两相对照，正好说明为什么策略梯度在函数逼近下的处境好得多。</span>"
+  },
+  {
+   "t": "Kohl &amp; Stone — Policy Gradient Reinforcement Learning for Fast Quadrupedal Locomotion",
+   "id": "ICRA 2004",
+   "why": "p25–p29 那个 AIBO 实验。<b>它的预算结构和你的高度相似</b>（评估贵、参数少、结果带噪声），<span class='k'>特别是「每个配置重复评估 3 次取平均」这个设计</span>——你可以直接引它来支撑自己的重复采样方案。"
+  },
+  {
+   "t": "Schulman, Moritz, Levine, Jordan &amp; Abbeel — High-Dimensional Continuous Control Using Generalized Advantage Estimation (GAE)",
+   "id": "ICLR 2016",
+   "why": "p59–p60 的 n 步估计讲到一半就停了，<b>GAE 是它的完整版本</b>：把所有 n 按几何权重混起来，用一个参数 λ 连续地在偏差和方差之间滑动。<span class='k'>这是今天几乎所有策略梯度实现的默认组件</span>，真要动手就得读它。"
+  },
+  {
+   "t": "Sutton &amp; Barto — Reinforcement Learning: An Introduction, 第 13 章",
+   "id": "2018, 2nd ed.",
+   "why": "课件自己在 p1 指定的补充阅读。<b>它对基线和因果性给的推导比课件完整</b>，<span class='k'>而且专门讨论了「最优基线」的确切形式</span>（按 <code>‖∇log π‖²</code> 加权的期望回报，不是纯期望回报）——本讲 p53 只说了「近似是期望回报」。"
+  }
+ ]
+}
