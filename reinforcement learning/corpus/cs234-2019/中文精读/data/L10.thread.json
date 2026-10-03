@@ -1,0 +1,89 @@
+{
+ "title": "L10 接上课题的哪一段：一张「部署前的证书」该长什么样，以及它为什么常常开不出来",
+ "arc": "<b>这一讲把「在不真跑新策略的前提下判断它是不是更好」这件事走完了一遍，而最有价值的不是结论，是它<span class='k'>诚实地暴露了这条路在哪里断掉</span>。</b><br><br><b>推导本身很漂亮：硬换分布 → 下界 → 优化下界就保证单调改进。</b><span class='w'>但那个下界里的常数 <code>C = 4εγ/(1−γ)²</code> 有两个毛病</span>：<span class='k'>① ε 要对所有状态动作取优势的最大值，实践中算不出来（老师当堂承认「这部分是形式上的保证」）；② 就算能算，γ=0.99 时 <code>C = 39600ε</code>，按它选步长基本等于不动</span>。<b>于是落地时它退化成了「一个要调的超参 δ」。</b><br><br><b>这个模式你会在自己的工作里反复碰到，而且它正好描述了 §8 的处境。</b><span class='k'>conformal risk control 给你的也是「真实风险 ≤ 经验风险 + 一个项」</span>——<b>区别在于：conformal 的那个项通常<b>能</b>算，而这里的 ε 不能。</b><span class='w'>所以你现在这条技术路线比这一讲的下界务实</span>，<b>这是一个支持你当前选择的理由，值得在 related work 里点一句。</b><br><br><b>而这一讲真正能搬走的是两样东西。</b><br><b>① 那个「一等一不等」的结构（p16）。</b><span class='k'>旧策略的下界<b>等于</b>它的真值，新策略的只是一个<b>下界</b>——两者相减才有「保证不变差」</span>。<b>而你天然有那个等号的一端：日志里的配置跑过，你有它真实的 Acc 和 Cost。</b><span class='w'>缺的只是另一端——把 FQE 的点估计换成一个带置信下界的区间，你就得到了同样结构的「部署前的证书」</span>。<br><b>② 第①次替换暴露的那个更硬的问题（p22）。</b><span class='k'>代理目标只在<b>日志覆盖到的状态</b>上有意义</span>——<b>而这一条<span class='w'>没有</span>任何下界定理兜底</b>，和「分布权重偏了」不是一个量级的问题。<span class='w'>详见 p22 的科研格。</span>",
+ "pitfalls": [
+  {
+   "v": "<b>把「分布权重偏了」和「支撑集没覆盖」当成同一件事。</b> 它们的严重程度差一个量级：<span class='k'>前者有下界定理兜底，错多少由新旧策略的 KL 控制</span>；<span class='w'>后者<b>没有</b>任何定理兜底——下界定理假设你能在 <code>μ_old</code> 上精确求期望，它没说支撑集之外会怎样</span>。<b>所以你该报告两个量：KL 距离（权重偏得多厉害）和覆盖率（有没有依据）。</b><span class='k'>第二个更重要。</span>",
+   "tag": "推断",
+   "ref": "课件 p22 第①次替换 · p12 · 本讲 p22 科研格"
+  },
+  {
+   "v": "<b>把 TRPO 的「单调改进」当成真的保证。</b> 课件做了两处放松：<span class='w'>用你调的 δ 代替理论的 C；用平均 KL 代替最大 KL</span>。<span class='k'>两处之后，定理的前提都不满足了</span>——<b>它的实际地位是「受理论启发的启发式」。</b><span class='w'>课件 p31 用的词是 <em>empirically consistently does well</em>。</span>",
+   "tag": "已核",
+   "ref": "课件 p20 两处放松 · p31 小结"
+  },
+  {
+   "v": "<b>照抄板上那个 <code>D_TV</code> 的写法。</b> <span class='w'>板上写的是 <code>max_a |p−q|</code>，那是 L∞，不是全变差（全变差是 <code>½ Σ_a |p−q|</code>）</span>。<span class='k'>两者只在动作恰好两个时相等</span>；<b>而且 <code>L∞ ≤ D_TV</code>，所以用它算惩罚会<b>低估</b>，按那个写法得到的不等式不成立。</b><span class='w'>四动作反例：(0.4,0.4,0.1,0.1) vs (0.1,0.1,0.4,0.4) ⇒ 0.6 vs 0.3。</span>",
+   "tag": "已核",
+   "ref": "课件 p14 · 全变差与 L∞ 的定义"
+  },
+  {
+   "v": "<b>以为 Pinsker 那一步也写错了所以界不成立。</b> <span class='k'>课件写的 <code>D_TV² ≤ D_KL</code> 确实漏了 ½（标准形式是 <code>≤ ½ D_KL</code>），但方向是安全的</span>——<b>因为 <code>½D_KL ≤ D_KL</code>，所以课件那个更弱的不等式仍然成立，界也仍然成立。</b><span class='w'>代价只是松了一倍：用正确的 Pinsker，惩罚系数可以减半。</span><b>这一处和上一处性质不同，别混为一谈。</b>",
+   "tag": "已核",
+   "ref": "课件 p14 · Pinsker 不等式"
+  },
+  {
+   "v": "<b>把 <code>V^{π_{i+1}} = M_i(π_{i+1})</code> 记成等号。</b> <span class='k'>应该是 <code>≥</code></span>——<span class='w'>实录里先说成了 <em>equal to</em>，随后在真正推导时说的是 <em>greater than or equal to</em></span>。<b>只有 <code>V^{π_i} = M_i(π_i)</code> 才是等号。</b><span class='k'>两式一等一不等，相减才得到有用的结论；都是等号的话整件事就平凡了。</span>",
+   "tag": "已核",
+   "ref": "课件 p16–p18 · L10 实录"
+  },
+  {
+   "v": "<b>把「步长问题」和「方差问题」的药搞混。</b> <span class='k'>曲线<b>突然崩塌</b>（断崖而非缓降）⇒ 步长问题，信赖域类方法有帮助</span>；<span class='w'>曲线只是噪声大、涨得慢 ⇒ 方差问题，该去动模板第 3 行（加基线、用 GAE、增大批量），信赖域帮不上忙</span>。<b>两种病的表现不同，先分清再下手。</b>",
+   "tag": "推断",
+   "ref": "课件 p31 · 模板 p34 · L09 p15"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你们凭什么说新配置部署前就是安全的？",
+   "a": "<b>我们不说「安全」，我们给的是一个下界。</b><span class='k'>结构和 CS234 L10 那套一样：旧配置的估值<b>等于</b>它的真值（它跑过，我们有真实的 Acc 和 Cost），新配置给的是一个<b>置信下界</b></span>——<b>两者相减才构成「至少不更差」的证据。</b><span class='w'>而这个下界只在日志覆盖到的状态上有依据</span>，<b>所以我们同时报告覆盖率，覆盖率低的候选一律标为需要实跑验证。</b>",
+   "tag": "推断",
+   "ref": "课件 p16 p22 · 本讲 p22 科研格 · 简报 §4d"
+  },
+  {
+   "q": "为什么不直接用 TRPO 那套理论给的保证？",
+   "a": "<b>因为那个保证在落地时会退化。</b><span class='k'>下界里的常数要对所有状态动作取优势的最大值，实践中算不出来——课件作者自己在课上承认「这部分是形式上的保证」</span>；<span class='w'>而且即使能算，γ=0.99 时那个系数是 39600ε，按它选步长等于不动</span>。<b>相比之下，conformal 那条线给出的项是能算的，所以我们走那条。</b><span class='k'>我们在 related work 里明确做了这个对比。</span>",
+   "tag": "已核",
+   "ref": "课件 p16 老师当堂承认 · p20 原文 · 简报 §8"
+  },
+  {
+   "q": "你们报的那个「候选和日志的距离」到底在衡量什么？",
+   "a": "<b>两件事，而它们的严重程度不同。</b><span class='k'>① KL 距离 / ESS——衡量重要性权重偏得多厉害，这个有理论兜底，偏差随距离可控</span>；<span class='w'>② 覆盖率——这个候选会经过的中间状态有多大比例落在日志覆盖区内，这一条<b>没有</b>理论兜底</span>。<b>支撑集之外不是「估得不准」，是「压根没有数据」。</b><span class='k'>所以我们把覆盖率作为是否实跑的硬判据，KL 只作为可信度的软指标。</span>",
+   "tag": "推断",
+   "ref": "课件 p22 · 本讲 p22 科研格 · L09 p43 科研格"
+  },
+  {
+   "q": "为什么你们要在每个节点上做随机化？这不是和「保守」矛盾吗？",
+   "a": "<b>不矛盾，它们管的是不同的事。</b><span class='k'>随机化管的是「日志覆盖得够不够宽」——覆盖不够，任何估计都没有依据</span>；<span class='w'>保守（信赖域式的限制）管的是「在覆盖到的范围内，我敢走多远」</span>。<b>前者决定你有没有牌，后者决定你怎么出牌。</b><span class='k'>而且混叠时随机策略本身可能就是更优的（CS234 L08 p10–p12），所以这个随机化有两个独立的理由。</span>",
+   "tag": "推断",
+   "ref": "课件 p22 · L08 p10–p12 · 简报 §4c"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Kakade &amp; Langford — Approximately Optimal Approximate Reinforcement Learning (Conservative Policy Iteration)",
+   "id": "ICML 2002",
+   "why": "p13 那个混合策略下界的原始出处。<b>你要引它来确认两件事</b>：<span class='k'>① 有限 horizon 下常数的确切形式（课件全程用折扣形式）；② ε 的两种定义（p13 和 p14 不一样）各自对应什么条件</span>。"
+  },
+  {
+   "t": "Schulman, Levine, Abbeel, Jordan &amp; Moritz — Trust Region Policy Optimization",
+   "id": "ICML 2015",
+   "why": "p14–p30 的全部内容，课件在 p20 直接标了这篇。<b>对你最有用的是它处理「从理论到实践」那几步时的措辞</b>——<span class='k'>它对每一处放松都明确说明了代价</span>，<span class='w'>这正是你写 limitation 一节时可以借鉴的写法。</span>"
+  },
+  {
+   "t": "Pinsker / Csiszár — (总变差与 KL 的标准不等式)",
+   "id": "信息论教材的标准结果",
+   "why": "p14 那一步 <code>D_TV² ≤ ½ D_KL</code> 的出处。<b>课件漏了 ½</b>（<span class='k'>方向安全，界仍成立，只是松一倍</span>）。<span class='w'>任何信息论教材（如 Cover &amp; Thomas）都有标准表述</span>——<b>你若要在论文里用这类不等式，务必用标准形式，别抄讲义。</b>"
+  },
+  {
+   "t": "Liu, Li, Tang &amp; Zhou — Breaking the Curse of Horizon: Infinite-Horizon Off-Policy Estimation",
+   "id": "NeurIPS 2018",
+   "why": "老师在 p12 口头提到的那条线（Lihong Li 等）。<b>它直接估 <code>μ^{π̃}/μ^π</code> 这个<b>分布层面</b>的比值，而不是绕开它</b>——<span class='k'>这正好补上了 p12「硬换分布」留下的那个缺口</span>，<span class='w'>对长 horizon 的 off-policy 评估降方差很有帮助。</span>"
+  },
+  {
+   "t": "Schulman, Wolski, Dhariwal, Radford &amp; Klimov — Proximal Policy Optimization",
+   "id": "arXiv 2017",
+   "why": "今天你实际会碰到的那个。<b>它把 p25 那个比值直接截断，于是不用 Fisher 矩阵、共轭梯度和线搜索</b>。<span class='k'>还允许把同一批数据复用几轮</span>——<span class='w'>这缓解了策略梯度 on-policy 的代价，而那正是 TRPO 没解决的那一项。</span>"
+  }
+ ]
+}
