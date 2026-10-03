@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 31
+TOTAL = 33
 
 
 def run():
@@ -115,10 +115,18 @@ def run():
     ok += (len(br.check_quiz_leak(
         {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": i % 3, "why": "因为"}]
          for i in range(1, 9)})) == 0)
-    # 必须不报：题太少时不判位置（4 题全在 B 只是巧合，不是泄题）
+    # 必须报：题少但**全部**落在同一项 —— 四选一下 n=4 的巧合概率只有 1.6%
     ok += (len(br.check_quiz_leak(
         {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": 1, "why": "因为"}]
-         for i in range(1, 5)})) == 0)
+         for i in range(1, 5)})) == 1)
+    # 必须不报：题少且位置有散开（3 题 2 个位置，判不了也不该判）
+    ok += (len(br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": i % 2, "why": "因为"}]
+         for i in range(1, 4)})) == 0)
+    # 必须不报：n<4 时连「全同」也不判（2 题全在 B 的巧合概率 25%）
+    ok += (len(br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": 1, "why": "因为"}]
+         for i in range(1, 3)})) == 0)
     # 必须不报：题干与解析里的加粗是正常的，只有选项里不许有
     ok += (len(br.check_quiz_leak(
         {"3": [{"q": "<b>问</b>", "o": ["甲", "乙", "丙"],

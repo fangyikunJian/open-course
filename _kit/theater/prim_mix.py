@@ -61,18 +61,74 @@ CALL = re.compile(r"(?:^|[^A-Za-z0-9_$.])([a-zA-Z][a-zA-Z0-9_]*)\s*\(")
 RAW = re.compile(r'gS\.append\(\s*"([a-z]+)"')
 
 
+# eng.txt 与 build_common 里**会往画布上画东西**的函数名。
+# 不含 setCap / setEq / setBig / setTitle / clearScene —— 那些是文本层与场务，
+# 不是画法；把它们算进来，几乎每一镜都会「有图」，指标就废了。
+ENGINE_DRAW = {
+    "axes", "curve", "dots", "boxNode", "note", "link", "matrix",
+    "bars", "errbar", "lamps", "tree", "backup", "gridworld", "mdpChain",
+    "arrow", "trace", "morphBars", "fillBars", "sweepGrid", "reveal",
+}
+
+
 def engine_prims():
     src = io.open(os.path.join(HERE, "build_common.py"), encoding="utf-8").read()
     return set(re.findall(r"E\.([a-zA-Z_][a-zA-Z0-9_]*)\s*=", src))
 
 
+def drawing_fns(pre):
+    """prelude 里**真的会画东西**的片内函数。
+
+    ⚠ 只收会画的那些。片内常常还有**纯计算**的小函数 —— 坐标换算、取值、
+    夹逼之类，它们一笔都不画，把它们算成「整图级图元」是**匹配到的不是要找的
+    东西**（prim_mix 第一版把 JS 的 `function(` 和 LaTeX 的 `V(` 当成图元，
+    犯的是同一个错，见本文件开头的注释）。
+
+    实测代价：CS224R L05 的 prelude 里有 wx(w) / vy(v) 两个坐标换算函数，
+    被计入后占比 38–44%，连报两条「超标」，而真正超标的 lamps（五个反驳拍
+    套同一个版式）反倒混在里面不显眼。**假阳性会淹掉真阳性。**
+
+    判据：函数体里出现 `E.gS` / `E.gN`（直接往画布加元素），或调用了任何一个
+    引擎导出的图元。只做坐标换算的函数两者都不沾。
+    """
+    # 判据要认两层图元：build_common 的 RL 图元包，以及 eng.txt 自己导出的那些
+    # （boxNode / note / curve / dots / axes / matrix / link / bars …）。
+    # ⚠ 只认前者会漏掉「只调引擎图元」的片内函数 —— selftest_primmix 的 panel
+    #   就是这种，第一版判据当场把它判成「不画」。
+    out = set()
+    prims = engine_prims() | ENGINE_DRAW
+    for m in re.finditer(r"function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", pre):
+        name, i = m.group(1), m.end()
+        # 括号配平取出函数体
+        depth, j, body = 0, pre.find("{", i), None
+        if j < 0:
+            continue
+        k = j
+        while k < len(pre):
+            if pre[k] == "{":
+                depth += 1
+            elif pre[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    body = pre[j:k + 1]
+                    break
+            k += 1
+        if body is None:
+            continue
+        if "E.gS" in body or "E.gN" in body or any(
+                re.search(r"\b%s\s*\(" % re.escape(p), body) for p in prims):
+            out.add(name)
+    return out
+
+
 def local_helpers(lec):
-    """片内自定义画法也算画法 —— 指标不能只认库里有的东西。"""
+    """片内自定义画法也算画法 —— 指标不能只认库里有的东西。
+    但只算**真的会画**的那些，见 drawing_fns 的 docstring。"""
     fp = os.path.join(_paths.src_dir(), "film-%s.json" % lec)
     if not os.path.exists(fp):
         return set()
     pre = json.load(io.open(fp, encoding="utf-8")).get("prelude_js") or ""
-    return set(re.findall(r"function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", pre))
+    return drawing_fns(pre)
 
 
 def scan():
