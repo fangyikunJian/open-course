@@ -1,0 +1,524 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p9 定义：on-policy 是 from experience obtained from following that policy；off-policy 是 using experience gathered from following a different policy",
+  "p8 两种处境：模型未知但可采样；模型已知但直接算不动、只能采样",
+  "p11 策略改进 π'(s) = arg max_a [R(s,a) + γΣP(s'|s,a)V^π(s')] = arg max_a Q^π(s,a)",
+  "p13 MC 估 Q：N(s,a) 与 G(s,a) 都带动作下标；Q(s,a) = G(s,a)/N(s,a)",
+  "p15 两个坑：确定性策略下 a ≠ π(s) 的 Q 算不出来；改进用的是估计的 Q"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    2
+   ],
+   "t": "这一讲要干什么",
+   "star": 2,
+   "one": "不知道世界怎么运作时，<b>怎么学出一个好策略</b>。",
+   "pts": [
+    "五节：广义策略迭代 → 探索的必要性 → 蒙特卡洛控制 → TD 控制（SARSA / Q-learning） → 最大化偏差。",
+    "<b>这一讲在课程结构里的位置可以用一句话说清：<span class='k'>L02 有模型做控制，L03 无模型做评估，这一讲是无模型做<b>控制</b></span>。</b><span class='w'>把这个 2×2 的格子填满，前四讲就齐了</span>——<b>而剩下的那一格（无模型 + 控制）正是真实问题的形状。</b><span class='k'>所以这一讲是整门课第一次给出「能在真实问题上跑」的算法。</span>",
+    "<b>目录那五节里，第 5 节「最大化偏差」是最容易被当成边角料的，但它其实是整讲最有用的一节。</b><span class='k'>它处理的问题是：当你要从一堆带噪声的估计里挑最好的那个时，会发生什么</span>。<b>答案是：你挑出来的那个，它的估计值系统性地偏高——哪怕每一个估计本身都是无偏的。</b><span class='w'>这件事在任何「选最优」的场合都成立，远不止 RL</span>。<b>而它的解药（把「选」和「评」拆开用不同的数据）同样是通用的。</b>",
+    "<b>这一讲还会第一次把两个词说清楚，而它们是这门课后半程的基本词汇：<span class='k'>on-policy 和 off-policy</span>。</b><span class='w'>p9 给定义，p35 给第一个真正的 off-policy 算法（Q-learning）</span>，<b>而 L05 p38 会告诉你 off-policy 加上函数逼近会出什么事。</b><span class='k'>所以这一讲是「off-policy 在表格下是安全的」这个结论的出处</span>——<b>认清它安全的条件，才知道它后来为什么不安全。</b>",
+    "<b>再提一句课件给的补充阅读，它标得很精确：<em>SB Sections 5.2-5.4, 6.4, 6.5, 6.7</em>。</b><span class='k'>5.2–5.4 是蒙特卡洛控制，6.4 是 SARSA，6.5 是 Q-learning，6.7 是 Double Q-learning</span>——<b>正好对应这一讲的后四节。</b><span class='w'>而 6.6（期望 SARSA）课件跳过了</span>，<b>那是一个介于 SARSA 和 Q-learning 之间的算法：用期望代替采样的那个动作，方差更小。</b>"
+   ],
+   "tip": {
+    "t": "课件自己标的来源",
+    "v": "结构紧跟 David Silver 的 Lecture 5；对应 Sutton &amp; Barto 的 5.2–5.4、6.4、6.5、6.7。"
+   },
+   "quote": "Lecture 4: <b>Model Free Control</b> &nbsp;·&nbsp; Structure closely follows much of David Silver's Lecture 5. For additional reading please see <b>SB Sections 5.2-5.4, 6.4, 6.5, 6.7</b> &nbsp;|&nbsp; 1 Generalized Policy Iteration &nbsp;·&nbsp; 2 Importance of Exploration &nbsp;·&nbsp; 3 Monte Carlo Control &nbsp;·&nbsp; 4 Temporal Difference Methods for Control &nbsp;·&nbsp; 5 Maximization Bias"
+  },
+  {
+   "r": [
+    3,
+    4
+   ],
+   "t": "从评估到控制",
+   "star": 2,
+   "one": "上一讲问「这个策略有多好」，这一讲问「<b>怎么学到一个好的</b>」。",
+   "pts": [
+    "上一讲：模型未知下的<b>评估</b>。",
+    "这一讲：模型未知下的<b>控制</b>。",
+    "下一讲：值函数逼近。",
+    "<b>「评估」到「控制」这一步，多出来的东西只有一样，但它改变了问题的性质：<span class='k'>你现在要自己决定做什么</span>。</b><span class='w'>而一旦你能决定，你就同时决定了会看到什么数据</span>——<b>于是「学什么」和「采什么」纠缠在了一起。</b><span class='k'>这就是探索问题的来源，也是第 2 节要专门讲它的理由。</span><b>评估时没有这个麻烦：策略是给定的，数据怎么来不由你定。</b>",
+    "<b>把前三讲和这一讲排成一张 2×2 的表，整个上半门课的结构就一目了然了。</b><span class='k'>有模型 + 评估：L02 的 MRP 三条路</span>；<span class='k'>有模型 + 控制：L02 的策略迭代与值迭代</span>；<span class='k'>无模型 + 评估：L03 的 MC 与 TD</span>；<span class='k'>无模型 + 控制：<b>这一讲</b></span>。<span class='w'>而这一讲的算法，几乎每一个都是把前两格的东西拼起来</span>——<b>L02 的广义策略迭代做骨架，L03 的 MC/TD 填进「评估」那一步。</b>",
+    "<b>还有一层区别值得点出来，它解释了为什么控制比评估难得多。</b><span class='k'>评估问题的答案是一个<b>固定</b>的量：给定 π，<code>V^π</code> 就定了，你只是在估一个常数</span>；<span class='w'>控制问题里你要估的那个东西<b>一直在动</b></span>——<b>策略改了，<code>Q^π</code> 就变了，而你的数据还是旧策略采的。</b><span class='k'>于是你在追一个移动的目标，而且是你自己把它推动的。</span><b>这正是 p22 要正面承认的那个麻烦。</b>"
+   ],
+   "quote": "Last time: Policy evaluation with no knowledge of how the world works (MDP model not given) &nbsp;·&nbsp; <b>This time: Control (making decisions) without a model of how the world works</b> &nbsp;·&nbsp; Next time: Value function approximation &nbsp;|&nbsp; Last time: how good is a specific policy? &nbsp;·&nbsp; <b>Today: how can we learn a good policy?</b>",
+   "tbl": {
+    "head": [
+     "",
+     "评估（这个策略值多少）",
+     "控制（哪个策略最好）"
+    ],
+    "rows": [
+     [
+      "<b>有模型</b>",
+      "<span class='k'>L02：模拟 / 解析解 / 动态规划</span>",
+      "<span class='k'>L02：策略迭代、值迭代</span>"
+     ],
+     [
+      "<b>无模型</b>",
+      "<span class='k'>L03：蒙特卡洛、时序差分</span>",
+      "<b>本讲：MC 控制、SARSA、Q-learning</b>"
+     ],
+     [
+      "多出来的麻烦",
+      "—",
+      "<span class='w'>你的决定改变了你会看到的数据 ⇒ 探索问题</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    5,
+    6
+   ],
+   "t": "四要素里今天碰哪几个",
+   "one": "优化 · 延迟后果 · 探索。<span class='w'>泛化还不碰。</span>",
+   "pts": [
+    "<b>探索</b>第一次成为算法里必须处理的东西——前三讲它一直只是个说法。",
+    "<b>四要素里这一讲碰了三个，没碰的那个是「泛化」，而这个缺席是有意的。</b><span class='k'>这一讲全程假设表格表示——每个 <code>(s,a)</code> 对各有一个独立的格子</span>。<b>于是所有收敛性结论都干净利落。</b><span class='w'>而下一讲（L05）一引入函数逼近，这些结论就开始一条条失效</span>——<b>Q-learning + 函数逼近可能直接发散。</b><span class='k'>所以这一讲是「最后一片干净的地面」，值得先把它踩实。</span>",
+    "<b>「探索」第一次在这门课里成为必需品，而它成为必需品的理由可以说得很精确。</b><span class='k'>你要估 <code>Q(s,a)</code>，就必须真的在 <code>s</code> 做过 <code>a</code></span>——<b>没试过的动作，你对它的估计没有任何数据支撑。</b><span class='w'>而一个确定性的贪心策略永远只做它当前认为最好的那个动作</span>，<b>于是其余动作的估计永远停在初始值上。</b><span class='k'>这就是 p15 那两个坑里的第一个，也是 ε-贪婪存在的全部理由。</span>",
+    "<b>把「四要素」这个清单当成一张进度表看，到这一讲为止的进度是这样的。</b><span class='k'>优化：L02 有模型时解决了，这一讲给无模型版本</span>；<span class='k'>延迟后果：L02 的贝尔曼方程、L03 的 TD 都在处理它</span>；<span class='k'>探索：<b>这一讲第一次正面碰它</b>（第 2 节）</span>；<span class='w'>泛化：还没碰，要到 L05 的函数逼近</span>。<b>而第一讲还提过第五样——统计与计算上的高效——那一样要到 L07 p17 才被正式提出。</b>"
+   ],
+   "quote": "Today: Learning to Control Involves &nbsp;·&nbsp; <b>Optimization</b>: Goal is to identify a policy with high expected rewards &nbsp;·&nbsp; <b>Delayed consequences</b>: May take many time steps to evaluate whether an earlier decision was good or not &nbsp;·&nbsp; <b>Exploration</b>: Necessary to try different actions to learn what actions can lead to high rewards"
+  },
+  {
+   "r": [
+    7,
+    7
+   ],
+   "t": "今天的清单",
+   "one": "广义策略改进 → 探索 → MC 控制 → SARSA / Q-learning → 最大化偏差。",
+   "quote": "Today: Model-free Control &nbsp;·&nbsp; <b>Generalized policy improvement</b> &nbsp;·&nbsp; <b>Importance of exploration</b> &nbsp;·&nbsp; <b>Monte Carlo control</b> &nbsp;·&nbsp; <b>Model-free control with temporal difference (SARSA, Q-learning)</b> &nbsp;·&nbsp; <b>Maximization bias</b>",
+   "pts": [
+    "<b>这五节是一条很清楚的递进，而且每一节都在补上一节留下的缺口。</b><br><b>① 广义策略迭代</b>：<span class='k'>把 L02 的框架搬到无模型情形，发现必须改估 Q</span>。<br><b>② 探索</b>：<span class='w'>发现贪心策略学不到没试过的动作</span>，引入 ε-贪婪。<br><b>③ MC 控制</b>：<span class='k'>把 L03 的蒙特卡洛填进「评估」那一步</span>。<br><b>④ TD 控制</b>：<span class='k'>换成 TD，得到 SARSA 和 Q-learning</span>。<br><b>⑤ 最大化偏差</b>：<span class='w'>发现前面所有算法都有一个共同的系统性毛病</span>，并给出解药。",
+    "<b>第 ⑤ 节值得单独说一句，因为它的位置很特别：它不是「又一个算法」，是对前面全部算法的一次体检。</b><span class='k'>MC 控制、SARSA、Q-learning 都要对估计出来的 Q 取 <code>arg max</code> 或 <code>max</code></span>——<b>而那一步会系统性地高估。</b><span class='w'>所以它不是某个算法的 bug，是「从噪声估计里挑最好的」这个动作本身的性质</span>。<b>这也是为什么它值得被单列成一节。</b>"
+   ]
+  },
+  {
+   "r": [
+    8,
+    8
+   ],
+   "t": "什么场合用得上",
+   "star": 2,
+   "one": "两种情况都归到「无模型」：<b>不知道模型</b>，或<b>知道但算不动</b>。",
+   "pts": [
+    "双陆棋、围棋、机器人行走、直升机、Robocup、自动驾驶、广告投放、入侵物种治理、病人治疗。",
+    "<b>这一页列的两种处境，第二种最容易被忽略，但它其实更常见，值得单独说。</b><span class='k'>第一种：模型未知，但能采样</span>——<b>比如客户点不点广告，你不知道他的决策模型，但你可以投出去看看。</b><span class='k'>第二种：模型<b>已知</b>，但直接用它算不动，只能采样</span>——<b>围棋就是最好的例子：规则完全已知，但状态数是天文数字，没法做 L02 那套动态规划。</b><span class='w'>于是你只能「模拟着走几步看看」，也就是采样。</span>",
+    "<b>第二种处境说明了一件事：<span class='k'>「无模型方法」这个名字有点误导</span>。</b><b>它真正的意思是「只通过采样来使用模型」，而不是「没有模型」。</b><span class='w'>AlphaGo 用的蒙特卡洛树搜索就是典型——它完全知道围棋规则，但它用的是「模拟很多局」而不是「枚举所有局面」</span>。<span class='k'>所以这一讲的方法，在你明明有模型的时候同样适用</span>——<b>只要那个模型大到你算不动。</b>",
+    "<b>这个清单还透露了一个共同点，值得注意：<span class='w'>列出的应用里，大部分都是「试错很贵」的</span>。</b><b>自动驾驶、直升机、病人治疗、入侵物种管理</b>——<span class='k'>每一个都不是能随便试的场合</span>。<b>而这一讲的算法恰恰要靠大量试错。</b><span class='w'>这个张力这一讲不解决，它要到第七讲（模仿学习）和第十一讲（探索）才被正面处理</span>——<b>但现在就该意识到它在那里。</b>"
+   ],
+   "say": "老师点名了 <b>1994 年的双陆棋</b>（Tesauro，用神经网络）——这是 RL 第一次在像样规模的问题上成功。她补了一句：神经网络之后沉寂了十来年才回来。<br>第二种情况她举的是<b>气候模拟</b>：模型写得出来，但跑一次贵到只能当采样器用。",
+   "quote": "Many applications can be modeled as a MDP: Backgammon, Go, Robot locomotion, Helicopter flight, Robocup soccer, Autonomous driving, Customer ad selection, Invasive species management, Patient treatment &nbsp;|&nbsp; For many of these: <b>MDP model is unknown but can be sampled</b> &nbsp;·&nbsp; <b>MDP model is known but it is computationally infeasible to use directly, except through sampling</b>"
+  },
+  {
+   "r": [
+    9,
+    9
+   ],
+   "t": "on-policy 与 off-policy",
+   "star": 3,
+   "one": "数据是<b>你正在跑的那个策略</b>采的，还是<b>别的策略</b>采的。",
+   "pts": [
+    "<b>on-policy</b>：按 π 行动，学 π。",
+    "<b>off-policy</b>：按 π_b 行动，却在学另一个策略。",
+    "<b>这两个词是这门课后半程的基本词汇，而它们的区别只有一句话：<span class='k'>你要评估的那个策略，和产生数据的那个策略，是不是同一个</span>。</b><b>是同一个 ⇒ on-policy；不是 ⇒ off-policy。</b><span class='w'>就这么简单，但后果极其深远。</span>",
+    "<b>off-policy 为什么值得单独有个名字？因为它能买到三样 on-policy 买不到的东西。</b><b>① 复用旧数据</b>：<span class='k'>策略更新之后，之前采的数据仍然能用</span>（<b>DQN 的回放池靠的就是这一条</b>）。<br><b>② 从别人的数据里学</b>：<span class='k'>人类演示、历史日志、别的 agent 跑出来的轨迹</span>。<br><b>③ 一边探索一边学最优</b>：<span class='k'>行为上随机地试，学的却是贪心策略的值</span>（<b>这正是 Q-learning 干的事，p35 会讲</b>）。",
+    "<b>而代价同样是三条，而且它们在后面几讲会反复出现。</b><span class='w'>① 数据分布不对</b>：你估的是「在别人走过的地方」，而你关心的是「你自己会走到的地方」</span>（<b>L07 p30 的 <code>εT²</code>、L09 p33 的那个算不出的 <code>ρ^{π̃}</code>，根子都在这里</b>）。<br><span class='w'>② 要重要性修正</b>：而修正会带来方差</span>（<b>L03 讲过</b>）。<br><span class='w'>③ 收敛保证变弱</b>：表格下还好，一加函数逼近就可能发散</span>（<b>L05 p38 的致命三件套</b>）。",
+    "<b>这一讲会给出一个很干净的参照点，值得先记住：<span class='k'>在表格表示下，off-policy 是安全的</span>。</b><b>Q-learning 在表格下收敛到 <code>Q*</code>（p40），条件只是「每个 <code>(s,a)</code> 被访问无穷多次」加上步长条件。</b><span class='w'>所以 off-policy 本身不是问题，问题是它和函数逼近、自举凑在一起</span>——<b>而那正是 L05 p38 要讲的三件套。</b><span class='k'>认清这一讲里它有多安全，才能理解那里为什么致命。</span>"
+   ],
+   "say": "老师现场画了个直觉：你试过「一直做 a1」，也试过「一直做 a2」，<b>但从没试过「先 a1 再 a2」</b>。off-policy 学习就是要把这些片段拼起来，去推断一条你从未真正走过的路。Q-learning 就干这个。",
+   "quote": "<b>On-policy learning</b>: Direct experience &nbsp;·&nbsp; Learn to estimate and evaluate a policy <b>from experience obtained from following that policy</b> &nbsp;|&nbsp; <b>Off-policy learning</b>: Learn to estimate and evaluate a policy <b>using experience gathered from following a different policy</b>",
+   "tbl": {
+    "head": [
+     "",
+     "on-policy",
+     "off-policy"
+    ],
+    "rows": [
+     [
+      "数据来自谁",
+      "<span class='k'>就是要评估的那个策略</span>",
+      "<span class='w'>另一个策略</span>"
+     ],
+     [
+      "能复用旧数据吗",
+      "<span class='w'>不能</span>",
+      "<span class='k'>能（回放池）</span>"
+     ],
+     [
+      "能从别人的日志学吗",
+      "<span class='w'>不能</span>",
+      "<span class='k'>能</span>"
+     ],
+     [
+      "本讲的代表",
+      "<b>SARSA</b>（p31）",
+      "<b>Q-learning</b>（p35）"
+     ],
+     [
+      "表格下安全吗",
+      "<span class='k'>安全</span>",
+      "<span class='k'>安全（p40）</span>"
+     ],
+     [
+      "加函数逼近呢",
+      "<span class='k'>收敛（会抖）</span>",
+      "<span class='w'>可能发散（L05 p38）</span>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页是你整个课题所处的那一格的正式命名：<span class='k'>你做的是 off-policy 学习</span>。</b><br><br><span class='w'>你手上的日志来自 AFlow 跑过的那些配置，而你想评估的是没跑过的配置</span>——<b>按课件的定义，这就是 <em>using experience gathered from following a different policy</em>，一字不差。</b><br><br><b>而这一页真正的价值，是它给了你一个<span class='k'>干净的参照点</span>：</b><span class='w'>在表格表示下，off-policy 是完全安全的</span>。<b>Q-learning 在表格下收敛到 <code>Q*</code>，条件只有两条：每个 <code>(s,a)</code> 被访问无穷多次，加上标准的步长条件（p40）。</b><span class='k'>所以「off-policy 很危险」这句话是不准确的</span>——<b>危险的是 off-policy <b>加上</b>函数逼近<b>加上</b>自举（L05 p38 的三件套，课件用的词是 intersection）。</b><br><br><b>这给你一个很实际的诊断思路：<span class='k'>如果你把状态粗粒度化到可以查表，你的 off-policy 问题就消失了</span>。</b><span class='w'>代价是状态表示变粗，可能丢掉区分不同 query 的信息</span>（<b>也就是混叠，L08 p10</b>）。<b>于是你面对的是一个可以主动选择的取舍，而不是一个必须接受的困境</b>：<span class='k'>细状态 + 函数逼近 + 可能发散，还是粗状态 + 查表 + 有保证</span>。<b>L02 p20 的科研格算过：你的状态数可能只有几百到几千，粗粒度查表是真的可行的。</b><span class='w'>这条路值得作为 FQE 的对照组认真试一次。</span>",
+    "ref": "课件 p9 定义 · p40 收敛条件 · L05 p38 · L02 p20 科研格 · L08 p10 科研格"
+   }
+  },
+  {
+   "r": [
+    10,
+    10
+   ],
+   "t": "目录：广义策略迭代",
+   "quote": "Table of Contents &nbsp;·&nbsp; <b>1 Generalized Policy Iteration</b> &nbsp;·&nbsp; 2 Importance of Exploration &nbsp;·&nbsp; 3 Monte Carlo Control &nbsp;·&nbsp; 4 Temporal Difference Methods for Control &nbsp;·&nbsp; 5 Maximization Bias",
+   "one": "第一节：<b>把 L02 的策略迭代搬到无模型情形</b>。",
+   "pts": [
+    "<b>「广义策略迭代」这个名字里的「广义」，指的是放宽了 L02 那个严格的循环。</b><span class='k'>L02 的策略迭代要求「评估到收敛，再改进一次」</span>；<span class='w'>广义版本只要求「评估和改进交替进行」，不规定各做多久</span>。<b>于是值迭代（评估一轮就改进）、MC 控制（跑完一个片段就改进）、SARSA（每走一步就改进）全都是它的特例。</b><span class='k'>这个框架能装下这一讲的所有算法。</span>",
+    "<b>这一节（p11–p15）只有五页，但它完成了一次关键的转换，值得先把结论记住。</b><span class='k'>转换是：从估 <code>V</code> 改成估 <code>Q</code></span>——<b>因为无模型情形下，从 <code>V</code> 推不出动作。</b><span class='w'>而这一转换会立刻带出两个新麻烦（p15）</span>：<b>确定性策略试不到所有动作，以及改进用的是估计而非精确的 Q。</b><span class='k'>这两个麻烦分别由第 2 节和第 5 节来处理。</span>"
+   ]
+  },
+  {
+   "r": [
+    11,
+    11
+   ],
+   "t": "复习：策略迭代",
+   "star": 2,
+   "one": "评估 → 改进 → 再评估，直到策略不变。",
+   "eq": "π′(s) = arg max_a [ R(s,a) + γ Σ_{s′} P(s′|s,a) V^π(s′) ]\n     = arg max_a  Q^π(s,a)",
+   "pts": [
+    "<span class='w'>问题</span>：这个式子里 <code>R</code> 和 <code>P</code> 都得知道。",
+    "<b>这一页把 L02 的策略迭代原样抬了出来，而要看的是那个等号右边：<code>arg max_a Q^π(s,a)</code>。</b><span class='k'>左边那个长式子要用 <code>R</code> 和 <code>P</code>，右边只要 <code>Q</code></span>。<b>两者在有模型时完全等价，而在无模型时天差地别。</b><span class='w'>这个观察就是下一页的全部内容。</span>",
+    "<b>把「无模型」这个限制具体化：它卡住的是哪一步？</b><span class='k'>评估那一步 L03 已经解决了——蒙特卡洛和 TD 都不需要模型</span>。<span class='w'>卡住的是<b>改进</b>那一步</span>：<b>要从 <code>V</code> 推出动作，你必须算 <code>R(s,a) + γΣP(s′|s,a)V(s′)</code>，而这里有 <code>P</code> 和 <code>R</code>。</b><span class='k'>于是「无模型做控制」这个问题，困难点不在评估，在改进。</span>",
+    "<b>顺带确认一下这个等式本身为什么成立，它其实就是 Q 的定义。</b><span class='k'><code>Q^π(s,a) = R(s,a) + γΣ_{s′}P(s′|s,a)V^π(s′)</code></span>（<b>L02 p34</b>）——<b>「做了 a，然后照 π 走到底」。</b><span class='w'>所以 <code>arg max_a</code> 作用在等号两边是同一件事</span>。<b>区别只在于：左边那个写法要你自己去算 <code>R</code> 和 <code>P</code>，右边那个假设你手上已经有一张 Q 表。</b>"
+   ],
+   "quote": "Recall Policy Iteration &nbsp;·&nbsp; Policy evaluation: compute V^π &nbsp;·&nbsp; Policy improvement: <b>π′(s) = arg max_a [R(s,a) + γ Σ_{s′} P(s′|s,a) V^π(s′)] = arg max_a Q^π(s,a)</b> &nbsp;·&nbsp; <b>Now want to do the above two steps without access to the true dynamics and reward models</b>"
+  },
+  {
+   "r": [
+    12,
+    12
+   ],
+   "t": "把 V 换成 Q",
+   "star": 3,
+   "one": "既然 <code>arg max_a Q</code> 不需要模型，那就<b>直接估 Q</b>。",
+   "pts": [
+    "<code>V</code> 要配上模型才能挑动作；<code>Q</code> 自己就够。",
+    "<span class='k'>这是整讲的第一步棋，后面全部从这里长出来。</span>",
+    "<b>这一页的改动只有一个字母——把 <code>V</code> 换成 <code>Q</code>——但它解决了上一页那个卡点。</b><span class='k'>因为 <code>Q(s,a)</code> 已经把「做了 a 之后会怎样」预先算进去了</span>，<b>于是选动作只要 <code>arg max_a Q(s,a)</code>，一个模型都不用。</b><span class='w'>而 <code>V(s)</code> 只告诉你「这个状态值多少」，不告诉你「该做什么」</span>——<b>要从它推出动作，必须穿过模型。</b>",
+    "<b>这就是 <code>kp</code> 第一条那句话的意思：<span class='k'>控制必须估 Q，不是 V——因为从 V 贪心要穿过模型</span>。</b><b>而这件事的影响远超这一讲</b>：<span class='w'>第六讲的 DQN 学的是 Q 不是 V；第八讲说「为什么是 Q-learning 不是 V-learning」也是同一个理由</span>。<span class='k'>只要你没有模型，又想直接选动作，你就必须有 Q。</span>",
+    "<b>代价也该一并记下：<span class='w'>Q 表比 V 表大 <code>|A|</code> 倍</span>。</b><b>V 是每个状态一个数，Q 是每个状态–动作对一个数。</b><span class='k'>于是存储和所需的数据量都乘了 <code>|A|</code></span>——<b>因为你现在要把每个动作都试够次数，而不只是走到每个状态。</b><span class='w'>动作多的问题上，这个代价很实在</span>，<b>也是为什么连续动作空间下大家宁愿用策略梯度（第八讲 p8）。</b>"
+   ],
+   "say": "这个主意是课堂上学生提的。另一位同学先提了「那就把模型估出来」——老师说那也完全合理（她本人「对模型很偏心」），但今天走的是无模型这条路。",
+   "quote": "Model Free Policy Iteration &nbsp;·&nbsp; Initialize policy π &nbsp;·&nbsp; Repeat: &nbsp;·&nbsp; <b>Policy evaluation: compute Q^π</b> &nbsp;·&nbsp; Policy improvement: update π"
+  },
+  {
+   "r": [
+    13,
+    13
+   ],
+   "t": "用 MC 估 Q",
+   "one": "把上一讲的 MC 评估里所有 <code>s</code> 换成 <code>(s,a)</code>。",
+   "eq": "N(s,a)=0, G(s,a)=0, Q(s,a)=0\n每个片段：对访问到的 (s,a)（首次 或 每次）\n  N(s,a) += 1;  G(s,a) += G_{i,t}\n  Q^π(s,a) = G(s,a) / N(s,a)",
+   "pts": [
+    "首次访问 / 每次访问的取舍和上一讲一样。",
+    "<b>这个算法和 L03 的蒙特卡洛策略评估一模一样，只有一处不同，而那一处正是这一讲的主题。</b><span class='k'>L03 统计的是 <code>N(s)</code> 和 <code>G(s)</code>，这里统计的是 <code>N(s,a)</code> 和 <code>G(s,a)</code></span>——<b>多了一个下标。</b><span class='w'>而这一个下标带来的后果是：你必须在每个状态上把每个动作都试过足够多次</span>，<b>否则某些格子的计数永远是 0，那里的 Q 永远停在初始值。</b><span class='k'>p15 的第一个坑说的就是这件事。</span>",
+    "<b>「first visit」和「every visit」这两种变体在这里仍然适用，而选哪种影响不大，但原因值得知道。</b><span class='k'>first visit：一个片段里同一个 <code>(s,a)</code> 只计第一次，估计无偏</span>；<span class='w'>every visit：每次都计，有偏但渐近一致，而且数据利用率更高</span>。<b>实践中 every visit 更常用，因为片段里重复访问很常见。</b><span class='k'>这个取舍 L03 讲过，这里只是把它搬到了 <code>(s,a)</code> 这一层。</span>"
+   ],
+   "quote": "MC for On Policy Q Evaluation &nbsp;·&nbsp; Initialize N(s,a) = 0, G(s,a) = 0, Q(s,a) = 0 &nbsp;·&nbsp; Using policy π sample episode &nbsp;·&nbsp; G_{i,t} = r_{i,t} + γr_{i,t+1} + γ²r_{i,t+2} + ... &nbsp;·&nbsp; For each (s,a) visited: <b>N(s,a) += 1, G(s,a) += G_{i,t}, Q(s,a) = G(s,a)/N(s,a)</b>"
+  },
+  {
+   "r": [
+    14,
+    14
+   ],
+   "t": "有了 Q，改进变得极简单",
+   "one": "直接取 arg max。",
+   "eq": "π_{i+1}(s) = arg max_a  Q^{π_i}(s,a)",
+   "quote": "<b>π(s) = arg max_a Q(s,a)</b>",
+   "pts": [
+    "<b>有了 Q 之后，改进这一步简单到一行就能写完，而且完全不需要模型。</b><span class='k'>对每个状态，把所有动作的 <code>Q(s,a)</code> 比一遍，挑最大的那个</span>。<b>代价是 <code>O(|A|)</code>，而且只用到你手上的那张表。</b><span class='w'>对比 L02 p35 的改进步骤——那里每个 <code>(s,a)</code> 对都要做一次对 <code>s′</code> 的求和，代价是 <code>O(|S||A|)</code>，而且要有 <code>P</code></span>。<b>换成 Q 之后，这一步从「要模型、要计算」变成了「查表、比大小」。</b>",
+    "<b>但这一行里藏着这一讲后面两个大麻烦的种子，值得先点出来。</b><span class='w'>麻烦一：<code>arg max</code> 产生的是<b>确定性</b>策略</span>——<b>而确定性策略学不到它没试过的动作（p15 第一个坑）。</b><span class='w'>麻烦二：这个 <code>Q</code> 是<b>估计</b>出来的，带噪声</span>——<b>而对带噪声的估计取 max，会系统性地偏高（p42 的最大化偏差）。</b><span class='k'>这一讲剩下的内容，基本就是在处理这两个麻烦。</span>",
+    "<b>还有一个实现上的细节值得先说：<code>arg max</code> 打平时怎么办。</b><span class='k'>学习早期大量格子还是初始值，打平会非常频繁</span>（<b>p26 的检验题会让你看到</b>）。<span class='w'>而大多数库的 <code>argmax</code> 返回第一个最大值，于是你的「贪心策略」会系统性地偏向动作编号小的那个</span>。<b>这不是 bug，但它会让你误以为算法学到了什么。</b><span class='k'>讲究的实现会在打平时随机挑一个。</span>"
+   ]
+  },
+  {
+   "r": [
+    15,
+    15
+   ],
+   "t": "但这条路上有两个坑",
+   "star": 3,
+   "one": "算法写出来了，可它<b>跑不动</b>。",
+   "pts": [
+    "<span class='w'>坑一</span>：π 若是确定性的，那 <code>a ≠ π(s)</code> 的 Q 你<b>永远没有数据</b>。",
+    "<span class='w'>坑二</span>：改进用的 Q 只是<b>估出来的</b>，不是精确值——单调改进的保证还在吗？",
+    "还有一个实践问题：评估和改进该怎么交错？",
+    "<b>课件这一页把两个坑并排摆了出来，而它们的性质完全不同，值得分开记。</b><br><b>坑一（探索）</b>：<span class='k'>确定性策略只会做一个动作，所以其余动作的 <code>Q</code> 永远估不出来</span>——<b>这是个<span class='w'>数据</span>问题：你根本没有那些格子的样本。</b><br><b>坑二（估计误差）</b>：<span class='k'>改进这一步现在用的是<b>估计</b>的 <code>Q</code>，不是真的 <code>Q</code></span>——<b>这是个<span class='w'>统计</span>问题：样本有限，估计有噪声。</b>",
+    "<b>坑一的严重程度值得想清楚，它比听起来糟。</b><span class='w'>不只是「那些动作估不准」，而是「它们的估计完全来自初始值」</span>。<b>如果你把 Q 初始化为 0，而真实的 Q 全是正的，那么没试过的动作看起来都很差</b>——<span class='k'>于是贪心策略永远不会去试它们，于是它们永远没有数据</span>。<b>这是一个自我锁死的循环。</b><span class='w'>（反过来，如果你把 Q 初始化得很高——「乐观初始化」——没试过的动作看起来很好，贪心策略会主动去试。这是一种不用 ε 的探索办法。）</span>",
+    "<b>坑二的后果要到 p42 才完整展开，但现在可以先给一个直觉。</b><span class='k'>L02 的策略改进定理（p39）保证严格单调改进，前提是 <code>Q</code> 算得<b>精确</b></span>；<span class='w'>而这里 <code>Q</code> 是估的，于是那个定理的前提不成立</span>。<b>更糟的是：误差不是随机地上下浮动，<code>arg max</code> 会<b>系统性地</b>挑中那些因为噪声而偏高的动作。</b><span class='k'>p22 会正式把这件事说破，p42 会量化它。</span>",
+    "<b>课件最后那个问句 <em>How to interleave policy evaluation and improvement?</em> 也值得注意，它预告了一个设计自由度。</b><span class='k'>L02 的策略迭代是「评估到收敛，再改进一次」；值迭代是「评估一轮就改进」</span>。<b>无模型情形下这个谱更宽</b>——<span class='w'>你可以跑完一个片段再改进（MC 控制，p25），也可以每走一步就改进（SARSA，p31）</span>。<b>而这个选择会直接影响算法的收敛速度和稳定性。</b>"
+   ],
+   "say": "课堂上有同学一句话点破坑一：「我们从来不探索」。老师把它说得更准：不是采不到不同轨迹，而是<b>同一个状态你永远只会试那一个动作</b>，于是策略改进拿不到任何新信息，只能原地踏步。",
+   "quote": "May need to modify policy evaluation: <b>If π is deterministic, can't compute Q(s,a) for any a ≠ π(s)</b> &nbsp;·&nbsp; How to interleave policy evaluation and improvement? &nbsp;·&nbsp; <b>Policy improvement is now using an estimated Q</b>",
+   "tbl": {
+    "head": [
+     "",
+     "坑一：探索",
+     "坑二：估计误差"
+    ],
+    "rows": [
+     [
+      "性质",
+      "<span class='w'>数据问题——那些格子没样本</span>",
+      "<span class='w'>统计问题——样本有限，估计有噪声</span>"
+     ],
+     [
+      "来源",
+      "<code>arg max</code> 产生确定性策略",
+      "<code>Q</code> 是估出来的，不是精确的"
+     ],
+     [
+      "后果",
+      "<b>自我锁死：不试 ⇒ 没数据 ⇒ 看起来差 ⇒ 更不试</b>",
+      "<b>取 max 会系统性偏高</b>"
+     ],
+     [
+      "解药",
+      "<span class='k'>ε-贪婪（p18）/ 乐观初始化</span>",
+      "<span class='k'>双学习（p43）</span>"
+     ],
+     [
+      "在哪一节处理",
+      "第 2 节（p16 起）",
+      "第 5 节（p41 起）"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "这一讲和上一讲的分界线是？",
+    "o": [
+     "做评估还是做控制",
+     "用 MC 还是 TD",
+     "有没有模型",
+     "有没有折扣"
+    ],
+    "a": 0,
+    "why": "两讲都没有模型。上一讲问「这个策略多好」，这一讲问「怎么学到一个好的」。"
+   }
+  ],
+  "3": [
+   {
+    "q": "从「评估」到「控制」，多出来的核心困难是什么？",
+    "o": [
+     "状态空间变大了",
+     "需要知道转移模型",
+     "折扣因子不能取 1",
+     "你现在要自己决定做什么，于是同时决定了会看到什么数据"
+    ],
+    "a": 3,
+    "why": "评估时策略是给定的，数据怎么来不由你定。控制时「学什么」和「采什么」纠缠在一起——这就是探索问题的来源。"
+   },
+   {
+    "q": "评估问题和控制问题，估的东西有什么不同？",
+    "o": [
+     "评估需要模型，控制不需要",
+     "评估估 Q，控制估 V",
+     "没有本质区别",
+     "评估估的是固定的量；控制里要估的东西一直在动，而且是你自己把它推动的"
+    ],
+    "a": 3,
+    "why": "策略改了 Q^π 就变了，而你的数据还是旧策略采的。这正是 p22 要正面承认的麻烦。"
+   }
+  ],
+  "5": [
+   {
+    "q": "这一讲<b>不</b>碰四要素里的哪一个？",
+    "o": [
+     "延迟后果",
+     "泛化",
+     "探索",
+     "优化"
+    ],
+    "a": 1,
+    "why": "泛化要到下一讲（值函数逼近）。而探索从这一讲起成了算法里必须处理的东西。"
+   }
+  ],
+  "8": [
+   {
+    "q": "「无模型」其实包含两种情况，除了「不知道模型」，另一种是？",
+    "o": [
+     "模型是随机的",
+     "模型太简单",
+     "模型会变",
+     "知道模型，但直接用它算不动，只能当采样器"
+    ],
+    "a": 3,
+    "why": "老师举的是气候模拟：模型写得出来，但跑一次贵到只能采样。"
+   },
+   {
+    "q": "课件列的两种「用得上无模型方法」的处境，第二种是什么？",
+    "o": [
+     "模型已知，但直接用它计算不可行，只能通过采样",
+     "奖励函数未知",
+     "状态空间连续",
+     "模型未知但能采样"
+    ],
+    "a": 0,
+    "why": "围棋就是例子：规则完全已知，但状态数是天文数字。所以「无模型方法」真正的意思是「只通过采样来使用模型」。"
+   }
+  ],
+  "9": [
+   {
+    "q": "off-policy 学习指的是？",
+    "o": [
+     "不用模型",
+     "不用策略",
+     "离线训练",
+     "按一个策略行动，却在评估/改进另一个策略"
+    ],
+    "a": 3,
+    "why": "老师的直觉：你试过「一直 a1」也试过「一直 a2」，但从没试过「先 a1 再 a2」——off-policy 要把这些片段拼起来。"
+   },
+   {
+    "q": "off-policy 能买到哪三样 on-policy 买不到的东西？",
+    "o": [
+     "复用旧数据、从别人的数据里学、一边探索一边学最优",
+     "更少的超参、更简单的实现、更好的泛化",
+     "更快的收敛、更小的方差、更强的保证",
+     "无偏估计、低方差、单调改进"
+    ],
+    "a": 0,
+    "why": "DQN 的回放池靠第一条；从人类演示学靠第二条；Q-learning 靠第三条。"
+   },
+   {
+    "q": "「off-policy 很危险」这句话准确吗？",
+    "o": [
+     "准确，它总是可能发散",
+     "准确，除非用重要性采样",
+     "不准确，它从来不会发散",
+     "不准确——表格下它完全安全；危险的是 off-policy + 函数逼近 + 自举三样同时具备"
+    ],
+    "a": 3,
+    "why": "L05 p38 用的词是 intersection（交集）。这一讲正是「三件套只凑齐两件所以安全」的那个参照点。"
+   }
+  ],
+  "11": [
+   {
+    "q": "策略迭代的改进式子 <code>arg max_a [R + γΣPV]</code>，为什么这一讲不能直接用？",
+    "o": [
+     "arg max 可能有并列",
+     "计算太慢",
+     "V 不唯一",
+     "里面的 R 和 P 都得知道，而这一讲没有模型"
+    ],
+    "a": 3,
+    "why": "这正是下一页要换成 Q 的理由。"
+   }
+  ],
+  "12": [
+   {
+    "q": "为什么改成直接估 <code>Q</code> 就绕开了模型？",
+    "o": [
+     "因为 Q 是无偏的",
+     "因为 Q 收敛更快",
+     "因为 arg max_a Q(s,a) 不需要 R 和 P，Q 自己就够挑动作",
+     "Q 比 V 小"
+    ],
+    "a": 2,
+    "why": "V 必须配上模型才能挑动作。这是整讲的第一步棋。"
+   },
+   {
+    "q": "为什么无模型控制必须估 Q 而不是 V？",
+    "o": [
+     "Q 收敛更快",
+     "从 V 推出动作必须算 <code>R + γΣP·V</code>，那需要模型；而 <code>arg max_a Q</code> 不用",
+     "V 在大状态空间下存不下",
+     "Q 的方差更小"
+    ],
+    "a": 1,
+    "why": "这件事的影响远超这一讲：DQN 学 Q 不学 V，第八讲说「为什么是 Q-learning 不是 V-learning」也是同一个理由。"
+   },
+   {
+    "q": "改估 Q 的代价是什么？",
+    "o": [
+     "Q 表比 V 表大 |A| 倍，存储和所需数据量都乘了 |A|",
+     "Q 不可微",
+     "Q 需要知道奖励函数",
+     "没有代价"
+    ],
+    "a": 0,
+    "why": "因为你现在要把每个动作都试够次数，而不只是走到每个状态。动作多的问题上这个代价很实在。"
+   }
+  ],
+  "15": [
+   {
+    "q": "确定性策略 + 直接估 Q，最致命的问题是？",
+    "o": [
+     "需要马尔可夫假设",
+     "对 <code>a ≠ π(s)</code> 永远拿不到数据，策略改进无从谈起",
+     "收敛太慢",
+     "Q 表太大"
+    ],
+    "a": 1,
+    "why": "不是采不到不同轨迹，而是同一个状态你永远只试那一个动作。"
+   },
+   {
+    "q": "第二个坑是？",
+    "o": [
+     "γ 不好选",
+     "动作空间未知",
+     "改进用的 Q 只是估计值，不是精确值——单调改进的保证要重新讨论",
+     "α 不好选"
+    ],
+    "a": 2,
+    "why": "p22 会专门说：第二讲的单调改进依赖「评估是精确的」，这一讲往往做不到。"
+   },
+   {
+    "q": "p15 的两个坑分别是什么性质的问题？",
+    "o": [
+     "都是统计问题",
+     "坑一是数据问题（那些格子没样本），坑二是统计问题（样本有限所以估计有噪声）",
+     "都是数据问题",
+     "坑一是计算问题，坑二是存储问题"
+    ],
+    "a": 1,
+    "why": "两件事都源自这一页，但药完全不同：前者靠随机化采到数据（第 2 节），后者靠拆分数据消除偏差（第 5 节）。"
+   },
+   {
+    "q": "确定性贪心策略为什么会「自我锁死」？",
+    "o": [
+     "因为折扣因子太大",
+     "没试过的动作估计停在初始值 ⇒ 看起来差 ⇒ 贪心不去试 ⇒ 永远没数据",
+     "因为 Q 表存不下",
+     "因为学习率太小"
+    ],
+    "a": 1,
+    "why": "反过来，把 Q 初始化得很高（乐观初始化），没试过的动作看起来最好，贪心本身就会去探索。"
+   }
+  ]
+ }
+}

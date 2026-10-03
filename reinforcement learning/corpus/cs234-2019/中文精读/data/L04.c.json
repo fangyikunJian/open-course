@@ -1,0 +1,890 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p31 SARSA 更新：Q(s_t,a_t) ← Q(s_t,a_t) + α(r_t + γQ(s_{t+1},a_{t+1}) − Q(s_t,a_t))；名字就是它要的五个量 S,A,R,S',A'",
+  "p33 SARSA 收敛条件：① GLIE；② Robbins-Munro 步长 Σα_t = ∞ 且 Σα_t² < ∞。课件反问：实践中会用这样的步长吗？Likely not.",
+  "p35 Q-learning 更新：Q(s_t,a_t) ← Q(s_t,a_t) + α(r_t + γ max_{a'} Q(s_{t+1},a') − Q(s_t,a_t))",
+  "p40 Q-learning 收敛只要「所有 (s,a) 被访问无穷多次 + 步长条件」，不要求渐近贪婪；而 Q → Q* 不等于你跟随的策略是最优的",
+  "p42 最大化偏差反例：单状态、两动作、两动作真实期望奖励都为 0；每个 Q̂ 无偏，但 E[max Q̂] ≥ max E[Q̂] = 0（Jensen）。出处 Mannor, Simester, Sun & Tsitsiklis, Management Science 2007",
+  "p43 解药原文：Avoid using max of estimates as estimate of max of true values；split samples，用 Q1 选 a* = arg max_a Q1(s,a)，用 Q2 评 Q2(s,a*)",
+  "p44 Double Q-learning：抛硬币决定更新哪张表；内存翻倍、每步计算不变、数据需求 subtle（might reduce amount of exploration needed due to lower bias）",
+  "【要点】Double Q 起作用的是「解耦选与评」，不是「两个估计取平均」"
+ ],
+ "notes": [
+  {
+   "r": [
+    29,
+    29
+   ],
+   "t": "目录：TD 控制",
+   "quote": "Table of Contents &nbsp;·&nbsp; <b>4 Temporal Difference Methods for Control</b> &nbsp;·&nbsp; <b>5 Maximization Bias</b>",
+   "one": "后两节：<b>把评估换成 TD，然后体检一次</b>。",
+   "pts": [
+    "<b>这两节的分量不一样，而且第 5 节常被当成边角料，值得先纠正这个印象。</b><span class='k'>第 4 节给的是两个算法（SARSA 和 Q-learning），它们是这门课后半程的基石</span>；<span class='w'>第 5 节不给新算法，它是对前面<b>所有</b>算法的一次体检</span>——<b>发现它们共享一个系统性的毛病，然后给出解药。</b><span class='k'>而那个毛病和解药，在 RL 之外同样成立。</span>",
+    "<b>第 4 节最该带走的一句话，可以先摆在这里：<span class='k'>同一笔数据，两个目标</span>。</b><b>拿到一条转移 <code>(s,a,r,s′)</code>，你可以用「你实际会做的下一个动作」来自举，也可以用「最好的那个动作」来自举。</b><span class='w'>前者是 SARSA（on-policy），后者是 Q-learning（off-policy）</span>。<b>一个 max 的有无，分出了这门课后面所有 off-policy 的麻烦。</b>"
+   ]
+  },
+  {
+   "r": [
+    30,
+    30
+   ],
+   "t": "TD 版的策略迭代",
+   "one": "评估用 TD + ε-贪婪；改进和 MC 那边一样。",
+   "quote": "Model-free Policy Iteration with TD Methods &nbsp;·&nbsp; <b>Policy evaluation: compute Q using temporal difference updating with ε-greedy policy</b> &nbsp;·&nbsp; Policy improvement: Same as Monte Carlo policy improvement, set π to ε-greedy(Q)",
+   "pts": [
+    "<b>这一页的改动只有一处：把评估那一步的蒙特卡洛换成 TD，其余原封不动。</b><span class='k'>骨架还是广义策略迭代，改进还是 ε-贪婪，ε 还是按 GLIE 衰减</span>。<b>所以前面三节的东西全部复用。</b><span class='w'>而换成 TD 买到的三样好处，L03 已经讲过</span>：<b>不用等片段结束、方差小、持续任务也能用。</b>",
+    "<b>但有一处细微但重要的变化：更新的频率可以提高到「每走一步」。</b><span class='w'>MC 控制必须等片段结束（因为要算回报），所以一个片段只能改进一次</span>；<span class='k'>TD 每走一步就有一个更新目标，于是可以每一步都改进策略</span>。<b>p31 的 SARSA 正是这么做的——它的第 8 行就在循环体里。</b><span class='w'>而课件在 p31 结尾专门问了一句：更新得这么频繁有什么好处、不那么频繁又有什么好处。</span>"
+   ]
+  },
+  {
+   "r": [
+    31,
+    32
+   ],
+   "t": "SARSA",
+   "star": 3,
+   "one": "名字就是更新用到的五个量：<b>s, a, r, s′, a′</b>。",
+   "eq": "取 a_t ~ π(s_t)，观察 (r_t, s_{t+1})\n循环：\n  取 a_{t+1} ~ π(s_{t+1})\n  Q(s_t,a_t) ← Q(s_t,a_t) + α·( r_t + γ·Q(s_{t+1}, a_{t+1}) − Q(s_t,a_t) )\n  π(s_t) = arg max_a Q(s_t,a)  以概率 1−ε，否则随机",
+   "pts": [
+    "<span class='k'>代进去的是「实际要做的那个动作」</span>——所以必须<b>多等一步</b>，等到 a′ 定下来才能更新。",
+    "好处：不用等片段结束，<b>同一个片段里就能改策略</b>。片段很长时这一点很值钱。",
+    "<b>SARSA 这个名字就是它需要的那五个量：<code>S, A, R, S′, A′</code>。</b><span class='k'>状态、动作、奖励、下一状态、<b>下一动作</b></span>——<b>最后那个 <code>A′</code> 是它和 Q-learning 唯一的区别，也是整个 on-policy 性质的来源。</b><span class='w'>注意算法第 5 行：它必须<b>先把下一个动作采出来</b>，才能做第 7 行的更新</span>——<b>所以更新要滞后一步。</b>",
+    "<b>「on-policy」在这里的体现非常具体：<span class='k'>用来自举的那个 <code>a_{t+1}</code>，正是你接下来真的要做的那个动作</span>。</b><b>它是从当前的 ε-贪婪策略里采出来的，所以有 ε 的概率是个随机动作。</b><span class='w'>于是 SARSA 学到的 Q，是「包含了那些随机失误在内」的值</span>——<b>它学的是你<b>实际</b>在执行的那个策略的值，不是最优策略的值。</b><span class='k'>这件事有一个很实际的后果：SARSA 会主动避开「旁边有悬崖」的路线</span>，<b>因为它知道自己有 ε 的概率失手掉下去。</b><span class='w'>（Sutton &amp; Barto 的 cliff walking 例子就是演示这一点的。）</span>",
+    "<b>课件结尾那两个问句值得当场答一遍，因为它们是一个真实的取舍。</b><b>频繁改进的好处</b>：<span class='k'>你更快地用上新学到的信息，于是后面采的数据质量更高</span>。<b>不那么频繁的好处</b>：<span class='w'>策略稳定，数据分布变化慢，Q 的估计更容易跟上</span>；<b>而且策略老是变的话，你估的 <code>Q^π</code> 永远在追一个移动的目标</b>（<span class='k'>p22 说过这件事</span>）。<span class='w'>实践中的折中是：改进得频繁，但步长 α 小一点，让每一步的变化都不大。</span>",
+    "<b>把 SARSA 的更新式和 L03 的 TD(0) 并排放，你会看到它们一模一样，只多了动作下标。</b><span class='k'>TD(0)：<code>V(s) ← V(s) + α(r + γV(s′) − V(s))</code></span>；<span class='k'>SARSA：<code>Q(s,a) ← Q(s,a) + α(r + γQ(s′,a′) − Q(s,a))</code></span>。<b>所以 SARSA 就是「作用在 Q 上的 TD(0)」。</b><span class='w'>这一讲的全部算法都可以这样理解：拿 L03 的评估方法，加一个动作下标，再套上广义策略迭代。</span>"
+   ],
+   "say": "课件自己留了两问：「每步都改策略有什么好处？少改一点又有什么好处？」老师的态度很明确：<b>一般来说多改是好事。</b>",
+   "quote": "<b>General Form of SARSA Algorithm</b> &nbsp;·&nbsp; 2: Take a_t ∼ π(s_t) &nbsp;·&nbsp; 3: Observe (r_t, s_{t+1}) &nbsp;·&nbsp; 5: Take action a_{t+1} ∼ π(s_{t+1}) &nbsp;·&nbsp; 7: <b>Q(s_t,a_t) ← Q(s_t,a_t) + α(r_t + γQ(s_{t+1},a_{t+1}) − Q(s_t,a_t))</b> &nbsp;·&nbsp; 8: π(s_t) = arg max_a Q(s_t,a) w.prob 1−ε, else random &nbsp;|&nbsp; <b>What are the benefits to improving the policy after each step? What are the benefits to updating the policy less frequently?</b>"
+  },
+  {
+   "r": [
+    33,
+    34
+   ],
+   "t": "SARSA 的收敛条件",
+   "star": 3,
+   "one": "两条：策略满足 GLIE；步长满足 Robbins–Munro。",
+   "eq": "① π_t(a|s) 满足 GLIE\n② Σ_{t=1}^∞ α_t = ∞   且   Σ_{t=1}^∞ α_t² < ∞\n\n（例如 α_t = 1/t）",
+   "pts": [
+    "<b>Σα=∞</b>：步子加起来要够大，才走得到任何地方。",
+    "<b>Σα²&lt;∞</b>：步子又得越来越小，噪声才压得下去。",
+    "<code>α=1</code> 完全不记过去，<code>α=0</code> 完全不更新，两端都不行。",
+    "<b>Robbins-Munro 那两个条件的含义值得分开说，它们各自防一种失败。</b><br><b><code>Σ α_t = ∞</code>（步长之和发散）</b>：<span class='k'>保证你能走到任何地方——哪怕初始值离真值很远，累计的步长也够把你挪过去</span>。<b>如果步长衰减太快（比如 <code>α_t = 1/t²</code>），总位移有限，你可能永远到不了。</b><br><b><code>Σ α_t² &lt; ∞</code>（平方和收敛）</b>：<span class='w'>保证噪声最终被压下去——步长要衰减得够快，否则你会一直被单个样本的噪声推来推去</span>。",
+    "<b>这两个条件有张力，而满足它们的典型取法是 <code>α_t = 1/t</code>。</b><span class='k'><code>Σ 1/t</code> 发散（调和级数），<code>Σ 1/t²</code> 收敛（巴塞尔问题）</span>——<b>刚好卡在中间。</b><span class='w'>注意这和 p23 的 GLIE 用的是同一个数学事实</span>——<b>那里 <code>ε_i = 1/i</code> 也是靠调和级数发散。</b><span class='k'>这不是巧合：两处都在要求「衰减但不要衰减得太快」。</span>",
+    "<b>课件那个反问值得认真对待：<em>Would one want to use a step size choice that satisfies the above in practice? Likely not.</em></b><span class='w'><code>α_t = 1/t</code> 衰减得太快了</span>——<b>跑到第一万步时步长只有 <code>10⁻⁴</code>，几乎学不动了。</b><span class='k'>而真实问题里环境常常在变（非平稳），你需要一个<b>不</b>衰减到零的步长，好让算法持续追踪变化</span>。<b>于是实践中普遍用固定的小 α（比如 0.1 或 0.01）。</b><span class='w'>代价是严格说你失去了收敛保证——Q 会在真值附近持续抖动而不是收敛到一点。</span>",
+    "<b>这是这一讲第二次出现「理论条件在实践中不用」的情形，值得和第一次对照。</b><span class='k'>第一次是 p23 的 <code>ε = 1/i</code>——实践中常改成固定下界 <code>ε_min</code></span>；<span class='k'>第二次是这里的 <code>α_t = 1/t</code>——实践中常改成固定 α</span>。<b>两次的理由相同：理论条件是为了「渐近收敛到一点」而设的，而实践中你要的是「在有限时间内表现够好，且能跟上变化」。</b><span class='w'>这个目标差异会在这门课后面反复出现（L09 p41 的 TRPO 常数也是同一类问题）。</span>"
+   ],
+   "tip": {
+    "t": "课件自己拆自己的台",
+    "v": "p34 末尾问：实践中会用满足这个条件的步长吗？<b>课件的回答是「多半不会」。</b>真跑的时候常用小常数或缓慢衰减——这条件是理论上的充分条件，不是工程建议。",
+    "w": 1
+   },
+   "quote": "<b>Theorem</b>: SARSA for finite-state and finite-action MDPs converges to the optimal action-value, <b>Q(s,a) → Q*(s,a)</b>, under the following conditions: &nbsp;·&nbsp; <b>1 The policy sequence π_t(a|s) satisfies the condition of GLIE</b> &nbsp;·&nbsp; <b>2 The step-sizes α_t satisfy the Robbins-Munro sequence: Σ_{t=1}^∞ α_t = ∞, Σ_{t=1}^∞ α_t² &lt; ∞</b> &nbsp;|&nbsp; <b>Would one want to use a step size choice that satisfies the above in practice? Likely not.</b>",
+   "tbl": {
+    "head": [
+     "条件",
+     "式子",
+     "防的是什么",
+     "典型取法",
+     "实践中呢"
+    ],
+    "rows": [
+     [
+      "和发散",
+      "<code>Σ α_t = ∞</code>",
+      "<span class='w'>走不到真值那里</span>",
+      "<code>α_t = 1/t</code>",
+      "<span class='k'>改用固定小 α</span>"
+     ],
+     [
+      "平方和收敛",
+      "<code>Σ α_t² &lt; ∞</code>",
+      "<span class='w'>噪声压不下去</span>",
+      "同上",
+      "<span class='w'>于是严格说失去收敛保证，Q 会持续抖动</span>"
+     ],
+     [
+      "<b>GLIE</b>",
+      "<code>ε_i = 1/i</code>",
+      "探索不够 / 永远做蠢事",
+      "—",
+      "<span class='k'>常改成固定 ε_min</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    35,
+    35
+   ],
+   "t": "Q-learning",
+   "star": 3,
+   "one": "把 SARSA 里的「下一个实际动作」换成「<b>下一步最好的动作</b>」。",
+   "eq": "SARSA：      Q(s_t,a_t) ← Q(s_t,a_t) + α( r_t + γ·Q(s_{t+1}, a_{t+1}) − Q(s_t,a_t) )\nQ-learning： Q(s_t,a_t) ← Q(s_t,a_t) + α( r_t + γ·max_{a′} Q(s_{t+1}, a′) − Q(s_t,a_t) )",
+   "pts": [
+    "<span class='k'>一个 max 就把它从 on-policy 变成了 off-policy</span>：你按 ε-贪婪行动，学到的却是<b>最优</b>策略的 Q。",
+    "还有个附带好处：不用等 a′，<b>拿到 (s,a,r,s′) 就能更新</b>。",
+    "<b>开头那个问句点出了 Q-learning 最惊人的地方：<span class='k'>在不知道最优策略是什么的情况下，估出它的值</span>。</b><b>这听起来像是作弊——你连它是什么都不知道，怎么估它的值？</b><span class='w'>答案在那个 <code>max</code> 里</span>：<b>你不需要知道最优策略长什么样，只需要在每一步「假装接下来会选最好的那个动作」。</b><span class='k'>而「最好」是相对当前的 Q 估计说的，于是这是一个自举的自举。</span>",
+    "<b>两个更新式的差别只有一处，把它圈出来：<code>Q(s′, a′)</code> 对 <code>max_{a′} Q(s′, a′)</code>。</b><span class='k'>SARSA 用的是「你实际会做的那个动作」，Q-learning 用的是「最好的那个动作」</span>。<b>而「你实际会做的」是从 ε-贪婪里采的，有 ε 的概率是随机动作。</b><span class='w'>所以 SARSA 的目标里含着探索的代价，Q-learning 的不含</span>——<b>这就是 on-policy 和 off-policy 在这里的全部技术内容。</b>",
+    "<b>这个区别带来一个非常重要、也最容易被误解的结论：<span class='w'>Q 收敛到 <code>Q*</code>，不等于你跟随的策略是最优的</span>。</b><b>Q-learning 学到的是最优策略的值，但你<b>执行</b>的仍然是 ε-贪婪策略</b>——<span class='k'>它以 ε 的概率乱走，所以它的实际表现不是最优的</span>。<b>两者是分离的：学的是一个策略，做的是另一个。</b><span class='w'>这正是 off-policy 这个词的字面意思</span>，<b>而 <code>kp</code> 专门把这一条标了出来。</b>",
+    "<b>把这个分离的好处说清楚，你就知道 off-policy 为什么值钱。</b><span class='k'>你可以用一个<b>很爱探索</b>的行为策略去采数据（大 ε、甚至完全随机），同时学到<b>最优</b>策略的值</span>——<b>两件事互不干扰。</b><span class='w'>而 SARSA 做不到：它学的就是它在执行的那个策略，你想让它学最优的，就得让 ε 趋于 0，于是探索也没了</span>。<b>这就是为什么 GLIE 对 SARSA 是必需的，而 Q-learning 的收敛条件里不需要「渐近贪婪」那一条。</b>"
+   ],
+   "say": "被问「SARSA 和 Q-learning 该选谁」时老师给了个具体判据：<b>悬崖漫步</b>（Sutton &amp; Barto）里有些动作会掉下悬崖，Q-learning 的乐观让它早期踩坑很多，<span class='k'>SARSA 因为「现实」反而早期更好</span>。但总体上「一般你想用 Q-learning」，两者最终收敛到同一处。",
+   "quote": "<b>Can we estimate the value of the optimal policy π* without knowledge of what π* is? Yes! Q-learning</b> &nbsp;·&nbsp; Key idea: Maintain state-action Q estimates and use to bootstrap — <b>use the value of the best future action</b> &nbsp;|&nbsp; SARSA: Q(s_t,a_t) ← Q(s_t,a_t) + α((r_t + γQ(s_{t+1},a_{t+1})) − Q(s_t,a_t)) &nbsp;·&nbsp; <b>Q-learning: Q(s_t,a_t) ← Q(s_t,a_t) + α((r_t + γ max_{a′} Q(s_{t+1},a′)) − Q(s_t,a_t))</b>",
+   "tbl": {
+    "head": [
+     "",
+     "SARSA",
+     "Q-learning"
+    ],
+    "rows": [
+     [
+      "自举用哪个动作",
+      "<code>a′ ∼ π(s′)</code>（实际会做的）",
+      "<code>max_{a′}</code>（最好的）"
+     ],
+     [
+      "属于",
+      "<span class='k'>on-policy</span>",
+      "<span class='k'>off-policy</span>"
+     ],
+     [
+      "学到的是谁的值",
+      "<b>你实际在执行的那个 ε-贪婪策略</b>",
+      "<b>最优策略 <code>Q*</code></b>"
+     ],
+     [
+      "目标里含探索代价吗",
+      "<span class='k'>含</span>",
+      "<span class='w'>不含</span>"
+     ],
+     [
+      "收敛要「渐近贪婪」吗",
+      "<span class='w'>要（GLIE 两条都要）</span>",
+      "<span class='k'>不要，只要无限探索 + 步长条件</span>"
+     ],
+     [
+      "行为上的后果",
+      "<span class='k'>会避开「失手代价高」的路线</span>",
+      "<span class='w'>会走最优路线，哪怕旁边是悬崖</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    36,
+    36
+   ],
+   "t": "行为策略与目标策略",
+   "one": "行为策略 <code>π_b</code> 决定你<b>实际</b>拿到什么奖励；它取成对当前 Q 的 ε-贪婪。",
+   "quote": "In the prior slide assumed there was some <b>b</b> used to act &nbsp;·&nbsp; <b>b determines the actual rewards received</b> &nbsp;·&nbsp; Now consider how to improve the behavior policy &nbsp;·&nbsp; Let behavior policy b be ε-greedy w.r.t. current estimate of the optimal Q(s,a)",
+   "pts": [
+    "<b>这一页把两个策略的分工正式命名，而这两个名字你以后会一直用。</b><span class='k'><b>行为策略</b>（behavior policy, <code>b</code>）：真正去和环境交互的那个，它决定你实际拿到什么奖励、看到什么状态</span>；<span class='k'><b>目标策略</b>（target policy）：你想学的那个，这里是最优策略</span>。<b>on-policy 就是两者相同，off-policy 就是不同。</b>",
+    "<b>课件那句 <em>b determines the actual rewards received</em> 要当真，它提醒了一件容易忽略的事。</b><span class='w'>你学到的是最优策略的值，但你<b>实际得到</b>的回报是行为策略带来的</span>。<b>于是「学得好」和「表现好」是两件事。</b><span class='k'>在线学习的场合你同时关心两者（学习期间的损失叫 regret，第十一讲的主题）</span>；<span class='w'>而离线学习的场合你只关心前者——数据已经采完了，行为策略好不好已成定局</span>。",
+    "<b>最后一行给出的是一个很自然但不唯一的选择：<span class='k'>让行为策略是「对当前 Q 的 ε-贪婪」</span>。</b><b>这样它既在探索（ε 那部分），又在利用已学到的东西（贪心那部分）。</b><span class='w'>但 Q-learning 的收敛<b>不要求</b>行为策略是 ε-贪婪的</span>——<b>它只要求每个 <code>(s,a)</code> 被访问无穷多次。</b><span class='k'>完全随机的行为策略同样能让 Q-learning 收敛到 <code>Q*</code></span>，<b>只是收敛会慢（因为你把时间浪费在明显很差的动作上）。</b>"
+   ]
+  },
+  {
+   "r": [
+    37,
+    38
+   ],
+   "t": "ε-贪婪的 Q-learning",
+   "star": 2,
+   "one": "五行。",
+   "eq": "初始化 Q(s,a)，π_b = ε-greedy(Q)\n循环：\n  取 a_t ~ π_b(s_t)，观察 (r_t, s_{t+1})\n  Q(s_t,a_t) ← Q(s_t,a_t) + α( r_t + γ·max_a Q(s_{t+1},a) − Q(s_t,a_t) )\n  π_b ← ε-greedy(Q)",
+   "pts": [
+    "<b>Q 怎么初始化要紧吗？</b> 渐近上不要紧；<span class='w'>但一开始很要紧</span>。",
+    "<b>把这个算法和 p31 的 SARSA 并排放，你会看到一个很整齐的差别：<span class='k'>它少了一行</span>。</b><span class='w'>SARSA 需要先采出 <code>a_{t+1}</code> 才能更新（第 5 行），所以更新滞后一步</span>；<span class='k'>Q-learning 只需要 <code>(s,a,r,s′)</code> 四元组，拿到就能更新</span>。<b>因为那个 <code>max</code> 不需要采样，直接查表取最大就行。</b><span class='w'>这个差别看着小，但它意味着 Q-learning 能用<b>任何来源</b>的四元组</span>——<b>包括别人采的、很久以前采的。</b><span class='k'>DQN 的经验回放池能成立，靠的正是这一条。</span>",
+    "<b>第 7 行那个「策略改进」在 Q-learning 里其实是免费的，值得点明。</b><span class='k'>因为行为策略被定义成「对当前 Q 的 ε-贪婪」，所以 Q 一更新，策略自动就更新了</span>——<b>不需要额外做什么。</b><span class='w'>这和 L02 的策略迭代形成对比：那里「改进」是一个真的要算的步骤</span>。<b>于是 Q-learning 里「评估」和「改进」彻底融合成了一步</b>——<span class='k'>它更像值迭代而不是策略迭代</span>。",
+    "<b>这也解释了 Q-learning 和 L02 值迭代的关系，这个对应值得记住。</b><span class='k'>L02 的值迭代：<code>V(s) ← max_a [R(s,a) + γΣP(s′|s,a)V(s′)]</code></span>；<span class='k'>Q-learning：<code>Q(s,a) ← Q(s,a) + α(r + γ max_{a′}Q(s′,a′) − Q(s,a))</code></span>。<b>后者就是前者的「无模型 + 采样 + 增量」版本</b>：<span class='w'>用一个采样的 <code>(r, s′)</code> 代替对 <code>s′</code> 的求和，用增量更新代替整表替换</span>。<b>所以 L03 对 L02 做的事（把 DP 变成采样），Q-learning 对值迭代又做了一遍。</b>"
+   ],
+   "say": "课上有同学提议<b>乐观初始化</b>（把 Q 初始化得很高）。老师说这招很好用：初值挑得对的话，还能给出「要多少数据才收敛到最优」的可证明保证。探索那几讲会细讲。",
+   "quote": "<b>Q-Learning with ε-greedy Exploration</b> &nbsp;·&nbsp; 2: Set b to be ε-greedy w.r.t. Q &nbsp;·&nbsp; 4: Take a_t ∼ b(s_t) &nbsp;·&nbsp; 5: Observe (r_t, s_{t+1}) &nbsp;·&nbsp; 6: Update Q given (s_t, a_t, r_t, s_{t+1}) &nbsp;·&nbsp; 7: Perform policy improvement: set b to be ε-greedy w.r.t. Q"
+  },
+  {
+   "r": [
+    39,
+    39
+   ],
+   "t": "检验题：Q-learning 走一步",
+   "star": 2,
+   "one": "同一条轨迹，Q-learning 只动一格。",
+   "eq": "ε = 1/k，k=1，α = 0.5\n第一个 tuple：(s3, a1, 0, s2)\n\nQ(s3,a1) ← 0 + 0.5·( 0 + γ·max_a Q(s2,a) − 0 ) = 0\n\nk=2；新策略在 s3 上是 a1 与 a2 平局",
+   "pts": [
+    "奖励是 0，<code>Q(s2,·)</code> 也还是 0，所以这一步<b>什么都没学到</b>。",
+    "<span class='k'>这正是 TD 类方法的老毛病</span>：信息得一格一格往回传，不像 MC 一次把整条路都更新掉。",
+    "<b>这类题的做法有一个固定套路，记住它就不会算错。</b><span class='k'>① 先把四元组列出来：<code>(s, a, r, s′)</code>；② 算出 TD 目标；③ 代进更新式</span>。<b>而 SARSA 和 Q-learning 的差别只在第②步</b>：<span class='w'>SARSA 的目标是 <code>r + γQ(s′, a′)</code>，要用到<b>实际采出的</b> <code>a′</code></span>；<span class='w'>Q-learning 的目标是 <code>r + γ max_{a′} Q(s′, a′)</code>，要把 <code>s′</code> 那一行<b>扫一遍取最大</b></span>。",
+    "<b>做这类题时最常见的两个错误，提前堵掉。</b><span class='w'>错误一：把 <code>max</code> 取在 <code>s</code> 那一行而不是 <code>s′</code> 那一行</span>——<b>目标里的 <code>max</code> 永远是对<b>下一个</b>状态取的。</b><span class='w'>错误二：忘了那是个增量更新，直接把目标当成新的 Q</span>——<b>新的 Q 是「旧值 + α × (目标 − 旧值)」，α 不等于 1 时两者差很多。</b><span class='k'>只有 α = 1 时，新 Q 才等于目标。</span>"
+   ],
+   "quote": "Check Your Understanding: Q-learning 走一步 &nbsp;·&nbsp; （用同一条转移，对比 SARSA 与 Q-learning 的更新目标）"
+  },
+  {
+   "r": [
+    40,
+    40
+   ],
+   "t": "两种收敛，条件不一样",
+   "star": 3,
+   "one": "「Q 收敛到 <code>Q*</code>」和「策略收敛到 <code>π*</code>」要的东西不同。",
+   "pts": [
+    "<b>要 Q → Q*</b>：所有 <code>(s,a)</code> 访问无穷多次 + Robbins–Munro 步长。<span class='k'>不需要 GLIE</span>——ε 一直很大也行。",
+    "<b>要 π → π*</b>：在上面之外<b>还得 GLIE</b>。",
+    "<b>两种收敛的条件差一条，而这一条差别正好反映了 on-policy 和 off-policy 的本质区别。</b><span class='k'>SARSA 要 GLIE 的<b>两条</b>（无限探索 + 渐近贪婪）加步长条件</span>；<span class='k'>Q-learning 只要<b>无限探索</b>加步长条件</span>。<b>少掉的正是「渐近贪婪」那一条。</b>",
+    "<b>为什么 Q-learning 不需要它，理由很干净：<span class='w'>它的更新目标里根本没有行为策略</span>。</b><b>目标是 <code>r + γ max_{a′} Q(s′,a′)</code>——这个式子里只有 Q，没有 π。</b><span class='k'>所以无论你用什么策略去采数据，只要每个 <code>(s,a)</code> 都被采够，Q 就会收敛到 <code>Q*</code></span>。<span class='w'>而 SARSA 的目标里有 <code>Q(s′, a′)</code>，<code>a′</code> 来自行为策略</span>——<b>于是它学到的东西跟着行为策略走，要让它学到最优的，行为策略就必须趋于最优。</b>",
+    "<b>这个区别要配上那条最容易被误读的结论一起记：<span class='k'>Q 收敛到 <code>Q*</code>，不等于你跟随的策略是最优的</span>。</b><b>Q-learning 收敛时，你的行为策略仍然是 ε-贪婪的，仍然以 ε 的概率乱走。</b><span class='w'>要得到最优<b>策略</b>，你得在学完之后把 ε 设成 0，用纯贪心去执行</span>。<b>学习阶段和部署阶段是分开的。</b><span class='k'>这正是「离线学习 + 在线部署」这个模式的理论依据。</span>",
+    "<b>最后把这一讲的收敛结论和 L05 p38 接上，这是整条线最重要的一个衔接。</b><span class='k'>这一讲证明了：<b>表格</b>下，off-policy 的 Q-learning 收敛到 <code>Q*</code></span>。<span class='w'>L05 p38 会说：off-policy + 自举 + <b>函数逼近</b>，三样齐了可能发散</span>。<b>而这一讲占了前两样，缺的正是第三样。</b><span class='k'>所以这一讲是「三件套只凑齐两件，所以安全」的那个参照点</span>——<b>L05 的那张表里，「② + ③（表格）」那一行指的就是这里。</b>"
+   ],
+   "tip": {
+    "t": "为什么会分家",
+    "v": "Q-learning 是 off-policy 的：你可以一直乱走（ε 很大），照样把最优 Q 学对——<b>但你自己并没有在照最优策略行动</b>。想让行为本身也变最优，就得让 ε 降下去。"
+   },
+   "quote": "Q-learning converges to the optimal Q* if: <b>all (s,a) pairs are visited infinitely often</b>, and the step-sizes satisfy the Robbins-Munro conditions &nbsp;·&nbsp; (SARSA additionally requires <b>GLIE</b>)"
+  },
+  {
+   "r": [
+    41,
+    41
+   ],
+   "t": "目录：最大化偏差",
+   "quote": "Table of Contents &nbsp;·&nbsp; <b>5 Maximization Bias</b>",
+   "one": "最后一节：<b>对前面所有算法的一次体检</b>。",
+   "pts": [
+    "<b>这一节处理的问题，用一句话就能说清，而且它远超 RL 的范围：</b><span class='k'>当你从一堆带噪声的估计里挑最大的那个时，你挑出来的那个估计值会系统性地偏高</span>。<b>哪怕每一个估计本身都是无偏的。</b><span class='w'>这不是某个算法的 bug，是「取 max」这个动作本身的统计性质。</span>",
+    "<b>而前面所有算法都在做这件事，所以它们都中招。</b><span class='k'>MC 控制的 <code>arg max_a Q</code>、SARSA 的策略改进、Q-learning 目标里那个 <code>max_{a′}</code></span>——<b>每一处都是在对估计出来的 Q 取最大。</b><span class='w'>Q-learning 尤其严重，因为那个 max 在<b>每一步的更新目标</b>里，于是偏差会被自举一轮一轮地传播放大</span>。"
+   ]
+  },
+  {
+   "r": [
+    42,
+    42
+   ],
+   "t": "最大化偏差",
+   "star": 3,
+   "one": "每个 Q 的估计都无偏，<b>但取了 max 之后就有偏了</b>。",
+   "eq": "单状态 MDP，两个动作，奖励都是 0 均值随机：\nQ(s,a1) = Q(s,a2) = 0 = V(s)\n\nV̂^π̂(s) = E[ max( Q̂(s,a1), Q̂(s,a2) ) ]\n        ≥ max( E[Q̂(s,a1)], E[Q̂(s,a2)] )     ← 詹森不等式\n        = max(0, 0) = V^π",
+   "pts": [
+    "直觉：样本有限时，<b>总有一个动作碰巧看起来好一点</b>（比如 +0.1）。",
+    "你一取 max 就<span class='w'>立刻去利用这个运气</span>，于是系统性地高估。",
+    "出处：Mannor, Simester, Sun &amp; Tsitsiklis, Management Science 2007。",
+    "<b>这个反例设计得极其干净，值得一步步跟一遍，因为它把问题剥到了最裸露的形态。</b><span class='k'>一个状态、两个动作、两个动作的真实期望奖励<b>都是 0</b></span>——<b>于是真值 <code>Q(s,a1) = Q(s,a2) = V*(s) = 0</code>。</b><span class='w'>你用样本均值去估 Q，这是<b>无偏</b>估计量</span>：<b><code>E[Q̂(s,a1)] = E[Q̂(s,a2)] = 0</code>。</b><span class='k'>一切看起来都完美。</span>",
+    "<b>然后那一步出事了：<code>E[max(Q̂₁, Q̂₂)] ≥ max(E[Q̂₁], E[Q̂₂]) = 0</code>。</b><span class='w'>左边是「两个带噪声的估计取最大，再求期望」；右边是「各自求期望，再取最大」</span>。<b>不等号来自 Jensen 不等式——<code>max</code> 是一个凸函数。</b><span class='k'>而且这个不等号通常是<b>严格</b>的：只要两个估计有噪声且不完全相关，左边就严格大于 0</span>。<b>于是你对「最好那个动作的值」的估计，期望上是正的，而真值是 0。</b>",
+    "<b>用更直白的话说这件事：<span class='k'>你挑的是「这次运气最好的那个」，而不是「真的最好的那个」</span>。</b><b>两个动作真实水平一样，但这一轮总有一个的样本均值碰巧高一点，</b><span class='w'>你挑了它，然后拿它那个「碰巧高一点」的数字当作「最好动作的值」</span>。<b>运气被当成了实力。</b><span class='k'>这在统计里有个现成的名字：胜者的诅咒（winner's curse）</span>——<b>赢家的出价总是高估了标的的真实价值。</b>",
+    "<b>偏差的大小取决于两件事，知道这一点你就能判断它在你的问题里严不严重。</b><span class='k'>① 估计的噪声有多大</span>——<b>样本越少，噪声越大，偏差越大；样本趋于无穷时偏差消失。</b><span class='k'>② 候选有多少个</span>——<b>候选越多，「总有一个碰巧很高」的概率越大，偏差越大。</b><span class='w'>两个候选时偏差温和，几百个候选时会相当可观</span>。<b>而课件在脚注里给了出处：Mannor, Simester, Sun &amp; Tsitsiklis, <em>Bias and Variance Approximation in Value Function Estimates</em>, Management Science 2007。</b><span class='k'>注意那是一篇<b>管理科学</b>的论文——这说明这个问题远不止 RL 才有。</span>"
+   ],
+   "quote": "Consider single-state MDP (|S|=1) with 2 actions, and both actions have <b>0-mean random rewards</b>: E(r|a=a1) = E(r|a=a2) = 0 &nbsp;·&nbsp; Then Q(s,a1) = Q(s,a2) = 0 = V*(s) &nbsp;·&nbsp; Use an <b>unbiased estimator</b> for Q &nbsp;·&nbsp; Let π̂ = arg max_a Q̂(s,a) &nbsp;|&nbsp; <b>Even though each estimate of the state-action values is unbiased, the estimate of π̂'s value V̂^{π̂} can be biased</b> &nbsp;·&nbsp; E[V̂^{π̂}(s)] = E[max(Q̂(s,a1), Q̂(s,a2))] <b>≥</b> max(E[Q̂(s,a1)], E[Q̂(s,a2)]) = max(0,0) = V* &nbsp;·&nbsp; <b>where the inequality comes from Jensen's inequality</b>",
+   "tbl": {
+    "head": [
+     "",
+     "每个 Q̂ 单独看",
+     "取 max 之后"
+    ],
+    "rows": [
+     [
+      "有偏吗",
+      "<span class='k'>无偏</span>",
+      "<span class='w'>系统性偏高</span>"
+     ],
+     [
+      "为什么",
+      "样本均值是无偏估计",
+      "<b>Jensen：<code>E[max] ≥ max E</code></b>"
+     ],
+     [
+      "直觉",
+      "—",
+      "<span class='w'>你挑的是「这次运气最好的」，不是「真的最好的」</span>"
+     ],
+     [
+      "什么时候更严重",
+      "—",
+      "<b>样本越少、候选越多，偏得越狠</b>"
+     ],
+     [
+      "什么时候消失",
+      "—",
+      "<span class='k'>样本趋于无穷</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    43,
+    43
+   ],
+   "t": "双学习：把「选」和「估」拆开",
+   "star": 3,
+   "one": "<b>别拿「估计的 max」当「真值的 max」。</b>",
+   "eq": "把样本劈成两半，独立估出 Q₁ 和 Q₂\n\n用 Q₁ 选动作： a* = arg max_a Q₁(s,a)\n用 Q₂ 估它的值：Q₂(s, a*)\n\n于是 E[Q₂(s,a*)] = Q(s,a*)   ← 无偏",
+   "pts": [
+    "<span class='k'>无偏的来源是「选」和「估」用的是互相独立的样本</span>。",
+    "在线时可以交替更新 Q₁、Q₂，each 用另一个去选动作。",
+    "<b>课件那句 <em>Avoid using max of estimates as estimate of max of true values</em> 是整节的核心，值得当成一条通用戒律记住。</b><span class='k'>「一堆估计的最大值」不是「真值的最大值」的好估计</span>——<b>前者系统性偏高。</b><span class='w'>这条戒律在任何「选最优」的场合都适用</span>：挑模型、挑超参、挑配置、挑投资标的。",
+    "<b>而解药的形状极其朴素：<span class='k'>把数据拆成两半，一半用来<b>挑</b>，另一半用来<b>评</b></span>。</b><b>① 用 <code>Q1</code> 挑出最好的动作 <code>a* = arg max_a Q1(s,a)</code>；② 用 <code>Q2</code> 去估那个动作的值 <code>Q2(s,a*)</code>。</b><span class='w'>于是「挑」的噪声和「评」的噪声是<b>独立</b>的</span>——<b><code>a*</code> 可能是因为 <code>Q1</code> 的噪声而被选中的，但 <code>Q2</code> 对它的评估不受那份噪声影响。</b><span class='k'>运气和实力被拆开了。</span>",
+    "<b>为什么这就无偏了，课件给的理由只有一句：<em>Using independent samples to estimate the value</em>，值得把它展开。</b><span class='k'>给定 <code>a*</code>（不管它是怎么选出来的），<code>Q2(s,a*)</code> 都是 <code>Q(s,a*)</code> 的无偏估计</span>——<b>因为 <code>Q2</code> 用的样本和选 <code>a*</code> 用的样本不相干。</b><span class='w'>而上一页的问题恰恰是：那里「选」和「评」用的是<b>同一份</b>样本</span>，<b>于是「被选中」和「被高估」是同一件事的两面。</b>",
+    "<b>但要诚实地说清楚这个解药换来了什么、付出了什么。</b><span class='k'>换来：对「被选中那个动作的值」的无偏估计</span>。<span class='w'>付出：每一半的样本量减半，于是每个估计的方差变大</span>；<b>而且选出来的 <code>a*</code> 质量会下降（因为你只用一半数据来挑）。</b><span class='k'>所以它是「用方差换偏差」——和这门课到处都是的那笔交易方向相反</span>。<b>在样本很少时，这笔交易未必划算。</b>"
+   ],
+   "quote": "The greedy policy w.r.t. estimated Q values can yield a maximization bias during finite-sample learning &nbsp;·&nbsp; <b>Avoid using max of estimates as estimate of max of true values</b> &nbsp;·&nbsp; Instead <b>split samples</b> and use to create two independent unbiased estimates Q1 and Q2 &nbsp;·&nbsp; <b>Use one estimate to select max action: a* = arg max_a Q1(s,a)</b> &nbsp;·&nbsp; <b>Use other estimate to estimate value of a*: Q2(s,a*)</b> &nbsp;·&nbsp; Yields unbiased estimate: E[Q2(s,a*)] = Q(s,a*) &nbsp;·&nbsp; <b>Why? Using independent samples to estimate the value</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一节是这一讲对你最直接、最可操作的一条——而且它推翻了「L04 科研连接弱」这个预期。</b><br><br><b>你的核心动作是什么？<span class='k'>从一堆候选配置里，按估计的 <code>G = Acc − λ·Cost</code> 挑最好的那个</span>。</b><span class='w'>也就是 <code>max_config Ĝ(config)</code></span>——<b>这正是 p42 那个式子，一字不差。</b><br><br><b>于是结论直接适用：<span class='k'>你报告的那个「最优配置的 G」，系统性地高于它的真实值</span>。</b><span class='w'>哪怕你的 FQE 完全无偏、哪怕你的留出集评估完全无偏</span>——<b>只要你是在一堆带噪声的估计里取最大，偏差就存在。</b><span class='k'>这是胜者的诅咒，和你的算法好不好无关。</span><br><br><b>而偏差的大小由两件事决定，两件在你这里都不乐观：</b><br><b>① 候选数量</b>：<span class='w'>L02 p30 算过，<code>k^H</code> 在 k=3/H=7 时是 2187</span>——<b>两千多个候选，比课件那个「两个动作」的例子严重得多。</b><br><b>② 每个估计的噪声</b>：<span class='w'>留出集上每个配置能跑的 query 数有限，而 Acc 本身是个比例，方差不小</span>。<br><span class='k'>两条叠加，这个偏差很可能不是小数点后几位的事。</span><br><br><b>解药可以原样搬，而且几乎不花钱：<span class='k'>把留出集拆成两半，一半用来挑配置，另一半用来报告它的 G</span>。</b><br><b>① 在 split A 上算每个候选的 <code>Ĝ</code>，挑出 <code>config*</code>；</b><br><b>② 在 split B 上<b>只</b>评估 <code>config*</code>，报告那个数。</b><br><span class='w'>② 里的估计是无偏的，因为 B 的样本没参与挑选</span>。<b>这正是 Double Learning 的做法，而且在统计里有个更常见的名字：样本拆分 / 交叉拟合。</b><br><br><b>代价要一并说清</b>：<span class='w'>每一半样本减半，所以挑出来的配置可能不是最好的那个，而报告的那个数方差也更大</span>。<b>改进做法是<span class='k'>交换两半再做一次取平均</span>（Double Q 的在线版本正是交替更新），或者做 K 折。</b><span class='k'>但无论哪种，关键都是那一句：<b>别用挑它的那份数据去评它</b>。</b>",
+    "ref": "课件 p42–p43（Avoid using max of estimates as estimate of max of true values；split samples）· Mannor et al. Management Science 2007 · L02 p30 科研格 · 简报 §4d"
+   }
+  },
+  {
+   "r": [
+    44,
+    44
+   ],
+   "t": "Double Q-learning",
+   "star": 3,
+   "one": "维护两张 Q 表，每步抛硬币决定更新哪一张。",
+   "eq": "用 ε-贪婪选 a_t，依据 Q₁(s_t,a) + Q₂(s_t,a)\n观察 (r_t, s_{t+1})\n以 0.5 概率：Q₁(s_t,a_t) ← Q₁ + α( r_t + γ·max_a Q₂(s_{t+1},a) − Q₁ )\n否则：      Q₂(s_t,a_t) ← Q₂ + α( r_t + γ·max_a Q₁(s_{t+1},a) − Q₂ )",
+   "pts": [
+    "<b>内存翻倍</b>；<b>每步计算量不变</b>；数据需求「微妙」——偏差小了，<span class='k'>需要的探索可能反而更少</span>。",
+    "<b>在线版本要解决一个新问题：你没法事先把数据分成两堆，因为数据是一边跑一边来的。</b><span class='k'>解法是：每来一条转移，抛个硬币决定更新 <code>Q1</code> 还是 <code>Q2</code></span>。<b>于是两张表用的是互不重叠的样本，独立性就有了。</b><span class='w'>这是「样本拆分」在流式数据上的实现方式</span>——<b>思路完全一样，只是分法从「事先切」变成了「随机分流」。</b>",
+    "<b>第 6 行那个更新式值得盯一眼，因为「选」和「评」在里面写得很清楚。</b><code>Q2(s_{t+1}, arg max_a Q1(s_{t+1}, a))</code>——<span class='k'><b>用 Q1 选</b>（里面那个 arg max），<b>用 Q2 评</b>（外面那个 Q2 取值）</span>。<b>对比普通 Q-learning 的 <code>max_a Q(s_{t+1},a)</code>：那里选和评用的是同一张表。</b><span class='w'>一个式子写出了全部区别。</span>",
+    "<b><code>kp</code> 专门标了一句，值得强调：<span class='k'>关键不是「平均」，是把「选」与「评」解耦</span>。</b><span class='w'>很多人以为 Double Q 是「两个估计取平均来降噪」——不是</span>。<b>如果只是平均，偏差照样存在（两个有偏估计的平均还是有偏）。</b><span class='k'>真正起作用的是「用 A 挑、用 B 评」这个结构</span>。<b>第 3 行那个 <code>Q1 + Q2</code> 确实是在平均，但那只用于<b>行为策略</b>（选动作去探索），和消除偏差无关。</b>",
+    "<b>课件自己问的那三个代价，答案值得记一下，因为它们比想象的便宜。</b><span class='k'>内存：翻倍</span>（<b>两张 Q 表</b>）；<span class='k'>每步计算：不变</span>（<b>每次只更新一张表</b>）；<span class='w'>数据需求：微妙</span>——<b>每张表只拿到一半的样本，看起来要更多数据；但偏差变小之后，策略更早地走对方向，<b>可能反而减少了所需的探索量</b>。</b><span class='k'>课件的措辞是 <em>might reduce amount of exploration needed due to lower bias</em>——用的是 might，很克制。</span>"
+   ],
+   "quote": "<b>Double Q-Learning</b> &nbsp;·&nbsp; 3: Select a_t using ε-greedy π(s) = <b>arg max_a [Q1(s_t,a) + Q2(s_t,a)]</b> &nbsp;·&nbsp; 5: if (with 0.5 probability) then &nbsp;·&nbsp; 6: <b>Q1(s_t,a_t) ← Q1(s_t,a_t) + α(r_t + γ Q2(s_{t+1}, arg max_a Q1(s_{t+1},a)) − Q1(s_t,a_t))</b> &nbsp;·&nbsp; 7: else &nbsp;·&nbsp; 8: (symmetric, swap Q1 and Q2) &nbsp;|&nbsp; <b>Doubles the memory, same computation requirements, data requirements are subtle — might reduce amount of exploration needed due to lower bias</b>",
+   "tbl": {
+    "head": [
+     "",
+     "Q-learning",
+     "Double Q-learning"
+    ],
+    "rows": [
+     [
+      "目标里的那一项",
+      "<code>max_a Q(s′,a)</code>",
+      "<code>Q2(s′, arg max_a Q1(s′,a))</code>"
+     ],
+     [
+      "选和评用同一份数据吗",
+      "<span class='w'>是 ⇒ 系统性偏高</span>",
+      "<span class='k'>否 ⇒ 无偏</span>"
+     ],
+     [
+      "内存",
+      "1 张表",
+      "<span class='w'>2 张表</span>"
+     ],
+     [
+      "每步计算",
+      "—",
+      "<span class='k'>不变（每次只更新一张）</span>"
+     ],
+     [
+      "数据需求",
+      "—",
+      "<b>微妙——每张表样本减半，但偏差小可能减少所需探索</b>"
+     ],
+     [
+      "<b>起作用的是什么</b>",
+      "—",
+      "<span class='k'>解耦「选」与「评」，<b>不是</b>两个估计取平均</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    45,
+    45
+   ],
+   "t": "实验：差距有多大",
+   "star": 2,
+   "one": "Sutton &amp; Barto 2018 图 6.7。",
+   "pts": [
+    "因为最大化偏差，<b>Q-learning 花在次优动作上的时间比 Double Q-learning 多得多</b>。",
+    "<b>这个实验图要看的不是「谁最终更好」，而是「早期差多少」。</b><span class='k'>两者最终都会收敛（偏差随样本增加而消失）</span>；<span class='w'>但在学习的早期，普通 Q-learning 会花大量时间去选那些<b>被高估的次优动作</b></span>。<b>因为它们的 Q 被噪声抬高了，于是贪心策略一直去试它们。</b><span class='k'>这是一个「偏差直接变成了行为上的浪费」的例子。</span>",
+    "<b>把这件事和探索联系起来，你会看到一个有点反直觉的结论。</b><span class='w'>最大化偏差其实制造了一种「假的探索」</span>——<b>被高估的动作看起来很好，于是你去试它；试过之后估计下降，你换下一个被高估的。</b><span class='k'>所以 Q-learning 的乐观偏差在某种意义上起到了探索的作用</span>。<b>但这是一种<b>低效</b>的探索</b>：<span class='w'>它的方向由噪声决定，而不是由「哪里不确定」决定</span>。<b>而第十一讲会告诉你怎么做有章法的乐观探索（UCB）——那里的乐观是有依据的。</b>",
+    "<b>最后提一句这条线在深度 RL 里的延续，它正是 L06/L07 复习过的那个 Double DQN。</b><span class='k'>Double DQN 用「当前网络选、目标网络评」来近似这个解耦</span>（<b>L07 p3–p6</b>）。<span class='w'>注意它是<b>近似</b>的：两组权重来自同一批数据，噪声并不真正独立</span>——<b>所以它只是缓解，不是消除。</b><span class='k'>而 Rainbow 的消融显示 Double DQN 单独去掉几乎不掉分</span>（<b>L07 p15</b>），<b>因为分布式值函数已经顺带缓解了同一个偏差。</b>"
+   ],
+   "say": "老师描述了那个域：一个选项<b>随机但其实更差</b>，另一个<b>确定但更好</b>。数据少时随机那个容易碰巧显得好，Q-learning 就一头扎进去。",
+   "quote": "Due to the maximization bias, <b>Q-learning spends much more time selecting suboptimal actions than double Q-learning</b> &nbsp;·&nbsp; (Figure 6.7 in Sutton and Barto 2018)"
+  },
+  {
+   "r": [
+    46,
+    46
+   ],
+   "t": "目录：讲完了",
+   "quote": "Table of Contents &nbsp;·&nbsp; 1 Generalized Policy Iteration &nbsp;·&nbsp; 2 Importance of Exploration &nbsp;·&nbsp; 3 Monte Carlo Control &nbsp;·&nbsp; 4 Temporal Difference Methods for Control &nbsp;·&nbsp; 5 Maximization Bias",
+   "one": "五节讲完了，<b>回头看一次这条链子</b>。",
+   "pts": [
+    "<b>把这五节连成一句话，这一讲的结构就清楚了：</b><span class='k'>要无模型做控制 ⇒ 必须估 Q（第 1 节）⇒ 但贪心策略试不到所有动作，所以要 ε-贪婪和 GLIE（第 2 节）⇒ 评估那一步用 MC（第 3 节）或 TD（第 4 节）⇒ 而所有这些算法都有同一个系统性偏差，要靠拆分数据来治（第 5 节）</span>。<b>每一节都在补上一节留下的缺口。</b>",
+    "<b>而这一讲在整门课里的位置也值得收一句：<span class='k'>它是最后一片干净的地面</span>。</b><span class='w'>这里所有的收敛结论都成立，条件都是「温和」的，证明都有</span>。<b>下一讲引入函数逼近之后，这些结论会一条条失效</b>——<span class='k'>MC 还收敛到最优逼近，TD 只收敛到它的常数倍之内，而 off-policy 的 Q-learning 可能直接发散</span>（<b>L05 p38 p45</b>）。<b>所以把这一讲的条件记牢，后面才知道是哪一条被破坏了。</b>"
+   ]
+  },
+  {
+   "r": [
+    47,
+    48
+   ],
+   "t": "这一讲你该掌握什么",
+   "one": "课件自己给的清单。",
+   "pts": [
+    "能<b>实现</b> MC on-policy 控制、SARSA、Q-learning。",
+    "能按「更新有多快、偏差方差、计算代价」把它们放在一起比。",
+    "能说出这些算法收敛到 <code>Q*</code> 和 <code>π*</code> 各需要什么条件，并给出<b>至少一种</b>保证条件成立的做法。",
+    "下一讲：值函数逼近。",
+    "<b>课件这张清单里，第三条要求最高，值得逐字看：不只要会说条件，还要能给出<b>至少一种</b>保证条件被满足的办法。</b><span class='k'>条件：GLIE（SARSA 要两条，Q-learning 只要无限探索那条）+ Robbins-Munro 步长条件</span>。<span class='k'>保证办法：<code>ε_i = 1/i</code> 保证 GLIE；<code>α_t = 1/t</code> 保证步长条件</span>。<b>两个都靠同一个数学事实：调和级数发散而平方和收敛。</b>",
+    "<b>第二条要求的那三个比较维度，自查一遍。</b><b>更新快慢</b>：<span class='k'>MC 要等片段结束；SARSA 和 Q-learning 每步都能更新</span>。<br><b>偏差与方差</b>：<span class='k'>MC 无偏、方差大；TD 类有偏、方差小</span>（<b>L03 那笔老交易</b>）。<br><b>计算代价</b>：<span class='k'>三者每次更新都是 <code>O(1)</code> 到 <code>O(|A|)</code>，差别不大</span>；<span class='w'>真正的代价差异在<b>数据</b>上，不在计算上</span>。",
+    "<b>最后补一条课件没列、但你应该能回答的：SARSA 和 Q-learning 该选哪个。</b><span class='k'>如果学习期间的表现也要紧（在线、有代价），偏 SARSA</span>——<b>它会把探索的风险算进去，主动避开「失手代价高」的路线。</b><span class='k'>如果你只关心最终学到的策略（离线学、学完再部署），偏 Q-learning</span>——<b>它直接学最优策略的值，而且能用任何来源的数据。</b><span class='w'>这个区分比记住两个更新式有用得多。</span>"
+   ],
+   "quote": "<b>Be able to implement MC on policy control and SARSA and Q-learning</b> &nbsp;·&nbsp; Compare them according to properties of how quickly they update, (informally) bias and variance, computational cost &nbsp;·&nbsp; <b>Define conditions for these algorithms to converge to the optimal Q and optimal π and give at least one way to guarantee such conditions are met</b>"
+  }
+ ],
+ "quiz": {
+  "31": [
+   {
+    "q": "SARSA 这个名字来自？",
+    "o": [
+     "随机近似",
+     "作者姓氏",
+     "更新用到的五个量：s, a, r, s′, a′",
+     "采样-平均"
+    ],
+    "a": 2,
+    "why": "关键是那最后一个 a′：必须等到下一个动作定下来才能更新。"
+   },
+   {
+    "q": "SARSA 相对 MC 控制的好处是？",
+    "o": [
+     "不需要 α",
+     "不用等片段结束，同一个片段里就能改策略",
+     "不需要探索",
+     "无偏"
+    ],
+    "a": 1,
+    "why": "片段很长时这一点很值钱。"
+   },
+   {
+    "q": "SARSA 这个名字是什么的缩写？",
+    "o": [
+     "State-Action-Reward-State-Action——它需要的五个量",
+     "没有特别含义",
+     "Sequential-Approximate-RL-Sampling-Algorithm",
+     "Sample-Average-Reward-Simple-Algorithm"
+    ],
+    "a": 0,
+    "why": "最后那个 A' 是它和 Q-learning 唯一的区别，也是整个 on-policy 性质的来源。"
+   },
+   {
+    "q": "SARSA 为什么会主动避开「旁边有悬崖」的路线？",
+    "o": [
+     "因为它用了折扣",
+     "因为它方差小",
+     "因为它收敛更快",
+     "它用来自举的 <code>a'</code> 是从 ε-贪婪采的，所以学到的 Q 包含了「有 ε 概率失手」的代价"
+    ],
+    "a": 3,
+    "why": "Sutton & Barto 的 cliff walking 例子就是演示这一点的。Q-learning 会走最优路线，哪怕旁边是悬崖。"
+   }
+  ],
+  "33": [
+   {
+    "q": "Robbins–Munro 条件的两半分别在要求什么？",
+    "o": [
+     "都在要求 α 变小",
+     "都在要求 α 变大",
+     "Σα=∞ 要求步子加起来够大；Σα²<∞ 要求步子最终够小",
+     "一个管 α 一个管 ε"
+    ],
+    "a": 2,
+    "why": "α=1 完全不记过去，α=0 完全不更新，两端都不行。"
+   },
+   {
+    "q": "课件自己对这个步长条件的评价是？",
+    "o": [
+     "只对 SARSA 有效",
+     "只对 MC 有效",
+     "实践中应当严格遵守",
+     "实践中多半不会用它——这是理论上的充分条件，不是工程建议"
+    ],
+    "a": 3,
+    "why": "真跑的时候常用小常数或缓慢衰减，具体看领域。"
+   },
+   {
+    "q": "Robbins-Munro 的两个条件各自防什么？",
+    "o": [
+     "都是为了保证无偏",
+     "和发散防过拟合；平方和收敛防欠拟合",
+     "都是为了加速收敛",
+     "和发散防「走不到真值那里」；平方和收敛防「噪声压不下去」"
+    ],
+    "a": 3,
+    "why": "典型取法 α_t = 1/t：Σ1/t 发散，Σ1/t² 收敛，刚好卡在中间。"
+   },
+   {
+    "q": "课件反问「实践中会用满足这些条件的步长吗」，答案是什么？",
+    "o": [
+     "取决于状态空间大小",
+     "会，但要加动量",
+     "Likely not——<code>1/t</code> 衰减太快，而且真实环境非平稳，需要不衰减到零的步长",
+     "会，这是标准做法"
+    ],
+    "a": 2,
+    "why": "实践中普遍用固定的小 α。代价是严格说失去收敛保证——Q 会在真值附近持续抖动。"
+   }
+  ],
+  "35": [
+   {
+    "q": "Q-learning 和 SARSA 的更新只差一处，是哪里？",
+    "o": [
+     "γ 的位置",
+     "α 的位置",
+     "奖励的定义",
+     "SARSA 用实际要做的 <code>Q(s′,a′)</code>，Q-learning 用 <code>max_{a′} Q(s′,a′)</code>"
+    ],
+    "a": 3,
+    "why": "一个 max 就把它从 on-policy 变成了 off-policy。"
+   },
+   {
+    "q": "老师说 SARSA 在哪种情形下早期反而更好？",
+    "o": [
+     "γ 很大时",
+     "奖励稀疏时",
+     "状态很多时",
+     "有大量很负的后果时（如悬崖漫步）——它对随机动作是「现实」的，不像 Q-learning 那么乐观"
+    ],
+    "a": 3,
+    "why": "但总体上「一般你想用 Q-learning」，两者最终收敛到同一处。"
+   },
+   {
+    "q": "Q-learning 相对 SARSA 还有一个实现上的小好处：",
+    "o": [
+     "不需要 α",
+     "不用等下一个动作，拿到 (s,a,r,s′) 就能更新",
+     "不需要 ε",
+     "不需要 Q 表"
+    ],
+    "a": 1,
+    "why": "因为更新里用的是 max，不依赖实际选了哪个 a′。"
+   },
+   {
+    "q": "SARSA 和 Q-learning 的更新式差别在哪？",
+    "o": [
+     "一个用 first visit 一个用 every visit",
+     "<code>Q(s′,a′)</code> 对 <code>max_{a′} Q(s′,a′)</code>——用实际会做的动作，还是用最好的动作",
+     "折扣因子不同",
+     "学习率不同"
+    ],
+    "a": 1,
+    "why": "而「实际会做的」是从 ε-贪婪采的，有 ε 概率是随机动作。所以 SARSA 的目标里含探索代价，Q-learning 的不含。"
+   },
+   {
+    "q": "「Q 收敛到 <code>Q*</code>」等于「你跟随的策略是最优的」吗？",
+    "o": [
+     "等于",
+     "不等于——你执行的仍是 ε-贪婪策略，以 ε 概率乱走；学的是一个策略，做的是另一个",
+     "等于，只要 ε 足够小",
+     "不等于，但差别可以忽略"
+    ],
+    "a": 1,
+    "why": "这正是 off-policy 这个词的字面意思。要得到最优策略，得在学完之后把 ε 设成 0 再执行。"
+   },
+   {
+    "q": "off-policy 的分离带来什么好处？",
+    "o": [
+     "可以不用折扣",
+     "可以保证单调改进",
+     "可以减少内存",
+     "可以用一个很爱探索的行为策略采数据，同时学到最优策略的值，两件事互不干扰"
+    ],
+    "a": 3,
+    "why": "而 SARSA 做不到：它学的就是它在执行的那个策略，想让它学最优的就得让 ε 趋于 0，于是探索也没了。"
+   }
+  ],
+  "37": [
+   {
+    "q": "为什么 Q-learning 能用经验回放池，而 SARSA 不行？",
+    "o": [
+     "因为 Q-learning 收敛更快",
+     "Q-learning 只需要 (s,a,r,s′) 四元组，那个 max 不需要采样；SARSA 还要知道实际采出的 a′",
+     "因为 Q-learning 方差小",
+     "因为 Q 表更小"
+    ],
+    "a": 1,
+    "why": "于是 Q-learning 能用任何来源的四元组——包括别人采的、很久以前采的。DQN 的回放池靠的正是这一条。"
+   },
+   {
+    "q": "Q-learning 和 L02 值迭代是什么关系？",
+    "o": [
+     "两者收敛到不同的解",
+     "无关",
+     "Q-learning 是值迭代的「无模型 + 采样 + 增量」版本",
+     "值迭代是 Q-learning 的特例"
+    ],
+    "a": 2,
+    "why": "用采样的 (r,s′) 代替对 s′ 的求和，用增量更新代替整表替换。L03 对 L02 做的事，Q-learning 对值迭代又做了一遍。"
+   }
+  ],
+  "39": [
+   {
+    "q": "第一个 tuple <code>(s3,a1,0,s2)</code> 之后，<code>Q(s3,a1)</code> 是多少？",
+    "o": [
+     "0——奖励是 0，Q(s2,·) 也还是 0，这一步什么都没学到",
+     "1",
+     "10",
+     "0.5"
+    ],
+    "a": 0,
+    "why": "这正是 TD 类方法的老毛病：信息要一格一格往回传。"
+   }
+  ],
+  "40": [
+   {
+    "q": "只要「Q 收敛到 <code>Q*</code>」，需要 GLIE 吗？",
+    "o": [
+     "需要，且 ε 必须趋于 0",
+     "需要",
+     "看 α 怎么取",
+     "不需要——访问遍所有 (s,a) 加上 Robbins–Munro 步长就够，ε 一直很大也行"
+    ],
+    "a": 3,
+    "why": "Q-learning 是 off-policy 的：你可以一直乱走，照样把最优 Q 学对。"
+   },
+   {
+    "q": "那要「策略收敛到 <code>π*</code>」呢？",
+    "o": [
+     "条件相同",
+     "只要状态有限",
+     "在上面之外还得 GLIE",
+     "只要 γ<1"
+    ],
+    "a": 2,
+    "why": "学对了最优 Q，不等于你在照它行动。想让行为也最优，ε 就得降下去。"
+   },
+   {
+    "q": "Q-learning 的收敛条件比 SARSA 少了哪一条？",
+    "o": [
+     "步长条件",
+     "无限探索",
+     "渐近贪婪（GLIE 的第二条）",
+     "有限状态动作空间"
+    ],
+    "a": 2,
+    "why": "因为 Q-learning 的更新目标 <code>r + γ max_{a′}Q(s′,a′)</code> 里根本没有行为策略，只有 Q。"
+   },
+   {
+    "q": "这一讲和 L05 p38 是什么衔接关系？",
+    "o": [
+     "两讲结论矛盾",
+     "L05 推翻了这一讲",
+     "这一讲证明了表格下 off-policy 安全，而 L05 说三件套齐了会发散——这一讲占了前两样，缺第三样",
+     "两讲讨论的是不同的算法"
+    ],
+    "a": 2,
+    "why": "L05 那张表里「② + ③（表格）」那一行指的就是这里。"
+   }
+  ],
+  "42": [
+   {
+    "q": "最大化偏差是怎么产生的？",
+    "o": [
+     "Q 的估计本身有偏",
+     "样本不独立",
+     "α 太大",
+     "每个 Q 的估计都无偏，但取 max 之后（詹森不等式）整体被高估"
+    ],
+    "a": 3,
+    "why": "样本有限时总有一个动作碰巧看起来好一点，你一取 max 就立刻去利用这份运气。"
+   },
+   {
+    "q": "最大化偏差那个反例里，两个动作的真实期望奖励是多少？",
+    "o": [
+     "都是 0",
+     "都是 1",
+     "随机的",
+     "一个 0 一个 1"
+    ],
+    "a": 0,
+    "why": "所以真值 Q(s,a1) = Q(s,a2) = V*(s) = 0。而每个 Q̂ 都是无偏估计——一切看起来都完美。"
+   },
+   {
+    "q": "<code>E[max(Q̂₁,Q̂₂)] ≥ max(E[Q̂₁],E[Q̂₂])</code> 这个不等号来自什么？",
+    "o": [
+     "大数定律",
+     "Cauchy-Schwarz",
+     "Jensen 不等式（max 是凸函数）",
+     "Pinsker 不等式"
+    ],
+    "a": 2,
+    "why": "而且这个不等号通常是严格的：只要两个估计有噪声且不完全相关，左边就严格大于 0。"
+   },
+   {
+    "q": "用更直白的话说，最大化偏差是怎么回事？",
+    "o": [
+     "折扣因子取得不对",
+     "样本太少",
+     "估计量本身有偏",
+     "你挑的是「这次运气最好的那个」，而不是「真的最好的那个」——运气被当成了实力"
+    ],
+    "a": 3,
+    "why": "在统计里这有个现成的名字：胜者的诅咒。赢家的出价总是高估了标的的真实价值。"
+   },
+   {
+    "q": "这个偏差什么时候更严重？",
+    "o": [
+     "折扣因子越大",
+     "样本越多、候选越少",
+     "样本越少、候选越多",
+     "动作空间越小"
+    ],
+    "a": 2,
+    "why": "候选越多，「总有一个碰巧很高」的概率越大。课件给的出处是一篇管理科学的论文——说明这问题远不止 RL 才有。"
+   }
+  ],
+  "43": [
+   {
+    "q": "双学习为什么能得到无偏估计？",
+    "o": [
+     "降低了 α",
+     "用了两倍数据",
+     "「选动作」和「估它的值」用的是互相独立的两批样本",
+     "取了平均"
+    ],
+    "a": 2,
+    "why": "用 Q₁ 选 a*，用 Q₂ 估 Q₂(s,a*)——于是 E[Q₂(s,a*)] = Q(s,a*)。"
+   },
+   {
+    "q": "课件给的那条通用戒律是什么？",
+    "o": [
+     "Always split your data",
+     "Never bootstrap",
+     "Avoid using max of estimates as estimate of max of true values",
+     "Always use unbiased estimators"
+    ],
+    "a": 2,
+    "why": "「一堆估计的最大值」不是「真值的最大值」的好估计。这条戒律在挑模型、挑超参、挑配置时都适用。"
+   },
+   {
+    "q": "Double Learning 的做法是什么？",
+    "o": [
+     "两个估计取平均",
+     "拆数据：用 Q1 挑出 a*，用 Q2 评估 a* 的值",
+     "加正则项",
+     "用更大的样本量"
+    ],
+    "a": 1,
+    "why": "于是「挑」的噪声和「评」的噪声是独立的。运气和实力被拆开了。"
+   },
+   {
+    "q": "这个解药的代价是什么？",
+    "o": [
+     "引入偏差",
+     "没有代价",
+     "计算量翻倍",
+     "每一半样本量减半，估计方差变大，而且选出来的 a* 质量会下降"
+    ],
+    "a": 3,
+    "why": "它是「用方差换偏差」——和这门课到处都是的那笔交易方向相反。样本很少时未必划算。"
+   }
+  ],
+  "44": [
+   {
+    "q": "Double Q-learning 相对 Q-learning 的开销变化是？",
+    "o": [
+     "两者都不变",
+     "两者都翻倍",
+     "内存翻倍、每步计算量不变",
+     "内存不变、计算翻倍"
+    ],
+    "a": 2,
+    "why": "数据需求则「微妙」：偏差小了，需要的探索可能反而更少。"
+   },
+   {
+    "q": "Double Q-learning 在线版本怎么实现「样本拆分」？",
+    "o": [
+     "按状态分区",
+     "用奇偶步数交替",
+     "每来一条转移抛个硬币，决定更新 Q1 还是 Q2",
+     "事先把数据分成两堆"
+    ],
+    "a": 2,
+    "why": "于是两张表用的是互不重叠的样本，独立性就有了。思路和事先切一样，只是分法变成了随机分流。"
+   },
+   {
+    "q": "Double Q 真正起作用的是什么？",
+    "o": [
+     "两个估计取平均来降噪",
+     "用了更大的学习率",
+     "用了更多数据",
+     "把「选」与「评」解耦——如果只是平均，两个有偏估计的平均还是有偏"
+    ],
+    "a": 3,
+    "why": "第 3 行那个 Q1+Q2 确实在平均，但那只用于行为策略（选动作去探索），和消除偏差无关。"
+   },
+   {
+    "q": "Double Q 的三个代价，课件给的答案是？",
+    "o": [
+     "内存翻倍、计算不变、数据需求微妙（偏差小可能反而减少所需探索）",
+     "内存翻倍、计算翻倍、数据翻倍",
+     "三样都不变",
+     "内存不变、计算翻倍、数据翻倍"
+    ],
+    "a": 0,
+    "why": "课件用的是 might reduce amount of exploration needed due to lower bias——很克制。"
+   }
+  ],
+  "45": [
+   {
+    "q": "实验图要看的是什么？",
+    "o": [
+     "谁最终更好",
+     "谁的内存占用更少",
+     "谁的方差更小",
+     "早期差多少——普通 Q-learning 会花大量时间去选那些被高估的次优动作"
+    ],
+    "a": 3,
+    "why": "两者最终都会收敛（偏差随样本增加而消失）。这是一个「偏差直接变成行为上的浪费」的例子。"
+   },
+   {
+    "q": "Double DQN 和这一节是什么关系？",
+    "o": [
+     "它用「当前网络选、目标网络评」来近似这个解耦；但两组权重来自同一批数据，只是缓解不是消除",
+     "它完全消除了偏差",
+     "它用的是完全不同的原理",
+     "无关"
+    ],
+    "a": 0,
+    "why": "而 Rainbow 的消融显示 Double DQN 单独去掉几乎不掉分，因为分布式值函数已经顺带缓解了同一个偏差。"
+   }
+  ],
+  "47": [
+   {
+    "q": "课件要求你能对这三个算法做什么比较？",
+    "o": [
+     "更新有多快、（非正式的）偏差方差、计算代价",
+     "只比代码行数",
+     "只比内存",
+     "只比收敛速度"
+    ],
+    "a": 0,
+    "why": "外加：说出收敛到 Q* 和 π* 各需要什么条件，并给出至少一种保证做法。"
+   },
+   {
+    "q": "SARSA 和 Q-learning 该选哪个？",
+    "o": [
+     "永远选 SARSA",
+     "永远选 Q-learning",
+     "看状态空间大小",
+     "学习期间的表现也要紧（在线、有代价）⇒ SARSA；只关心最终策略（离线学完再部署）⇒ Q-learning"
+    ],
+    "a": 3,
+    "why": "SARSA 会把探索的风险算进去，主动避开「失手代价高」的路线。这个区分比记住两个更新式有用得多。"
+   }
+  ]
+ }
+}

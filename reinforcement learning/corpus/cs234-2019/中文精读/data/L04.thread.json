@@ -1,0 +1,89 @@
+{
+ "title": "L04 接上课题的哪一段：你挑出来的那个「最优配置」，它的分数系统性地虚高",
+ "arc": "<b>任务清单原本把 L04 标成「科研连接弱」，这一讲推翻了那个预期——它的第 5 节是整门课对你最直接可用的一段。</b><br><br><b>你的核心动作是 <code>max_config Ĝ(config)</code>：从一堆候选配置里，按估出来的 <code>G = Acc − λ·Cost</code> 挑最好的那个。</b><span class='k'>而 p42 证明了：这样挑出来的那个估计值，<b>系统性地高于真值</b></span>——<b>哪怕每一个估计本身都完全无偏。</b><span class='w'>不等号来自 Jensen：<code>E[max] ≥ max E</code>，而 max 是凸函数</span>。<b>说白了：你挑的是「这次运气最好的那个」，不是「真的最好的那个」。</b><span class='k'>统计里管这叫胜者的诅咒。</span><br><br><b>而偏差的大小由两件事决定，两件在你这里都不乐观。</b><span class='w'>① 候选数量——L02 p30 算过 <code>k^H</code> 在 k=3/H=7 时是 2187，比课件那个「两个动作」的例子严重得多；</span><span class='w'>② 每个估计的噪声——留出集上每个配置能跑的 query 数有限，而 Acc 是个比例，方差不小。</span><b>两条叠加，这很可能不是小数点后几位的事。</b><br><br><b>解药在 p43，而且几乎不花钱：<span class='k'>把留出集拆成两半，一半用来<b>挑</b>，另一半用来<b>报告</b></span>。</b><span class='w'>在 split A 上挑出 <code>config*</code>，在 split B 上只评估它</span>——<b>B 的样本没参与挑选，所以那个数是无偏的。</b><span class='k'>课件的原话是 <em>Avoid using max of estimates as estimate of max of true values</em>，而做法是 <em>split samples</em>。</span><br><br><b>这一讲还给了你一个干净的参照点：<span class='k'>表格下 off-policy 是完全安全的</span>。</b><b>Q-learning 收敛到 <code>Q*</code>，条件只有「每个 <code>(s,a)</code> 访问无穷多次」加步长条件（p40）。</b><span class='w'>所以「off-policy 很危险」不准确——危险的是它<b>加上</b>函数逼近<b>加上</b>自举</span>（<b>L05 p38 的 intersection</b>）。<b>这意味着你有一条可以主动选择的退路：把状态粗粒度化到能查表。</b>",
+ "pitfalls": [
+  {
+   "v": "<b>用挑出配置的那份数据去报告它的分数。</b> <span class='k'>这正是 p42 的最大化偏差</span>——<span class='w'>「被选中」和「被高估」变成了同一件事的两面</span>。<b>后果是你论文里那个最好的数字虚高，而且上线后会回落。</b><span class='k'>解药：split A 挑、split B 报，B 不参与挑选。</span>",
+   "tag": "已核",
+   "ref": "课件 p42–p43（Jensen；split samples）"
+  },
+  {
+   "v": "<b>以为估计量无偏就没问题了。</b> <span class='w'>反例里每个 <code>Q̂</code> 都完全无偏，取 max 之后照样偏高</span>。<b>偏差不是来自估计量，是来自「选最大」这个动作。</b><span class='k'>所以改进 FQE 的无偏性解决不了这个问题，必须改<b>流程</b>。</span>",
+   "tag": "已核",
+   "ref": "课件 p42 原文"
+  },
+  {
+   "v": "<b>把 Double Q 理解成「两个估计取平均」。</b> <span class='k'>kp 专门标了这一条：关键不是平均，是把「选」与「评」解耦</span>。<span class='w'>两个有偏估计的平均还是有偏</span>。<b>算法里那个 <code>Q1 + Q2</code> 只用于行为策略（选动作去探索），和消除偏差无关。</b>",
+   "tag": "已核",
+   "ref": "课件 p43–p44 · 任务清单 kp"
+  },
+  {
+   "v": "<b>忽略拆分数据的代价。</b> <span class='w'>每一半样本减半 ⇒ 估计方差变大，而且选出来的配置可能不是最好的那个</span>。<b>这是「用方差换偏差」，和这门课到处都是的那笔交易方向相反。</b><span class='k'>样本很少时未必划算；改进做法是交换两半再做一次取平均，或者 K 折。</span>",
+   "tag": "推断",
+   "ref": "课件 p43 p44 · 简报 §4d"
+  },
+  {
+   "v": "<b>笼统地说「off-policy 不安全」。</b> <span class='k'>表格下它完全安全（p40）</span>；<span class='w'>不安全的是 off-policy + 函数逼近 + 自举三样<b>同时</b>具备</span>（<b>L05 p38 用的词是 intersection</b>）。<b>这个区分给了你一条退路：把状态粗粒度化到能查表，off-policy 的风险就消失了</b>——<span class='w'>代价是可能产生混叠（L08 p10）。</span>",
+   "tag": "已核",
+   "ref": "课件 p9 p40 · L05 p38 · L02 p20 科研格"
+  },
+  {
+   "v": "<b>把在线学习的 ε 衰减策略照搬到离线设定。</b> <span class='k'>GLIE 的第二条（渐近贪婪）是为「最终要部署这个行为策略」准备的</span>；<span class='w'>而你的行为策略只是采数据的工具，不是最终产品</span>。<b>离线设定下没有探索–利用权衡，只有「覆盖够不够」这一个问题。</b><span class='k'>所以固定的随机化强度对你更好——它让覆盖更均匀。</span>",
+   "tag": "推断",
+   "ref": "课件 p23 两条件 · 本讲 p23 科研格 · 简报 §4c"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你们报的那个最优配置的分数，可信吗？",
+   "a": "<b>我们对它做了去偏处理，因为「从一堆带噪声的估计里挑最大」本身就会高估。</b><span class='k'>这是最大化偏差（CS234 L04 p42）：哪怕每个估计无偏，<code>E[max] ≥ max E</code> 仍然成立，不等号来自 Jensen</span>。<b>所以我们把留出集拆成两半：一半用于挑选，另一半<b>只</b>用于报告被选中那个配置的分数。</b><span class='w'>后者的样本没参与挑选，因此是无偏的</span>——<b>这正是 Double Learning 的做法，在统计里叫样本拆分。</b>",
+   "tag": "已核",
+   "ref": "课件 p42–p43 · 简报 §4d"
+  },
+  {
+   "q": "候选只有两千多个，这个偏差能有多大？",
+   "a": "<b>恰恰是候选多才严重。</b><span class='k'>偏差的大小随「候选数量」和「单个估计的噪声」一起增长</span>——<b>课件那个反例只有两个候选就已经严格偏高了，两千多个会明显得多。</b><span class='w'>而我们留出集上每个配置能跑的 query 数有限，Acc 作为比例的方差不小</span>。<b>所以我们没有去估这个偏差的大小，而是直接用拆分把它消掉。</b>",
+   "tag": "推断",
+   "ref": "课件 p42 · L02 p30 科研格"
+  },
+  {
+   "q": "你们是 off-policy 的，这不是很危险吗？",
+   "a": "<b>要看和什么一起用。</b><span class='k'>表格表示下，off-policy 的 Q-learning 收敛到 <code>Q*</code>，条件只有「每个状态动作对访问无穷多次」加标准步长条件（CS234 L04 p40）</span>。<span class='w'>真正危险的是 off-policy <b>加上</b>函数逼近 <b>加上</b>自举——课件用的词是 intersection，三样必须同时具备</span>。<b>我们因此把「粗粒度状态 + 查表」作为对照组：它牺牲了分辨率，但换回了确切的保证。</b>",
+   "tag": "已核",
+   "ref": "课件 p9 p40 · L05 p38"
+  },
+  {
+   "q": "你们的随机化为什么不随时间衰减？",
+   "a": "<b>因为我们是离线设定，不是在线学习。</b><span class='k'>GLIE 的「渐近贪婪」条件是为「最终要部署这个行为策略」准备的</span>；<span class='w'>而我们的行为策略只是采数据的工具，采完就不用了</span>。<b>离线设定下没有探索–利用权衡，只有覆盖够不够这一个问题。</b><span class='k'>固定的随机化强度让覆盖更均匀，而覆盖正是后续一切估计的前提。</span>",
+   "tag": "推断",
+   "ref": "课件 p23 · 简报 §4c §4d"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Mannor, Simester, Sun &amp; Tsitsiklis — Bias and Variance Approximation in Value Function Estimates",
+   "id": "Management Science 2007",
+   "why": "p42 那个最大化偏差反例的出处。<b>注意它发表在<b>管理科学</b>上，不是 RL 会议</b>——<span class='k'>这说明「从噪声估计里挑最大会高估」是个远超 RL 的普遍问题</span>，<span class='w'>你在写 related work 时可以用它来说明这不是一个 RL 特有的技术细节。</span>"
+  },
+  {
+   "t": "van Hasselt — Double Q-learning",
+   "id": "NIPS 2010",
+   "why": "p43–p44 的出处。<b>它给出了「拆分样本去解耦选与评」的完整分析</b>，<span class='k'>包括为什么这样做会<b>低估</b>（而不是不偏不倚）</span>——<span class='w'>这一点课件没说，但你报告区间时需要知道偏的方向。</span>"
+  },
+  {
+   "t": "Watkins &amp; Dayan — Q-Learning",
+   "id": "Machine Learning 1992",
+   "why": "p22 和 p40 那条收敛结论的原始出处。<b>你需要它来精确引用「表格下 off-policy 安全」这一条</b>——<span class='k'>而这正是你论证「粗粒度查表是一条有保证的退路」时的依据。</span>"
+  },
+  {
+   "t": "Tsitsiklis — Asynchronous Stochastic Approximation and Q-Learning",
+   "id": "Machine Learning 1994",
+   "why": "课件在 p22 一并给出的那篇。<b>它把 Q-learning 放进随机逼近的一般框架</b>——<span class='k'>于是 p33 那个 Robbins-Munro 步长条件不再是个孤立的技术要求，而是那套理论的标准条件</span>。"
+  },
+  {
+   "t": "Sutton &amp; Barto — Reinforcement Learning: An Introduction, 5.2–5.4, 6.4, 6.5, 6.7",
+   "id": "2018, 2nd ed.",
+   "why": "课件自己在 p1 指定的章节，正好对应这一讲的后四节。<b>课件跳过的 6.6（期望 SARSA）值得补</b>——<span class='k'>它用期望代替采样的那个动作，方差比 SARSA 小，而且是 SARSA 和 Q-learning 之间的一个连续谱</span>。"
+  }
+ ]
+}
