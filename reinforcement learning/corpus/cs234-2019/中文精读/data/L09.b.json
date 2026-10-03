@@ -1,0 +1,533 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p22 原文：R(τ) 是 from a single roll out 的值估计，unbiased but high variance",
+  "p25 老师当堂判据：蒙特卡洛那一端即使环境不是马尔可夫的也仍给出真实回报估计；bootstrap 那一端做了强得多的马尔可夫假设 ⇒ 环境越不像 MDP 越该往 MC 靠",
+  "p29 原文：Supervised learning: Step too far → next updates will fix it；RL: Step too far → bad policy → next batch collected under bad policy；Policy is determining data collect!",
+  "p33 原文标注：Want to predict the value of a different policy (off policy learning!)",
+  "p33-34 相对性能恒等式：V(θ̃) = V(θ) + E_{π̃}[Σ_t γ^t A^π(s_t,a_t)] = V(θ) + Σ_s ρ^{π̃}(s) Σ_a π̃(a|s) A^π(s,a)",
+  "【易错】期望下标是新策略 π̃，优势是旧策略的 A^π —— 搞反整条推导就垮",
+  "【易错】ρ^{π̃} 是折扣加权访问频率，在所有状态上的和是 1/(1−γ) 而不是 1，它不是概率分布，也不是 L05 的平稳分布"
+ ],
+ "notes": [
+  {
+   "r": [
+    21,
+    21
+   ],
+   "t": "目录",
+   "quote": "Table of Contents &nbsp;·&nbsp; 1 Better Gradient Estimates &nbsp;·&nbsp; <b>2 Policy Gradient Algorithms and Reducing Variance</b> &nbsp;·&nbsp; 3 Updating the Parameters Given the Gradient: Motivation &nbsp;·&nbsp; ...",
+   "one": "第二节：<b>降方差的第三招——换掉蒙特卡洛目标</b>。",
+   "pts": [
+    "<b>这一节只有四页（p22–p25），但它引入的那一招和前两招性质完全不同，值得先把差别钉死。</b><span class='k'>时间结构和基线都不引入偏差，是纯粹的方差削减</span>；<span class='w'>而「用 critic 估的值替代蒙特卡洛回报」一定引入偏差</span>。<b>所以这一招不是「又一个免费改进」，它是一笔要你权衡的交易。</b><span class='k'>p25 会给出决定这笔交易划不划算的判据，而那条判据和「环境像不像 MDP」直接相关。</span>"
+   ]
+  },
+  {
+   "r": [
+    22,
+    23
+   ],
+   "t": "换掉目标：critic 与 actor-critic",
+   "star": 3,
+   "one": "<b>用一个 critic 去估 V 或 Q，替代那条噪声极大的蒙特卡洛回报。</b>",
+   "pts": [
+    "<code>R(τ)</code> 是<b>单次 rollout</b> 给出的值估计：无偏、高方差。",
+    "用 bootstrap + 函数逼近换来偏差、压下方差——<span class='k'>和第三讲 TD vs MC、第五讲值函数逼近是同一笔交易</span>。",
+    "<b>actor-critic</b>：策略和值函数<span class='k'>都显式地参数化、都更新</span>。",
+    "<b>A3C</b>（Mnih et al., ICML 2016）是最流行的 actor-critic 方法之一。",
+    "<b>课件那句 <em>from a single roll out</em> 点出了问题的根子，值得停一下。</b><span class='k'><code>R(τ)</code> 是对「这个状态值多少」的一次采样估计——只跑了一趟</span>。<b>而 L02 p14 早就演示过：同一起点的三条轨迹，回报可以是 1.25 / 0 / 0.125。</b><span class='w'>用单次采样当作值的估计，无偏，但噪声大到可以淹没信号</span>。<b>critic 的作用就是把「很多次采样的信息」压缩进一个函数里，让你每次都能读到一个平滑过的估计。</b>",
+    "<b>这笔交易的名字和形状你已经见过三次了，这里是第四次，值得并排看一遍。</b><span class='k'>L03：MC 无偏高方差，TD 有偏低方差</span>；<span class='k'>L05：函数逼近带来结构性误差，换来泛化</span>；<span class='k'>L08 p60：n 步估计在两端之间滑</span>；<span class='k'>这里：用 critic 换掉单次回报</span>。<b>四处都是同一笔交易——拿偏差换方差——只是出现在不同的位置上。</b><span class='w'>认出这一点之后，你碰到任何新算法都可以先问：它在这条轴上站在哪里。</span>",
+    "<b>actor-critic 这个名字本身就说明了结构：两个东西，各管一摊，都在学。</b><span class='k'>actor 是策略 <code>π_θ</code>，它负责「做什么」；critic 是值函数 <code>V_w</code> 或 <code>Q_w</code>，它负责「刚才做得怎么样」</span>。<b>critic 不直接决定动作，它只给 actor 打分。</b><span class='w'>这个分工的代价是你现在有两个东西要调，而且它们互相影响</span>——<b>critic 不准会把 actor 带偏，actor 一变 critic 又得重学。</b><span class='k'>这是 actor-critic 在实践中难调的根本原因。</span>",
+    "<b>老师补的那句历史值得记：<span class='k'>actor-critic 这个想法比 A3C 老得多</span>。</b><b>它可以追到 1980 年代（Barto、Sutton、Anderson 那条线），而 A3C 只是它在深度网络上最流行的一个版本。</b><span class='w'>A3C 真正的创新不在 actor-critic 本身，而在「异步并行采样」</span>——<b>多个 worker 各自和环境交互、各自算梯度、异步更新共享参数。</b><span class='k'>那解决的是上一讲 p8 说的「采样慢」，顺带还因为多个 worker 的数据不相关而降了方差，于是连回放池都不需要了。</span>"
+   ],
+   "say": "老师补了一句历史：<b>actor-critic 这个想法比 A3C 老得多</b>，A3C 只是它在深度网络上最流行的一个版本。",
+   "quote": "R(τ^{(i)}) is an estimation of the value function <b>from a single roll out</b> &nbsp;·&nbsp; <b>Unbiased but high variance</b> &nbsp;·&nbsp; reduce variance by introducing bias using <b>bootstrapping and function approximation</b> (just like we saw for TD vs MC, and in the value function approximation lectures) &nbsp;·&nbsp; <b>Estimate of V/Q is done by a critic</b> &nbsp;·&nbsp; Actor-critic methods maintain an explicit representation of both the policy and the value function, and update both &nbsp;·&nbsp; A3C is very popular",
+   "tbl": {
+    "head": [
+     "",
+     "actor",
+     "critic"
+    ],
+    "rows": [
+     [
+      "是什么",
+      "<b>策略 <code>π_θ</code></b>",
+      "<b>值函数 <code>V_w</code> / <code>Q_w</code></b>"
+     ],
+     [
+      "负责",
+      "<span class='k'>做什么</span>",
+      "<span class='k'>刚才做得怎么样</span>"
+     ],
+     [
+      "怎么更新",
+      "策略梯度",
+      "<span class='w'>回归（监督学习）</span>"
+     ],
+     [
+      "不准的后果",
+      "表现差",
+      "<span class='w'>把 actor 带偏</span>"
+     ],
+     [
+      "对应本讲的哪一招",
+      "—",
+      "<b>降方差第三招（引入偏差）</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    24,
+    24
+   ],
+   "t": "带值函数的策略梯度公式",
+   "star": 3,
+   "one": "把蒙特卡洛回报换成 <code>Q(s,a;w)</code>，减去基线就得到优势。",
+   "eq": "∇_θE_τ[R] = E_τ[ Σ_t ∇_θ log π(a_t|s_t,θ) · ( Σ_{t′≥t} r_{t′} − b(s_t) ) ]\n          ≈ E_τ[ Σ_t ∇_θ log π(a_t|s_t,θ) · ( Q(s_t, w) − b(s_t) ) ]\n          = E_τ[ Σ_t ∇_θ log π(a_t|s_t,θ) · A^π(s_t, a_t) ]",
+   "pts": [
+    "<span class='k'>形状完全一样，只是槽位里换了零件</span>：",
+    "用蒙特卡洛回报 ⇒ 对当前策略的值<b>无偏</b>；",
+    "用 critic 的 Q ⇒ <b>一般有偏，但方差低得多</b>。",
+    "<b>这一页只换了一个零件，但那个「约等号」值得专门指出来——它是这一讲第一次出现不等式。</b><span class='k'>前面所有推导都是等号：似然比是恒等式，基线不改变期望，因果性删掉的项期望为零</span>。<span class='w'>而这里 <code>Σ_{t′≥t} r_{t′} ≈ Q(s_t, w)</code> 是一个真正的近似</span>——<b><code>Q(s_t,w)</code> 是拟合出来的，它和真实的 <code>Q</code> 之间有误差，而这个误差会原样传进梯度里。</b><span class='k'>从这一页开始，你的梯度估计不再无偏。</span>",
+    "<b>把三种槽位里的零件和它们的性质列一次，选哪个就有依据了。</b><span class='k'>用蒙特卡洛回报 <code>R_t</code>：对当前策略的值<b>无偏</b>，方差大</span>；<span class='k'>用 critic 的 <code>Q(s,w)</code>：<b>一般有偏</b>，方差低得多</span>；<span class='k'>用 n 步混合：介于两者之间，而且可以连续调</span>。<b>注意「有偏」这件事的严重程度取决于 critic 有多准</b>——<span class='w'>训练早期 critic 很差，此时它引入的偏差可能大到让梯度指错方向。</span><b>这就是为什么很多实现在早期更依赖蒙特卡洛，后期才逐渐增加自举。</b>",
+    "<b>顺带提一句这一页课件上的排版错：原文里出现了 <code>beta=n0</code> 这样的片段。</b><span class='w'>那显然是 <em>Letting the baseline be an estimate of the value V</em> 在转 PDF 时被压坏了</span>。<span class='k'>意思很清楚：把基线取成 <code>V</code> 的估计，于是 <code>Q − b</code> 就成了优势 <code>Â</code></span>。<b>课堂反馈里「少写错符号」那一条，说的就是这类地方</b>——<span class='w'>碰到对不上的符号，先怀疑是笔误再怀疑自己。</span>"
+   ],
+   "quote": "E[R] = E[ Σ_t ∇_θ log π(a_t|s_t,θ) ( Σ_{t′≥t} r_{t′} − b(s_t) ) ] &nbsp;·&nbsp; <b>≈ E[ Σ_t ∇_θ log π(a_t|s_t,θ) ( Q(s_t, w) − b(s_t) ) ]</b> &nbsp;·&nbsp; Letting the baseline be an estimate of the value V, we can represent the gradient in terms of the state-action advantage function &nbsp;·&nbsp; <b>= E[ Σ_t ∇_θ log π(a_t|s_t,θ) Â(s_t, a_t) ]</b>"
+  },
+  {
+   "r": [
+    25,
+    25
+   ],
+   "t": "n 步估计：在 TD 和 MC 之间调",
+   "star": 3,
+   "one": "critic 的目标可以在「只走一步就 bootstrap」和「一路加到底」之间任取。",
+   "eq": "R̂⁽¹⁾_t = r_t + γ·V(s_{t+1})                         ← TD(0) 味\nR̂⁽²⁾_t = r_t + γr_{t+1} + γ²·V(s_{t+2})\n…\nR̂⁽∞⁾_t = Σ_{t′≥t} γ^{t′-t}·r_{t′}                   ← 蒙特卡洛\n\n各自减去基线就是对应的优势估计",
+   "pts": [
+    "<span class='k'>一端偏差高方差低，另一端偏差低方差高</span>，<b>没有理由认为最好的解一定在两个端点上</b>。",
+    "<b>老师特意点出的那条判据，是这一页最值得带走的东西，而且它在课件上没写：<span class='k'>蒙特卡洛那一端即使环境不是马尔可夫的，也仍然给出真实的回报估计；bootstrap 那一端做了强得多的马尔可夫假设</span>。</b><b>于是：<span class='w'>环境越不像 MDP，越该往 MC 那边靠</span>。</b><span class='k'>这和 L02 p17 那行 <em>Requires no assumption of Markov structure</em> 是同一条线</span>——<b>第三次出现了，而每次它都在替你做同一个决定。</b>",
+    "<b>为什么自举需要马尔可夫假设，理由一句话就能说清，值得自己确认一遍。</b><span class='k'><code>V(s_{t+1})</code> 这个写法默认了「从 <code>s_{t+1}</code> 出发的未来，只取决于 <code>s_{t+1}</code>」</span>。<b>如果状态不马尔可夫——比如你漏掉了某个影响未来的信息——那么同一个 <code>s_{t+1}</code> 在不同历史下的真实未来回报是不同的，而 <code>V</code> 只能存一个数。</b><span class='w'>于是自举在那里就是错的，而且错得系统</span>。<b>蒙特卡洛不用 <code>V</code>，它直接把真实发生的奖励加起来，所以躲开了这个问题。</b>",
+    "<b>学生问「n 不就是个超参数吗，为什么不交叉验证」，老师的回答也值得记：<span class='k'>可以，只是通常不这么做</span>。</b><b>她观察到大家更常直接用 TD(0) 大量 bootstrap，但这要看领域。</b><span class='w'>不交叉验证的现实原因是：每试一个 n 都要重跑一遍训练，而那很贵</span>。<span class='k'>所以 n 通常是凭对问题的判断定的，而上面那条「像不像 MDP」就是最有用的判断依据</span>。",
+    "<b>最后那句「没有理由认为最好的解一定在两个端点上」是一条很一般的方法论提醒。</b><span class='k'>偏差–方差是一条连续谱，而端点只是特例</span>。<b>实践中既不用纯 TD 也不用纯 MC，而是取一个中间的 n（课件在 L08 建议过 20 左右）</b>，<span class='w'>更讲究的做法是把所有 n 按几何权重混起来</span>——<b>那就是 GAE，今天几乎所有策略梯度实现的默认组件。</b>"
+   ],
+   "say": "有同学问：n 不就是个超参数吗，为什么不交叉验证？老师答：<b>可以，只是通常不这么做</b>。她观察到大家更常直接用 TD(0) 大量 bootstrap，但这要看领域。<br><span class='w'>还有一条判据她特意点出来</span>：蒙特卡洛那一端<b>即使环境不是马尔可夫的也仍然给出真实的回报估计</b>；bootstrap 那一端做了强得多的马尔可夫假设。<b>环境越不像 MDP，越该往 MC 那边靠。</b>",
+   "quote": "critic can select any blend between TD and MC estimators for the target &nbsp;·&nbsp; <b>R̂_t^{(1)} = r_t + γV(s_{t+1})</b> &nbsp;·&nbsp; R̂_t^{(2)} = r_t + γr_{t+1} + γ²V(s_{t+2}) &nbsp;·&nbsp; <b>R̂_t^{(inf)} = r_t + γr_{t+1} + γ²r_{t+2} + ...</b> &nbsp;·&nbsp; If subtract baselines from the above, get advantage estimators &nbsp;·&nbsp; <b>Â_t^{(1)} has low variance &amp; high bias. Â_t^{(inf)} high variance but low bias.</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>老师那条判据对你的课题是一条可以直接执行的结论，而且方向和你当前的技术选择相反，值得认真看。</b><br><br><span class='k'>判据是：环境越不像 MDP，越该往蒙特卡洛那边靠，因为自举吃马尔可夫假设。</span><br><br><b>那么你的状态马尔可夫吗？——很可疑。</b><span class='w'>你的状态大致是 (query 特征, 节点 id, 部分轨迹)，而「从这个节点出发的未来」显然还依赖一些你没装进状态的东西</span>：<b>上游产物的具体内容（不只是它的统计量）、这道题的真实难度（你只有代理）、甚至 LLM 这一次的随机状态。</b><span class='k'>这些都会影响后续节点的表现，而它们不在状态里。</span><b>也就是说，你的设定存在<span class='w'>状态混叠</span>（L08 p10 的那个词），而混叠的直接后果就是不马尔可夫。</b><br><br><b>于是这条判据给出一个明确的建议：<span class='k'>少自举，多用实际发生的回报</span>。</b><span class='w'>而 FQE 恰恰是自举到底的那一端</span>——<b>它用 <code>Q̂(s′,·)</code> 顶替全部未来，是马尔可夫假设用得最狠的做法。</b><span class='k'>L05 的科研格已经从「致命三件套」的角度警告过它；这一页从「马尔可夫假设」的角度给出了同一个警告的另一半。</span><br><br><b>两条可以落地的做法：</b><br><b>① 在你的流水线上，n 步估计的「n」上限就是 H（5–10）</b>——<span class='k'>也就是说「一路算到底」（纯 MC）在你这里根本不贵</span>，<b>不像机器人那样要等上千步。</b><span class='w'>既然纯 MC 的代价对你很低，而自举的假设对你很可疑，那就该优先用 MC。</span><br><b>② 如果仍要用 FQE，就把它和一个纯 MC 的估计并排报告。</b><span class='k'>两者差得远，说明马尔可夫假设在你的状态表示下不成立</span>——<b>而这本身是一个值得报告的诊断结果，也是「该往状态里加什么特征」的直接线索。</b>",
+    "ref": "课件 p25 老师当堂判据 · L02 p17 · L05 p38 · L08 p10 科研格 · 简报 §4e"
+   }
+  },
+  {
+   "r": [
+    26,
+    28
+   ],
+   "t": "目录：转向「该走多远」",
+   "quote": "Table of Contents &nbsp;·&nbsp; <b>3 Updating the Parameters Given the Gradient: Motivation</b> &nbsp;·&nbsp; <b>4 Need for Automatic Step Size Tuning</b> &nbsp;·&nbsp; 5 ... Local Approximation &nbsp;·&nbsp; 6 ... Trust Regions &nbsp;·&nbsp; 7 ... TRPO Algorithm",
+   "one": "换题了：<b>梯度已经拿到了，现在问「该沿着它走多远」</b>。",
+   "pts": [
+    "<b>这是这一讲的分水岭，而且前后两半问的是性质完全不同的问题。</b><span class='k'>前半（p13–p25）：梯度估得准不准</span>——<b>这是个统计问题，答案是降方差。</b><span class='w'>后半（p29 起）：梯度只是一阶近似，它在多远之外还成立</span>——<b>这是个优化问题，答案是限制步长。</b><span class='k'>两者互相独立：梯度估得再准，走太远一样会崩。</span>",
+    "<b>后半这个问题之所以在 RL 里才尖锐，而在监督学习里几乎不存在，原因只有一条，但这一条很硬：<span class='k'>策略决定了你接下来采到什么数据</span>。</b><b>监督学习里数据是外生的，你走错一步，下一批数据照旧，梯度会把你拉回来。</b><span class='w'>RL 里数据是你自己造的，走出一个坏策略，下一批数据就是坏策略采的</span>——<b>于是你连「往哪走」都估不准了。</b><span class='k'>p29 会把这件事说得更具体。</span>",
+    "<b>接下来五节是一条连贯的推导链，中间断了就接不上，所以先把它的逻辑骨架记住。</b><b>① 想要的是什么</b>：<span class='k'>自动选步长，保证 <code>V^{π′} ≥ V^π</code></span>（p32）。<br><b>② 怎么表达「新策略好多少」</b>：<span class='k'>相对性能恒等式</span>（p33）。<br><b>③ 卡在哪</b>：<span class='w'>式子里要新策略的访问频率，而你只有旧策略的数据</span>（p34）。<br><b>④ 怎么绕</b>：<span class='k'>硬换成旧策略的，得到一个代理目标</span>（p36）。<br><b>⑤ 换了之后错多少</b>：<span class='k'>下界定理</span>（p37–p38）。<br><b>⑥ 怎么用这个下界</b>：<span class='k'>信赖域</span>（p41 起）。"
+   ]
+  },
+  {
+   "r": [
+    29,
+    30
+   ],
+   "t": "为什么步长在 RL 里格外要紧",
+   "star": 3,
+   "one": "<b>监督学习里走过头，下一步能纠回来；RL 里走过头，你连数据都拿不到了。</b>",
+   "pts": [
+    "梯度只是<b>一阶（线性）近似</b>：<span class='k'>近处准，远处不准</span>。",
+    "<b>监督学习</b>：数据是 i.i.d. 生成的，你这一步的选择不影响下一批数据。",
+    "<b>强化学习</b>：<span class='w'>策略决定了你接下来采到什么数据</span>。走出一个坏策略 → 下一批数据是坏策略采的 → 可能再也爬不回来，性能直接崩。",
+    "<b>课件把两种情形并排写，差别一目了然，而要害在最后那个感叹号：<span class='k'><em>Policy is determining data collect!</em></span>。</b><b>监督学习里你走过头，下一步能纠回来——因为数据还在那里，梯度还是对的。</b><span class='w'>RL 里你走过头，下一批数据就是这个坏策略采的</span>——<b>于是梯度本身也不可信了，你失去了纠错的依据。</b><span class='k'>这不是「收敛慢一点」，这是「可能再也回不来」。</span>",
+    "<b>老师转述的那个比喻很准：<span class='k'>像动画片里冲出悬崖的走鹃</span>。</b><b>它在半空中还在跑，但脚下已经没有地了。</b><span class='w'>策略一旦坏到某个程度，你拿不到任何有用的数据</span>——<b>比如一个机器人策略让它一开始就摔倒，那么所有轨迹都是「摔倒」，没有任何信息能告诉你怎么不摔。</b><span class='k'>梯度估不准 ⇒ 更新没方向 ⇒ 卡死在一个很糟的地方。</span>",
+    "<b>她点破的第二层更深：这和「探索–利用」其实是同一件事。</b><span class='k'>策略参数和策略的随机性<b>实际上在控制你的探索</b></span>。<b>一个过于确定的策略探索不足，看不到更好的选择；一个过于随机的策略什么都学不到。</b><span class='w'>而步长直接改变策略的确定程度</span>——<b>走一大步可能让 softmax 的 logits 变得极端，策略一下子变得几乎确定，探索就没了。</b><span class='k'>所以「步长」这个看似纯优化的参数，实际上在管探索。</span>",
+    "<b>「梯度只是一阶近似」这一条要具体理解，否则你会觉得限制步长是在浪费。</b><span class='k'>梯度告诉你的是「在当前点附近，值函数随参数怎么变」</span>——<b>它是一条切线，而真实的 <code>V(θ)</code> 是一条曲线。</b><span class='w'>离当前点越远，切线和曲线差得越多</span>。<b>于是「沿梯度走很远」这件事本身就没有依据——你是在一个已经失效的近似上做决定。</b><span class='k'>信赖域的全部思想就是：只在近似还成立的范围内走。</span>",
+    "<b>把这一页和 L02 的策略迭代对照一次，你会发现一个有意思的反差。</b><span class='k'>L02 的策略改进是「精确」的：有模型，能算出真实的 <code>Q</code>，取 arg max 保证严格变好（p39 的单调改进定理）</span>。<span class='w'>而这里只有一个带噪声的一阶近似，所以「保证变好」变成了一件要费大力气争取的事</span>。<b>这一讲后半全部的推导，本质上是在没有模型、只有采样的情况下，重新造出 L02 那个单调改进的保证。</b><span class='k'>造出来的东西叫 TRPO，而它比 L02 那个版本弱得多（只是个下界）。</span>"
+   ],
+   "say": "老师转述同事的比喻：<b>像动画片里冲出悬崖的走鹃</b>——策略一旦坏到某个程度，你拿不到任何有用的数据，梯度也就估不准，<span class='k'>于是卡死在一个很糟的地方</span>。<br>她还点破了这和「探索–利用」是同一件事：策略参数和策略的随机性<b>实际上在控制你的探索</b>。",
+   "quote": "Goal: Each step of policy gradient yields an updated policy π′ whose value is greater than or equal to the prior policy π &nbsp;·&nbsp; <b>First order / linear approximation of the value function's dependence on the policy parameterization</b> &nbsp;·&nbsp; Locally a good approximation, further away less good &nbsp;|&nbsp; <b>Supervised learning: Step too far → next updates will fix it</b> &nbsp;·&nbsp; <b>Reinforcement learning: Step too far → bad policy; Next batch: collected under bad policy; Policy is determining data collect!</b> &nbsp;·&nbsp; May not be able to recover from a bad choice, collapse in performance!",
+   "tbl": {
+    "head": [
+     "",
+     "监督学习",
+     "强化学习"
+    ],
+    "rows": [
+     [
+      "数据从哪来",
+      "<span class='k'>外生的，和你的参数无关</span>",
+      "<b>你自己的策略采的</b>"
+     ],
+     [
+      "走过头的后果",
+      "<span class='k'>下一步纠回来</span>",
+      "<span class='w'>下一批数据来自坏策略，梯度也不可信了</span>"
+     ],
+     [
+      "能恢复吗",
+      "<span class='k'>能</span>",
+      "<span class='w'>可能再也回不来，性能直接崩</span>"
+     ],
+     [
+      "步长还管什么",
+      "只管收敛速度",
+      "<b>还在管探索（策略的确定程度）</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    31,
+    32
+   ],
+   "t": "最直接的办法：沿梯度做线搜索",
+   "star": 2,
+   "one": "简单，<b>但贵，而且没用上「近似在哪里还成立」这个信息</b>。",
+   "pts": [
+    "要沿着这条线反复评估策略——每次评估都是真跑数据。",
+    "下面几页的目标：<span class='k'>能不能自动选步长，保证 <code>V^{π′} ≥ V^π</code>？</span>",
+    "<b>线搜索是最直接的想法：既然不知道该走多远，那就沿着梯度方向试几个距离，挑最好的那个。</b><span class='k'>在普通优化里这是标准做法，而且很有效</span>。<span class='w'>但在 RL 里它有两个毛病，课件都点到了。</span>",
+    "<b>第一个毛病是贵，而且贵得具体：<span class='w'>每一次「评估」都是真跑一批数据</span>。</b><b>线搜索要试 5 个距离，就得采 5 批轨迹。</b><span class='k'>而在普通优化里，评估一次函数值只是代入算一下</span>。<b>于是同一个算法在两个场合的代价差了好几个数量级。</b><span class='w'>更糟的是：你试的那些坏点也是真跑出来的，那些代价你真实地承担了</span>（<b>回到 p9 那句 <em>incurring reward / cost as execute policy</em></b>）。",
+    "<b>第二个毛病更本质，而且是接下来整套理论的出发点：<span class='k'>它没用上「一阶近似在哪里还成立」这个信息</span>。</b><b>线搜索是盲目地试，它不知道「走到 0.1 的地方近似还好，走到 1.0 就完全不准了」。</b><span class='w'>而这个信息其实是可以估计的</span>——<b>新旧策略差多远，可以用它们的分布之间的距离来衡量。</b><span class='k'>这就是信赖域的思路：不去试，而是算出一个「近似还可信」的范围，在里面走。</span>",
+    "<b>p32 把目标正式提出来了，而这个目标的措辞值得注意：<span class='k'>能不能<b>自动</b>保证 <code>V^{π′} ≥ V^π</code></span>。</b><b>「自动」的意思是不靠试、不靠调超参，而是由算法本身保证。</b><span class='w'>这是一个相当高的要求</span>——<b>它等于要求每一步更新都带一个「不会变差」的证书。</b><span class='k'>接下来几页会告诉你这个证书确实能拿到，但它是一个<b>下界</b>形式的证书，而且那个下界常常松到没法直接用（p42 会说）。</span>"
+   ],
+   "quote": "Simple step-sizing: <b>Line search in direction of gradient</b> &nbsp;·&nbsp; Simple but expensive (perform evaluations along the line) &nbsp;·&nbsp; <b>Naive: ignores where the first order approximation is good or bad</b> &nbsp;|&nbsp; Can we automatically ensure the updated policy π′ has value greater than or equal to the prior policy π: <b>V^{π′} ≥ V^π</b>?"
+  },
+  {
+   "r": [
+    33,
+    34
+   ],
+   "t": "关键改写：用旧策略的优势表达新策略的值",
+   "star": 3,
+   "one": "<b>这一页是后面所有推导的起点。</b>",
+   "eq": "V(θ) = E_{π_θ}[ Σ_t γᵗ R(s_t,a_t) ]\n\nV(θ̃) = V(θ) + E_{π_θ̃}[ Σ_t γᵗ A^π(s_t,a_t) ]\n      = V(θ) + Σ_s ρ^{π̃}(s) Σ_a π̃(a|s)·A^π(s,a)",
+   "pts": [
+    "<b>读法：新策略的值 = 旧策略的值 + 「按新策略走时，每一步相对旧策略赚了多少」。</b>",
+    "第二行把「对时间求和」改写成「<span class='k'>对状态求和</span>」，<code>ρ^{π̃}</code> 是<b>新</b>策略下的折扣访问频率。",
+    "<span class='w'>麻烦正在这里</span>：<code>ρ^{π̃}</code> 要新策略才能算，而我们手上只有旧策略采的数据——<b>这本质上是个 off-policy 问题</b>。",
+    "<b>这个恒等式是后面所有推导的起点，而它的读法非常直观：<span class='k'>新策略的值 = 旧策略的值 + 「按新策略走时，每一步相对旧策略赚了多少」</span>。</b><b>第二项里的 <code>A^π</code> 衡量的正是「这个动作比旧策略的平均水平好多少」。</b><span class='w'>如果新策略在它会去的每个地方都选了旧策略眼中的好动作，那它就更好</span>——<b>这句话听起来是废话，而恒等式把它变成了一个精确的等式。</b>",
+    "<b>现在说 <code>kp</code> 点名的那个坑，它是这一页最容易出错的地方：<span class='w'>期望的下标是<b>新</b>策略 <code>π̃</code>，而优势是<b>旧</b>策略的 <code>A^π</code></span>。</b><b>两者不是同一个策略。</b><span class='k'>搞反了——比如写成 <code>E_π[Σ γ^t A^{π̃}]</code>——整条推导就垮了</span>，<b>因为那个式子不成立，而且它甚至不需要任何近似就能算（<code>E_π[A^π] = 0</code>）。</b><span class='w'>记法：<b>优势跟着「我已知的那个」，分布跟着「我想评估的那个」</b></span>——<b>这正好是最别扭的组合，所以才麻烦。</b>",
+    "<b>为什么必须是这个组合，值得用一句话解释，这样你就不会记错。</b><span class='k'>因为 <code>A^π</code> 衡量的是「相对旧策略的基准赚了多少」</span>——<b>基准必须是旧的，否则「赚了多少」就没有参照。</b><span class='k'>而你要算的是「新策略实际会拿到多少」，所以轨迹必须按新策略走</span>——<b>分布必须是新的，否则你算的是旧策略的表现。</b><span class='w'>两个要求各管一边，所以必然是这个交叉组合。</span>",
+    "<b>第二行把「对时间求和」改写成「对状态求和」，这一步引入了一个要特别小心的量。</b><code>ρ^{π̃}(s) = Σ_t γ^t P(s_t = s | π̃)</code>——<span class='k'>课件管它叫「折扣加权访问频率」</span>。<b>它<span class='w'>不是</span>一个概率分布</b>：<span class='w'>它在所有状态上的和是 <code>Σ_t γ^t = 1/(1−γ)</code>，不是 1</span>。<b>所以它也<span class='w'>不是</span> L05 那个平稳分布。</b><span class='k'>这个 <code>1/(1−γ)</code> 会在 p37 的下界里以平方的形式出现，现在知道它从哪来，到那时就不会突兀。</span>",
+    "<b>最后那句话是整页的落点，而它把问题的性质说死了：<span class='w'>我们算不了这个式子，因为不知道 <code>ρ^{π̃}</code></span>。</b><span class='k'>它要新策略的状态访问频率，而你只有旧策略采的数据</span>。<b>课件自己在 p33 就标了：<em>off policy learning!</em></b><span class='w'>于是绕了一大圈，问题回到了这门课的老主题上</span>——<b>「我只能从一个分布采样，却想知道另一个分布下的期望」。</b><span class='k'>L03 用重要性采样答它，L05 说那样可能发散，L07 说那正是 <code>εT²</code> 的根子；这一讲给的答案是：硬换过来，然后量化错多少。</span>"
+   ],
+   "say": "老师特意强调这个式子<b>不依赖任何参数化</b>，对任意两个策略都成立。记号上 <code>π̃</code> 就是由 <code>θ̃</code> 参数化的新策略。",
+   "quote": "V(θ) = E_π[ Σ_t γ^t R(s_t,a_t) ] &nbsp;·&nbsp; Have access to samples from the current policy π &nbsp;·&nbsp; <b>Want to predict the value of a different policy (off policy learning!)</b> &nbsp;|&nbsp; <b>V(θ̃) = V(θ) + E_{π̃}[ Σ_t γ^t A^π(s_t,a_t) ] = V(θ) + Σ_s ρ^{π̃}(s) Σ_a π̃(a|s) A^π(s,a)</b> &nbsp;·&nbsp; where ρ^{π̃}(s) is the discounted weighted frequency of state s under policy π̃ &nbsp;·&nbsp; <b>But we can't compute the above because we don't know ρ^{π̃}, the state distribution under the new proposed policy</b>",
+   "tbl": {
+    "head": [
+     "式子里的量",
+     "属于哪个策略",
+     "你有吗",
+     "怎么办"
+    ],
+    "rows": [
+     [
+      "<code>V(θ)</code>",
+      "<b>旧</b>",
+      "<span class='k'>有</span>",
+      "—"
+     ],
+     [
+      "<code>A^π(s,a)</code>",
+      "<b>旧</b>",
+      "<span class='k'>有（能从旧数据估）</span>",
+      "—"
+     ],
+     [
+      "<code>π̃(a|s)</code>",
+      "<b>新</b>",
+      "<span class='k'>有（是你自己要定的参数）</span>",
+      "—"
+     ],
+     [
+      "<code>ρ^{π̃}(s)</code>",
+      "<b>新</b>",
+      "<span class='w'>没有——要跑新策略才知道</span>",
+      "<b>p36：硬换成 <code>ρ^π</code>，然后量化误差</b>"
+     ],
+     [
+      "<b>注意</b>",
+      "—",
+      "—",
+      "<span class='w'><code>ρ</code> 的和是 <code>1/(1−γ)</code>，不是 1，它不是概率分布</span>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页就是你的课题，一字不差：「我手上只有旧配置跑出来的日志，想知道一套没跑过的新配置好多少」。</b><br><br><span class='k'>恒等式告诉你答案的精确形式：差值 = 在<b>新</b>配置会走到的地方，按<b>旧</b>配置的优势加权求和</span>。<b>而卡住的恰恰是那个「新配置会走到的地方」——<code>ρ^{π̃}</code>。</b><span class='w'>这不是估计精度的问题，是信息根本不在你的日志里。</span><br><br><b>把它翻译成你的语言：换一档保真度之后，中间产物变了，于是后续节点面对的输入分布变了</b>——<span class='k'>这正是 L07 p30 那个「节点 h 改变 h+1 输入分布」的机制，第三次出现</span>。<b>L07 从「误差累积」的角度说它，L05 从「off-policy 发散」的角度说它，这一页从「我算不出这个期望」的角度说它。</b><span class='w'>三个角度，同一个障碍。</span><br><br><b>而这一讲给的答案，对你是最务实的一个：<span class='k'>硬把 <code>ρ^{π̃}</code> 换成 <code>ρ^π</code>，然后量化这一换错了多少</span></b>（p36–p38）。<b>量化的结果是一个下界，而下界里的惩罚项正比于「新旧策略差多远」。</b><span class='w'>于是你得到一条非常可操作的结论：<b>新配置和日志里的配置越接近，你对它的估计越可信</b></span>——<b>而且「越接近」是可以用 KL 或者总变差距离量出来的，不是感觉。</b><br><br><b>这给你一条现在就能做的事：给每个候选配置算一个「和日志分布的距离」，并把它和 FQE 的估计一起报告。</b><span class='k'>距离远的候选，它的估值应该被打折扣，或者干脆标为「需要实跑验证」</span>。<b>这比单独报一个 FQE 数值诚实得多，而且几乎不花额外预算。</b><span class='w'>（第十讲会给出这个距离的具体形式和那个下界的系数。）</span>",
+    "ref": "课件 p33–p34 原文（off policy learning!；we don't know ρ^{π̃}）· L05 p38 · L07 p30 科研格 · 简报 §4c §4d"
+   }
+  }
+ ],
+ "quiz": {
+  "22": [
+   {
+    "q": "actor-critic 方法的定义是？",
+    "o": [
+     "只学模型",
+     "策略和值函数都显式地参数化、都更新",
+     "只学策略",
+     "只学值函数"
+    ],
+    "a": 1,
+    "why": "A3C（Mnih et al., ICML 2016）是它在深度网络上最流行的版本，但这个想法本身老得多。"
+   },
+   {
+    "q": "课件说 <code>R(τ)</code> 是 <em>from a single roll out</em>，这句话点出了什么？",
+    "o": [
+     "它需要等片段结束",
+     "它需要知道转移模型",
+     "它是对「这个状态值多少」的一次采样估计——无偏，但噪声大到可以淹没信号",
+     "它只对确定性策略成立"
+    ],
+    "a": 2,
+    "why": "L02 p14 早就演示过：同一起点三条轨迹，回报可以是 1.25 / 0 / 0.125。"
+   },
+   {
+    "q": "actor 和 critic 各管什么？",
+    "o": [
+     "actor 管探索，critic 管利用",
+     "actor 管采样，critic 管更新",
+     "actor 管值函数，critic 管策略",
+     "actor 是策略（做什么），critic 是值函数（刚才做得怎么样）"
+    ],
+    "a": 3,
+    "why": "critic 不直接决定动作，它只给 actor 打分。代价是两个东西要调，而且会互相带偏。"
+   },
+   {
+    "q": "A3C 真正的创新是什么？",
+    "o": [
+     "异步并行采样——多 worker 各自交互各自算梯度，顺带因数据不相关而降方差",
+     "actor-critic 这个结构本身",
+     "引入了经验回放",
+     "引入了优势函数"
+    ],
+    "a": 0,
+    "why": "actor-critic 这个想法可以追到 1980 年代。并行采样解决的是采样慢，而且因为数据不相关，连回放池都不需要了。"
+   }
+  ],
+  "24": [
+   {
+    "q": "把蒙特卡洛回报换成 critic 的 <code>Q(s,a;w)</code>，代价是什么？",
+    "o": [
+     "一般会有偏，但方差低得多",
+     "不能用于连续动作",
+     "方差变大",
+     "需要模型"
+    ],
+    "a": 0,
+    "why": "形状完全一样，只是槽位里换了零件。这和第三讲 TD vs MC 是同一笔交易。"
+   },
+   {
+    "q": "这一页第一次出现了「约等号」，它意味着什么？",
+    "o": [
+     "意味着需要更多样本",
+     "从这一页开始梯度估计不再无偏——critic 的拟合误差会原样传进梯度",
+     "只是书写习惯",
+     "意味着折扣因子被忽略了"
+    ],
+    "a": 1,
+    "why": "前面所有推导都是等号：似然比是恒等式，基线不改期望，因果性删掉的项期望为零。"
+   },
+   {
+    "q": "为什么很多实现在训练早期更依赖蒙特卡洛，后期才增加自举？",
+    "o": [
+     "早期 critic 很差，它引入的偏差可能大到让梯度指错方向",
+     "早期采样更便宜",
+     "早期策略是随机的",
+     "早期方差本来就小"
+    ],
+    "a": 0,
+    "why": "「有偏」这件事的严重程度取决于 critic 有多准。"
+   }
+  ],
+  "25": [
+   {
+    "q": "n 步估计里，为什么不一定要取两个端点之一？",
+    "o": [
+     "一端偏差高方差低、另一端偏差低方差高，最好的解没理由一定在端点",
+     "端点不收敛",
+     "端点算不出来",
+     "端点需要模型"
+    ],
+    "a": 0,
+    "why": "n 就是那根旋钮。老师说实践中更常见直接用 TD(0) 大量 bootstrap，但要看领域。"
+   },
+   {
+    "q": "环境不太像 MDP 时，n 步估计该往哪一端靠？",
+    "o": [
+     "往蒙特卡洛靠——它即使环境非马尔可夫也仍给出真实的回报估计",
+     "取决于 γ",
+     "都一样",
+     "往 TD(0) 靠"
+    ],
+    "a": 0,
+    "why": "bootstrap 那一端做了强得多的马尔可夫假设。"
+   },
+   {
+    "q": "老师特意点出的那条判据是什么？",
+    "o": [
+     "应该总是交叉验证 n",
+     "n 越小越好",
+     "n 越大越好",
+     "环境越不像 MDP，越该往蒙特卡洛那端靠"
+    ],
+    "a": 3,
+    "why": "MC 那端即使环境不是马尔可夫的也仍给出真实回报估计；bootstrap 那端做了强得多的马尔可夫假设。"
+   },
+   {
+    "q": "为什么自举需要马尔可夫假设？",
+    "o": [
+     "因为 V 必须有界",
+     "<code>V(s_{t+1})</code> 默认了「从 s_{t+1} 出发的未来只取决于 s_{t+1}」；状态不马尔可夫时同一个 s 在不同历史下真实未来不同",
+     "因为要用重要性采样",
+     "因为要计算折扣"
+    ],
+    "a": 1,
+    "why": "而 V 只能存一个数，于是自举在那里就是错的，且错得系统。蒙特卡洛不用 V，所以躲开了。"
+   },
+   {
+    "q": "学生问「n 为什么不交叉验证」，老师答？",
+    "o": [
+     "交叉验证会引入偏差",
+     "不能，因为 n 不是超参数",
+     "必须交叉验证",
+     "可以，只是通常不这么做；大家更常直接用 TD(0) 大量 bootstrap，但要看领域"
+    ],
+    "a": 3,
+    "why": "现实原因是每试一个 n 都要重跑一遍训练，很贵。所以 n 通常凭对问题的判断定。"
+   }
+  ],
+  "29": [
+   {
+    "q": "步长在 RL 里比在监督学习里更要紧，根本原因是？",
+    "o": [
+     "目标函数非凸",
+     "参数更多",
+     "策略决定了你接下来采到什么数据——走出坏策略可能再也爬不回来",
+     "梯度噪声更大"
+    ],
+    "a": 2,
+    "why": "监督学习里数据是 i.i.d. 生成的，这一步走过头下一步能纠回来。老师的比喻是冲出悬崖的走鹃。"
+   },
+   {
+    "q": "步长在 RL 里为什么比监督学习里要紧得多？",
+    "o": [
+     "因为参数更多",
+     "因为梯度量级更大",
+     "策略决定了你接下来采到什么数据；走出坏策略后，下一批数据就是坏策略采的，梯度本身也不可信了",
+     "因为奖励是延迟的"
+    ],
+    "a": 2,
+    "why": "课件原文带感叹号：Policy is determining data collect! 这不是「收敛慢一点」，是「可能再也回不来」。"
+   },
+   {
+    "q": "老师转述的那个比喻是什么？",
+    "o": [
+     "像动画片里冲出悬崖的走鹃——半空中还在跑，但脚下已经没有地了",
+     "像蒙眼走钢丝",
+     "像爬山时起雾",
+     "像滚雪球"
+    ],
+    "a": 0,
+    "why": "策略一旦坏到某个程度，所有轨迹都没有信息，梯度估不准，于是卡死在一个很糟的地方。"
+   },
+   {
+    "q": "老师点破步长和哪件事其实是同一回事？",
+    "o": [
+     "样本效率和计算效率",
+     "偏差–方差",
+     "探索–利用：策略参数和策略的随机性实际上在控制你的探索",
+     "on-policy 和 off-policy"
+    ],
+    "a": 2,
+    "why": "走一大步可能让 softmax 的 logits 变得极端，策略一下子几乎确定，探索就没了。"
+   }
+  ],
+  "31": [
+   {
+    "q": "线搜索在 RL 里的两个毛病是什么？",
+    "o": [
+     "慢和不稳定",
+     "贵（每次评估都真跑数据），以及没用上「一阶近似在哪还成立」这个信息",
+     "需要二阶导和内存大",
+     "有偏和高方差"
+    ],
+    "a": 1,
+    "why": "更糟的是：你试的那些坏点也是真跑出来的，那些代价你真实地承担了。"
+   }
+  ],
+  "33": [
+   {
+    "q": "<code>V(θ̃) = V(θ) + E_{π_θ̃}[Σγᵗ A^π]</code> 这个改写，麻烦出在哪？",
+    "o": [
+     "γ 不收敛",
+     "需要模型",
+     "期望要在新策略的访问分布下取，而我们只有旧策略采的数据",
+     "优势函数算不出来"
+    ],
+    "a": 2,
+    "why": "所以这本质上是个 off-policy 问题。下一页的「局部近似」就是在硬扛这一点。"
+   },
+   {
+    "q": "相对性能恒等式里，期望的下标和优势分别属于哪个策略？",
+    "o": [
+     "期望下标是新策略 π̃，优势是旧策略的 A^π",
+     "两者都是旧策略",
+     "期望下标是旧策略，优势是新策略的",
+     "两者都是新策略"
+    ],
+    "a": 0,
+    "why": "优势跟着「我已知的那个」，分布跟着「我想评估的那个」。搞反了整条推导就垮——而且反过来的式子恒等于零。"
+   },
+   {
+    "q": "为什么必须是这个交叉组合？",
+    "o": [
+     "为了保证无偏",
+     "这是习惯写法",
+     "优势衡量的是「相对旧策略基准赚多少」所以基准必须旧；而你要算新策略实际拿到多少，所以轨迹必须按新策略走",
+     "为了让推导更简洁"
+    ],
+    "a": 2,
+    "why": "两个要求各管一边，所以必然是这个交叉组合。"
+   },
+   {
+    "q": "<code>ρ^{π̃}(s)</code> 这个量有什么容易出错的性质？",
+    "o": [
+     "它在所有状态上的和是 <code>1/(1−γ)</code> 而不是 1——它不是概率分布，也不是 L05 的平稳分布",
+     "它恒为正",
+     "它是平稳分布",
+     "它和是 1"
+    ],
+    "a": 0,
+    "why": "这个 1/(1−γ) 会在 p37 的下界里以平方的形式出现。"
+   },
+   {
+    "q": "这个恒等式卡在哪里？",
+    "o": [
+     "不知道 <code>ρ^{π̃}</code>——要跑新策略才知道，而你只有旧策略采的数据",
+     "不知道 <code>V(θ)</code>",
+     "不知道 <code>π̃</code>",
+     "不知道 <code>A^π</code>"
+    ],
+    "a": 0,
+    "why": "课件自己在 p33 就标了：off policy learning! 这不是估计精度问题，是信息根本不在日志里。"
+   }
+  ]
+ }
+}

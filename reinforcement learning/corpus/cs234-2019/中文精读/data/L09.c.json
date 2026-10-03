@@ -1,0 +1,859 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p36 代理目标 L_π(π̃) = V(θ) + Σ_s ρ^π(s) Σ_a π̃(a|s) A^π(s,a)（ρ 换成旧策略的）；两条性质：在 θ₀ 处取值相同、一阶导也相同",
+  "p37 CPI 下界（仅对混合策略）：V^{π_new} ≥ L_{π_old}(π_new) − [2εγ/(1−γ)²]·α²，ε = max_s |E_{a~π'}[A^π(s,a)]|",
+  "p38 一般随机策略：V^{π_new} ≥ L − [4εγ/(1−γ)²]·(D_TV^max)²，ε = max_{s,a}|A^π(s,a)|；再由 D_TV² ≤ D_KL 得到 KL 形式",
+  "p41 课件原文承认：按理论取 C = 4εγ/(1−γ)² 的话 the step sizes would be very small；两处放松——惩罚改约束、max_s 改对状态分布取期望",
+  "p43-45 三次替换：① ρ 归一化提出 1/(1−γ)；② 重要性采样换采样分布 q；③ A → Q；课件强调 do not change solution；标准取 q = π_old",
+  "p46 目标用线性近似、约束用二次近似，解法是共轭梯度",
+  "p47 TRPO 六行；第 5 行 F⁻¹g 是自然梯度（F 为 Fisher 信息矩阵）",
+  "p54 课件明说：do not need to be able to derive or remember the specific formulas for the approximate objective and constraint in TRPO"
+ ],
+ "notes": [
+  {
+   "r": [
+    35,
+    35
+   ],
+   "t": "目录：局部近似",
+   "quote": "Table of Contents &nbsp;·&nbsp; <b>5 Updating the Parameters Given the Gradient: Local Approximation</b> &nbsp;·&nbsp; 6 ... Trust Regions &nbsp;·&nbsp; 7 ... TRPO Algorithm",
+   "one": "第五节：<b>上一页算不了，那就硬换一个能算的</b>。",
+   "pts": [
+    "<b>接下来这一段（p36–p42）是整门课推导最密的一处，但它的逻辑其实只有四步，先把这四步记住，读的时候就不会迷路。</b><br><b>① 硬换</b>：<span class='k'>把算不出的 <code>ρ^{π̃}</code> 换成能算的 <code>ρ^π</code>，得到一个代理目标 <code>L</code></span>（p36）。<br><b>② 问错多少</b>：<span class='k'>证明真实值不会比代理目标低太多——这就是下界</span>（p37–p38）。<br><b>③ 说明够用</b>：<span class='k'>只要下界在涨，真实值就在涨</span>（p39–p40）。<br><b>④ 变得能用</b>：<span class='w'>理论给的惩罚太保守，改成硬约束</span>（p41–p42）。",
+    "<b>这四步有一个共同的形状，认出它会让你在别处也省力：<span class='k'>目标算不出来 → 换一个算得出的代理 → 量化代理和真实的差距 → 证明优化代理就够</span>。</b><b>这叫 MM 算法（minorize-maximize）：不断优化一个贴着目标的下界。</b><span class='w'>EM 算法、变分推断、很多凸优化的方法都是这个骨架</span>——<b>区别只在「怎么构造那个下界」。</b>",
+    "<b>还要先说清一件事，免得你对这一段期望过高：<span class='w'>这一讲只讲到 p36</span>。</b><span class='k'>p37 起的下界、信赖域和 TRPO，在第十讲有逐页的展开</span>。<b>所以这一片之后的内容是「先给形状，细节在下一讲」。</b><span class='w'>而 p54 课件自己也说了：不必会推导或背出 TRPO 里近似目标和约束的具体公式</span>——<b>要掌握的是模板和各个槽位的性质。</b>"
+   ]
+  },
+  {
+   "r": [
+    36,
+    36
+   ],
+   "t": "局部近似：把 ρ 换成旧策略的",
+   "star": 3,
+   "one": "<b>硬把新策略的访问频率换成旧策略的</b>，得到一个能算的代理目标。",
+   "eq": "L_π(π̃) = V(θ) + Σ_s ρ^{π}(s) Σ_a π̃(a|s)·A^π(s,a)\n                    ↑ 换成了旧策略的 ρ\n\n两条性质：\n  L_{π_{θ₀}}(π_{θ₀}) = V(θ₀)                      ← 在 θ₀ 处取值相同\n  ∇_θ L_{π_{θ₀}}(π_θ)|_{θ=θ₀} = ∇_θ V(θ)|_{θ=θ₀}  ← 在 θ₀ 处梯度也相同",
+   "pts": [
+    "<span class='k'>值和一阶导都对得上</span>，所以在 θ₀ 附近它是个好代理。",
+    "<span class='w'>但只在附近</span>——走远了 ρ 就不对了。<b>这正是「该走多远」这个问题的数学形态。</b>",
+    "<b>这一步的动作粗暴到可以用一个字形容：换。</b><span class='k'>上一页算不出 <code>ρ^{π̃}</code>，这一页就直接把它写成 <code>ρ^π</code></span>——<b>反正旧策略的访问频率你是有的。</b><span class='w'>这显然不等于原式</span>，<b>所以得到的 <code>L</code> 只是一个<span class='k'>代理目标</span>，不是真实的值。</b><span class='w'>接下来两页的全部工作，就是证明这个代理没有偏得太离谱。</span>",
+    "<b>但这个换法不是乱换，课件给了两条性质作为它的资格证明，而这两条性质的分量不一样。</b><span class='k'>① <code>L_{π_{θ₀}}(π_{θ₀}) = V(θ₀)</code>：在当前点上，代理和真实<b>取值相同</b></span>。<b>这很容易看出来——此时 <code>π̃ = π</code>，而 <code>E_{a∼π}[A^π(s,a)] = 0</code>，第二项整个为零。</b><span class='k'>② 在当前点上，代理和真实的<b>一阶导也相同</b></span>。<b>这一条才是真正值钱的。</b>",
+    "<b>为什么第二条值钱：它意味着「沿着 <code>L</code> 的梯度走」和「沿着真实值的梯度走」在起点处是同一个方向。</b><span class='k'>于是你用代理目标算出来的梯度，就是真梯度</span>——<b>一点都不差。</b><span class='w'>代理和真实的分歧只出现在二阶及以上，也就是「走远之后」</span>。<b>这正好把问题的形状说死了：方向是对的，问题只在距离。</b><span class='k'>而「该走多远」正是这一讲后半的题目。</span>",
+    "<b>把这件事和 p29 那句「梯度只是一阶近似」接起来，你会发现它们是同一句话的两种说法。</b><span class='w'>p29 说：梯度近处准、远处不准</span>；<span class='k'>p36 说：代理目标在当前点值和导数都对，走远了 <code>ρ</code> 就不对了</span>。<b>两者描述的是同一个几何事实。</b><span class='w'>区别在于 p36 把「远处不准」变成了一个可以<b>量化</b>的东西</span>——<b>因为现在你知道不准的来源具体是哪一项（<code>ρ</code> 换错了），于是可以去界定它的误差。</b>",
+    "<b>老师在这一页收尾时说的那句话，正好是下一步的预告：</b><span class='k'>「下一步是用它推出新值函数的一个下界，如果我们在下界上取得改进，就能保证真实值函数单调上升。」</span><b>注意这句话的结构：它把「单调改进」这个愿望（p9）和「代理目标」这个工具（本页）接上了。</b><span class='w'>中间缺的那一环就是下界，而它在 p37–p40。</span>"
+   ],
+   "say": "老师在这一页收尾，并明说：<b>下一步是用它推出新值函数的一个下界</b>，「如果我们在下界上取得改进，就能保证真实值函数单调上升」。<span class='w'>这部分留到了下一讲。</span>",
+   "quote": "<b>Can we remove the dependency on the discounted visitation frequencies under the new policy?</b> &nbsp;·&nbsp; Substitute in the discounted visitation frequencies under the current policy to define a new objective function &nbsp;·&nbsp; <b>L_π(π̃) = V(θ) + Σ_s ρ^π(s) Σ_a π̃(a|s) A^π(s,a)</b> &nbsp;·&nbsp; Note that <b>L_{π_{θ_0}}(π_{θ_0}) = V(θ_0)</b> &nbsp;·&nbsp; Gradient of L is identical to gradient of value function: <b>∇_θ L_{π_{θ_0}}(π_θ)|_{θ=θ_0} = ∇_θ V(θ)|_{θ=θ_0}</b>",
+   "tbl": {
+    "head": [
+     "",
+     "真实目标 <code>V(θ̃)</code>",
+     "代理目标 <code>L_π(π̃)</code>"
+    ],
+    "rows": [
+     [
+      "用谁的访问频率",
+      "<span class='w'><code>ρ^{π̃}</code>（新，算不出）</span>",
+      "<span class='k'><code>ρ^π</code>（旧，有）</span>"
+     ],
+     [
+      "在 θ₀ 处的取值",
+      "<code>V(θ₀)</code>",
+      "<span class='k'>相同</span>"
+     ],
+     [
+      "在 θ₀ 处的梯度",
+      "<code>∇V(θ₀)</code>",
+      "<span class='k'>相同</span>"
+     ],
+     [
+      "走远之后",
+      "—",
+      "<span class='w'>开始偏，偏多少见 p37–p38</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    37,
+    37
+   ],
+   "t": "保守策略迭代：第一个下界",
+   "star": 3,
+   "one": "先只看「新旧策略的混合」这种特殊情形。",
+   "eq": "π_new(a|s) = (1−α)·π_old(a|s) + α·π′(a|s)\n\nV^{π_new}  ≥  L_{π_old}(π_new) − [ 2εγ/(1−γ)² ]·α²\n\n其中 ε = max_s | E_{a~π′}[ A^π(s,a) ] |",
+   "pts": [
+    "<b>α 是「改多少」的度量</b>，罚项按 <code>α²</code> 增长——走得越远，保证越弱。",
+    "课件自带一问：<span class='k'>π_new = π_old 时这个界紧吗？</span>紧——那时 α=0，罚项为 0，两边都等于 V^{π_old}。",
+    "局限：<span class='w'>只对「混合策略」成立</span>，不够一般。",
+    "<b>先看这个下界的形状，它的每一部分都有明确的含义。</b><span class='k'>左边是真实的新值；右边第一项是你能算的代理目标；右边第二项是惩罚</span>。<b>翻译成话：「真实的值，至少等于你算出来的代理值，减去一个罚款」。</b><span class='w'>于是只要你把代理目标提得足够高、把罚款控制得足够小，真实值就一定变好</span>——<b>这就是把愿望变成定理的那一步。</b>",
+    "<b>惩罚项 <code>[2εγ/(1−γ)²]·α²</code> 里，α 的平方是最该注意的地方。</b><span class='k'>α 是「改了多少」——它是新策略里「新东西」的混合比例</span>。<b>罚款按 <code>α²</code> 增长，而收益（代理目标的提升）大致按 <code>α</code> 增长。</b><span class='w'>一次项对二次项：小 α 时收益占优，大 α 时罚款占优</span>——<b>所以一定存在一个最优的步长，而且它可以被算出来。</b><span class='k'>这就是「自动选步长」这件事的数学根据。</span>",
+    "<b>课件自带的那一问值得当场答一遍：<span class='k'>π_new = π_old 时这个界紧吗？</span></b><b>紧。</b><span class='w'>此时 α = 0，罚项为零；而 <code>L_{π_old}(π_old) = V^{π_old}</code>（p36 的第一条性质）</span>——<b>于是不等式两边都等于 <code>V^{π_old}</code>，取等号。</b><span class='k'>一个在「不动」这个点上紧的界，说明它至少没有白白浪费精度</span>。<b>而离开这个点之后它会松，松的速度就是 <code>α²</code>。</b>",
+    "<b>那个 <code>1/(1−γ)²</code> 的系数是整个下界里最刺眼的部分，必须理解它从哪来。</b><span class='k'>p33 已经铺垫过：<code>ρ</code> 在所有状态上的和是 <code>1/(1−γ)</code>，不是 1</span>。<b>而误差要在「换掉 ρ」这件事上累积两次</b>——<span class='w'>一次来自分布本身的差距，一次来自那个差距在整条轨迹上的传播</span>——<b>于是出现了平方。</b><span class='k'>直观地说：有效视野越长，一个小的分布偏差被放大的次数越多。</span>",
+    "<b>最后说这个界的局限，课件也明说了：<span class='w'>它只对「混合策略」成立</span>。</b><span class='k'>也就是形如 <code>(1−α)π_old + απ′</code> 的那种</span>——<b>你必须以 α 的概率整个换成另一个策略，以 1−α 的概率照旧。</b><span class='w'>而实践中你做的是「把参数挪一点」，新策略不是旧策略和别的什么的混合</span>。<b>所以这个界虽然漂亮，却还不能直接用。</b><span class='k'>p38 会把它推广到一般的随机策略，代价是常数从 2 变成 4。</span>"
+   ],
+   "tip": {
+    "t": "完整推导在第十讲",
+    "v": "这堂课只讲到 p36。p37 起的下界、信赖域和 TRPO，在<b>第十讲</b>（lecture10_1.pdf）有逐页的展开，这里只做指路。"
+   },
+   "quote": "Is there a bound on the performance of a new policy obtained by optimizing the surrogate objective? &nbsp;·&nbsp; Consider <b>mixture policies</b>: π_new(a|s) = (1−α) π_old(a|s) + α π′(a|s) &nbsp;·&nbsp; <b>V^{π_new} ≥ L_{π_old}(π_new) − [2εγ/(1−γ)²] α²</b> &nbsp;·&nbsp; where ε = max_s |E_{a∼π′}[A^π(s,a)]| &nbsp;·&nbsp; <b>Check your understanding: is this bound tight if π_new = π_old?</b>"
+  },
+  {
+   "r": [
+    38,
+    38
+   ],
+   "t": "推广到一般随机策略",
+   "star": 3,
+   "one": "把「混合比例 α」换成<b>两个策略之间的距离</b>。",
+   "eq": "定理：令 D_TV^max(π₁,π₂) = max_s D_TV( π₁(·|s), π₂(·|s) )，则\n\n  V^{π_new} ≥ L_{π_old}(π_new) − [ 4εγ/(1−γ)² ]·( D_TV^max(π_old,π_new) )²\n  其中 ε = max_{s,a} | A^π(s,a) |\n\n又因为对任意概率分布 D_TV(p,q)² ≤ D_KL(p,q)，立刻得到\n\n  V^{π_new} ≥ L_{π_old}(π_new) − [ 4εγ/(1−γ)² ]·D_KL^max(π_old,π_new)",
+   "pts": [
+    "<span class='k'>这一步把「改了多少」正式化成了 KL 散度</span>——后面 TRPO 的约束就是它。",
+    "<code>1/(1−γ)²</code> 又出现了：<b>有效 horizon 越长，走偏的代价越大。</b>",
+    "<b>这一页做的事只有一件，但它是决定性的：<span class='k'>把「改了多少」从「混合比例 α」换成「两个策略之间的距离」</span>。</b><b>于是这个界对任何两个策略都成立，不再要求新策略必须是混合形式。</b><span class='w'>代价是常数从 2 变成了 4</span>——<b>一个很小的代价，换来了完全的一般性。</b>",
+    "<b>总变差距离 <code>D_TV</code> 值得解释一下，它的定义很直观。</b><span class='k'><code>D_TV(p,q) = ½ Σ_x |p(x) − q(x)|</code>——两个分布在每个点上差多少，加起来再除以二</span>。<b>它的取值在 0 到 1 之间：0 表示完全相同，1 表示完全不重叠。</b><span class='w'>而 <code>D_TV^max</code> 取的是「最差的那个状态」</span>——<b>所以它是一个很保守的度量：只要有一个状态上两个策略差别大，整个界就松。</b>",
+    "<b>然后那一步 <code>D_TV(p,q)² ≤ D_KL(p,q)</code> 是整个推导里最实用的一步，虽然它只是一个已知的不等式（Pinsker 不等式）。</b><span class='k'>它让界里的距离从总变差换成了 KL 散度</span>。<b>为什么这件事重要？因为 KL 散度对常见的参数化策略有<span class='w'>闭式表达</span></b>——<span class='k'>两个高斯之间的 KL、两个 softmax 之间的 KL，都能直接写出来并对参数求导</span>。<b>而总变差距离做不到。</b><span class='w'>于是这一步把一个「理论上的界」变成了一个「可以塞进优化器的约束」。</b>",
+    "<b>再看那个 <code>1/(1−γ)²</code>，它在这一页又出现了，而且分量更重，值得算一下它有多大。</b><span class='w'>γ = 0.9 时，<code>1/(1−γ)² = 100</code>；γ = 0.99 时是 <b>10000</b>；γ = 0.999 时是一百万</span>。<b>而 ε 是优势函数的最大绝对值，通常也不小。</b><span class='k'>于是这个惩罚系数在长 horizon 的问题上会大到荒谬</span>——<b>按它选步长，你几乎动不了。</b><span class='w'>p41 会正面承认这件事并给出对策。</span>",
+    "<b>最后指出这个定理的一个结构性含义，它比具体的常数更值得记：<span class='k'>保证的强度，由「你改了多少」单独决定</span>。</b><b>不是由「你改得对不对」，而是由「你改得多不多」。</b><span class='w'>一个改得很小但方向完全错误的更新，仍然有很强的保证（因为它几乎没改）</span>；<b>一个改得很大但方向正确的更新，保证反而弱。</b><span class='k'>这正是信赖域思想的全部内容——它管的是距离，不管方向。</span>"
+   ],
+   "quote": "Would like to similarly obtain a lower bound for <b>general stochastic policies</b> (not just mixture policies) &nbsp;|&nbsp; <b>Theorem</b>: Let D_TV^max(π_1,π_2) = max_s D_TV(π_1(·|s), π_2(·|s)). Then <b>V^{π_new} ≥ L_{π_old}(π_new) − [4εγ/(1−γ)²] (D_TV^max(π_old, π_new))²</b> &nbsp;·&nbsp; where ε = max_{s,a} |A^π(s,a)| &nbsp;|&nbsp; Note that D_TV(p,q)² ≤ D_KL(p,q). Then <b>V^{π_new} ≥ L_{π_old}(π_new) − [4εγ/(1−γ)²] D_KL^max(π_old, π_new)</b>",
+   "tbl": {
+    "head": [
+     "γ",
+     "<code>1/(1−γ)²</code>",
+     "有效视野 <code>1/(1−γ)</code>",
+     "这个系数能用吗"
+    ],
+    "rows": [
+     [
+      "0.9",
+      "100",
+      "10 步",
+      "勉强"
+     ],
+     [
+      "0.95",
+      "400",
+      "20 步",
+      "<span class='w'>偏大</span>"
+     ],
+     [
+      "0.99",
+      "<b>10000</b>",
+      "100 步",
+      "<span class='w'>步长会小到没法用</span>"
+     ],
+     [
+      "0.999",
+      "一百万",
+      "1000 步",
+      "<span class='w'>完全不可用</span>"
+     ],
+     [
+      "<b>有限 horizon，γ=1</b>",
+      "<b>换成 <code>H²</code></b>",
+      "<b>H</b>",
+      "<span class='k'>H=5–10 时只有 25–100</span>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这个 <code>1/(1−γ)²</code> 系数，是你短流水线这个结构优势到目前为止最鲜明的一次体现，值得算一笔账。</b><br><br><span class='w'>这个系数来自「折扣访问频率的总质量是 <code>1/(1−γ)</code>」，而误差在换 <code>ρ</code> 时累积两次</span>。<span class='k'>有限 horizon 下根本没有无穷和，对应的量就是 H 本身</span>——<b>于是这个系数该换成 <code>H²</code>。</b><br><br><b>代入你的数字：H = 5 到 10，所以 <code>H² = 25 到 100</code>。</b><span class='w'>而机器人那边常用 γ = 0.99，对应 <code>1/(1−γ)² = 10000</code></span>——<b>相差一百到四百倍。</b><span class='k'>这意味着同样的 KL 预算，你能安全走出的步子比他们大两个数量级；或者反过来说，同样的步子，你的保证强两个数量级。</b><br><br><b>但要把这条论证的边界标清楚，否则会被问穿：</b><br><b>① 这个替换是推断，不是课件给的结论。</b><span class='w'>课件全程用折扣形式，没给有限 horizon 的版本</span>。<b>要写进 paper，该引 Kakade &amp; Langford 2002 或 Schulman 2015 的原文，确认有限 horizon 下的确切常数。</b><br><b>② <code>ε = max_{s,a} |A^π(s,a)|</code> 这一项没有因为 H 小而变小。</b><span class='k'>它是优势函数的最大绝对值，取决于「最好的配置和最差的配置差多少」</span>——<b>如果你的 Acc 范围是 0 到 1，那 ε 的量级就是 1 附近。</b><span class='w'>所以别指望这个界变得很紧，只是别人的更松而已。</span><br><br><b>这条优势和前面几讲是同一个来源，可以在 paper 里合并成一句话：</b><span class='k'>L05 的 <code>1/(1−γ)</code> 误差放大、L07 的 <code>εT²</code>、L02 的 γ=1 合法性、以及这里的 <code>1/(1−γ)²</code></span>——<b>四处都在说「短流水线天然占便宜」。</b><span class='w'>这是一条值得单独写一段的结构性论证，而不是散在各处的四个巧合。</span>",
+    "ref": "课件 p37–p38 定理 · L02 p13 · L05 p34 · L07 p30 科研格 · Kakade &amp; Langford 2002 · Schulman et al. 2015"
+   }
+  },
+  {
+   "r": [
+    39,
+    40
+   ],
+   "t": "为什么优化下界就够了",
+   "star": 3,
+   "one": "<b>只要下界在涨，真实值就在涨。</b>",
+   "eq": "记 M_i(π) = L_{π_i}(π) − [4εγ/(1−γ)²]·D_KL^max(π_i, π)\n\n  V^{π_{i+1}} ≥ M_i(π_{i+1})       ← 上一页的定理\n  V^{π_i}     = M_i(π_i)           ← 自己对自己，KL=0、L=V\n\n两式相减：V^{π_{i+1}} − V^{π_i} ≥ M_i(π_{i+1}) − M_i(π_i)",
+   "pts": [
+    "<span class='k'>只要新策略让 M 变大，真实值的改进就至少有那么多</span>。",
+    "<b>这就是「单调改进」从愿望变成定理的那一步。</b>",
+    "这类做法叫 <b>MM 算法</b>（minorize-maximize）：不断优化一个贴着目标的下界。",
+    "<b>这三行是整段推导的落点，而且它们合起来只说了一件事：<span class='k'>只要下界在涨，真实值就在涨</span>。</b><b>第一行是上一页的定理（真实值不低于下界）；第二行是自己对自己的情形（KL = 0，<code>L = V</code>，所以取等号）；两式相减就是第三行。</b><span class='w'>而第三行的意思是：真实值的改进，<b>至少</b>有下界的改进那么多。</span>",
+    "<b>第二行 <code>V^{π_i} = M_i(π_i)</code> 为什么取等号，值得自己确认一遍，因为它是关键。</b><span class='k'>把 <code>π = π_i</code> 代进 <code>M_i</code> 的定义</span>：<b><code>D_KL(π_i, π_i) = 0</code>，所以惩罚项消失；而 <code>L_{π_i}(π_i) = V^{π_i}</code>（p36 的第一条性质）。</b><span class='w'>于是 <code>M_i(π_i) = V^{π_i}</code>，严格相等</span>。<b>正是这个「在当前点上紧」的性质，让相减那一步有意义。</b>",
+    "<b>把这个论证的结构抽出来，它就是 MM 算法（minorize-maximize）的标准形式，值得记住。</b><span class='k'>构造一个函数 <code>M</code>，使得 ① <code>M ≤ V</code> 处处成立；② 在当前点上 <code>M = V</code></span>。<b>然后最大化 <code>M</code>。</b><span class='w'>这两条合起来保证了：<code>M</code> 的任何改进都是 <code>V</code> 的真实改进</span>。<b>EM 算法是同一个骨架（E 步构造下界，M 步最大化它），变分推断也是。</b><span class='k'>认出这个骨架，你读到任何「优化一个代理目标」的方法时都可以先问：它的那两条性质成立吗？</span>",
+    "<b>这一页还顺带解决了 p9 那个愿望，而且解决得相当漂亮。</b><span class='w'>p9 说「希望每次更新都单调改进」，那时它还只是个愿望</span>；<span class='k'>这里它变成了一个定理：只要 <code>M_i(π_{i+1}) ≥ M_i(π_i)</code>，就保证 <code>V^{π_{i+1}} ≥ V^{π_i}</code></span>。<b>而「让 M 变大」这件事是你完全可控的——最差也可以取 <code>π_{i+1} = π_i</code>，那时 M 不变，于是至少不会变差。</b><span class='w'>所以这是一个<b>无条件</b>的单调改进保证。</span>",
+    "<b>但要提醒一句这个保证的实际分量，免得高估它：它保证的是「不变差」，不是「变好很多」。</b><span class='k'>而且它建立在那个带 <code>1/(1−γ)²</code> 的惩罚上</span>——<b>惩罚太重时，<code>M</code> 的最大值几乎就在 <code>π_i</code> 本身，于是你寸步难行。</b><span class='w'>「保证不变差」和「一步都走不动」是同一件事的两面</span>。<b>p41 要处理的正是这个。</b>"
+   ],
+   "quote": "M_i(π) = L_{π_i}(π) − [4εγ/(1−γ)²] D_KL^max(π_i, π) &nbsp;·&nbsp; <b>V^{π_{i+1}} ≥ M_i(π_{i+1})</b> &nbsp;·&nbsp; <b>V^{π_i} = M_i(π_i)</b> &nbsp;·&nbsp; <b>V^{π_{i+1}} − V^{π_i} ≥ M_i(π_{i+1}) − M_i(π_i)</b> &nbsp;·&nbsp; So as long as the new policy π_{i+1} is equal or an improvement"
+  },
+  {
+   "r": [
+    41,
+    42
+   ],
+   "t": "从惩罚项改成硬约束：信赖域",
+   "star": 3,
+   "one": "理论给的惩罚系数<b>太保守，步子会小到没法用</b>——于是改成约束。",
+   "eq": "理论形式（带惩罚）：\n  max_θ  L_{θ_old}(θ) − C·D_KL^max(θ_old, θ)，   C = 4εγ/(1−γ)²\n\n实用形式（带约束）：\n  max_θ  L_{θ_old}(θ)\n  s.t.   E_{s~ρ_{θ_old}}[ D_KL( π_{θ_old}(·|s), π_θ(·|s) ) ] ≤ δ",
+   "pts": [
+    "<span class='w'>课件自己说：按理论取 C，步长会非常小。</span>",
+    "<b>信赖域</b>的含义就是：<span class='k'>在一阶近似还靠谱的那个范围内走</span>，范围用 KL 散度界定。",
+    "顺带把 <code>max_s</code> 放松成了<b>对状态分布取期望</b>——更好估。",
+    "<b>课件在这里做了一件很坦率的事：<span class='k'>承认理论给的那个系数没法用</span>。</b><b>原文是 <em>if we used the penalty coefficient recommended by the theory above, the step sizes would be very small</em>。</b><span class='w'>这是理论和实践之间一个非常典型的缝隙</span>——<b>界本身是对的，但它为了「对所有情况都成立」而取了最坏情况，于是在典型情况下过于保守。</b><span class='k'>这种缝隙在带保证的方法里几乎总会出现，值得养成警觉。</span>",
+    "<b>对策是把「惩罚」改成「约束」，而这两者的差别值得想清楚。</b><span class='k'>惩罚形式：<code>max L − C·D_KL</code>，你让优化器自己权衡</span>——<b>C 定了，步子多大就定了。</b><span class='k'>约束形式：<code>max L</code> 使得 <code>D_KL ≤ δ</code></span>——<b>你直接规定步子不许超过多大，然后在这个范围内尽量优化。</b><span class='w'>后者把「步长」变成了一个你可以直接调的旋钮 δ，而不是通过 C 间接控制</span>。<b>而 δ 有一个很好的性质：它的含义不依赖于 ε 和 γ，调起来直观得多。</b>",
+    "<b>第二处放松也很关键：<span class='k'>把 <code>max_s</code> 换成了对状态分布取期望</span>。</b><b>课件给的理由是：<em>the max requires the KL is bounded at all states and yields an impractical number of constraints</em>。</b><span class='w'>要求「在每一个状态上 KL 都小」，意味着状态有多少个就有多少条约束</span>——<b>在大状态空间下根本写不下，更别说求解。</b><span class='k'>换成期望之后只剩一条约束，而且可以用样本估计</span>。<b>代价是保证变弱了：平均 KL 小，不排除个别状态上 KL 很大。</b>",
+    "<b>把这一页的两处放松列清楚，你就知道 TRPO 的「保证」到底还剩多少。</b><b>① 用 δ 代替理论的 C</b>：<span class='w'>失去了「单调改进」的严格保证</span>——δ 是你拍的，不是定理给的。<br><b>② 用平均 KL 代替最大 KL</b>：<span class='w'>失去了「每个状态都受控」的保证</span>。<br><span class='k'>所以 TRPO 的实际地位是：一个受理论启发的启发式方法</span>，<b>而不是一个带证明的算法。</b><span class='w'>课件 p50 说它 <em>empirically consistently does well</em>——注意是「经验上」。</span>"
+   ],
+   "quote": "max_θ L_{θ_old}(θ) − C D_KL^max(θ_old, θ), where <b>C = 4εγ/(1−γ)²</b> is the penalty coefficient &nbsp;·&nbsp; <b>In practice, if we used the penalty coefficient recommended by the theory above, the step sizes would be very small</b> &nbsp;|&nbsp; <b>New idea: Use a trust region constraint on step sizes</b> &nbsp;·&nbsp; max_θ L_{θ_old}(θ) subject to <b>D_KL^{s∼ρ_{θ_old}}(θ_old, θ) ≤ δ</b> &nbsp;·&nbsp; This uses the <b>average KL instead of the max</b>",
+   "tbl": {
+    "head": [
+     "",
+     "理论形式（惩罚）",
+     "实用形式（约束）"
+    ],
+    "rows": [
+     [
+      "式子",
+      "<code>max L − C·D_KL^max</code>",
+      "<code>max L</code> s.t. <code>E_s[D_KL] ≤ δ</code>"
+     ],
+     [
+      "步长由谁定",
+      "<span class='w'>C = 4εγ/(1−γ)²，理论给的</span>",
+      "<span class='k'>δ，你自己调</span>"
+     ],
+     [
+      "KL 怎么算",
+      "<span class='w'>max_s（约束数等于状态数）</span>",
+      "<span class='k'>对状态分布取期望（一条约束）</span>"
+     ],
+     [
+      "还有单调改进保证吗",
+      "<span class='k'>有（定理）</span>",
+      "<span class='w'>没有，变成受理论启发的启发式</span>"
+     ],
+     [
+      "实际能用吗",
+      "<span class='w'>步子小到动不了</span>",
+      "<span class='k'>能，且经验上一贯不错</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    43,
+    45
+   ],
+   "t": "从理论到实践：三次替换",
+   "star": 3,
+   "one": "访问频率、优势函数、求和——<b>三样都换成能从样本估出来的东西</b>。",
+   "eq": "① Σ_s ρ^π(s)[…]        →   (1/(1−γ))·E_{s~ρ_{θ_old}}[…]\n\n② Σ_a π_θ(a|s_n)·A_{θ_old}(s_n,a)\n                       →   E_{a~q}[ (π_θ(a|s_n)/q(a|s_n))·A_{θ_old}(s_n,a) ]\n                            ↑ 重要性采样，q 是采样分布\n\n③ A_{θ_old}            →   Q_{θ_old}\n\n最终： max_θ E_{s~ρ_old, a~q}[ (π_θ(a|s)/q(a|s))·Q_{θ_old}(s,a) ]\n       s.t.  E_{s~ρ_old}[ D_KL(π_{θ_old}(·|s), π_θ(·|s)) ] ≤ δ",
+   "pts": [
+    "<span class='k'>这三次替换不改变最优解</span>——课件专门强调了这一句。",
+    "<b>②用的正是第三讲的重要性采样</b>：拿旧策略的样本去估新策略下的量。",
+    "<b>③ 把 A 换成 Q 只差一个与动作无关的 V</b>，不影响 arg max。",
+    "标准做法是取 <code>q = π_old</code>；另有 vine 采样法见原论文。",
+    "<b>这三次替换的共同目的只有一个：<span class='k'>把式子里每一样「要知道全局信息才能算」的东西，换成「能从样本估出来」的东西</span>。</b><b>而课件专门加了一句 <em>do not change solution</em>——这三次替换不改变最优解。</b><span class='w'>所以它们是改写，不是近似</span>（<b>当然，用有限样本去估那些期望时会有估计误差，但那是另一回事</b>）。",
+    "<b>第一次替换：把对状态的求和写成对 <code>ρ</code> 的期望，顺带提出常数 <code>1/(1−γ)</code>。</b><span class='k'>因为 <code>ρ</code> 不是概率分布（它的和是 <code>1/(1−γ)</code>），要变成期望就得先归一化</span>——<b>归一化出来的那个因子就被提到了外面。</b><span class='w'>而它是个常数，不影响 arg max，所以实践中常常直接忽略</span>。<b>这就是为什么你在代码里往往看不到它。</b>",
+    "<b>第二次替换是三次里最重要的一次：<span class='k'>重要性采样</span>。</b><b>你要算的是「按<b>新</b>策略选动作时的平均优势」，但你的样本是按<b>旧</b>策略采的。</b><span class='k'>于是乘一个比值 <code>π_θ(a|s)/q(a|s)</code> 把权重纠过来</span>。<span class='w'>这正是第三讲的重要性采样，一模一样</span>——<b>而它的老毛病也一并继承了：两个分布差得远时，比值会爆炸，方差失控。</b><span class='k'>而信赖域约束恰好在限制这两个分布差多远——所以它同时在控制两件事：近似的有效性，和重要性权重的方差。</span>",
+    "<b>第三次替换最简单但容易引起疑惑：把 <code>A</code> 换成 <code>Q</code>。</b><span class='k'>因为 <code>A(s,a) = Q(s,a) − V(s)</code>，两者只差一个与动作无关的 <code>V(s)</code></span>。<b>而那个 <code>V(s)</code> 在对动作求和（或求期望）时是个常数，它贡献的那一项不依赖 <code>θ</code>。</b><span class='w'>所以换掉它不影响 arg max</span>。<b>实践上这么换的理由是 <code>Q</code> 更容易直接估</b>——<span class='k'>你不必单独再学一个 <code>V</code>。</span>",
+    "<b>课件最后交代的采样分布选择也值得记：<span class='k'>标准做法就是取 <code>q = π_old</code></span>。</b><b>也就是用你刚刚采数据用的那个策略。</b><span class='w'>这是最自然的选择，因为样本本来就是它产生的，比值 <code>π_θ/π_old</code> 在起点处等于 1</span>。<span class='k'>课件提到的 vine 采样法是另一种做法</span>——<b>从若干状态出发各自分叉采多条，能降方差但要求环境可以重置到任意状态</b>，<span class='w'>这个要求在真实系统里往往不成立。</span>"
+   ],
+   "quote": "Don't know the visitation weights nor true advantage function. Instead do the following substitutions: &nbsp;·&nbsp; <b>① Σ_s ρ^π(s)[...] → (1/(1−γ)) E_{s∼ρ_{θ_old}}[...]</b> &nbsp;·&nbsp; <b>② Σ_a π_θ(a|s_n) A_{θ_old}(s_n,a) → E_{a∼q}[ (π_θ(a|s_n)/q(a|s_n)) A_{θ_old}(s_n,a) ]</b> &nbsp;·&nbsp; <b>③ A_{θ_old} → Q_{θ_old}</b> &nbsp;·&nbsp; <b>Note that the above substitutions do not change solution to the optimization problem</b> &nbsp;·&nbsp; Standard approach: sampling distribution q(a|s) is simply π_old(a|s)",
+   "tbl": {
+    "head": [
+     "替换",
+     "换掉什么",
+     "换成什么",
+     "为什么能换"
+    ],
+    "rows": [
+     [
+      "①",
+      "<code>Σ_s ρ^π(s)[…]</code>",
+      "<code>(1/(1−γ))·E_{s∼ρ_old}[…]</code>",
+      "<span class='k'>归一化，常数提到外面</span>"
+     ],
+     [
+      "②",
+      "<code>Σ_a π_θ(a|s)A(s,a)</code>",
+      "<code>E_{a∼q}[(π_θ/q)·A]</code>",
+      "<b>重要性采样（L03 那一套）</b>"
+     ],
+     [
+      "③",
+      "<code>A_{θ_old}</code>",
+      "<code>Q_{θ_old}</code>",
+      "<span class='k'>只差一个与动作无关的 V，不影响 arg max</span>"
+     ],
+     [
+      "<b>q 取什么</b>",
+      "—",
+      "<code>π_old</code>",
+      "<span class='w'>样本本来就是它产生的；vine 法见原论文</span>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>第二次替换那一步，就是你每天在做的事：<span class='k'>拿旧配置采的日志，去估一套新配置下的期望</span>。</b><br><br><b>而这一页顺带给了一个你可能没意识到的好消息：<span class='k'>信赖域约束同时在管两件事</span>。</b><br><b>① 它保证代理目标还是个好近似</b>（p36–p38 的那条线）；<br><b>② 它顺带把重要性权重 <code>π_new/π_old</code> 的方差压住了</b>——<span class='w'>两个策略差得远时比值会爆炸，这是 L03 就讲过的老毛病</span>。<br><span class='k'>一个约束，两个收益。</span><b>这个「一石二鸟」在你的设定里尤其值钱，因为你的日志量有限，方差是真正的敌人。</b><br><br><b>翻译成你的操作：给每个候选配置算一个「和日志配置的 KL 距离」，并用它来决定你有多信任对它的估计。</b><span class='w'>这和 p33 科研格给的建议是同一条，但这里有了更具体的理由</span>——<b>距离远不只意味着「代理目标不准」，还意味着「重要性权重方差大」，两个毛病叠加。</b><br><br><b>还有一条直接可用的诊断，花费几乎为零：<span class='k'>算有效样本量 <code>ESS = (Σw)² / Σw²</code></span></b>，其中 <code>w</code> 是重要性权重。<b>ESS 远小于实际样本数，说明权重被少数几条样本主导，这个估计不可信。</b><span class='w'>简报 §4c 里你已经在用 ESS 了</span>——<b>这一页告诉你它和「该走多远」是同一个量的两种用法：ESS 低 ⇔ 两个分布差太远 ⇔ 你走出了信赖域。</b><br><br><b>最后提一句 vine 采样：它要求环境能重置到任意状态。</b><span class='k'>而你的环境<b>恰好可以</b></span>——<b>你完全可以从同一个中间产物出发，让后续节点用不同的保真度各跑一遍。</b><span class='w'>这在机器人领域做不到（不能把机器人瞬移回某个姿态），在你这里只是重放一次上下文</span>。<b>这是又一个「别人的约束对你不成立」的例子，值得评估一下能不能用上。</b>",
+    "ref": "课件 p43–p45（三次替换；q = π_old；vine）· L03 重要性采样 · 本讲 p33 科研格 · 简报 §4c"
+   }
+  },
+  {
+   "r": [
+    46,
+    46
+   ],
+   "t": "怎么求下一个参数",
+   "one": "目标用<b>线性</b>近似，约束用<b>二次</b>近似，再解这个带约束的问题。",
+   "pts": [
+    "解法：<span class='k'>共轭梯度</span>。",
+    "<b>这一页的两个近似是有讲究的，而且「哪个用线性、哪个用二次」不能反过来。</b><span class='k'>目标 <code>L</code> 用一阶近似：因为它在当前点的梯度就是真梯度（p36），一阶信息已经足够准</span>。<span class='k'>约束 <code>D_KL</code> 用二阶近似：因为 KL 在当前点处取最小值 0，一阶导也是 0</span>——<b>用一阶近似的话，约束就变成了「0 ≤ δ」，等于没有约束。</b><span class='w'>所以必须展开到二阶才有内容。</span>",
+    "<b>KL 的二阶展开有一个非常漂亮的结论，而它正是 p47 里 Fisher 矩阵的来源。</b><span class='k'><code>D_KL(π_θ_old, π_θ) ≈ ½ (θ − θ_old)ᵀ F (θ − θ_old)</code>，其中 <code>F</code> 是 Fisher 信息矩阵</span>。<b>于是「KL 小于 δ」这个约束，变成了一个椭球：<code>½ Δθᵀ F Δθ ≤ δ</code>。</b><span class='w'>注意这个椭球不是球</span>——<b>它在不同方向上的半径不同，由 <code>F</code> 决定。</b><span class='k'>这正是「参数空间的欧氏距离不等于策略空间的距离」这件事的数学形式。</span>",
+    "<b>「用共轭梯度」这个选择的理由很实际：<span class='w'><code>F</code> 太大，存不下也求不了逆</span>。</b><span class='k'>参数有 n 个，<code>F</code> 就是 <code>n×n</code></span>——<b>百万参数的网络，<code>F</code> 有一万亿个元素。</b><span class='w'>而共轭梯度法只需要能算「<code>F</code> 乘一个向量」，不需要显式地构造 <code>F</code></span>。<b>而 <code>Fv</code> 可以通过两次反向传播算出来（Hessian-向量积）。</b><span class='k'>这是把一个理论上优雅但计算上不可行的方法变得可行的关键工程技巧。</span>"
+   ],
+   "quote": "Use a <b>linear approximation to the objective function</b> and a <b>quadratic approximation to the constraint</b> &nbsp;·&nbsp; Constrained optimization problem &nbsp;·&nbsp; <b>Use conjugate gradient descent</b>"
+  },
+  {
+   "r": [
+    47,
+    49
+   ],
+   "t": "TRPO 算法",
+   "star": 3,
+   "one": "六行。",
+   "eq": "每轮：\n  跑策略 T 步 / N 条轨迹\n  估出所有时间步的优势函数\n  算策略梯度 g\n  用共轭梯度（配 Hessian-向量积）算 F⁻¹g，F 是 Fisher 信息矩阵\n  在代理损失和 KL 约束上做线搜索\n\n应用：2D 运动控制器、以像素为输入的 Atari",
+   "pts": [
+    "<b><code>F⁻¹g</code> 是自然梯度</b>：按参数空间的几何去校正方向，而不是按欧氏距离。",
+    "<span class='k'>最后那步线搜索是兜底的</span>——二次近似不准时它保证约束真的满足。",
+    "<b>六行里，前四行和 vanilla PG 完全一样，真正新的只有第 5、6 行。</b><span class='k'>第 5 行把梯度 <code>g</code> 换成了 <code>F⁻¹g</code>——这叫<b>自然梯度</b></span>；<span class='k'>第 6 行做线搜索，确保约束真的满足</span>。<b>所以 TRPO 可以一句话概括：vanilla PG，但把「沿梯度走」换成「沿自然梯度走，且不许走出 KL 球」。</b>",
+    "<b>自然梯度这个概念值得花点时间，因为它背后的直觉很有价值。</b><span class='w'>普通梯度下降默认「参数空间里距离相同 = 改动相同」</span>——<b>但这显然不对。</b><span class='k'>softmax 的 logits 从 0 改到 1，和从 10 改到 11，对实际策略的影响完全不同</span>（<b>后者几乎没变，因为已经饱和了</b>）。<b>自然梯度按「策略改变了多少」而不是「参数改变了多少」来度量距离</b>——<span class='w'>而 Fisher 矩阵正是这个度量的局部形式。</span>",
+    "<b>第 6 行那个线搜索是兜底的，而它存在的理由很诚实。</b><span class='k'>第 5 行用的是二次近似，而二次近似在走得稍远时就不准了</span>——<b>于是按它算出来的步子，实际的 KL 可能超过 δ。</b><span class='w'>所以还要真的算一下实际的 KL 和实际的代理损失，不满足就缩小步长再试</span>。<b>这一步让算法从「理论上满足约束」变成「实际上满足约束」。</b><span class='k'>注意这和 p31 被嫌弃的那个线搜索不一样</span>——<b>那里是盲目地在梯度方向上试，这里只是在一个已经算好的方向上缩放，而且有明确的验收标准。</b>",
+    "<b>把 TRPO 和 p31 那个「朴素线搜索」对照一次，你就能看出这一整讲的进展在哪里。</b><span class='w'>朴素线搜索：方向是普通梯度，距离靠盲试，没有任何「近似在哪还成立」的信息</span>；<span class='k'>TRPO：方向是自然梯度（考虑了策略空间的几何），距离由 KL 约束界定（来自下界定理），线搜索只做最后的验收</span>。<b>三处都用上了前面十几页推导出来的东西。</b>"
+   ],
+   "quote": "<b>Practical Algorithm: TRPO</b> &nbsp;·&nbsp; 1: for iteration=1,2,... do &nbsp;·&nbsp; 2: <b>Run policy for T timesteps or N trajectories</b> &nbsp;·&nbsp; 3: <b>Estimate advantage function at all timesteps</b> &nbsp;·&nbsp; 4: Compute policy gradient g &nbsp;·&nbsp; 5: <b>Use CG (with Hessian-vector products) to compute F⁻¹g where F is the Fisher information matrix</b> &nbsp;·&nbsp; 6: <b>Do line search on surrogate loss and KL constraint</b> &nbsp;·&nbsp; 7: end for &nbsp;|&nbsp; Applied to: Locomotion controllers in 2D · Atari games with pixel input"
+  },
+  {
+   "r": [
+    50,
+    52
+   ],
+   "t": "结果与小结",
+   "star": 2,
+   "one": "<b>自动把权重更新限制在一阶近似还成立的范围内。</b>",
+   "pts": [
+    "属于策略梯度方法；用一个代理优化目标。",
+    "<span class='k'>实测一贯表现不错</span>。",
+    "影响很大：课件写的时候已被引 <b>350+ 次</b>（问世才几年）。",
+    "<b>小结里那句 <em>to approximate where the first order approximation is valid</em> 把 TRPO 的定位说得很准，值得逐字读。</b><span class='k'>注意是 <em>approximate</em>——它是在<b>估计</b>「一阶近似还成立的范围」，不是在精确地划定它</span>。<b>而估计的依据就是那个下界定理，加上两处被承认的放松（p41）。</b><span class='w'>所以它是一个有理论来源的启发式，而不是一个带证明的算法</span>——<b>这个定位要说准，否则会高估它的保证。</b>",
+    "<b><em>Empirically consistently does well</em> 这句话的关键词是 <span class='k'>consistently</span>（一贯地），而不是「最好」。</b><b>TRPO 在很多任务上不是最强的，但它很少崩。</b><span class='w'>而在深度 RL 里「很少崩」是一个被严重低估的优点</span>——<b>L06 p12 要你「至少跑两个种子」，正是因为很多方法的种子间方差大到可以反转结论。</b><span class='k'>一个表现稳定的方法，让你花在调参和重跑上的时间大幅减少。</span>",
+    "<b>「被引 350+ 次」这个数字现在看已经过时得很厉害，而这件事本身值得一提。</b><span class='w'>这份讲义是 2018 年的，而 TRPO 2015 年问世</span>；<span class='k'>今天它的引用数早已是数万量级</span>。<b>更重要的是它的直接后继 PPO——用一个截断的比值替代 KL 约束，实现简单得多，效果相当甚至更好。</b><span class='w'>今天你在实践中几乎只会碰到 PPO，而不是 TRPO</span>。<b>但 PPO 的全部合理性都来自这一讲的推导：它是在用一个更粗暴的办法达到同一个目的。</b>"
+   ],
+   "quote": "Policy gradient approach &nbsp;·&nbsp; Uses surrogate optimization function &nbsp;·&nbsp; <b>Automatically constrains the weight update to a trusted region, to approximate where the first order approximation is valid</b> &nbsp;·&nbsp; <b>Empirically consistently does well</b> &nbsp;·&nbsp; Very influential: +350 citations since introduced a few years ago"
+  },
+  {
+   "r": [
+    53,
+    53
+   ],
+   "t": "策略梯度算法的通用模板",
+   "star": 3,
+   "one": "所有这些算法都是<b>同一个模板换零件</b>。",
+   "eq": "每轮：\n  跑策略 T 步 / N 条轨迹\n  每个时间步算出目标 Q^π(s_t,a_t) 和基线 b(s_t)\n  算出策略梯度估计 ĝ\n  用 ĝ 更新策略，必要时约束在一个局部区域内",
+   "pts": [
+    "<span class='k'>第 3 行换零件</span> ⇒ REINFORCE / actor-critic / n 步…",
+    "<span class='k'>第 5 行换零件</span> ⇒ 朴素 SGD / 线搜索 / TRPO…",
+    "<b>把这张模板记住，比记住任何一个具体算法都值。</b>",
+    "<b>这张模板是整个第八、九两讲的总收，而它值钱的地方在于：它把「算法」降级成了「配置」。</b><span class='k'>你不再需要记住十几个算法的名字和伪代码，只需要记住五行，然后知道每一行有哪些可选项</span>。<b>读新论文时的第一个问题就变成了：它动了哪一行。</b>",
+    "<b>把第 3 行的选项列全，你会发现它们正好是第八讲降方差那一节的全部内容。</b><span class='k'>蒙特卡洛回报 <code>G_t</code>（无偏、方差大）→ REINFORCE</span>；<span class='k'>critic 估的 <code>Q</code>（有偏、方差小）→ actor-critic</span>；<span class='k'>n 步混合 → 介于两者之间</span>；<span class='k'>基线取 <code>V</code> → 括号里变成优势函数</span>。<b>四个选项，对应四种偏差–方差的配比。</b>",
+    "<b>第 5 行的选项则是这一讲后半的全部内容，而它们是按「用了多少结构信息」排的。</b><span class='w'>朴素 SGD / ADAM：完全不管近似在哪还成立</span>；<span class='w'>线搜索：盲试，贵且不用结构信息</span>；<span class='k'>TRPO：自然梯度 + KL 信赖域，用上了下界定理</span>；<span class='k'>PPO：截断比值，用一个更简单的办法达到同样的目的</span>。<b>从上到下，用上的信息越来越多，而实现复杂度先升后降。</b>",
+    "<b>老师说「把这张模板记住，比记住任何一个具体算法都值」，这话值得当真，而且理由可以说清楚。</b><span class='k'>具体算法会过时——TRPO 三年就被 PPO 取代了</span>；<span class='w'>而模板不会，因为它反映的是问题本身的结构</span>：<b>你必须采数据、必须估优势、必须算梯度、必须决定走多远。</b><span class='k'>这四件事任何策略梯度方法都躲不开，变的只是每件事怎么做。</span>"
+   ],
+   "quote": "<b>Common Template of Policy Gradient Algorithms</b> &nbsp;·&nbsp; 1: for iteration=1,2,... do &nbsp;·&nbsp; 2: Run policy for T timesteps or N trajectories &nbsp;·&nbsp; 3: At each timestep compute the target Q^π(s_t,a_t) and baseline b(s_t) &nbsp;·&nbsp; 4: Compute the policy gradient estimate ĝ &nbsp;·&nbsp; 5: Update the policy using ĝ, <b>possibly constrained to a local region</b> &nbsp;·&nbsp; 6: end for",
+   "tbl": {
+    "head": [
+     "模板的行",
+     "可选项",
+     "换了之后得到"
+    ],
+    "rows": [
+     [
+      "<b>第 2 行</b> 采数据",
+      "串行 / 并行多 worker",
+      "<span class='k'>A3C</span>"
+     ],
+     [
+      "<b>第 3 行</b> 估目标和基线",
+      "<code>G_t</code> / critic 的 Q / n 步 / GAE",
+      "<span class='k'>REINFORCE / actor-critic / A2C</span>"
+     ],
+     [
+      "<b>第 5 行</b> 怎么更新",
+      "SGD·ADAM / 线搜索 / KL 信赖域 / 截断比值",
+      "<b>vanilla / TRPO / PPO</b>"
+     ],
+     [
+      "<b>不变的四件事</b>",
+      "—",
+      "<span class='w'>采数据、估优势、算梯度、决定走多远</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    54,
+    54
+   ],
+   "t": "这一讲你该掌握什么",
+   "one": "课件自己给的清单。",
+   "pts": [
+    "要<b>非常熟悉 REINFORCE</b> 和上一页那张模板。",
+    "要知道<span class='k'>不同的估计量能插进哪个槽位</span>，以及各自的偏差/方差含义。",
+    "<span class='w'>不必</span>会推导或背出 TRPO 里近似目标和约束的具体公式。",
+    "作业三会动手做这些。",
+    "<b>课件自己给的这张清单，划定了「该掌握到什么程度」，而且它划得比你以为的宽松。</b><span class='k'>要非常熟悉的只有两样：REINFORCE，和那张模板</span>。<span class='w'>TRPO 的具体公式<b>不必</b>会推导或背出</span>——<b>课件原话就是 <em>do not need to be able to derive or remember</em>。</b><span class='k'>所以 p37–p46 那十页，读懂思路就够了，不必能复现。</span>",
+    "<b>但「理解不同估计量能插进哪个槽位，以及各自的偏差/方差含义」这一条要求不低，值得自查一遍。</b><b>问自己四个问题</b>：<span class='k'>① <code>G_t</code> 和 critic 的 <code>Q</code>，哪个有偏？为什么？</span><span class='k'>② 加基线会不会引入偏差？什么条件下才降方差？</span><span class='k'>③ n 步的 n 变大，偏差和方差各往哪边走？</span><span class='k'>④ 什么情况下该往 MC 那端靠？</span><b>四个都答得出，这一讲的前半就过关了。</b>",
+    "<b>最后给一条把这两讲串起来的总结，它也是这一片的收尾。</b><span class='k'>第八讲回答「梯度是什么、怎么算」，第九讲回答「拿到梯度之后怎么用」</span>。<b>前者的核心是似然比技巧和那句 <em>no dynamics model required</em>；后者的核心是「策略决定数据分布，所以不能乱走」。</b><span class='w'>而这两件事合起来，正好解释了为什么策略梯度既有吸引力又难调</span>——<b>它的假设少得惊人，代价是你必须自己管住每一步走多远。</b>"
+   ],
+   "quote": "<b>Be very familiar with REINFORCE</b> and the template of policy gradient algorithms &nbsp;·&nbsp; <b>Understand the different ways of estimating the target</b> and the bias / variance implications &nbsp;·&nbsp; <b>Do not need to be able to derive or remember the specific formulas for the approximate objective and constraint in TRPO</b> &nbsp;·&nbsp; Will do these in homework 3"
+  }
+ ],
+ "quiz": {
+  "36": [
+   {
+    "q": "局部近似 <code>L_π(π̃)</code> 做了什么手脚？",
+    "o": [
+     "换成了 Q",
+     "去掉了折扣",
+     "去掉了优势函数",
+     "把新策略的访问频率 ρ^{π̃} 硬换成旧策略的 ρ^π"
+    ],
+    "a": 3,
+    "why": "代价是只在 θ₀ 附近可信——这正是「该走多远」这个问题的数学形态。"
+   },
+   {
+    "q": "<code>L</code> 作为代理目标，在 θ₀ 处有哪两条性质？",
+    "o": [
+     "值相同、二阶导相同",
+     "只有梯度相同",
+     "值相同、一阶导（梯度）也相同",
+     "只有值相同"
+    ],
+    "a": 2,
+    "why": "值和一阶导都对得上，所以在 θ₀ 附近它是个好代理。"
+   },
+   {
+    "q": "代理目标 <code>L</code> 的两条资格性质里，哪一条更值钱？",
+    "o": [
+     "一阶导相同——这意味着用代理算出的梯度就是真梯度，分歧只出现在二阶及以上",
+     "都不重要，关键是它能算",
+     "两条一样重要",
+     "取值相同，因为它保证了无偏"
+    ],
+    "a": 0,
+    "why": "于是问题的形状被说死了：方向是对的，问题只在距离。"
+   },
+   {
+    "q": "<code>L_{π_{θ₀}}(π_{θ₀}) = V(θ₀)</code> 为什么成立？",
+    "o": [
+     "因为 ρ 被归一化了",
+     "因为折扣因子小于 1",
+     "因为 L 的定义里减去了常数",
+     "此时 π̃ = π，而 <code>E_{a∼π}[A^π(s,a)] = 0</code>，第二项整个为零"
+    ],
+    "a": 3,
+    "why": "这个「在当前点上紧」的性质，让 p39 相减那一步有意义。"
+   }
+  ],
+  "37": [
+   {
+    "q": "保守策略迭代的下界里，罚项随「改动幅度 α」怎么变？",
+    "o": [
+     "线性",
+     "不变",
+     "按 √α",
+     "按 α² 增长——走得越远，保证越弱"
+    ],
+    "a": 3,
+    "why": "π_new = π_old 时 α=0，罚项为 0，界是紧的。局限是它只对「混合策略」成立。"
+   },
+   {
+    "q": "CPI 下界里惩罚项按 <code>α²</code> 增长，而收益大致按 α 增长，这说明什么？",
+    "o": [
+     "小 α 时收益占优、大 α 时罚款占优，所以存在一个可以算出来的最优步长",
+     "两者无法比较",
+     "α 越大越好",
+     "α 越小越好"
+    ],
+    "a": 0,
+    "why": "这就是「自动选步长」这件事的数学根据。"
+   },
+   {
+    "q": "课件自带一问：<code>π_new = π_old</code> 时这个界紧吗？",
+    "o": [
+     "不紧，总是松的",
+     "紧——α=0 罚项为零，而 <code>L(π_old)=V^{π_old}</code>，两边取等号",
+     "取决于 γ",
+     "取决于 ε"
+    ],
+    "a": 1,
+    "why": "一个在「不动」这个点上紧的界，说明它至少没有白白浪费精度。离开这点之后它按 α² 变松。"
+   },
+   {
+    "q": "CPI 这个下界的局限是什么？",
+    "o": [
+     "只对表格情形成立",
+     "只对确定性策略成立",
+     "只对混合策略成立，而实践中你做的是「把参数挪一点」",
+     "只对 γ=1 成立"
+    ],
+    "a": 2,
+    "why": "p38 会把它推广到一般随机策略，代价是常数从 2 变成 4。"
+   }
+  ],
+  "38": [
+   {
+    "q": "从混合策略推广到一般随机策略，「改了多少」被度量成了什么？",
+    "o": [
+     "动作数之差",
+     "值函数之差",
+     "参数的欧氏距离",
+     "两个策略之间的 KL 散度（经由 D_TV² ≤ D_KL）"
+    ],
+    "a": 3,
+    "why": "这一步把「改了多少」正式化了，后面 TRPO 的约束就是它。"
+   },
+   {
+    "q": "<code>D_TV(p,q)² ≤ D_KL(p,q)</code> 这一步为什么重要？",
+    "o": [
+     "它消去了 γ",
+     "它让界更紧",
+     "它让 ε 变小",
+     "KL 对常见参数化策略有闭式表达且可对参数求导，而总变差距离做不到"
+    ],
+    "a": 3,
+    "why": "这一步把一个「理论上的界」变成了一个「可以塞进优化器的约束」。"
+   },
+   {
+    "q": "这个定理的结构性含义是什么？",
+    "o": [
+     "保证的强度由样本量决定",
+     "保证的强度由 γ 单独决定",
+     "保证的强度由「你改了多少」单独决定，不管方向",
+     "保证的强度由「你改得对不对」决定"
+    ],
+    "a": 2,
+    "why": "一个改得很小但方向完全错误的更新仍有很强的保证。这正是信赖域思想的全部内容。"
+   },
+   {
+    "q": "<code>1/(1−γ)²</code> 在 γ=0.99 时是多少？",
+    "o": [
+     "10000",
+     "100",
+     "400",
+     "一百万"
+    ],
+    "a": 0,
+    "why": "γ=0.999 时是一百万。按它选步长你几乎动不了——p41 会正面承认这件事。"
+   }
+  ],
+  "39": [
+   {
+    "q": "「优化下界就够了」的论证是怎么走的？",
+    "o": [
+     "用了大数定律",
+     "下界等于真值",
+     "V^{π_{i+1}} ≥ M_i(π_{i+1}) 且 V^{π_i} = M_i(π_i)，两式相减",
+     "用了压缩映射"
+    ],
+    "a": 2,
+    "why": "只要新策略让 M 变大，真实值的改进就至少有那么多。这是「单调改进」从愿望变成定理的一步。"
+   },
+   {
+    "q": "<code>V^{π_i} = M_i(π_i)</code> 为什么取等号？",
+    "o": [
+     "KL(π_i,π_i)=0 所以惩罚消失，而 <code>L_{π_i}(π_i)=V^{π_i}</code>",
+     "因为 M 的定义里减去了 V",
+     "因为 γ=1",
+     "因为 ε=0"
+    ],
+    "a": 0,
+    "why": "正是这个「在当前点上紧」的性质，让相减那一步有意义。"
+   },
+   {
+    "q": "这个论证的一般骨架叫什么？",
+    "o": [
+     "共轭梯度法",
+     "信赖域法",
+     "MM 算法（minorize-maximize）：构造一个处处不超过目标、且在当前点相等的下界，然后最大化它",
+     "EM 算法"
+    ],
+    "a": 2,
+    "why": "EM 算法、变分推断都是同一个骨架，区别只在怎么构造那个下界。"
+   },
+   {
+    "q": "这个单调改进保证为什么是「无条件」的？",
+    "o": [
+     "因为 KL 非负",
+     "最差也可以取 <code>π_{i+1}=π_i</code>，那时 M 不变，于是至少不会变差",
+     "因为下界永远成立",
+     "因为 ε 有界"
+    ],
+    "a": 1,
+    "why": "但要注意它保证的是「不变差」，不是「变好很多」——而「保证不变差」和「一步都走不动」是同一件事的两面。"
+   }
+  ],
+  "41": [
+   {
+    "q": "为什么 TRPO 把理论上的惩罚项改成了硬约束？",
+    "o": [
+     "惩罚项算不出来",
+     "约束更容易求导",
+     "为了无偏",
+     "按理论取的惩罚系数太保守，步长会小到没法用"
+    ],
+    "a": 3,
+    "why": "信赖域的含义就是：在一阶近似还靠谱的那个范围内走，范围用 KL 界定。"
+   },
+   {
+    "q": "课件在这一页坦率承认了什么？",
+    "o": [
+     "TRPO 不收敛",
+     "下界的证明有漏洞",
+     "按理论推荐的惩罚系数，步长会非常小",
+     "KL 散度不可微"
+    ],
+    "a": 2,
+    "why": "界本身是对的，但它为了「对所有情况都成立」而取了最坏情况，于是在典型情况下过于保守。"
+   },
+   {
+    "q": "把 <code>max_s</code> 换成对状态分布取期望，理由是什么？",
+    "o": [
+     "max 需要 KL 在所有状态上都有界，约束数等于状态数，根本写不下",
+     "max 会让界更松",
+     "期望形式更对称",
+     "期望更容易估计"
+    ],
+    "a": 0,
+    "why": "代价是保证变弱了：平均 KL 小，不排除个别状态上 KL 很大。"
+   },
+   {
+    "q": "经过两处放松之后，TRPO 的实际地位是什么？",
+    "o": [
+     "一个和理论完全无关的工程技巧",
+     "一个受理论启发的启发式方法",
+     "一个带完整证明的算法",
+     "一个精确求解单调改进的算法"
+    ],
+    "a": 1,
+    "why": "课件 p50 说它 empirically consistently does well——注意是「经验上」。"
+   }
+  ],
+  "43": [
+   {
+    "q": "从理论到实践的三次替换里，第二次用的是哪个工具？",
+    "o": [
+     "bootstrap",
+     "重要性采样——拿旧策略的样本去估新策略下的量",
+     "压缩映射",
+     "自然梯度"
+    ],
+    "a": 1,
+    "why": "课件专门强调：这三次替换不改变最优解。第三次把 A 换成 Q，只差一个与动作无关的 V。"
+   },
+   {
+    "q": "第二次替换（重要性采样）在做什么？",
+    "o": [
+     "把 ρ 归一化",
+     "把 A 换成 Q",
+     "把 max 换成期望",
+     "你要算的是「按新策略选动作时的平均优势」，但样本是旧策略采的，乘一个比值把权重纠过来"
+    ],
+    "a": 3,
+    "why": "这正是第三讲的重要性采样，老毛病也一并继承：两个分布差得远时比值爆炸、方差失控。"
+   },
+   {
+    "q": "为什么把 <code>A</code> 换成 <code>Q</code> 不影响结果？",
+    "o": [
+     "因为 V 恒为零",
+     "因为两者数值相等",
+     "两者只差一个与动作无关的 <code>V(s)</code>，它贡献的项不依赖 θ，不影响 arg max",
+     "因为 Q 的方差更小"
+    ],
+    "a": 2,
+    "why": "实践上这么换的理由是 Q 更容易直接估，你不必单独再学一个 V。"
+   },
+   {
+    "q": "信赖域约束同时在管哪两件事？",
+    "o": [
+     "偏差和方差",
+     "代理目标还是个好近似，以及重要性权重的方差不爆炸",
+     "采样效率和计算效率",
+     "探索和利用"
+    ],
+    "a": 1,
+    "why": "一个约束，两个收益。在日志量有限、方差是真正敌人的设定里尤其值钱。"
+   }
+  ],
+  "46": [
+   {
+    "q": "为什么目标用线性近似、约束用二次近似，不能反过来？",
+    "o": [
+     "KL 在当前点取最小值 0 且一阶导也是 0，用一阶近似约束就变成「0 ≤ δ」等于没有约束",
+     "因为目标比约束重要",
+     "因为 KL 是凸的",
+     "为了计算方便"
+    ],
+    "a": 0,
+    "why": "而目标 L 在当前点的梯度就是真梯度（p36），一阶信息已经足够准。"
+   },
+   {
+    "q": "为什么用共轭梯度而不是直接求 <code>F⁻¹</code>？",
+    "o": [
+     "共轭梯度能避免局部最优",
+     "F 不可逆",
+     "共轭梯度更精确",
+     "F 是 n×n，百万参数就有一万亿个元素；而共轭梯度只需要能算 Fv，可用两次反向传播得到"
+    ],
+    "a": 3,
+    "why": "这是把一个理论上优雅但计算上不可行的方法变得可行的关键工程技巧。"
+   }
+  ],
+  "47": [
+   {
+    "q": "TRPO 里用共轭梯度算的 <code>F⁻¹g</code> 是什么？",
+    "o": [
+     "二阶导",
+     "自然梯度——按参数空间的几何校正方向，而不是按欧氏距离",
+     "优势函数",
+     "普通梯度"
+    ],
+    "a": 1,
+    "why": "F 是 Fisher 信息矩阵。最后那步线搜索是兜底的：二次近似不准时它保证约束真的满足。"
+   },
+   {
+    "q": "TRPO 六行里，真正新的是哪两行？",
+    "o": [
+     "第 5 行（用 <code>F⁻¹g</code> 即自然梯度）和第 6 行（线搜索验收）",
+     "第 2、3 行（采样和估优势）",
+     "第 1、7 行",
+     "第 3、4 行"
+    ],
+    "a": 0,
+    "why": "前四行和 vanilla PG 完全一样。TRPO = vanilla PG + 沿自然梯度走 + 不许走出 KL 球。"
+   },
+   {
+    "q": "自然梯度背后的直觉是什么？",
+    "o": [
+     "对梯度做归一化",
+     "用二阶导加速收敛",
+     "按「策略改变了多少」而不是「参数改变了多少」来度量距离",
+     "避免梯度消失"
+    ],
+    "a": 2,
+    "why": "softmax 的 logits 从 0 改到 1，和从 10 改到 11，对实际策略的影响完全不同。Fisher 矩阵正是这个度量的局部形式。"
+   },
+   {
+    "q": "第 6 行的线搜索和 p31 被嫌弃的那个线搜索有什么不同？",
+    "o": [
+     "没有不同",
+     "这里不需要评估策略",
+     "这里用的是二阶信息",
+     "这里只是在一个已经算好的方向上缩放，而且有明确的验收标准（实际 KL 和实际代理损失）"
+    ],
+    "a": 3,
+    "why": "它存在的理由是：第 5 行用的二次近似在走得稍远时不准，实际 KL 可能超过 δ。"
+   }
+  ],
+  "50": [
+   {
+    "q": "<em>Empirically consistently does well</em> 的关键词是什么？",
+    "o": [
+     "well——说明效果最好",
+     "empirically——说明没有理论保证",
+     "consistently（一贯地）——它不是最强的，但很少崩",
+     "does——说明是实验结论"
+    ],
+    "a": 2,
+    "why": "在深度 RL 里「很少崩」是被严重低估的优点，因为很多方法的种子间方差大到可以反转结论。"
+   },
+   {
+    "q": "今天实践中你更可能碰到哪个方法？",
+    "o": [
+     "PPO——用截断比值替代 KL 约束，实现简单得多，效果相当甚至更好",
+     "CPI",
+     "TRPO",
+     "REINFORCE"
+    ],
+    "a": 0,
+    "why": "但 PPO 的全部合理性都来自这一讲的推导：它是在用一个更粗暴的办法达到同一个目的。"
+   }
+  ],
+  "53": [
+   {
+    "q": "策略梯度算法的通用模板里，换零件的两个槽位是？",
+    "o": [
+     "采样方式和折扣",
+     "目标/基线的选择（第 3 行），以及怎么用梯度更新（第 5 行）",
+     "策略类和特征",
+     "α 和 γ"
+    ],
+    "a": 1,
+    "why": "第 3 行换零件得到 REINFORCE / actor-critic / n 步；第 5 行换零件得到朴素 SGD / 线搜索 / TRPO。"
+   },
+   {
+    "q": "这张通用模板最值钱的地方在哪？",
+    "o": [
+     "它把「算法」降级成了「配置」——你只需记住五行，然后知道每行有哪些可选项",
+     "它适用于所有 RL 方法",
+     "它保证收敛",
+     "它比伪代码短"
+    ],
+    "a": 0,
+    "why": "读新论文时的第一个问题就变成了：它动了哪一行。"
+   },
+   {
+    "q": "老师说「把这张模板记住比记住任何一个具体算法都值」，理由是？",
+    "o": [
+     "具体算法会过时（TRPO 三年就被 PPO 取代），而模板反映的是问题本身的结构",
+     "模板适用于监督学习",
+     "模板是考试重点",
+     "模板更容易背"
+    ],
+    "a": 0,
+    "why": "采数据、估优势、算梯度、决定走多远——这四件事任何策略梯度方法都躲不开。"
+   }
+  ],
+  "54": [
+   {
+    "q": "课件明说<b>不要求</b>你掌握的是？",
+    "o": [
+     "那张通用模板",
+     "TRPO 里近似目标和约束的具体公式",
+     "偏差方差的取舍",
+     "REINFORCE"
+    ],
+    "a": 1,
+    "why": "要非常熟悉的是 REINFORCE 和模板，以及不同估计量能插进哪个槽位、各自的偏差/方差含义。"
+   },
+   {
+    "q": "课件自己说 TRPO 的哪部分<b>不必</b>掌握？",
+    "o": [
+     "算法的六行流程",
+     "近似目标和约束的具体公式——不必会推导或背出",
+     "自然梯度的含义",
+     "信赖域的思想"
+    ],
+    "a": 1,
+    "why": "要非常熟悉的只有两样：REINFORCE，和那张模板。"
+   }
+  ]
+ }
+}
