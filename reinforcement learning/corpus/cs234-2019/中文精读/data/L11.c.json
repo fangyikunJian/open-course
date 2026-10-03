@@ -1,0 +1,730 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p42 贝叶斯老虎机：先验 p[R]，后验 p[R|h_t]；课件限定 Better performance if prior knowledge is accurate",
+  "p43 贝叶斯遗憾 = 频率派遗憾在先验下再取一层期望；课件注：两者可用马尔可夫不等式联系",
+  "p44 贝叶斯 UCB（高斯）：a_t = arg max_a [μ_a + c·σ_a/√N(a)]",
+  "p45 概率匹配：π(a|h_t) = P[Q(a) > Q(a'), ∀a'≠a | h_t]；课件说它 can be difficult to compute analytically from posterior",
+  "p46-47 Thompson：从后验抽样本 → 选样本最大的 → 更新后验；它恰好实现概率匹配（因为「被选中」⟺「样本最大」）",
+  "p48 Beta(1,1) = [0,1] 上均匀；伯努利共轭：观察 1 则 α+1，观察 0 则 β+1；第一步抽样 0.3/0.5/0.6 ⇒ 选 a3 ⇒ 观察到 0",
+  "p56 逐步对照：Optimism 走 a1 a2 a3 a1 a2（遗憾 0, .05, .85, 0, .05）；TS 走 a3 a1 a1 a1 a1（遗憾 .85, 0, 0, 0, 0）",
+  "p58 课件三句：Thompson sampling (1929) achieves Lai and Robbins lower bound；Bounds for optimism are tighter than for Thompson sampling；But empirically Thompson sampling can be extremely effective",
+  "p59 Chapelle & Li 2010 新闻推荐：上下文老虎机，context sampled iid each step；臂=文章，奖励=点击",
+  "p60 后验采样的遗憾界（忽略常数）与 UCB 相同",
+  "p61 乐观初始化：增量更新 Q̂ ← Q̂ + (1/N)(r − Q̂)，要求 N(a) > 0；sublinear if initialize sufficiently optimistically, else linear",
+  "p62 四算法总表：贪心线性 / 固定 ε-贪心线性 / 衰减 ε-贪心次线性但需知道差距 / 乐观初始化次线性但需足够乐观"
+ ],
+ "notes": [
+  {
+   "r": [
+    42,
+    42
+   ],
+   "t": "贝叶斯老虎机",
+   "star": 2,
+   "quote": "So far we have made <b>no assumptions about the reward distribution R</b> (except bounds on rewards) &nbsp;·&nbsp; <b>Bayesian bandits exploit prior knowledge of rewards, p[R]</b> &nbsp;·&nbsp; They compute <b>posterior distribution p[R | h_t]</b> where h_t = (a_1,r_1,...,a_{t−1},r_{t−1}) &nbsp;·&nbsp; Use posterior to guide exploration: <b>Bayesian UCB</b> · <b>Probability matching (Thompson Sampling)</b> &nbsp;·&nbsp; <b>Better performance if prior knowledge is accurate</b>",
+   "one": "前半讲对奖励分布<b>什么都不假设</b>；这里开始<b>给它一个先验</b>。",
+   "pts": [
+    "<b>这一页是整讲的第二次开始，而换掉的东西只有一样：<span class='k'>你对奖励分布知道多少</span>。</b><span class='w'>前半讲（频率派）只假设奖励在 <code>[0,1]</code> 之间，别的什么都不知道</span>；<span class='k'>这里假设你有一个<b>先验</b> <code>p[R]</code>，然后用数据把它更新成后验</span>。<b>于是「不确定性」从「置信区间」变成了「一个分布」。</b>",
+    "<b>而有了分布之后，「乐观」这件事可以用一种完全不同的方式实现，这是两条路线的分水岭。</b><span class='k'>频率派：算一个上界，然后<b>确定性地</b>选上界最大的（UCB）</span>；<span class='k'>贝叶斯：从后验里<b>随机采样</b>，然后选采样值最大的（Thompson）</span>。<b>前者的随机性来自环境，后者的随机性来自你自己。</b><span class='w'>两者的效果却惊人地接近——p60 会说它们的遗憾界（忽略常数）是一样的。</span>",
+    "<b>课件最后那句限定要当真：<span class='w'><em>Better performance if prior knowledge is accurate</em></span>。</b><b>注意它是个条件句。</b><span class='k'>先验准 ⇒ 贝叶斯方法起步就比频率派快（你带着信息入场）</span>；<span class='w'>先验不准 ⇒ 可能比什么都不假设更糟，因为你会花时间去纠正一个错误的信念</span>。<b>这是所有贝叶斯方法的共同性质：先验是一把双刃剑。</b><span class='k'>而频率派的方法不吃这个亏，代价是它起步时什么都不知道。</span>",
+    "<b>把「后验」这个词落实到计算上，你会发现它在老虎机上出奇地便宜。</b><span class='k'>历史 <code>h_t</code> 是一串 <code>(动作, 奖励)</code> 对</span>，<b>而每条臂的后验只依赖<b>它自己</b>的那些记录——臂之间是独立的。</b><span class='w'>于是你维护的是 m 个独立的一维后验，而不是一个高维联合分布</span>。<b>这正是老虎机能用贝叶斯方法做得这么干净的原因。</b><span class='k'>换成 MDP，后验是对整个转移和奖励模型的，那就贵多了（第十三讲会碰）。</span>"
+   ]
+  },
+  {
+   "r": [
+    43,
+    43
+   ],
+   "t": "遗憾与贝叶斯遗憾",
+   "star": 2,
+   "quote": "<b>Frequentist regret</b> assumes a true (unknown) set of parameters θ: Regret(A,T;θ) = E[Σ_t Q(a*) − Q(a_t)] &nbsp;|&nbsp; <b>Bayesian regret</b> assumes there is a <b>prior over parameters</b>: BayesRegret(A,T;θ) = E_{p(θ)}[ E[Σ_t Q(a*) − Q(a_t)] ] &nbsp;|&nbsp; <b>*Note: Bayes regret and regret can be related using Markov inequality</b>",
+   "eq": "频率派遗憾：固定一组真实但未知的参数 θ，对算法的随机性取期望\n    Regret(A, T; θ) = E[ Σ_t (Q(a*) − Q(a_t)) ]\n\n贝叶斯遗憾：再对参数的先验 p(θ) 多取一层期望\n    BayesRegret(A, T) = E_{θ~p} [ Regret(A, T; θ) ]\n\n⇒ 贝叶斯遗憾是频率派遗憾在先验下的平均\n⇒ 频率派的界更强（对每个 θ 都成立），贝叶斯的界更弱但更容易证",
+   "one": "<b>多取了一层期望</b>：对参数的先验再平均一次。",
+   "pts": [
+    "<b>两种遗憾的差别只有一层期望，但那一层改变了结论的强度，值得说准。</b><span class='k'>频率派遗憾：对<b>每一个</b>可能的真实参数 θ 都要成立——这是一个「最坏情况」式的要求</span>；<span class='w'>贝叶斯遗憾：只要求在先验下<b>平均</b>成立——某些 θ 上可以很差，只要概率小</span>。<b>所以频率派的界更强。</b><span class='k'>而更强的界更难证，这就是为什么 p58 会说「乐观的界比 Thompson 的更紧」。</span>",
+    "<b>课件那个带星号的注也值得留意：<span class='k'>两者可以通过马尔可夫不等式联系起来</span>。</b><b>方向是：有了贝叶斯遗憾的界，可以推出「频率派遗憾大于某个值的概率很小」。</b><span class='w'>但这个转换会损失，而且它需要先验是对的</span>。<b>所以两者不是简单的强弱关系，而是两套各自自洽的框架。</b><span class='k'>重要的是：读论文时要看清它证的是哪一种——两者的适用场景不同。</span>",
+    "<b>实践上这个区别有一个很具体的后果，而它和你怎么做实验直接相关。</b><span class='w'>频率派的界告诉你：无论这个老虎机实例是什么样，算法都不会太差</span>；<span class='k'>贝叶斯的界告诉你：如果实例是从你那个先验里抽出来的，算法平均表现很好</span>。<b>于是如果你做实验时<b>也</b>是从同一个先验里抽实例来测，你测的就是后者</b>——<span class='w'>而那会系统性地高估贝叶斯方法。</span><b>公平的比较要在「先验之外」的实例上也测一测。</b>"
+   ]
+  },
+  {
+   "r": [
+    44,
+    44
+   ],
+   "t": "贝叶斯 UCB（高斯情形）",
+   "star": 2,
+   "quote": "Assume reward distribution is Gaussian, <b>R_a(r) = N(r; μ_a, σ_a²)</b> &nbsp;·&nbsp; Compute Gaussian posterior over μ_a and σ_a² (by Bayes law): <b>p[μ_a, σ_a² | h_t] ∝ p[μ_a, σ_a²] Π_{t|a_t=a} N(r_t; μ_a, σ_a²)</b> &nbsp;·&nbsp; Pick action that maximizes standard deviation of Q(a): <b>a_t = arg max_{a∈A} [ μ_a + c·σ_a / √N(a) ]</b>",
+   "eq": "假设每条臂的奖励是高斯的，对 (μ_a, σ_a²) 做贝叶斯更新\n\n选择规则：  a_t = arg max_a [ μ_a + c · σ_a / √N(a) ]\n                       └ 后验均值 ┘  └── 后验不确定性 ──┘\n\n对照频率派 UCB1：  a_t = arg max_a [ Q̂(a) + √(2 log t / N_t(a)) ]\n\n形状一模一样，只是「加多少」的来源不同：\n  UCB1 的半径来自 Hoeffding（最坏情况）\n  贝叶斯 UCB 的半径来自后验（你自己的信念）",
+   "one": "<b>和 UCB1 形状一样</b>：均值加一个不确定性项。区别只在那个项是怎么算出来的。",
+   "pts": [
+    "<b>把这个式子和 p34 的 UCB1 并排写，你会发现它们的<b>形状完全相同</b>。</b><span class='k'>都是「一个估计 + 一个随不确定性递减的加成」</span>。<b>区别只在那个加成是怎么来的</b>：<span class='w'>UCB1 用 Hoeffding，那是一个对<b>任何</b>有界分布都成立的最坏情况界</span>；<span class='k'>贝叶斯 UCB 用后验的标准差，那是在你的分布假设下算出来的</span>。<b>后者通常紧得多——代价是它依赖那个假设对不对。</b>",
+    "<b>这个对比揭示了频率派和贝叶斯在这件事上的根本差异，值得记住。</b><span class='w'>频率派：我不知道分布长什么样，所以我用一个对所有分布都成立的界——保守但稳妥</span>；<span class='k'>贝叶斯：我假设它是高斯的，所以我能算得更精确——激进但依赖假设</span>。<b>而假设错了会怎样？你的置信区间会太窄，于是过早地停止探索，可能锁死。</b><span class='k'>这是 p42 那句「先验准才更好」的具体表现形式。</span>",
+    "<b>那个 <code>c</code> 是一个要调的常数，而它的作用和 UCB1 里的 2 完全一样。</b><span class='k'><code>c</code> 大 ⇒ 探索多、保守；<code>c</code> 小 ⇒ 探索少、激进</span>。<b>常见的取法是 <code>c</code> 对应某个分位数（比如 <code>c = 2</code> 大致是 97.5% 的上分位）。</b><span class='w'>而 <code>σ_a/√N(a)</code> 这个形状正是标准误差</span>——<b>所以贝叶斯 UCB 本质上是「后验均值 + c 倍标准误差」。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "UCB1（频率派）",
+     "贝叶斯 UCB"
+    ],
+    "rows": [
+     [
+      "形状",
+      "<code>Q̂ + 半径</code>",
+      "<code>μ_a + c·σ_a/√N</code>"
+     ],
+     [
+      "半径来自",
+      "<span class='w'>Hoeffding（对任何有界分布都成立）</span>",
+      "<span class='k'>后验（在你的分布假设下）</span>"
+     ],
+     [
+      "紧不紧",
+      "<span class='w'>保守</span>",
+      "<span class='k'>通常紧得多</span>"
+     ],
+     [
+      "假设错了会怎样",
+      "<span class='k'>不受影响</span>",
+      "<span class='w'>区间太窄 ⇒ 过早停止探索 ⇒ 可能锁死</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    45,
+    45
+   ],
+   "t": "概率匹配",
+   "star": 3,
+   "quote": "Assume have a parametric distribution over rewards for each arm &nbsp;·&nbsp; <b>Probability matching selects action a according to probability that a is the optimal action</b> &nbsp;·&nbsp; <b>π(a | h_t) = P[ Q(a) > Q(a′), ∀a′ ≠ a | h_t ]</b> &nbsp;·&nbsp; <b>Probability matching is optimistic in the face of uncertainty</b>: Uncertain actions have higher probability of being max &nbsp;·&nbsp; <b>Can be difficult to compute analytically from posterior</b>",
+   "eq": "概率匹配：按「这条臂是最优臂的概率」来选它\n\n    π(a | h_t) = P[ Q(a) > Q(a'), ∀a' ≠ a | h_t ]\n\n读法：你有 30% 的把握认为 a 是最好的 ⇒ 就有 30% 的时间去拉它\n\n为什么这也是「乐观」？\n  不确定的臂，后验更宽 ⇒ 更有可能取到最大值 ⇒ 被选中的概率更高",
+   "one": "<b>你有多大把握它是最优的，就有多大比例的时间去拉它。</b>",
+   "pts": [
+    "<b>概率匹配的定义朴素到让人怀疑它对不对，但它其实非常自然：</b><span class='k'>「你认为它是最好的那条臂」的概率是多少，你就以多大的比例去拉它</span>。<b>有 30% 的把握，就花 30% 的时间。</b><span class='w'>对比贪心（100% 的时间给当前最好的）和 ε-贪心（固定比例随机）</span>——<b>概率匹配是唯一一个让「行为的比例」和「信念的强度」对齐的。</b>",
+    "<b>课件说它「也是乐观的」，而理由很值得想明白，因为它不显然。</b><span class='k'>一条臂越不确定，它的后验越宽</span>；<b>而后验越宽，它「恰好是最大的那个」的概率就越高——因为它的尾巴伸得更远。</b><span class='w'>于是不确定的臂天然获得更高的选中概率</span>。<b>注意这和 UCB 的机制不同：UCB 是<b>显式地</b>加一个乐观量，而概率匹配是<b>隐式地</b>——乐观是从「取最大值」这个操作里自己冒出来的。</b><span class='k'>两条完全不同的路，通向同一个思想。</span>",
+    "<b>而课件紧接着给出了它的麻烦：<span class='w'><em>Can be difficult to compute analytically from posterior</em></span>。</b><b>要算 <code>P[Q(a) > Q(a'), ∀a' ≠ a]</code>，你得对 m 个随机变量的联合分布做积分。</b><span class='k'>三条臂时这已经是个二重积分，十条臂时基本没法解析求解</span>。<b>所以概率匹配在 p45 这里只是一个<b>定义</b>，不是一个算法</b>——<span class='w'><code>kp</code> 那句「直观上正确，但没有明显的算法」说的就是这件事。</span><b>而 p46 的 Thompson 采样会用一行代码解决它。</b>"
+   ]
+  },
+  {
+   "r": [
+    46,
+    47
+   ],
+   "t": "Thompson 采样：一行代码实现概率匹配",
+   "star": 3,
+   "quote": "<b>Thompson sampling implements probability matching</b> &nbsp;·&nbsp; π(a|h_t) = P[Q(a) > Q(a′), ∀a′ ≠ a | h_t] = <b>E_{R|h_t}[ 1(a = arg max_{a∈A} Q(a)) ]</b> &nbsp;|&nbsp; Use Bayes law to compute posterior p[R | h_t] &nbsp;·&nbsp; <b>Sample a reward distribution R from posterior</b> &nbsp;·&nbsp; Compute action-value function Q(a) = E[R_a] &nbsp;·&nbsp; <b>Select action maximizing value on sample: a_t = arg max_{a∈A} Q(a)</b> &nbsp;·&nbsp; Update posterior",
+   "eq": "Thompson 采样（1933，Thompson 1933；课件标 1929）：\n\n  1. 对每条臂，从它的后验里**抽一个样本** θ̃_a\n  2. 选 a_t = arg max_a θ̃_a      ← 把抽到的样本当真\n  3. 观察奖励，更新那条臂的后验\n\n为什么这**恰好**实现了概率匹配：\n  「a 被选中」⟺「a 的样本最大」\n  而样本来自后验，所以\n    P(a 被选中) = P_{θ~后验}(θ_a 最大) = P(a 是最优臂 | h_t)\n  —— 正是概率匹配的定义",
+   "one": "<b>从后验里抽一个样本，然后把它当真。</b>就这样——而它<b>恰好</b>就是概率匹配。",
+   "pts": [
+    "<b>Thompson 采样的全部内容只有一句话：<span class='k'>从后验里抽一个样本，然后装作那就是真值，贪婪地选</span>。</b><b>没有置信界，没有加成项，没有要调的探索常数。</b><span class='w'>探索完全来自「抽样本」这个动作本身</span>——<b>后验越宽，抽到的值波动越大，这条臂就越有机会冒头。</b><span class='k'>这大概是整门课里最简洁的一个算法。</span>",
+    "<b>而它「恰好」实现概率匹配这件事，值得自己推一遍，因为它漂亮得像个巧合。</b><span class='k'>算法选中 a 的事件，就是「a 的采样值最大」这个事件</span>；<b>而样本是从后验抽的，所以这个事件的概率就是「按后验，a 是最优臂」的概率。</b><span class='w'>而那正是概率匹配的定义</span>。<b>也就是说：你不需要去<b>算</b>那个难算的积分，只要<b>采样</b>就自动得到了它。</b><span class='k'>用采样绕开积分，这是蒙特卡洛方法最经典的用法。</span>",
+    "<b>这里有一个符号上的细节值得注意：课件写的是「采一个<b>奖励分布</b> R」，而不是「采一个均值」。</b><span class='w'>严格说你采的是分布的<b>参数</b>（比如伯努利的 θ、高斯的 μ）</span>，<b>然后由参数算出 <code>Q(a) = E[R_a]</code>。</b><span class='k'>在伯努利情形下这两步合一了——参数 θ 本身就是均值</span>。<b>所以断脚趾例子里你会看到「抽一个 θ，直接当 Q 用」。</b>",
+    "<b>最后提一个实现上的要点，它决定了 Thompson 采样是不是真的在工作。</b><span class='k'>每一步必须<b>重新</b>抽样，而且每条臂<b>各抽一个</b></span>。<b>如果你抽一次然后连用若干步，探索就塌了。</b><span class='w'>而如果你抽的是后验均值而不是样本，它就退化成了纯贪心</span>——<b>这是最常见的实现错误。</b><span class='k'>「抽样本」和「取均值」只差一个词，但一个是 Thompson，一个是贪心。</span>",
+    "<b>再补一句 Thompson 和 UCB 在「随机性来源」上的根本差别，它决定了两者的工程性质。</b><span class='k'>UCB 是<b>确定性</b>算法：给定历史，它的输出唯一</span>；<span class='k'>Thompson 是<b>随机</b>算法：同样的历史，每次运行可能选不同的臂</span>。<span class='w'>于是 UCB 更容易复现和调试，而 Thompson 更容易并行和批量化</span>。<b>两者没有优劣，但在工程选型时这个差别常常比遗憾界更决定性。</b>"
+   ]
+  },
+  {
+   "r": [
+    48,
+    56
+   ],
+   "t": "Thompson 在断脚趾例子上，以及和 UCB 的对照",
+   "star": 3,
+   "quote": "Place a prior over each arm's parameter. Here choose <b>Beta(1,1)</b> (Uniform) &nbsp;·&nbsp; 1 Per arm, sample a Bernoulli θ given prior: <b>0.3 0.5 0.6</b> &nbsp;·&nbsp; 2 Select <b>a_t = arg max_a Q(a) = 3</b> &nbsp;·&nbsp; 3 Observe the patient's outcome: <b>0</b> &nbsp;·&nbsp; 4 Update the posterior over Q(a_t) for the arm pulled &nbsp;·&nbsp; <b>Beta(c_1, c_2) is the conjugate distribution for Bernoulli</b> &nbsp;|&nbsp; (Optimism vs TS 的逐步对照表：Optimism 走 a1,a2,a3,a1,a2；TS 走 a3,a1,a1,a1,a1)",
+   "eq": "先验：每条臂 θ_i ~ Beta(1,1)，也就是 [0,1] 上的均匀分布\n\n第一步：三条臂各抽一个样本 → 0.3, 0.5, 0.6\n        arg max 是第三条 ⇒ 选 a3（「什么都不做」）\n        观察到结果 0（没愈合）\n        更新 a3 的后验：Beta(1,1) → Beta(1,2)\n\nBeta 是伯努利的共轭先验：\n    观察到 1 ⇒ α 加一       观察到 0 ⇒ β 加一\n    后验均值 = α / (α + β)\n\n逐步对照（课件 p56）：\n    Optimism:  a1  a2  a3  a1  a2      遗憾 0, 0.05, 0.85, 0, 0.05\n    TS:        a3  a1  a1  a1  a1      遗憾 0.85, 0, 0, 0, 0",
+   "one": "<b>Thompson 第一步就踩了坑（抽到 a3），然后再也没错过。</b>UCB 则是按部就班地把三条都试一遍。",
+   "pts": [
+    "<b>这个演示里最有意思的是两个算法<b>走了完全不同的路</b>，而最终遗憾差不多。</b><span class='w'>UCB 走的是 <code>a1, a2, a3, a1, a2</code>——它按部就班地把每条臂都试一遍</span>；<span class='k'>Thompson 走的是 <code>a3, a1, a1, a1, a1</code>——第一步运气不好抽中了最差的臂，但之后再也没错过</span>。<b>五步的累计遗憾：UCB 是 0.95，Thompson 是 0.85。</b><span class='w'>（这是单次运行，说明不了谁更好——但它说明两者的<b>行为模式</b>很不一样。）</span>",
+    "<b>Beta 分布作为伯努利的共轭先验，是这个例子能手算的全部原因，值得把它的更新规则记死。</b><span class='k'>观察到 1 ⇒ <code>α</code> 加一；观察到 0 ⇒ <code>β</code> 加一</span>。<b>就这么简单，不需要任何积分。</b><span class='w'>而 <code>Beta(1,1)</code> 恰好是 <code>[0,1]</code> 上的均匀分布</span>——<b>也就是「我对这条臂一无所知」。</b><span class='k'>所以这个先验是「无信息先验」，它让贝叶斯方法起步时不带任何偏见。</span>",
+    "<b>那个 <code>α</code>、<code>β</code> 的含义值得说准，因为它在第十二讲会被专门强调：</b><span class='k'>它们是<b>伪计数</b>，不是拟合出来的参数</span>。<b><code>Beta(α, β)</code> 可以读成「我好像已经看到过 <code>α−1</code> 次成功和 <code>β−1</code> 次失败」。</b><span class='w'>于是 <code>Beta(1,1)</code> 就是「零次成功零次失败」，也就是什么都没看到</span>。<b>而后验均值 <code>α/(α+β)</code> 正是「成功次数除以总次数」的平滑版本。</b><span class='k'>这个「伪计数」的读法，会让所有贝叶斯更新都变得直观。</span>",
+    "<b>第一步抽到 <code>(0.3, 0.5, 0.6)</code> 这个结果值得停一下，它展示了 Thompson 的探索是怎么发生的。</b><span class='w'>三条臂的后验完全相同（都是 <code>Beta(1,1)</code>），所以三个样本是从同一个分布独立抽的</span>——<b>谁最大纯粹看运气。</b><span class='k'>于是第一步 Thompson 有 1/3 的概率选中任何一条，包括最差的那条</span>。<b>这就是它的探索：不是「我决定去探索」，而是「我的信念本来就不确定，所以行为自然就分散了」。</b>",
+    "<b>但 Thompson 的探索会<b>自动收敛</b>，这是它和 ε-贪心最本质的区别。</b><span class='k'>每拉一次，那条臂的后验就变窄一点；窄到一定程度，它的样本就几乎不可能再超过别人</span>。<b>于是探索量随着确定性的增加而自动下降，不需要任何衰减调度。</b><span class='w'>对比 ε-贪心：你必须手工设计 ε 的衰减曲线，而且 L04 p23 的 GLIE 说那个曲线还不能随便定</span>。<b>Thompson 把这件事变成了自动的。</b>",
+    "<b>最后把三个算法在这个例子上的行为对比一次，这是这一讲的小结。</b><span class='w'>贪心：第一轮之后就锁死在 <code>a1</code>/<code>a2</code>，再也不碰 <code>a3</code>——可能永远不发现真相</span>；<span class='k'>UCB：确定性地、按部就班地把每条臂的不确定性逐个消掉</span>；<span class='k'>Thompson：随机地、按信念的比例分配，不确定时分散，确定后集中</span>。<b>后两者都是「按不确定性分配探索」，只是一个用确定的规则，一个用随机采样。</b>",
+    "<b>课件在这九页上把同一个例子重复展示了很多遍（每页多加一步），这是动画分帧导出的结果。</b><span class='w'>内容上它们是同一张幻灯片</span>，<b>所以不必逐页读，盯住那个流程就够了：<span class='k'>抽样 → 选最大 → 观察 → 更新后验</span>。</b><span class='w'>真正的新信息只在 p56 那张对照表上。</span>",
+    "<b>把 Thompson 在这个例子上的后验演化走几步，你就能看到它怎么自己收敛。</b><span class='k'>第一步抽到 (0.3, 0.5, 0.6) ⇒ 选 <code>a3</code> ⇒ 观察到 0 ⇒ <code>a3</code> 的后验从 <code>Beta(1,1)</code> 变成 <code>Beta(1,2)</code></span>。<b>此时 <code>a3</code> 的后验均值从 0.5 降到 1/3，而且分布向左偏。</b><span class='w'>于是下一步它抽到大值的概率就低了</span>——<b>再失败几次，它的后验会压到 0.1 附近，几乎不可能再冒头。</b><span class='k'>注意整个过程里没有任何「探索参数」，收敛完全由数据驱动。</span>",
+    "<b>而 <code>a1</code> 和 <code>a2</code> 的区分要慢得多，这正是这个例子设计的用意。</b><span class='w'>两者真值差 0.05，所以它们的后验会长时间重叠</span>——<b>于是 Thompson 会在两者之间来回切换很久。</b><span class='k'>而这件事恰恰是<b>对的</b>：因为它们确实很接近，选错的代价只有 0.05</span>。<b>算法把探索预算花在了「区分度高、代价大」的地方（排除 <code>a3</code>），而在「区分度低、代价小」的地方（<code>a1</code> vs <code>a2</code>）慢慢来。</b><span class='w'>这正是 p25 下界说的那个结构：差距小的臂贡献 <code>1/Δ</code> 的遗憾，但每次只亏一点点。</span>",
+    "<b>最后提一个这个例子没演示、但实践中很要紧的性质：<span class='k'>Thompson 天然支持批量和并行</span>。</b><span class='w'>UCB 是确定性的——同一时刻它只给出一个答案，你没法同时试十个</span>；<span class='k'>而 Thompson 每次抽样都给出不同的结果，于是抽十次就得到十个候选，可以并行去试</span>。<b>这在工业场景里是个很大的优势（广告系统一秒要做上万次决策）。</b><span class='w'>这也是 Chapelle &amp; Li 2010 之后它在工业界流行起来的实际原因之一。</span>"
+   ],
+   "tbl": {
+    "head": [
+     "步",
+     "抽到的样本",
+     "选谁",
+     "观察",
+     "a3 的后验"
+    ],
+    "rows": [
+     [
+      "1",
+      "0.3 / 0.5 / <b>0.6</b>",
+      "<span class='w'>a3</span>",
+      "0",
+      "Beta(1,1) → <b>Beta(1,2)</b>，均值 0.5 → 0.33"
+     ],
+     [
+      "2",
+      "—",
+      "a1",
+      "—",
+      "后验不变（没拉它）"
+     ],
+     [
+      "<b>之后</b>",
+      "—",
+      "a1 为主",
+      "—",
+      "<span class='k'>若再失败几次会压到 0.1 附近，几乎不再冒头</span>"
+     ],
+     [
+      "<b>a1 vs a2</b>",
+      "两者后验长时间重叠",
+      "来回切换",
+      "—",
+      "<b>这是对的——它们真值只差 0.05，选错代价小</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    57,
+    58
+   ],
+   "t": "Thompson 的理论地位",
+   "star": 3,
+   "quote": "<b>Thompson sampling (1929) achieves Lai and Robbins lower bound</b> &nbsp;·&nbsp; <b>Bounds for optimism are tighter than for Thompson sampling</b> &nbsp;·&nbsp; <b>But empirically Thompson sampling can be extremely effective</b>",
+   "one": "<b>理论上达到下界，但证出来的界不如 UCB 紧；实测却常常更好。</b>",
+   "pts": [
+    "<b>这三句话之间有一个表面的矛盾，而理清它能让你明白「理论界」和「实际表现」是两回事。</b><span class='k'>第一句：Thompson 达到了 Lai-Robbins 下界——也就是它在阶上是最优的</span>；<span class='w'>第二句：但乐观方法（UCB）的界<b>更紧</b></span>；<span class='k'>第三句：而经验上 Thompson 常常<b>更有效</b></span>。<b>所以：理论上 UCB 的保证更好，实践中 Thompson 常常赢。</b>",
+    "<b>为什么会这样？因为「界更紧」说的是<b>最坏情况</b>的保证，而实测测的是<b>典型情况</b>。</b><span class='w'>UCB 的半径来自 Hoeffding，那是对任何有界分布都成立的最坏情况界——所以它偏保守</span>，<b>于是它探索得比实际需要的更多。</b><span class='k'>Thompson 用的是后验，它会适应实际观察到的数据</span>——<b>方差小的臂后验窄、方差大的臂后验宽，探索量因臂而异。</b><span class='w'>所以 Thompson 把探索预算分配得更细。</span>",
+    "<b>课件标的「1929」值得提一句，它说明这个算法有多老。</b><span class='k'>Thompson 的原始论文通常被引作 1933 年（Biometrika）</span>，<b>而课件写的是 1929——这个年份在不同文献里有出入，不必纠结。</b><span class='w'>要紧的是：这个算法比强化学习这个领域本身还老，而它的理论分析直到 2010 年代才完成</span>。<b>Chapelle &amp; Li 2010（下一页）的实证工作，是它重新受到关注的直接原因。</b><span class='k'>一个 80 年前的算法因为一篇实验论文而复活，这件事本身值得记住。</span>",
+    "<b>最后给一条实践上的选择判据，它比记住两个界有用。</b><span class='k'>如果你能写出一个合理的先验、而且奖励分布的形式你有把握 ⇒ Thompson</span>（<b>它会利用那些信息，而且不用调探索系数</b>）；<span class='w'>如果你对分布一无所知、或者需要一个<b>最坏情况</b>的保证 ⇒ UCB</span>（<b>它的界不依赖任何分布假设</b>）。<span class='k'>而在大多数实际推荐/广告场景里，前者成立，所以 Thompson 用得更多。</span>",
+    "<b>还有一条值得补的历史：这一讲讲的两条路线，在今天的工业界有明确的分工。</b><span class='k'>UCB 系在需要<b>可解释、可审计</b>的场合更受欢迎（因为确定性）</span>；<span class='w'>Thompson 系在<b>大规模在线服务</b>里占主导（因为易并行、易扩展到上下文）</span>。<b>而 A/B 测试那一套传统做法，其实是「先固定探索一段时间、再全部切换」</b>——<span class='k'>按这一讲的判据，那是一种相当浪费的探索方式</span>，<b>老虎机方法的全部卖点就是把那段浪费压下去。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "UCB 系",
+     "Thompson 系"
+    ],
+    "rows": [
+     [
+      "随机性来源",
+      "<span class='k'>无（确定性算法）</span>",
+      "<span class='k'>从后验采样</span>"
+     ],
+     [
+      "复现与调试",
+      "<span class='k'>容易</span>",
+      "<span class='w'>每次运行可能不同</span>"
+     ],
+     [
+      "并行 / 批量",
+      "<span class='w'>难（同一时刻只给一个答案）</span>",
+      "<span class='k'>易（抽十次就有十个候选）</span>"
+     ],
+     [
+      "理论界",
+      "<span class='k'>更紧</span>",
+      "达到下界但界更松"
+     ],
+     [
+      "实测",
+      "保守（探索偏多）",
+      "<span class='k'>常常更好</span>"
+     ],
+     [
+      "工业界常用在",
+      "需要可解释、可审计的场合",
+      "<b>大规模在线服务</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    59,
+    60
+   ],
+   "t": "上下文老虎机，以及贝叶斯遗憾界",
+   "star": 3,
+   "quote": "<b>Thompson Sampling for News Article Recommendation</b> (Chapelle and Li, 2010) &nbsp;·&nbsp; <b>Contextual bandit: input context which impacts reward of each arm, context sampled iid each step</b> &nbsp;·&nbsp; Arms = articles &nbsp;·&nbsp; Reward = click (+1) on article (Q(a) = click through rate) &nbsp;|&nbsp; BayesRegret(TS, T) = E_p[ Σ_t f(a*) − f(a_t) ] &nbsp;·&nbsp; <b>Posterior sampling has the same (ignoring constants) regret bounds as UCB</b>",
+   "eq": "上下文老虎机：每步先看到一个上下文 x_t，再选臂\n\n  普通老虎机：  Q(a)           —— 臂 a 的均值\n  上下文老虎机：Q(x, a)        —— 在上下文 x 下，臂 a 的均值\n\nChapelle & Li 2010 的设定：\n  上下文 = 用户特征      臂 = 候选文章      奖励 = 点没点（点击率）\n\n贝叶斯遗憾界：后验采样和 UCB 的界（忽略常数）**相同**",
+   "one": "<b>每步先看到一个上下文，再决定拉哪条臂。</b>——这是这一讲最实用的那个变体。",
+   "pts": [
+    "<b>上下文老虎机是对普通老虎机的一个小扩展，但它的实用价值大得多，值得单独认一下。</b><span class='k'>每一步你先看到一个<b>上下文</b> <code>x_t</code>（用户特征、query 特征），然后再决定拉哪条臂</span>。<b>于是你要学的不再是 <code>Q(a)</code>（每条臂一个数），而是 <code>Q(x, a)</code>（一个函数）。</b><span class='w'>这意味着泛化这个维度回来了</span>——<b>你必须从见过的上下文推广到没见过的。</b>",
+    "<b>但要看清它和 MDP 的区别，否则容易混：<span class='k'>上下文是<b>外生</b>的</span>。</b><b>课件原话是 <em>context sampled iid each step</em>——每步独立同分布地抽一个。</b><span class='w'>你的动作<b>不</b>影响下一个上下文</span>。<b>所以它仍然没有延迟后果，仍然是单步决策问题。</b><span class='k'>这正是它比 MDP 简单得多、而理论又完整得多的原因</span>——<b>它处在「普通老虎机」和「MDP」之间，而且更靠近前者。</b>",
+    "<b>Chapelle &amp; Li 2010 那个例子值得记住细节，因为它是 Thompson 采样重新流行的起点。</b><span class='k'>上下文是用户特征，臂是候选文章，奖励是点没点（点击率）</span>。<b>而他们做的事很朴素：在真实的 Yahoo! 新闻推荐数据上，把 Thompson 和一堆方法比了一遍。</b><span class='w'>结论是 Thompson 极其有效，而且对延迟反馈（点击要过一会儿才回来）特别稳健</span>。<b>这篇论文之后，Thompson 采样从一个 80 年前的冷门想法变成了工业界的默认选择。</b>",
+    "<b>p60 那句结论也值得记：<span class='k'>后验采样的遗憾界，忽略常数之后和 UCB <b>相同</b></span>。</b><b>两条完全不同的路——一条算置信上界，一条从后验采样——给出同阶的保证。</b><span class='w'>这不是巧合</span>：<span class='k'>两者都在做同一件事，即让「被选中的概率」和「不确定性」挂钩</span>。<b>UCB 用确定性的规则实现它，Thompson 用随机采样实现它。</b><span class='w'>殊途同归，而这件事本身说明「乐观面对不确定」这个原则比任何具体算法都更根本。</span>"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>上下文老虎机是这一讲里和你的课题最贴合的那个形式，而且它比 MDP 建模<b>更可能</b>是对的那一个。</b><br><br><b>对应关系很直接：</b><span class='k'>上下文 = query 的特征（难度估计、输入长度、类型）；臂 = 配置（或者单个节点上的保真度档位）；奖励 = <code>Acc − λ·Cost</code></span>。<b>而课件强调的那个性质——<em>context sampled iid each step</em>——在你这里是成立的：你处理的 query 之间互相独立，这一条的配置选择不影响下一条 query 长什么样。</b><br><br><b>于是问题变成：<span class='k'>你的流水线内部，节点之间是不是也可以当成独立的</span>？</b><span class='w'>这正是 p10 科研格说的那个可加性检验要回答的事</span>。<b>如果答案是「可加」，那么你的问题就是一个<b>逐节点的上下文老虎机</b>——H 个独立的上下文老虎机，每个 k 条臂。</b><span class='k'>而那会让整件事简单到几乎不像一个研究问题：有完整的理论、有现成的算法、有 <code>log T</code> 的遗憾保证，而且没有任何分布漂移的顾虑。</span><br><br><b>但更可能的情况是「部分可加」，那时有一个很务实的中间路线值得考虑：</b><span class='k'>把它建模成上下文老虎机，但把「上游已经做了什么」塞进上下文里</span>。<b>也就是说：节点 h 的上下文 = (query 特征, 前 h−1 个节点的配置, 已花成本)。</b><span class='w'>这样你既保留了「单步决策」的全部理论好处，又没有丢掉节点间的依赖</span>——<b>代价是上下文维度变高，于是需要更多数据去泛化。</b><span class='k'>这个取舍比「老虎机 vs MDP」这个二选一务实得多，而且它是可以逐步加码的：先只放 query 特征，再逐步加入上游信息，看指标涨不涨。</span><br><br><b>最后提一条 Chapelle &amp; Li 给的实证经验，它和你的场景直接相关：<span class='k'>Thompson 采样对<b>延迟反馈</b>特别稳健</span>。</b><span class='w'>你的奖励也是延迟的（要等整条流水线跑完才知道 Acc）</span>，<b>所以这一条值得当作选算法时的一个加分项。</b>",
+    "ref": "课件 p59–p60（Chapelle &amp; Li 2010；context sampled iid each step）· 本讲 p10 科研格 · research/bridge-threads.json 线 1"
+   }
+  },
+  {
+   "r": [
+    61,
+    61
+   ],
+   "t": "乐观初始化",
+   "star": 2,
+   "quote": "<b>Simple and practical idea: initialize Q(a) to high value</b> &nbsp;·&nbsp; Update action value by incremental Monte-Carlo evaluation, starting with N(a) > 0 &nbsp;·&nbsp; <b>Q̂_t(a_t) = Q̂_{t−1} + (1/N_t(a_t))(r_t − Q̂_{t−1})</b> &nbsp;·&nbsp; <b>Encourages systematic exploration early on</b> &nbsp;·&nbsp; <b>But can still lock onto suboptimal action. Depends on how high initialize Q</b> &nbsp;·&nbsp; <b>Check your understanding: What is the downside to initializing Q too high?</b>",
+   "one": "把 Q 初始化得很高，<b>贪心本身就会去探索</b>——但它仍然可能锁死。",
+   "pts": [
+    "<b>乐观初始化是最便宜的一个探索办法，而它的机制非常漂亮：</b><span class='k'>把所有 <code>Q̂(a)</code> 初始化成一个很高的值，然后<b>纯贪心</b>地选</span>。<b>于是没试过的臂看起来最好，贪心会主动去试它。</b><span class='w'>试过之后，实际奖励比那个高初值低，估计就下降，于是轮到下一条没试过的</span>。<b>结果：贪心算法自己把每条臂都试了一遍，而你一行探索代码都没写。</b>",
+    "<b>课件那句「<em>Depends on how high initialize Q</em>」是关键，而它指向一个真正的取舍。</b><span class='w'>初始化得不够高 ⇒ 某条臂运气好一次就超过了初值，于是其他臂再也不会被试 ⇒ 锁死</span>；<span class='k'>初始化得足够高 ⇒ 每条臂都会被试够次数</span>。<b>而「足够高」需要你知道奖励的上界——那是一个额外的先验知识。</b><span class='k'>所以乐观初始化不是免费的，它用「知道奖励上界」换了「不用写探索逻辑」。</span>",
+    "<b>而课件留的那道检验题（初始化得<b>太</b>高有什么坏处），答案值得想明白。</b><span class='k'>初值越高，每条臂需要被拉越多次，估计才能降到真实水平</span>——<b>于是你会在明显很差的臂上浪费大量步数。</b><span class='w'>极端情况：初值设成一百万，那么你会把每条臂都拉上百万次才开始收敛</span>。<b>所以「太低会锁死、太高会浪费」，中间有一个最优值，而它取决于你不知道的那些差距。</b><span class='k'>第十二讲会把这件事说得更严厉：乐观初始化<b>本身没有保证</b>，要初始化到 <code>10^T</code> 那么大才有。</span>",
+    "<b>那个增量更新式也值得认一下，它在实现上比「存总和再除」更常用。</b><span class='k'><code>Q̂ ← Q̂ + (1/N)(r − Q̂)</code></span>——<b>这就是样本平均的增量形式，不需要存历史。</b><span class='w'>注意它要求 <code>N(a) > 0</code> 作为起点</span>，<b>也就是把初值当成「已经观察过若干次」——又是一个伪计数的用法。</b><span class='k'>而把 <code>1/N</code> 换成固定的 α，就变成了指数加权平均，那是处理非平稳环境的标准做法。</span>"
+   ]
+  },
+  {
+   "r": [
+    62,
+    62
+   ],
+   "t": "四个算法的总表",
+   "star": 3,
+   "quote": "<b>Greedy: Linear total regret</b> &nbsp;·&nbsp; <b>Constant ε-greedy: Linear total regret</b> &nbsp;·&nbsp; <b>Decaying ε-greedy: Sublinear regret but schedule for decaying requires knowledge of gaps, which are unknown</b> &nbsp;·&nbsp; <b>Optimistic initialization: Sublinear regret if initialize values sufficiently optimistically, else linear regret</b> &nbsp;|&nbsp; <b>Check your understanding: why does fixed ε-greedy have linear regret? (Do a proof sketch)</b>",
+   "one": "课件自己的小结表。<b>四个算法里只有两个能做到次线性，而且都带着条件。</b>",
+   "pts": [
+    "<b>这张表是整讲前半的总收，而它最该被注意的是那些<b>条件</b>，不是那些结论。</b><span class='w'>衰减 ε-贪心：次线性——<b>但</b>衰减的时间表需要知道差距，而差距是未知的</span>；<span class='w'>乐观初始化：次线性——<b>但</b>要初始化得「足够乐观」，否则线性</span>。<b>两个「次线性」都附带一个你办不到的前提。</b><span class='k'>而 UCB 和 Thompson 不需要任何这类前提——这才是它们的真正价值。</span>",
+    "<b>衰减 ε-贪心那条限定值得展开，因为它是一个很典型的「看起来能用但其实不能」。</b><span class='k'>理论上存在一个衰减速度，使得 ε-贪心达到 <code>log t</code> 的遗憾</span>；<span class='w'>但那个速度依赖于最小的那个差距 <code>Δ_min</code>，而你不知道它</span>。<b>衰减太快 ⇒ 探索不够，可能锁死；太慢 ⇒ 浪费，遗憾变大。</b><span class='k'>于是你需要知道答案才能调出正确的参数，而知道答案的话就不需要算法了</span>——<b>这是一个典型的循环依赖。</b>",
+    "<b>对比之下，UCB 的厉害之处正在于它<b>不需要知道差距</b>，而遗憾却由差距决定。</b><span class='k'>算法的公式里只有 <code>t</code> 和 <code>N_t(a)</code>，没有任何 <code>Δ</code></span>；<b>而证出来的界是 <code>8 log t · Σ_a Δ_a</code>，差距在里面。</b><span class='w'>也就是说：算法自动地、隐式地适应了问题的难度</span>。<span class='k'>第十二讲第一条 <code>kp</code> 说的正是这件事：「算法<b>不需要知道</b>差距，遗憾却由差距决定」。</span><b>这是这一讲最该带走的一个洞见。</b>",
+    "<b>课件留的那道证明题（为什么固定 ε-贪心是线性遗憾），证明梗概只有三行，值得自己写一遍。</b><span class='k'>① 每一步，以 ε 的概率进入随机分支，此时每条臂等概率被选中</span>；<b>② 于是每一步选中某条次优臂 <code>a</code> 的概率至少是 <code>ε/m</code>，这个下界<b>不随 t 变化</b>；</b><span class='k'>③ 于是 <code>E[N_t(a)] ≥ (ε/m)·t</code>，代入 <code>L_t = Σ_a E[N_t(a)]·Δ_a</code> 得到 <code>L_t ≥ (ε/m)·t·Σ_a Δ_a</code> —— 线性</span>。<b>关键在第②步：那个下界是个常数，而常数乘 t 就是线性。</b>",
+    "<b>最后给这张表一个读法上的提醒，它在你以后选算法时很有用：<span class='k'>看一个算法的保证时，先找「附带条件」那一栏</span>。</b><b>一个「次线性但需要知道你不知道的东西」的保证，在工程上等于没有保证。</b><span class='w'>而这张表里真正能用的只有两个——它们的共同点是：条件那一栏是空的</span>。"
+   ],
+   "tbl": {
+    "head": [
+     "算法",
+     "遗憾",
+     "附带的条件",
+     "条件办得到吗"
+    ],
+    "rows": [
+     [
+      "贪心",
+      "<span class='w'>线性</span>",
+      "—",
+      "—"
+     ],
+     [
+      "固定 ε-贪心",
+      "<span class='w'>线性</span>",
+      "—",
+      "—"
+     ],
+     [
+      "衰减 ε-贪心",
+      "<span class='k'>次线性</span>",
+      "<span class='w'>衰减时间表要知道差距</span>",
+      "<span class='w'>办不到——差距未知</span>"
+     ],
+     [
+      "乐观初始化",
+      "<span class='k'>次线性</span>",
+      "<span class='w'>要初始化得足够乐观</span>",
+      "<span class='w'>要知道奖励上界，而且太高会浪费</span>"
+     ],
+     [
+      "<b>UCB</b>",
+      "<span class='k'><code>log t</code></span>",
+      "<b>无</b>",
+      "<span class='k'>✓</span>"
+     ],
+     [
+      "<b>Thompson</b>",
+      "<span class='k'>达到下界</span>",
+      "需要一个先验（可取无信息的）",
+      "<span class='k'>✓</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    63,
+    63
+   ],
+   "t": "回到蒙特祖玛",
+   "star": 2,
+   "quote": "Consider Montezuma's revenge &nbsp;·&nbsp; Bellemare et al. \"Unifying Count-Based Exploration and Intrinsic Motivation\" &nbsp;·&nbsp; <b>Enormously better than standard DQN with ε-greedy approach</b> &nbsp;·&nbsp; <b>Uses principle of optimism under uncertainty</b>",
+   "one": "L07 p19 那个把 DQN 卡死的游戏，<b>解法正是这一讲的「乐观」</b>。",
+   "pts": [
+    "<b>这一页把这一讲的理论和一个具体的失败案例接上了，而那个案例你在 L07 p19 已经见过。</b><span class='k'>DQN 训练五千万帧，在蒙特祖玛上只走通了头两个房间</span>——<b>因为 ε-贪婪的随机游走凑不出那一百多步的正确序列。</b><span class='w'>而这一讲告诉你 ε-贪婪为什么不行：它的探索是<b>无差别</b>的</span>，<b>它不会优先去那些「我没去过」的地方。</b>",
+    "<b>而 Bellemare 那篇的做法，正是把这一讲的「乐观」搬到了大状态空间上。</b><span class='k'>核心是给「访问次数少的状态」一个额外的奖励加成</span>——<b>形状上就是 UCB 那个 <code>1/√N</code> 的半径，只不过它作用在状态上而不是臂上。</b><span class='w'>而难点在于：状态空间太大，每个状态的访问次数几乎都是 0 或 1</span>。<b>那篇论文的贡献就是用一个密度模型去估计「伪计数」，让计数能泛化。</b><span class='k'>第十三讲最后一条 <code>kp</code> 说的「计数不泛化，而理论还没跟上」，指的就是这件事。</span>",
+    "<b>这一页还顺带回答了一个你可能一直在想的问题：这一讲的理论对深度 RL 有用吗？</b><span class='w'>直接搬：不行——UCB 要求你能数清每条臂被拉了多少次，而连续状态空间里「同一个状态」几乎不会出现两次</span>；<span class='k'>但<b>思想</b>能搬：给不确定的地方加乐观奖励，这个原则在哪都成立</span>。<b>而怎么把「不确定」这件事在高维空间里算出来，至今仍是开放问题。</b>"
+   ]
+  },
+  {
+   "r": [
+    64,
+    65
+   ],
+   "t": "附：怎么把 UCB 算出来",
+   "star": 2,
+   "quote": "<b>Calculating UCB</b> &nbsp;·&nbsp; Pick a probability p that true value exceeds UCB &nbsp;·&nbsp; Now solve for U_t(a): &nbsp;·&nbsp; <b>exp(−2 N_t(a) U_t(a)²) = p</b>",
+   "eq": "课件末尾的补充页，把 p28 那一步再写一遍：\n\n  1. 先定一个概率 p —— 「真值超出我的上界」这件事我允许它以多大概率发生\n  2. 令  exp(−2 N_t(a) · U_t(a)²) = p\n  3. 解出  U_t(a) = √( −log p / (2 N_t(a)) )\n\n对照 p28 用的 p = δ/t²：\n  U_t(a) = √( log(t²/δ) / (2 N_t(a)) )\n再取 δ 使得 log(t²/δ) ≈ 4 log t，就得到 UCB1 的 √(2 log t / N)",
+   "one": "<b>先定你能接受多大的失败概率，再反解出半径。</b>整个置信界方法就这一招。",
+   "pts": [
+    "<b>这两页是课件末尾的补充，把 p28 那个反解的动作再单独写了一遍，而它值得当成一条通用配方记住。</b><span class='k'>① 先定「我允许这个界失效的概率是多少」；② 把它代进集中不等式；③ 反解出半径</span>。<b>这三步在任何用到置信区间的地方都一样</b>——<span class='w'>Hoeffding、Bernstein、经验 Bernstein，换的只是第②步用哪个不等式</span>。",
+    "<b>而选不同的不等式，换来的是不同的紧度，这一点在实践中很要紧。</b><span class='k'>Hoeffding 只用到「奖励有界」，所以最通用也最松</span>；<span class='w'>Bernstein 还用到方差，于是在低方差的臂上紧得多</span>。<b>而低方差恰恰是常见情形（比如点击率很低的广告，奖励几乎总是 0）。</b><span class='k'>所以实践中的 UCB 变体大多用 Bernstein 类的界，而不是课件这个 Hoeffding 版本。</span>",
+    "<b>最后把这一讲的整条线收一次，作为结尾。</b><span class='k'>判据换成遗憾（p11）→ 发现贪心和固定 ε-贪心都是线性（p13–p23）→ 下界说最好只能 <code>log t</code>（p25）→ 乐观面对不确定（p26）→ Hoeffding 给出半径（p28）→ 四步推出高概率界（p29–p33）→ UCB1 达到下界（p34）→ 换到贝叶斯，Thompson 用采样实现概率匹配（p42–p58）</span>。<b>两条路线、一个思想：把探索量和不确定性绑在一起。</b><span class='w'>而第十二、十三讲要做的，是把这个思想搬回 MDP。</span>",
+    "<b>最后再给一条读这类「补充页」的习惯：课件末尾被挪到后面的页，往往是讲课时跳过的内容。</b><span class='w'>p63 的蒙特祖玛那页上甚至留着一行作者自己的备注——<em>EB: move this to generalization and efficiency later on</em></span>。<span class='k'>这说明课件是活的文档，顺序会调整</span>。<b>碰到这类痕迹不必困惑，它不影响内容。</b>"
+   ]
+  }
+ ],
+ "quiz": {
+  "42": [
+   {
+    "q": "贝叶斯老虎机相对前半讲，多了什么？",
+    "o": [
+     "多了状态",
+     "多了折扣因子",
+     "多了动作",
+     "多了一个先验 p[R]，然后用数据更新成后验"
+    ],
+    "a": 3,
+    "why": "于是「不确定性」从「置信区间」变成了「一个分布」。前半讲只假设奖励在 [0,1] 之间。"
+   },
+   {
+    "q": "课件说「先验准的话表现更好」，它的反面是什么？",
+    "o": [
+     "先验不准只影响收敛速度",
+     "先验永远不会不准",
+     "先验不准可能比什么都不假设更糟——你会花时间去纠正一个错误的信念",
+     "先验不准时表现仍然一样"
+    ],
+    "a": 2,
+    "why": "这是所有贝叶斯方法的共同性质：先验是双刃剑。而频率派不吃这个亏，代价是起步时什么都不知道。"
+   }
+  ],
+  "43": [
+   {
+    "q": "频率派遗憾和贝叶斯遗憾的区别是什么？",
+    "o": [
+     "前者针对确定性算法",
+     "前者对每一个可能的真实参数都要成立；后者只要求在先验下平均成立",
+     "前者是上界后者是下界",
+     "两者等价"
+    ],
+    "a": 1,
+    "why": "所以频率派的界更强，也更难证——这就是为什么 p58 说「乐观的界比 Thompson 的更紧」。"
+   },
+   {
+    "q": "这个区别对做实验有什么实际影响？",
+    "o": [
+     "贝叶斯方法不能做实验",
+     "没有影响",
+     "如果你也从同一个先验里抽实例来测，你测的是贝叶斯遗憾——会系统性高估贝叶斯方法",
+     "只影响理论分析"
+    ],
+    "a": 2,
+    "why": "公平的比较要在「先验之外」的实例上也测一测。"
+   }
+  ],
+  "44": [
+   {
+    "q": "贝叶斯 UCB 和 UCB1 的形状有什么关系？",
+    "o": [
+     "形状相同（估计 + 不确定性项），区别只在那个项是怎么算出来的",
+     "贝叶斯版没有探索项",
+     "完全不同",
+     "贝叶斯版用的是下界"
+    ],
+    "a": 0,
+    "why": "UCB1 的半径来自 Hoeffding（对任何有界分布都成立，保守）；贝叶斯的来自后验（在分布假设下，更紧）。"
+   },
+   {
+    "q": "如果贝叶斯 UCB 的分布假设错了，会怎样？",
+    "o": [
+     "只是收敛慢一点",
+     "会发散",
+     "置信区间太窄 ⇒ 过早停止探索 ⇒ 可能锁死",
+     "没有影响"
+    ],
+    "a": 2,
+    "why": "这是 p42 那句「先验准才更好」的具体表现形式。"
+   }
+  ],
+  "45": [
+   {
+    "q": "概率匹配的规则是什么？",
+    "o": [
+     "按方差的比例选",
+     "按估计值的比例选",
+     "按 1/N 的比例选",
+     "按「它是最优臂的概率」来选它——有 30% 的把握就花 30% 的时间"
+    ],
+    "a": 3,
+    "why": "它是唯一一个让「行为的比例」和「信念的强度」对齐的方法。"
+   },
+   {
+    "q": "概率匹配为什么也算「乐观」？",
+    "o": [
+     "不确定的臂后验更宽 ⇒ 尾巴伸得更远 ⇒ 更有可能取到最大值 ⇒ 被选中概率更高",
+     "因为它用了上界",
+     "因为它总是选最好的",
+     "因为它从不放弃任何臂"
+    ],
+    "a": 0,
+    "why": "和 UCB 不同：UCB 显式地加一个乐观量，概率匹配的乐观是从「取最大值」这个操作里自己冒出来的。"
+   },
+   {
+    "q": "概率匹配的麻烦是什么？",
+    "o": [
+     "它有偏",
+     "它需要知道真值",
+     "从后验解析地算那个概率很难——三条臂已是二重积分，十条臂基本没法解",
+     "它收敛太慢"
+    ],
+    "a": 2,
+    "why": "所以它在 p45 只是一个定义不是算法。kp 那句「直观上正确，但没有明显的算法」说的就是这个。"
+   }
+  ],
+  "46": [
+   {
+    "q": "Thompson 采样做什么？",
+    "o": [
+     "取后验均值最大的",
+     "从每条臂的后验里抽一个样本，然后选样本最大的那条——把抽到的当真",
+     "按后验方差排序",
+     "算置信上界"
+    ],
+    "a": 1,
+    "why": "没有置信界、没有加成项、没有要调的探索常数。探索完全来自「抽样本」这个动作本身。"
+   },
+   {
+    "q": "为什么 Thompson 采样「恰好」实现了概率匹配？",
+    "o": [
+     "「a 被选中」⟺「a 的样本最大」，而样本来自后验，所以选中概率 = 它是最优臂的后验概率",
+     "因为用了伯努利分布",
+     "因为后验是共轭的",
+     "这是近似"
+    ],
+    "a": 0,
+    "why": "你不需要去算那个难算的积分，只要采样就自动得到了它——用采样绕开积分。"
+   },
+   {
+    "q": "实现 Thompson 最常见的错误是什么？",
+    "o": [
+     "没有归一化",
+     "先验选错了",
+     "更新顺序错了",
+     "抽的是后验均值而不是样本——那样它就退化成纯贪心了"
+    ],
+    "a": 3,
+    "why": "另外每一步必须重新抽，而且每条臂各抽一个。抽一次连用若干步，探索就塌了。"
+   }
+  ],
+  "48": [
+   {
+    "q": "Beta 分布作为伯努利共轭先验，更新规则是什么？",
+    "o": [
+     "需要数值积分",
+     "按似然比更新",
+     "两个都加一",
+     "观察到 1 ⇒ α 加一；观察到 0 ⇒ β 加一"
+    ],
+    "a": 3,
+    "why": "就这么简单，不需要任何积分。而 Beta(1,1) 恰好是 [0,1] 上的均匀分布，也就是「一无所知」。"
+   },
+   {
+    "q": "<code>Beta(α, β)</code> 里的 α、β 该怎么理解？",
+    "o": [
+     "方差参数",
+     "拟合出来的参数",
+     "学习率",
+     "伪计数——「我好像已经看到过 α−1 次成功和 β−1 次失败」"
+    ],
+    "a": 3,
+    "why": "于是后验均值 α/(α+β) 正是「成功次数除以总次数」的平滑版本。这个读法让所有贝叶斯更新都变直观。"
+   },
+   {
+    "q": "Thompson 的探索和 ε-贪心最本质的区别是什么？",
+    "o": [
+     "Thompson 不探索",
+     "Thompson 更快",
+     "Thompson 的探索会自动收敛——后验变窄，探索量自动下降，不需要任何衰减调度",
+     "ε-贪心的探索更均匀"
+    ],
+    "a": 2,
+    "why": "ε-贪心必须手工设计衰减曲线，而且 GLIE 说那个曲线还不能随便定。Thompson 把这件事变成自动的。"
+   }
+  ],
+  "57": [
+   {
+    "q": "「Thompson 达到下界」「UCB 的界更紧」「Thompson 实测更好」三句话矛盾吗？",
+    "o": [
+     "三句说的是不同算法",
+     "矛盾",
+     "不矛盾——「界更紧」说的是最坏情况的保证，实测测的是典型情况",
+     "矛盾，课件写错了"
+    ],
+    "a": 2,
+    "why": "UCB 的半径来自 Hoeffding（最坏情况），所以偏保守、探索过多；Thompson 用后验，会适应实际数据。"
+   },
+   {
+    "q": "什么时候该选 UCB 而不是 Thompson？",
+    "o": [
+     "奖励是二值时",
+     "永远选 UCB",
+     "臂数很多时",
+     "你对分布一无所知，或者需要一个不依赖分布假设的最坏情况保证"
+    ],
+    "a": 3,
+    "why": "反过来：能写出合理先验、对奖励分布形式有把握时选 Thompson，它不用调探索系数。"
+   }
+  ],
+  "59": [
+   {
+    "q": "上下文老虎机和普通老虎机的区别是什么？",
+    "o": [
+     "奖励是延迟的",
+     "有多个最优臂",
+     "臂数不固定",
+     "每步先看到一个上下文再选臂，于是要学的是 Q(x,a) 而不是 Q(a)"
+    ],
+    "a": 3,
+    "why": "这意味着泛化这个维度回来了——你必须从见过的上下文推广到没见过的。"
+   },
+   {
+    "q": "上下文老虎机和 MDP 的关键区别是什么？",
+    "o": [
+     "MDP 的动作更多",
+     "上下文老虎机没有奖励",
+     "上下文是外生的——课件原话 context sampled iid each step，你的动作不影响下一个上下文",
+     "没有区别"
+    ],
+    "a": 2,
+    "why": "所以它仍然没有延迟后果，仍是单步决策问题——处在普通老虎机和 MDP 之间，而且更靠近前者。"
+   },
+   {
+    "q": "p60 那句「后验采样的遗憾界和 UCB 相同」说明什么？",
+    "o": [
+     "常数无关紧要",
+     "贝叶斯方法没有优势",
+     "两条完全不同的路给出同阶保证——因为它们都在让「被选中概率」和「不确定性」挂钩",
+     "两者是同一个算法"
+    ],
+    "a": 2,
+    "why": "殊途同归，而这说明「乐观面对不确定」这个原则比任何具体算法都更根本。"
+   }
+  ],
+  "61": [
+   {
+    "q": "乐观初始化为什么能产生探索？",
+    "o": [
+     "因为它加了随机性",
+     "因为它用了置信界",
+     "没试过的臂看起来最好，纯贪心就会主动去试它；试过之后估计下降，轮到下一条",
+     "因为它从后验采样"
+    ],
+    "a": 2,
+    "why": "结果是贪心算法自己把每条臂都试了一遍，而你一行探索代码都没写。"
+   },
+   {
+    "q": "初始化得<b>太</b>高有什么坏处？",
+    "o": [
+     "会导致有偏",
+     "没有坏处",
+     "会发散",
+     "每条臂需要被拉更多次估计才能降到真实水平——于是在明显很差的臂上浪费大量步数"
+    ],
+    "a": 3,
+    "why": "极端情况：初值设成一百万，你会把每条臂都拉上百万次才开始收敛。太低会锁死、太高会浪费。"
+   }
+  ],
+  "62": [
+   {
+    "q": "衰减 ε-贪心的「次线性」附带了什么条件？",
+    "o": [
+     "需要奖励有界",
+     "衰减的时间表需要知道差距，而差距是未知的",
+     "需要很多样本",
+     "需要臂数已知"
+    ],
+    "a": 1,
+    "why": "你需要知道答案才能调出正确的参数，而知道答案的话就不需要算法了——典型的循环依赖。"
+   },
+   {
+    "q": "UCB 相对衰减 ε-贪心的真正优势是什么？",
+    "o": [
+     "它方差更小",
+     "收敛更快",
+     "它不需要知道差距，而遗憾却由差距决定——算法自动隐式地适应了问题难度",
+     "它实现更简单"
+    ],
+    "a": 2,
+    "why": "公式里只有 t 和 N_t(a)，没有任何 Δ；而界是 8 log t · Σ Δ_a。第十二讲第一条 kp 说的正是这件事。"
+   },
+   {
+    "q": "固定 ε-贪心线性遗憾的证明梗概，关键在哪一步？",
+    "o": [
+     "差距太小",
+     "ε 太大",
+     "臂数太多",
+     "每步选中某条次优臂的概率至少是 ε/m，而这个下界不随 t 变化——常数乘 t 就是线性"
+    ],
+    "a": 3,
+    "why": "于是 E[N_t(a)] ≥ (ε/m)·t，代入 L_t = Σ_a E[N_t(a)]·Δ_a 即得线性。"
+   }
+  ],
+  "63": [
+   {
+    "q": "蒙特祖玛的解法用的是这一讲的什么思想？",
+    "o": [
+     "经验回放",
+     "ε-贪婪",
+     "折扣因子调整",
+     "乐观面对不确定——给访问次数少的状态一个额外的奖励加成"
+    ],
+    "a": 3,
+    "why": "形状上就是 UCB 那个 1/√N 的半径，只不过作用在状态上。难点是状态太多，要用密度模型估「伪计数」。"
+   },
+   {
+    "q": "这一讲的理论能直接搬到深度 RL 吗？",
+    "o": [
+     "完全不能用",
+     "能，直接用",
+     "只能用 Thompson",
+     "不能直接搬（连续状态下同一个状态几乎不会出现两次），但思想能搬"
+    ],
+    "a": 3,
+    "why": "怎么把「不确定」这件事在高维空间里算出来，至今仍是开放问题。第十三讲最后一条 kp 说的就是这个。"
+   }
+  ],
+  "64": [
+   {
+    "q": "计算置信界的通用三步配方是什么？",
+    "o": [
+     "先采样 → 排序 → 取分位数",
+     "先算方差 → 开根号 → 乘系数",
+     "先猜半径 → 验证 → 调整",
+     "先定失败概率 → 代进集中不等式 → 反解出半径"
+    ],
+    "a": 3,
+    "why": "这三步在任何用到置信区间的地方都一样，换的只是第二步用哪个不等式。"
+   },
+   {
+    "q": "为什么实践中的 UCB 变体多用 Bernstein 类的界而不是 Hoeffding？",
+    "o": [
+     "Bernstein 更简单",
+     "Hoeffding 只用到「奖励有界」所以最松；Bernstein 还用到方差，在低方差的臂上紧得多",
+     "Bernstein 不需要独立性",
+     "Hoeffding 有偏"
+    ],
+    "a": 1,
+    "why": "而低方差恰恰是常见情形——比如点击率很低的广告，奖励几乎总是 0。"
+   }
+  ]
+ }
+}

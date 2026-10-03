@@ -1,0 +1,652 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p10 老虎机 = (A, R)；A 已知 m 个臂，R^a(r) = P[r|a] 未知；目标 max Σ r_τ",
+  "p11 Q(a) = E[r|a]；V* = max_a Q(a)；单步遗憾 l_t = E[V* − Q(a_t)]；总遗憾 L_t = E[Σ_τ (V* − Q(a_τ))]",
+  "p12 L_t = Σ_a E[N_t(a)]·Δ_a，其中 Δ_a = V* − Q(a)；课件原话 A good algorithm ensures small counts for large gap, but gaps are not known",
+  "p13 课件原话：Greedy can lock onto suboptimal action, forever",
+  "p14 课件原话：Always will be making a sub-optimal decision ε fraction of the time",
+  "p15-17 断脚趾例子（课件两次标注这是编的）：surgery θ_1=.95、buddy taping θ_2=.9、doing nothing θ_3=.1 ⇒ 差距 0 / 0.05 / 0.85",
+  "p18 各拉一次后 Q̂ = (1, 1, 0)，贪心在 a1、a2 间打平；约定打平时均匀分 ⇒ 各 1/2",
+  "p21 ε=0.1、三臂：贪心臂 1−ε+ε/3 = 0.9333，每条非贪心臂 ε/3 = 0.0333"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    3
+   ],
+   "t": "这一讲要干什么",
+   "star": 2,
+   "quote": "Lecture 11: <b>Fast Reinforcement Learning</b> &nbsp;·&nbsp; Last time: Midterm &nbsp;·&nbsp; This time: Fast Learning &nbsp;·&nbsp; Next time: Fast Learning &nbsp;|&nbsp; Up Till Now: Discussed <b>optimization, generalization, delayed consequences</b>",
+   "one": "前十讲谈了优化、泛化、延迟后果，<b>这一讲开始谈第四样：要多少数据</b>。",
+   "tip": {
+    "t": "这一讲的来历",
+    "v": "幻灯片多来自 David Silver，<b>例子是新的</b>（课件自己标的 <em>Examples new</em>）。而那个断脚趾的例子贯穿全讲，三个算法都在它上面演示一遍。"
+   },
+   "pts": [
+    "<b>这一讲是整门课的一次转向，而转向的内容可以用一句话说清：<span class='k'>判据换了</span>。</b><span class='w'>前十讲问的是「这个算法收不收敛、收敛到哪」</span>；<span class='k'>从这一讲起问的是「它要花多少数据才到那里、路上犯了多少错」</span>。<b>第一讲列的四样要求里，「统计上和计算上都高效」那一条一直挂着没人管</b>（<span class='w'>L07 p17 把这笔账摊开过</span>），<b>而这一讲开始还它。</b>",
+    "<b>为了把这件事谈清楚，课件引入了一套三层的词汇，值得先立住，否则后面会乱。</b><span class='k'>① 设定（setting）：老虎机 / MDP——问题长什么样</span>；<span class='k'>② 框架（framework）：遗憾 / PAC / 贝叶斯遗憾——用什么尺子量算法好不好</span>；<span class='k'>③ 方法（approach）：乐观面对不确定 / 概率匹配——用什么办法达到那把尺子的要求</span>。<b>这三层是正交的：同一个方法可以在多个设定下、满足多个框架。</b><span class='w'>课件自己也强调了这一点。</span>",
+    "<b>这一讲只碰最简单的那个设定——<span class='k'>老虎机</span>，也就是「只有一步决策」的 MDP。</b><span class='w'>为什么从最简单的开始？因为连这个最简单的情形，答案都不平凡</span>：<b>你会看到贪心和固定 ε-贪心都是线性遗憾（p18–p23），而理论下界告诉你最好只能做到 <code>log T</code>（p25）。</b><span class='k'>把这件事在老虎机上弄清楚，第十二、十三讲才能把它搬回 MDP。</span>",
+    "<b>读这一讲有一条贯穿的主线，建议现在就记住：<span class='k'>「乐观面对不确定」这五个字，是这一讲、下一讲、下下讲的共同答案</span>。</b><b>UCB 是它的频率派版本（p26 起），Thompson 采样是它的贝叶斯版本（p45 起），而第十二讲的 MBIE-EB 是它在 MDP 上的版本。</b><span class='w'>三个算法形式差很远，思想完全一样</span>——<b>认出这一点，三讲就只剩一个概念要理解。</b>",
+    "<b>课件 p3 那行「前十讲谈了优化、泛化、延迟后果」是一句精确的清点，值得对着回忆一遍。</b><span class='k'>优化：L02 的策略迭代与值迭代、L08–L10 的策略梯度</span>；<span class='k'>延迟后果：L02 的贝尔曼方程、L03 的 TD、L04 的自举</span>；<span class='k'>泛化：L05 的函数逼近、L06 的卷积网络</span>。<span class='w'>三样都谈过了，而<b>探索</b>只在 L04 p18 露过一面（ε-贪婪），从没被正面分析过</span>。<b>这一讲就是来补这一课的。</b>",
+    "<b>还有一个阅读上的提醒：这一讲和下一讲是连着的，课件自己在 p2 标了「This time: Fast Learning / Next time: Fast Learning」。</b><span class='k'>所以读到结尾会觉得话没说完——确实没说完</span>：<b>贝叶斯那半边（Thompson 采样）在这一讲只开了个头，第十二讲才把 PAC、MBIE-EB 补上。</b><span class='w'>而第十三讲再把这些结论证成定理，并承认它们在深度网络上还不成立。</span>"
+   ]
+  },
+  {
+   "r": [
+    4,
+    7
+   ],
+   "t": "计算效率不等于样本效率",
+   "star": 2,
+   "quote": "<b>Computational Efficiency ≠ Sample Efficiency</b> &nbsp;|&nbsp; How many steps did it take for DQN to learn a good policy for pong? &nbsp;|&nbsp; <b>How do we evaluate how \"good\" an algorithm is?</b> &nbsp;·&nbsp; If converges? &nbsp;·&nbsp; If converges to optimal policy? &nbsp;·&nbsp; <b>How quickly reaches optimal policy?</b> &nbsp;·&nbsp; <b>Mistakes made along the way?</b>",
+   "one": "课件写了个不等号：<b>算得快</b>和<b>用的数据少</b>，是两回事。",
+   "pts": [
+    "<b>这个不等号值得停一下，因为两者在实践里经常被混为一谈。</b><span class='k'>计算效率：一步要算多久（CPU/GPU 时间）</span>；<span class='k'>样本效率：要和环境交互多少次（数据）</span>。<b>而在真实问题里，后者往往贵得多</b>——<span class='w'>多买一块显卡是花钱，多试一次新药、多撞一次车、多骚扰一次客户，代价完全不同</span>。<b>L07 p21 那三条「什么时候不管用」（动作执行慢、失败代价高、要求安全），说的全是样本贵的场合。</b>",
+    "<b>课件用一个问句把这件事砸实：<em>How many steps did it take for DQN to learn a good policy for pong?</em></b><span class='k'>答案在 L06 p64：Atari 上通常要等 10–40M 帧</span>。<b>而 Pong 已经是课件自己说的「最可靠、最容易」的那个任务。</b><span class='w'>换算一下：按每秒 60 帧算，10M 帧是约 46 小时的连续游戏</span>——<b>而人类玩家十几分钟就能摸清规则。</b><span class='k'>DQN 的计算效率其实不差（每步就是一次前向加一次反向），差的全是样本效率。</span>",
+    "<b>然后是这一页真正的转折：<span class='k'>那怎么衡量一个算法「好」</span>？</b><b>课件列了四个可能的答案，而它们的严格程度是递增的。</b><span class='w'>① 收不收敛——最弱，只说有没有终点</span>；<span class='w'>② 收敛到最优吗——强一点，但仍然只管终点</span>；<span class='k'>③ 多快到最优——开始管速度了</span>；<span class='k'>④ <b>路上犯了多少错</b>——管的是整个过程</span>。<b>第④个就是「遗憾」，也是这一讲的主角。</b>",
+    "<b>为什么第④条比前三条更合适，理由在 L09 p9 已经说过一次，这里是它的另一面。</b><span class='w'>跑策略的时候你在<b>真实地承担代价</b></span>——<b>每一次试错都是真的给了病人一种治疗、真的向客户推了一个广告。</b><span class='k'>于是「最终收敛到最优」这个承诺，对那些在学习过程中被当作试验品的人没有任何安慰</span>。<b>而遗憾恰好衡量的就是这部分代价。</b>",
+    "<b>最后把前三条判据各自的盲点指出来，这样你知道它们什么时候不够用。</b><span class='w'>「收敛」不排除「收敛得极慢」</span>；<span class='w'>「收敛到最优」不排除「路上代价极大」</span>；<span class='w'>「多快到最优」不排除「到达之前一直在做最差的选择」</span>。<b>而遗憾把这些全算进去了——它是一个对整条轨迹的积分，不是对终点的判断。</b><span class='k'>这是判据从「终点」转向「过程」的那一步。</span>",
+    "<b>把「样本贵」这件事说得更具体一点，它在不同领域的含义差别很大。</b><span class='k'>仿真里：样本便宜，可以并行，于是样本效率几乎不重要（这就是 Atari 能用几千万帧的原因）</span>；<span class='w'>机器人：样本贵在时间和硬件磨损</span>；<span class='w'>医疗、教育、推荐：样本贵在<b>人</b>——每一次试错都落在一个具体的人身上</span>。<b>而这一讲的断脚趾例子正是第三类。</b><span class='k'>选什么判据，取决于你的样本贵在哪里。</span>",
+    "<b>这四个判据还有一个递进关系值得点明：<span class='k'>后一个蕴含前一个</span>。</b><b>遗憾是次线性的 ⇒ 平均每步损失趋于 0 ⇒ 最终会收敛到最优 ⇒ 当然也收敛。</b><span class='w'>反过来不成立：收敛不蕴含次线性遗憾</span>（<b>贪心可能收敛到一条坏臂，遗憾线性</b>）。<span class='k'>所以「次线性遗憾」是这四条里最强的要求</span>，<b>而它也正是这一讲要用的那把尺子。</b>",
+    "<b>最后提一个容易混的事：这一讲说的「样本效率」和第五讲说的「样本复杂度」是同一件事的两种表述。</b><span class='k'>L05 p10 说表格表示「所需样本量至少和状态数同阶」——那是样本复杂度</span>；<span class='w'>而遗憾是把这件事按时间积分之后的量</span>。<b>两者可以互相转换，但侧重点不同：样本复杂度问「要多少数据才够好」，遗憾问「路上损失了多少」。</b><span class='k'>第十二讲的 PAC 框架用的正是前一种表述。</span>"
+   ],
+   "tbl": {
+    "head": [
+     "判据",
+     "管什么",
+     "盲点",
+     "够用吗"
+    ],
+    "rows": [
+     [
+      "收不收敛",
+      "有没有终点",
+      "<span class='w'>不排除极慢</span>",
+      "<span class='w'>最弱</span>"
+     ],
+     [
+      "收敛到最优吗",
+      "终点对不对",
+      "<span class='w'>不排除路上代价极大</span>",
+      "仍只管终点"
+     ],
+     [
+      "多快到最优",
+      "速度",
+      "<span class='w'>不排除到达前一直在做最差选择</span>",
+      "开始管过程"
+     ],
+     [
+      "<b>路上犯了多少错</b>",
+      "<b>整条轨迹</b>",
+      "—",
+      "<span class='k'>这就是遗憾，本讲的主角</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    8,
+    9
+   ],
+   "t": "三层词汇：设定、框架、方法",
+   "star": 3,
+   "quote": "Over next couple lectures will consider 2 settings, multiple frameworks, and approaches &nbsp;·&nbsp; <b>Settings</b>: Bandits (single decisions), MDPs &nbsp;·&nbsp; <b>Frameworks</b>: evaluation criteria for formally assessing the quality of a RL algorithm &nbsp;·&nbsp; <b>Approaches</b>: Classes of algorithms for achieving particular evaluation criteria &nbsp;·&nbsp; <b>Note: some approaches can achieve multiple frameworks in multiple settings</b> &nbsp;|&nbsp; Today: Setting <b>multi-armed bandits</b>; Framework <b>Regret</b>; Approach <b>Optimism under uncertainty</b>; Framework <b>Bayesian regret</b>; Approach <b>Probability matching / Thompson sampling</b>",
+   "one": "<b>设定 × 框架 × 方法</b>——三层正交，读后面三讲全靠这张表定位。",
+   "pts": [
+    "<b>这张三层表是接下来三讲的坐标系，值得现在就填一遍，后面每讲一个新东西就往里放一格。</b><b>设定只有两个</b>：<span class='k'>老虎机（单步决策）和 MDP（多步）</span>。<b>框架这一讲出现两个</b>：<span class='k'>遗憾、贝叶斯遗憾</span>（<span class='w'>下一讲还会加 PAC</span>）。<b>方法这一讲也是两个</b>：<span class='k'>乐观面对不确定、概率匹配</span>。",
+    "<b>课件专门加了一句注，而那句注是这三讲最省力的一条线索：<em>some approaches can achieve multiple frameworks in multiple settings</em>。</b><span class='k'>也就是说：你不需要为每一个「设定 × 框架」的格子学一个新算法</span>——<b>同一个方法（比如乐观）可以同时拿下好几格。</b><span class='w'>这解释了为什么第十二、十三讲看起来内容很多，但核心思想只有两三个</span>。",
+    "<b>把今天这一讲在这张表里的位置标清楚：<span class='k'>设定固定在老虎机，然后走两遍「框架 → 方法」</span>。</b><b>第一遍：遗憾 → 乐观（UCB）；第二遍：贝叶斯遗憾 → 概率匹配（Thompson）。</b><span class='w'>两遍的结构完全平行</span>——<b>先说用什么尺子量，再说用什么办法达标。</b><span class='k'>读到一半觉得「怎么又从头开始了」，那是因为确实开始了第二遍。</span>",
+    "<b>为什么要把「框架」和「方法」分开，这件事在读论文时极其有用，值得说透。</b><span class='k'>框架是<b>评价标准</b>，方法是<b>达标手段</b></span>。<b>混在一起的话，你会误以为「UCB 是一种遗憾」或者「遗憾是一种算法」。</b><span class='w'>而分开之后，一篇论文的贡献就能被准确定位</span>：<b>它是提出了新框架（新的评价标准）、新方法（新算法）、还是证明了某个已有方法在某个已有框架下的界？</b><span class='k'>绝大多数论文属于第三类。</span>",
+    "<b>这一讲会出现的那两对「框架 → 方法」，它们的配对不是任意的，而是有内在逻辑的。</b><span class='k'>遗憾是频率派的（假设有一组真实但未知的参数），所以配频率派的方法：置信上界</span>；<span class='k'>贝叶斯遗憾假设参数有先验，所以配贝叶斯的方法：从后验采样</span>。<span class='w'>两对各自自洽</span>。<b>但课件也会指出一件有意思的事（p43）：两种遗憾可以通过马尔可夫不等式联系起来</b>——<span class='k'>所以界限并不是绝对的。</span>",
+    "<b>最后提一句这张三层表在读这一讲时的具体用法。</b><span class='k'>每读到一个新名词，先问它是三层里的哪一层</span>——<b>「遗憾」是框架，「UCB」是方法，「老虎机」是设定，「Hoeffding 不等式」则都不是（它是推导用的工具）。</b><span class='w'>分不清层次的话，这三讲会像一堆平行的新概念；分清了，就只有两三个核心思想。</span>"
+   ]
+  },
+  {
+   "r": [
+    10,
+    10
+   ],
+   "t": "多臂老虎机",
+   "star": 3,
+   "quote": "Multi-armed bandit is a tuple of <b>(A, R)</b> &nbsp;·&nbsp; <b>A</b>: known set of m actions (arms) &nbsp;·&nbsp; <b>R^a(r) = P[r | a]</b> is an <b>unknown</b> probability distribution over rewards &nbsp;·&nbsp; At each step t the agent selects an action a_t ∈ A &nbsp;·&nbsp; The environment generates a reward r_t ∼ R^{a_t} &nbsp;·&nbsp; <b>Goal: Maximize cumulative reward Σ_{τ=1}^{t} r_τ</b>",
+   "eq": "老虎机 = (A, R)\n  A：m 个已知动作（臂）\n  R^a(r) = P[r | a]：每条臂的奖励分布，未知\n\n每步：选一条臂 a_t → 环境给一个奖励 r_t ~ R^{a_t}\n目标：最大化累计奖励 Σ r_τ\n\n对比 MDP 五元组 (S, A, P, R, γ)：\n  没有 S（或者说只有一个状态）\n  没有 P（动作不改变你下次面对的处境）\n  没有 γ（不需要——没有「未来的状态」可言）",
+   "one": "<b>只有一个状态的 MDP</b>：你的动作不改变下一次的处境。",
+   "pts": [
+    "<b>把老虎机和 MDP 并排写，差别只有一处，但那一处决定了问题的全部性质。</b><span class='k'>MDP 里你的动作会改变下一个状态，于是「这一步做什么」要考虑「之后会落到哪」</span>；<span class='w'>老虎机里没有状态，拉完一条臂，下一次你面对的还是同一堆臂</span>。<b>于是<span class='k'>延迟后果</span>这一整个维度消失了。</b><span class='w'>L02 p5 早就说过这件事：bandits 是单状态的 MDP。</span>",
+    "<b>而延迟后果消失之后，剩下的是什么？<span class='k'>只剩探索</span>。</b><b>这正是老虎机值得单独研究的理由</b>——<span class='w'>它把 RL 的四个困难（优化、延迟后果、探索、泛化）里的三个都拿掉了，只留下探索这一个</span>。<b>于是你可以在一个干净的环境里把探索这件事彻底弄清楚。</b><span class='k'>弄清楚之后，第十二、十三讲再把状态加回去。</span>",
+    "<b>定义里有一处很重要的不对称，值得单独指出：<span class='k'>A 是<b>已知</b>的，R 是<b>未知</b>的</span>。</b><b>你知道有哪几条臂可以拉，但不知道每条臂的奖励分布。</b><span class='w'>这个设定排除了一大类现实问题</span>——<b>比如「还有没有我没想到的选项」。</b><span class='k'>而且臂的数量 m 是固定的、有限的</span>，<b>连续臂或者无限多臂是另一套理论（第十二讲会碰一点）。</b>",
+    "<b>目标写成「最大化累计奖励」，而不是「找到最好的那条臂」，这个措辞差别很大。</b><span class='k'>前者在乎过程——你拉的每一次都算分</span>；<span class='w'>后者只在乎终点——中间试错多少都不要紧</span>。<b>两者对应两个不同的框架：前者是遗憾，后者叫「纯探索」或者 best-arm identification。</b><span class='k'>这一讲走的是前者，而第十二讲的 PAC 更接近后者。</span><b>它们要的算法不一样，所以先看清楚你要的是哪个。</b>"
+   ],
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页请你先回答一个问题，因为它决定了你整个课题该用哪套理论：<span class='k'>你的问题是老虎机还是 MDP</span>？</b><br><br><b>课件 p16 自己也会问这件事（「为什么这个例子建模成老虎机而不是 MDP」），而判据只有一条：<span class='k'>你这一步的决定，会不会改变你下一步面对的处境</span>。</b><br><br><b>搬到你的流水线上：节点 h 选了低保真度，节点 h+1 面对的输入产物就变了</b>——<span class='w'>听起来显然是 MDP</span>。<span class='k'>但「变了」和「变得足以影响最优决策」是两回事</span>，<b>而这件事是可以实测的。</b><br><br><b>bridge-threads 那份研究笔记把这个实验写得很具体，它叫<span class='k'>可加性检验</span>：</b><br><b>① 对每个节点 h，测 <code>Δ_h^down = Acc(全高) − Acc(全高但 h 降级)</code>；</b><br><b>② 比较 <code>Σ_h Δ_h^down</code> 和 <code>Acc(全高) − Acc(全低)</code>。</b><br><span class='k'>两者在置信区间内相等 ⇒ 节点效应近似<b>可加</b>，问题实质上<b>不是</b> MDP，诚实的建模是「逐节点的上下文老虎机」</span>；<span class='w'>前者明显小于后者 ⇒ 节点之间有真实的交互，你<b>挣到了</b>序贯建模的资格</span>。<br><br><b>两种结果都是结果，而且都该报告。</b><span class='k'>审稿人尊重一篇检验了自己建模前提的论文，而惩罚一篇直接假设它的</span>。<b>更实际的是：如果答案是「可加」，那么这一讲（以及第十二讲）的老虎机理论就是你该用的全部，而 L05 那套致命三件套的顾虑、L09 那个算不出的 <code>ρ^{π̃}</code>，统统不适用</b>——<span class='w'>因为单步决策没有分布漂移。</span><b>那会让你的问题变简单一大截，而且是<b>有依据地</b>变简单。</b>",
+    "ref": "课件 p10 p16 · research/bridge-threads.json 线 1（Week 2 可加性检验）· L02 p5"
+   }
+  },
+  {
+   "r": [
+    11,
+    11
+   ],
+   "t": "遗憾",
+   "star": 3,
+   "quote": "Action-value is the mean reward for action a: <b>Q(a) = E[r | a]</b> &nbsp;·&nbsp; Optimal value <b>V* = Q(a*) = max_{a∈A} Q(a)</b> &nbsp;·&nbsp; <b>Regret is the opportunity loss for one step: l_t = E[V* − Q(a_t)]</b> &nbsp;·&nbsp; <b>Total Regret is the total opportunity loss: L_t = E[Σ_{τ=1}^{t} V* − Q(a_τ)]</b> &nbsp;·&nbsp; <b>Maximize cumulative reward ⟺ minimize total regret</b>",
+   "eq": "Q(a) = E[r | a]                    每条臂的真实均值\nV* = max_a Q(a)                   最好那条臂的均值\n\n单步遗憾：  l_t = E[V* − Q(a_t)]\n累计遗憾：  L_t = E[ Σ_{τ=1}^{t} (V* − Q(a_τ)) ]\n\n「最大化累计奖励」和「最小化累计遗憾」是同一件事",
+   "one": "遗憾 = <b>你本可以拿到的</b> 减去 <b>你实际拿到的</b>，而且是<b>累计</b>的。",
+   "pts": [
+    "<b>遗憾这个定义最该注意的是那个「累计」：<span class='k'>它是对整条轨迹求和，不是对当前状态的评价</span>。</b><b>一个算法现在表现完美，但前面犯了一千次错，它的遗憾仍然很大。</b><span class='w'>这正是它和「收敛到最优」那类判据的根本区别</span>——<b>后者只看终点，遗憾看的是整个过程欠下的债。</b><span class='k'><code>kp</code> 那句「<b>累计</b>的机会损失，不是当前有多好」说的就是这个。</span>",
+    "<b>「机会损失」这个说法也值得琢磨，它是经济学的词，用在这里很贴切。</b><span class='k'>你拉了 <code>a_t</code>，拿到的是 <code>Q(a_t)</code>；而你<b>本来可以</b>拉 <code>a*</code>，拿到 <code>V*</code></span>。<b>差的那一块就是你为了「不知道哪条最好」付出的学费。</b><span class='w'>注意它是相对<b>事后最优</b>定义的</span>——<b>你在当时并不知道 <code>a*</code> 是哪条，但遗憾不管这个，它就是拿你和上帝比。</b>",
+    "<b>最后那行等价关系值得确认一遍，因为它说明遗憾不是一个新目标，只是换了个写法。</b><span class='k'><code>L_t = t·V* − E[Σ r_τ]</code>——而 <code>t·V*</code> 是个常数</span>。<b>所以最小化 <code>L_t</code> 和最大化 <code>E[Σ r_τ]</code> 完全等价。</b><span class='w'>那为什么还要引入遗憾？因为它的<b>量级</b>更有意义</span>——<b>累计奖励总是随 t 线性增长（看不出好坏），而遗憾的增长速度直接告诉你算法有多好。</b><span class='k'>线性增长 = 糟糕，对数增长 = 很好。</span>"
+   ]
+  },
+  {
+   "r": [
+    12,
+    12
+   ],
+   "t": "遗憾 = 计数 × 差距",
+   "star": 3,
+   "quote": "Count <b>N_t(a)</b> is expected number of selections for action a &nbsp;·&nbsp; Gap <b>Δ_a</b> is the difference in value between action a and optimal action a*: <b>Δ_a = V* − Q(a)</b> &nbsp;·&nbsp; Regret is a function of gaps and counts &nbsp;·&nbsp; <b>L_t = Σ_{a∈A} E[N_t(a)] Δ_a</b> &nbsp;·&nbsp; <b>A good algorithm ensures small counts for large gap, but gaps are not known</b>",
+   "eq": "L_t = E[ Σ_τ (V* − Q(a_τ)) ]\n    = Σ_a E[N_t(a)] · (V* − Q(a))\n    = Σ_a E[N_t(a)] · Δ_a\n\n  N_t(a)：到 t 为止拉了臂 a 多少次\n  Δ_a = V* − Q(a)：臂 a 的「差距」\n\n好算法：对差距大的臂，计数要小\n但 —— 差距是未知的",
+   "one": "<b>遗憾可以拆成「每条坏臂拉了几次」乘「它有多坏」。</b>",
+   "pts": [
+    "<b>这个改写只是把求和重新分组，但它把问题的结构完全暴露出来了。</b><span class='k'>原来是「对时间求和」，现在是「对臂求和」</span>——<b>于是遗憾变成了两个因子的乘积之和：你拉了某条坏臂多少次（<code>N_t(a)</code>），以及它有多坏（<code>Δ_a</code>）。</b><span class='w'>第二个因子是问题给定的，你改不了；第一个因子完全由你的算法决定</span>。<b>所以算法设计的全部空间，就在「怎么让坏臂的计数小」上。</b>",
+    "<b>而课件紧接着给出了这件事的难处，一句话：<span class='w'>差距是未知的</span>。</b><b>你想少拉坏臂，可你不知道哪条坏。</b><span class='k'>如果知道，问题就没了——直接一直拉最好那条，遗憾恒为零</span>。<b>于是整个老虎机问题可以重新表述为：<b>在不知道差距的情况下，怎么让差距大的臂被拉的次数少</b>。</b><span class='w'>这个表述比「探索与利用的权衡」精确得多，而且它直接指向了算法该怎么设计。</span>",
+    "<b>这个分解还有一个很实用的推论，它解释了后面那些界的形状。</b><span class='k'>既然 <code>L_t = Σ_a N_t(a)·Δ_a</code>，那么要证明遗憾是 <code>log t</code> 量级，只需要证明<b>每条坏臂的计数</b>是 <code>log t</code> 量级</span>。<b>而 p34 的 UCB1 定理正是这个形状：<code>8 log t · Σ_{a:Δ_a>0} (1/Δ_a)</code>。</b><span class='w'>注意 <code>Δ_a</code> 跑到了分母上</span>——<b>差距越小的臂，越难区分，所以被拉的次数越多，但每次的损失也越小。</b><span class='k'>两者相乘之后，差距小的臂反而贡献更大的遗憾（因为 <code>1/Δ_a</code> 大）。</span>",
+    "<b>最后提一个容易被略过的细节：<code>N_t(a)</code> 前面有个期望符号。</b><span class='w'>因为算法通常是随机的（ε-贪心会掷骰子，Thompson 会采样），所以计数本身是个随机变量</span>。<b>遗憾的定义里对它取了期望。</b><span class='k'>这意味着遗憾界是一个关于<b>平均表现</b>的陈述</span>——<b>某一次具体运行可能比界差得多。</b><span class='w'>p29 起要推的「高概率遗憾界」正是为了给出比期望更强的保证。</span>"
+   ],
+   "tbl": {
+    "head": [
+     "因子",
+     "是什么",
+     "谁决定",
+     "你能改吗"
+    ],
+    "rows": [
+     [
+      "<code>Δ_a</code>（差距）",
+      "臂 a 比最优臂差多少",
+      "<span class='w'>问题本身</span>",
+      "<span class='w'>不能</span>"
+     ],
+     [
+      "<code>N_t(a)</code>（计数）",
+      "你拉了臂 a 多少次",
+      "<span class='k'>你的算法</span>",
+      "<span class='k'>能——这是全部的设计空间</span>"
+     ],
+     [
+      "<b>难处</b>",
+      "差距<b>未知</b>",
+      "—",
+      "<b>要在不知道差距的前提下压低坏臂的计数</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    13,
+    13
+   ],
+   "t": "贪心算法",
+   "star": 3,
+   "quote": "We consider algorithms that estimate <b>Q̂_t(a) ≈ Q(a)</b> &nbsp;·&nbsp; Estimate the value of each action by Monte-Carlo evaluation: <b>Q̂_t(a) = (1/N_t(a)) Σ_{t=1}^{T} r_t · 1(a_t = a)</b> &nbsp;·&nbsp; The greedy algorithm selects action with highest value: <b>a_t = arg max_{a∈A} Q̂_t(a)</b> &nbsp;·&nbsp; <b>Greedy can lock onto suboptimal action, forever</b>",
+   "eq": "Q̂_t(a) = (1/N_t(a)) · Σ_t r_t · 1(a_t = a)      ← 就是样本平均\na_t = arg max_a Q̂_t(a)\n\n问题：greedy can lock onto a suboptimal action, FOREVER",
+   "one": "只拉当前看起来最好的那条。<span class='w'>可能永远锁死在一条坏臂上。</span>",
+   "pts": [
+    "<b>估计方式就是最朴素的样本平均，这和 L04 p13 的 MC 估 Q 一模一样，没有新东西。</b><span class='k'>新的是那句警告：<em>Greedy can lock onto suboptimal action, forever</em></span>——<b>注意最后那个 <em>forever</em>。</b><span class='w'>不是「可能慢一点」，是「可能永远不改」。</span>",
+    "<b>锁死的机制在 L04 p15 已经讲过，这里值得再走一遍，因为老虎机上它更赤裸。</b><span class='k'>假设第一次拉臂 a 运气好拿到高奖励，而真正最好的臂 a* 第一次运气差</span>。<b>于是 <code>Q̂(a) > Q̂(a*)</code>，贪心一直拉 a。</b><span class='w'>而 <code>a*</code> 再也不会被拉，所以 <code>Q̂(a*)</code> 永远停在那个倒霉的值上</span>——<b>它没有翻身的机会。</b><span class='k'>这是一个自我锁死的循环：不拉 ⇒ 没数据 ⇒ 估计不变 ⇒ 更不拉。</span>",
+    "<b>把这件事翻译成遗憾的语言，结论就很严重了。</b><span class='k'>如果贪心锁死在一条差距为 <code>Δ</code> 的坏臂上，那么它每一步都损失 <code>Δ</code></span>——<b>于是 <code>L_t = Δ·t</code>，是 <b>线性</b> 遗憾。</b><span class='w'>而线性遗憾意味着「平均每步的损失不随时间下降」</span>，<b>也就是你永远学不会。</b><span class='k'>这是这一讲判「一个算法不行」的标准。</span>",
+    "<b>最后提一个实现上的细节，它在 p18 的例子里会直接出现：<span class='k'>打平怎么办</span>。</b><b>学习早期大量臂的估计相同（比如都拉过一次都拿到 1），此时 <code>arg max</code> 会打平。</b><span class='w'>课件和老师都约定「打平时均匀随机挑一个」</span>——<b>老师在课上说的是：「如果你在所有臂之间按 <code>1/臂数</code> 的概率均匀地分，那么会以那个概率选中最优动作。」</b><span class='k'>这个约定在 p19 的概率计算里是关键，不说清楚那道题就做不了。</span>"
+   ]
+  },
+  {
+   "r": [
+    14,
+    14
+   ],
+   "t": "ε-贪心算法",
+   "star": 3,
+   "quote": "The ε-greedy algorithm proceeds as follows: &nbsp;·&nbsp; With probability 1−ε select <b>a_t = arg max_{a∈A} Q̂_t(a)</b> &nbsp;·&nbsp; With probability ε select a random action &nbsp;·&nbsp; <b>Always will be making a sub-optimal decision ε fraction of the time</b> &nbsp;·&nbsp; Already used this in prior homeworks",
+   "one": "以 ε 的概率随机试。<span class='w'>永远有 ε 那么多时间在做次优决策。</span>",
+   "pts": [
+    "<b>ε-贪心解决了锁死的问题，但课件立刻指出它引入了一个新问题，而且那句话就是判决书：</b><span class='w'><em>Always will be making a sub-optimal decision ε fraction of the time</em></span>。<b>「always」这个词是关键</b>——<span class='k'>哪怕你已经完全知道哪条臂最好，你仍然以 ε 的概率去乱拉</span>。<b>这个代价不随时间衰减。</b>",
+    "<b>算一下这个代价，你就知道固定 ε 的问题有多严重。</b><span class='k'>每步以 ε 的概率随机选，于是平均每步的额外损失大约是 <code>ε · (平均差距)</code></span>。<b>这个量是个常数，不随 t 变。</b><span class='w'>于是 <code>L_t ≈ ε·(平均差距)·t</code>——<b>又是线性遗憾</b></span>。<b>所以固定 ε 的 ε-贪心和贪心一样，都是线性遗憾，只是常数不同。</b><span class='k'><code>kp</code> 那句「有探索不等于够」说的正是这件事。</span>",
+    "<b>这是这一讲前半最该带走的结论，值得单独摆出来：<span class='k'>贪心线性，固定 ε-贪心也线性</span>。</b><b>两个你在前面作业里一直用的算法，按这一讲的判据都不及格。</b><span class='w'>而它们失败的原因<b>相反</b></span>：<b>贪心是<b>探索不够</b>（可能永远不试别的），ε-贪心是<b>探索过头</b>（永远在试）。</b><span class='k'>两头都不对，说明光调 ε 的大小解决不了问题，需要的是让它<b>随时间衰减</b>——而那正是 L04 p23 的 GLIE。</span>",
+    "<b>但即使按 GLIE 让 ε 衰减，ε-贪心仍然不是最优的，这一点值得先埋个伏笔。</b><span class='w'>因为它的探索是<b>无差别</b>的</span>——<b>一条已经试过一千次、确定很差的臂，和一条从没试过的臂，被随机选中的概率一样。</b><span class='k'>而 p26 起的「乐观」方法会按<b>不确定性</b>来分配探索</span>：<b>你对它越没把握，就越该去试。</b><span class='w'>这是 ε-贪心和 UCB 最根本的差别，而第十二讲 p2 会用具体数字对比：UCB 给明显坏的臂<b>恰好零</b>概率，ε-贪心给它 0.0333。</span>"
+   ],
+   "tbl": {
+    "head": [
+     "算法",
+     "遗憾",
+     "失败的原因",
+     "探索是怎么分配的"
+    ],
+    "rows": [
+     [
+      "贪心",
+      "<span class='w'>线性</span>",
+      "<span class='w'>探索不够——可能永远锁死</span>",
+      "不探索"
+     ],
+     [
+      "固定 ε-贪心",
+      "<span class='w'>线性</span>",
+      "<span class='w'>探索过头——永远有 ε 在乱拉</span>",
+      "<b>无差别</b>（所有非贪心臂等概率）"
+     ],
+     [
+      "衰减 ε-贪心",
+      "可以做到次线性",
+      "—",
+      "仍然无差别"
+     ],
+     [
+      "<b>UCB（p26 起）</b>",
+      "<span class='k'><code>log t</code></span>",
+      "—",
+      "<b>按不确定性分配</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    15,
+    17
+   ],
+   "t": "断脚趾例子：设定",
+   "star": 2,
+   "quote": "Consider deciding how to best treat patients with broken toes &nbsp;·&nbsp; 3 options: (1) surgery (2) surgical boot / buddy taping (3) do nothing &nbsp;·&nbsp; Outcome measure / reward is <b>binary variable: whether the toe has healed (+1) or not healed (0) after 6 weeks</b>, as assessed by x-ray &nbsp;·&nbsp; Model as a multi-armed bandit with 3 arms, each a <b>Bernoulli variable with an unknown parameter θ_i</b> &nbsp;|&nbsp; <b>Check your understanding: what does a pull of an arm correspond to? Why is it reasonable to model this as a multi-armed bandit instead of a Markov decision process?</b> &nbsp;|&nbsp; True (unknown) parameters: <b>surgery θ_1 = .95 · buddy taping θ_2 = .9 · doing nothing θ_3 = .1</b> &nbsp;|&nbsp; (课件脚注：This is a made up example, not actual efficacies)",
+   "eq": "三条臂（三种治法），奖励是伯努利变量：\n  +1 = 六周后 X 光显示愈合，0 = 没愈合\n\n真实参数（算法不知道）：\n  a1 手术      θ_1 = 0.95\n  a2 并指固定   θ_2 = 0.90\n  a3 不处理    θ_3 = 0.10\n\n所以 V* = 0.95，差距为：\n  Δ_{a1} = 0    Δ_{a2} = 0.05    Δ_{a3} = 0.85",
+   "say": "老师特意强调这是编的例子，不是真实的疗效数据（课件脚注也写了两遍）。她的原话大意是：想象有三种选择——<b>手术</b>、<b>把断趾和旁边的趾头绑在一起</b>（「这是互联网会告诉你的做法」）、以及<b>什么都不做</b>；结果变量是六周后 X 光看愈合没愈合。<br>她把「这个该建模成老虎机还是 MDP」留成了检验题，而没有直接给答案。",
+   "one": "三种治法当三条臂，<b>愈合 = +1</b>。差距分别是 0、0.05、0.85。",
+   "pts": [
+    "<b>这三个参数的设计很讲究，值得先看出它的用意：<span class='k'>两条臂很接近（0.95 vs 0.90），一条臂明显很差（0.10）</span>。</b><b>于是三条臂的差距是 0、0.05、0.85。</b><span class='w'>这个配置能同时演示两件事</span>：<b>① 明显坏的臂该被快速排除（<code>a3</code>）；② 接近的两条臂很难区分，需要大量样本（<code>a1</code> vs <code>a2</code>）。</b><span class='k'>而 p34 的遗憾界里 <code>Δ_a</code> 在分母上，说的正是第②件事的代价。</span>",
+    "<b>课件那道检验题的第一问（拉一条臂对应什么）值得认真答，因为它决定了「一步」有多贵。</b><span class='k'>一次「拉臂」= 给<b>一个病人</b>用<b>一种治法</b>，然后等<b>六周</b>看结果</span>。<b>所以这里的「一步」是六周和一个真实的人。</b><span class='w'>这就是为什么样本效率在这个场景下不是学术问题</span>——<b>每多试一次，就有一个人承担了可能更差的治疗。</b><span class='k'>遗憾这个判据在这里有非常具体的含义：它数的是「本可以治好却没治好的人数」。</span>",
+    "<b>第二问（为什么是老虎机不是 MDP）是这一页真正的考点，答案有两层。</b><b>第一层：<span class='k'>病人之间是独立的</span></b>——<span class='w'>你给这个病人做手术，不改变下一个病人的病情</span>。<b>所以没有状态转移。</b><b>第二层：<span class='k'>每个病人只治一次</span></b>——<b>没有「这一步做什么会影响我下一步在这个病人身上能做什么」。</b><span class='w'>两层合起来，延迟后果这个维度确实不存在，老虎机建模是合适的。</span>",
+    "<b>但要补一句这个建模丢掉了什么，否则你会以为老虎机是万能的。</b><span class='w'>它丢掉了<b>病人之间的差异</b></span>——<b>实际上年轻人和老年人、骨折严重程度不同的人，最优治法可能不同。</b><span class='k'>把这件事加回去，就是「上下文老虎机」（contextual bandit）</span>：<b>每次拉臂前先看到一个上下文（病人特征），再决定拉哪条。</b><span class='w'>课件这一讲不讲它，但它是这条线上最实用的那个变体</span>——<b>而且它正是你那个「不同难度的 query 该用不同配置」问题的标准形式。</b>",
+    "<b>这个例子还有一个值得注意的设计：<span class='k'>奖励是二值的（伯努利）</span>。</b><b>这不是为了简化计算，而是为了后面的贝叶斯部分铺路</b>——<span class='w'>伯努利的共轭先验是 Beta 分布，于是 p48 起的 Thompson 采样可以写成闭式的「<code>Beta(α, β)</code> 加一个计数」</span>。<span class='k'>换成连续奖励，后验更新就没这么漂亮了</span>（<b>要用 p44 的高斯版本</b>）。<b>所以这个例子从一开始就是为了把三个算法都能手算而设计的。</b>"
+   ]
+  },
+  {
+   "r": [
+    18,
+    20
+   ],
+   "t": "贪心在这个例子上：第一轮就可能走偏",
+   "star": 3,
+   "quote": "<b>Greedy</b>: 1 Sample each arm once &nbsp;·&nbsp; Take action a1 (r ∼ Bernoulli(0.95)), get <b>+1</b>, Q̂(a1) = 1 &nbsp;·&nbsp; Take action a2 (r ∼ Bernoulli(0.90)), get <b>+1</b>, Q̂(a2) = 1 &nbsp;·&nbsp; Take action a3 (r ∼ Bernoulli(0.1)), get <b>0</b>, Q̂(a3) = 0 &nbsp;|&nbsp; <b>2 What is the probability of greedy selecting each arm next? Assume ties are split uniformly.</b>",
+   "eq": "先把每条臂各拉一次（这是常规的初始化）：\n  a1 → +1  ⇒  Q̂(a1) = 1\n  a2 → +1  ⇒  Q̂(a2) = 1\n  a3 →  0  ⇒  Q̂(a3) = 0\n\n下一步贪心选谁？\n  arg max 在 a1 和 a2 之间打平\n  按「打平均匀分」的约定：\n    P(a1) = 1/2    P(a2) = 1/2    P(a3) = 0",
+   "say": "老师在讲这道题时点出了那个约定：如果在所有打平的臂之间按「<b>一除以臂数</b>」的概率均匀分，那就会以那个概率选中最优动作。<span class='w'>不说清打平怎么处理，这道题就没有唯一答案。</span>",
+   "one": "各拉一次之后 <code>a1</code> 和 <code>a2</code> 打平，<b>各 1/2</b>，而 <code>a3</code> 被判了死刑。",
+   "pts": [
+    "<b>这个演示最该注意的是：<span class='k'>所有数字都是「运气」，不是「实力」</span>。</b><b><code>a1</code> 拿到 +1 不奇怪（真实概率 0.95），<code>a2</code> 拿到 +1 也不奇怪（0.90），<code>a3</code> 拿到 0 同样不奇怪（0.10）。</b><span class='w'>但这三个数字让你以为 <code>a1</code> 和 <code>a2</code> 一样好、<code>a3</code> 一文不值</span>——<b>而真实情况是 <code>a1</code> 比 <code>a2</code> 好一点点，<code>a3</code> 确实很差。</b><span class='k'>单次样本的信息量就是这么少。</span>",
+    "<b><code>a3</code> 的处境是贪心最危险的地方，值得单独说。</b><span class='w'><code>Q̂(a3) = 0</code>，而另外两条是 1，所以贪心<b>永远</b>不会再拉它</span>。<b>在这个例子里这碰巧是对的（<code>a3</code> 确实最差）。</b><span class='k'>但换一组运气——比如 <code>a1</code> 第一次拿到 0——贪心就会永远不碰真正最好的那条臂</span>。<b>而那个概率是 0.05，不算小。</b><span class='w'>也就是说：这个三臂问题上，贪心有大约 5% 的概率一开始就把最优臂判死刑。</span>",
+    "<b>算一下贪心在这个例子上的期望遗憾，你会看到「线性」的具体样子。</b><span class='k'>假设它锁死在 <code>a2</code>（差距 0.05），那么 <code>L_t = 0.05t</code></span>；<span class='w'>如果不幸锁死在 <code>a3</code>（差距 0.85），<code>L_t = 0.85t</code></span>。<b>两种情况下遗憾都随 t 线性增长，区别只是斜率。</b><span class='k'>而「斜率不为零」就意味着：跑一百万步，你的平均每步损失和第一步时一样大。</span>",
+    "<b>打平处理那个约定看起来是技术细节，但它在这里决定了答案，值得说清楚它为什么重要。</b><span class='w'>如果实现用的是「返回第一个最大值」（numpy 的默认行为），那么 <code>P(a1) = 1, P(a2) = 0</code></span>——<b>贪心会系统性地偏向编号小的臂。</b><span class='k'>而那个偏好完全来自实现细节，不来自数据</span>。<b>L04 p30 说过同一件事：打平时该随机挑，否则你会误以为算法学到了什么。</b>",
+    "<b>这一页还暗含了一个很多人不会注意的设计选择：<span class='k'>先把每条臂各拉一次</span>。</b><b>这不是算法的一部分，而是一个初始化约定。</b><span class='w'>不这么做的话，<code>N_t(a) = 0</code>，样本平均是 <code>0/0</code>，而 UCB 的 <code>√(2log t / N_t(a))</code> 会除零</span>。<span class='k'>标准做法要么是「每条臂先拉一次」，要么是把没拉过的臂的 UCB 定义成 <code>+∞</code></span>——<b>后者更优雅，而且它本身就体现了「乐观」：没试过的东西，先假设它无限好。</b>",
+    "<b>最后把贪心的失败机制和 L04 p15 的那个坑对一次，确认它们是同一件事。</b><span class='k'>L04 说：确定性贪心策略学不到它没试过的动作，因为不试 ⇒ 没数据 ⇒ 看起来差 ⇒ 更不试</span>。<b>这一页是那句话在老虎机上的最小演示</b>——<span class='w'>没有状态、没有转移，纯粹就是这个循环本身</span>。<b>所以如果你在 L04 那里觉得这个坑抽象，这一页就是它的具体样子。</b>"
+   ]
+  },
+  {
+   "r": [
+    21,
+    23
+   ],
+   "t": "ε-贪心在这个例子上，以及「线性」到底多糟",
+   "star": 3,
+   "quote": "(ε-greedy on the same example) &nbsp;·&nbsp; With probability 1−ε select arg max; with probability ε select a random action &nbsp;|&nbsp; <b>Always will be making a sub-optimal decision ε fraction of the time</b>",
+   "eq": "设 ε = 0.1、三条臂，当前 arg max 是 a1：\n  P(选 a1) = 1 − ε + ε/3 = 0.9 + 0.0333 = 0.9333\n  P(选 a2) = ε/3 = 0.0333\n  P(选 a3) = ε/3 = 0.0333\n\n注意：明显很差的 a3 仍然拿到 0.0333 —— 而且这个数永远不降\n\n期望单步遗憾 ≈ 0.0333 × 0.05 + 0.0333 × 0.85 ≈ 0.03\n于是 L_t ≈ 0.03 t  —— 线性",
+   "one": "探索是有了，<b>但 <code>a3</code> 永远分到 0.0333 的概率</b>，而它明明已经被判了死刑。",
+   "pts": [
+    "<b>把这个概率算出来，ε-贪心的毛病就一目了然了。</b><span class='k'>ε = 0.1、三条臂时，每条非贪心臂拿到 <code>ε/3 = 0.0333</code></span>（<b>贪心臂拿到 <code>1 − ε + ε/3 = 0.9333</code>，注意不是 0.9——L04 p18 讲过这个</b>）。<span class='w'>而 <code>a3</code> 的真实参数是 0.1，你已经拉过它、知道它很差</span>——<b>可它仍然每三十次就被拉一次。</b><span class='k'>第十二讲 p2 会用这个数字和 UCB 做对比：UCB 给它的概率是<b>恰好零</b>。</span>",
+    "<b>把这个浪费累加起来，就得到线性遗憾的具体数字。</b><span class='k'>每步的期望额外损失 ≈ <code>0.0333 × 0.05 + 0.0333 × 0.85 ≈ 0.03</code></span>。<b>于是 <code>L_t ≈ 0.03 t</code>。</b><span class='w'>跑十万步，遗憾约三千——相当于三千个病人本可以治好却没治好</span>。<b>而且这个数字<b>不会</b>因为你跑得更久而改善，它只会继续线性增长。</b>",
+    "<b>对比一下 <code>log t</code> 的量级，你就知道这个差别有多大。</b><span class='k'>线性：<code>0.03 × 100000 = 3000</code></span>；<span class='k'><code>log</code>：<code>log(100000) ≈ 11.5</code>，乘上常数也就几百</span>。<b>相差一个数量级以上，而且 t 越大差得越多。</b><span class='w'>这就是为什么 p25 的下界（<code>log t</code>）和 p34 的上界（UCB 达到 <code>log t</code>）合起来是一个重要结果</span>——<b>它说明「只能做到对数」而且「确实能做到对数」。</b>",
+    "<b>最后把这一片的结论收一次，因为它是后半讲的全部动机。</b><span class='k'>贪心线性（探索不够），固定 ε-贪心也线性（探索过头且无差别）</span>。<b>两个我们一直在用的算法，按遗憾这把尺子都不及格。</b><span class='w'>而问题的根子是：它们的探索<b>不看不确定性</b></span>——<b>贪心完全不探索，ε-贪心对所有臂一视同仁地探索。</b><span class='k'>p26 起的「乐观面对不确定」要做的，就是让探索量和不确定性挂钩。</span>",
+    "<b>再把「线性遗憾」这个判据的严厉之处说清楚，因为它比直觉上严厉得多。</b><span class='k'>线性意味着「平均每步的损失不趋于零」</span>——<b>也就是说，哪怕跑到时间的尽头，你每一步仍然在以固定的速率犯错。</b><span class='w'>而「次线性」意味着平均每步损失趋于 0</span>，<b>也就是你最终会几乎总是做对。</b><span class='k'>所以这条线划分的不是「好与更好」，而是「学得会」与「学不会」。</span>",
+    "<b>最后给一条实践上的提醒，它和这个例子直接相关。</b><span class='w'>固定 ε 在实践中仍然极其常用（DQN 就是把 ε 衰减到 0.01 之后固定住）</span>，<span class='k'>而那是因为真实环境常常是非平稳的——保留一点探索是为了跟上变化，不是为了学得更好</span>。<b>所以「固定 ε 是线性遗憾」这个结论的前提是「环境平稳」。</b><span class='w'>换个前提，结论就不适用了</span>——<b>这和 L09 p9 老师澄清「单调改进假设环境平稳」是同一类限定。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "t",
+     "线性遗憾（≈0.03t）",
+     "log 遗憾（≈c·log t）",
+     "差距"
+    ],
+    "rows": [
+     [
+      "100",
+      "3",
+      "约 5·c",
+      "<span class='w'>差不多</span>"
+     ],
+     [
+      "10 000",
+      "300",
+      "约 9·c",
+      "<span class='k'>一个数量级</span>"
+     ],
+     [
+      "100 000",
+      "<b>3000</b>",
+      "约 11.5·c",
+      "<b>两个数量级</b>"
+     ],
+     [
+      "<b>含义</b>",
+      "<span class='w'>每步损失不降，永远学不会</span>",
+      "<span class='k'>平均每步损失趋于 0</span>",
+      "<b>这条线分的是「学得会」与「学不会」</b>"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "这一讲相对前十讲，换掉的是什么？",
+    "o": [
+     "折扣因子的取法",
+     "算法框架",
+     "判据——从「收不收敛、收敛到哪」换成「要花多少数据、路上犯了多少错」",
+     "状态表示"
+    ],
+    "a": 2,
+    "why": "第一讲列的四样要求里，「统计上和计算上都高效」一直挂着没人管（L07 p17 摊开过这笔账），这一讲开始还它。"
+   },
+   {
+    "q": "课件引入的三层词汇是什么？",
+    "o": [
+     "设定 / 框架 / 方法——分别是「问题长什么样」「用什么尺子量」「用什么办法达标」",
+     "模型 / 策略 / 值函数",
+     "偏差 / 方差 / 噪声",
+     "输入 / 输出 / 损失"
+    ],
+    "a": 0,
+    "why": "三层是正交的，而且课件强调：同一个方法可以在多个设定下满足多个框架——所以核心思想只有两三个。"
+   }
+  ],
+  "4": [
+   {
+    "q": "「计算效率 ≠ 样本效率」的区别是什么？",
+    "o": [
+     "一个指内存一个指时间",
+     "计算效率是一步算多久，样本效率是要和环境交互多少次——后者在真实问题里往往贵得多",
+     "计算效率针对训练，样本效率针对推理",
+     "两者等价"
+    ],
+    "a": 1,
+    "why": "多买一块显卡是花钱；多试一次新药、多撞一次车、多骚扰一次客户，代价完全不同。"
+   },
+   {
+    "q": "课件列的四个判据里，哪一个管的是整个过程而不是终点？",
+    "o": [
+     "收敛到最优吗",
+     "收不收敛",
+     "路上犯了多少错",
+     "多快到最优"
+    ],
+    "a": 2,
+    "why": "这就是遗憾。前三条分别不排除「极慢」「路上代价极大」「到达前一直在做最差选择」。"
+   }
+  ],
+  "10": [
+   {
+    "q": "老虎机和 MDP 的差别是什么？",
+    "o": [
+     "老虎机没有奖励",
+     "老虎机没有状态——你的动作不改变下一次面对的处境，于是延迟后果这个维度消失了",
+     "老虎机的动作连续",
+     "老虎机的奖励是确定的"
+    ],
+    "a": 1,
+    "why": "L02 p5 早就说过：bandits 是单状态的 MDP。它把四个困难里的三个拿掉，只留探索。"
+   },
+   {
+    "q": "定义里有一处不对称，是什么？",
+    "o": [
+     "A（动作集）是已知的，R（奖励分布）是未知的",
+     "两者都未知",
+     "两者都已知",
+     "A 未知，R 已知"
+    ],
+    "a": 0,
+    "why": "这个设定排除了「还有没有我没想到的选项」这类现实问题，而且臂数 m 是固定有限的。"
+   },
+   {
+    "q": "「最大化累计奖励」和「找到最好的那条臂」是同一个目标吗？",
+    "o": [
+     "是，只要时间足够长",
+     "是",
+     "不是——前者在乎过程（每次都算分），后者只在乎终点（中间试错多少不要紧）",
+     "不是，但差别可以忽略"
+    ],
+    "a": 2,
+    "why": "两者对应两个框架：遗憾 vs 纯探索（best-arm identification）。它们要的算法不一样。"
+   }
+  ],
+  "11": [
+   {
+    "q": "遗憾的定义里，最该注意的是哪个词？",
+    "o": [
+     "最优",
+     "期望",
+     "机会",
+     "累计——它是对整条轨迹求和，不是对当前状态的评价"
+    ],
+    "a": 3,
+    "why": "一个算法现在表现完美，但前面犯了一千次错，它的遗憾仍然很大。这正是它和「收敛到最优」的根本区别。"
+   },
+   {
+    "q": "既然最小化遗憾等价于最大化累计奖励，为什么还要引入遗憾？",
+    "o": [
+     "遗憾是无偏的",
+     "遗憾更容易计算",
+     "遗憾的量级更有意义——累计奖励总是随 t 线性增长，而遗憾的增长速度直接反映算法好坏",
+     "遗憾不需要知道 V*"
+    ],
+    "a": 2,
+    "why": "线性增长 = 糟糕，对数增长 = 很好。而累计奖励看不出这个差别。"
+   }
+  ],
+  "12": [
+   {
+    "q": "<code>L_t = Σ_a E[N_t(a)]·Δ_a</code> 这个改写暴露了什么结构？",
+    "o": [
+     "遗憾 = 每条坏臂拉了几次 × 它有多坏；而第二个因子你改不了，第一个才是设计空间",
+     "遗憾与时间无关",
+     "遗憾只取决于最优臂",
+     "遗憾随臂数线性增长"
+    ],
+    "a": 0,
+    "why": "于是整个老虎机问题可以重述为：在不知道差距的情况下，怎么让差距大的臂被拉的次数少。"
+   },
+   {
+    "q": "UCB1 的遗憾界里 <code>Δ_a</code> 出现在分母上，这说明什么？",
+    "o": [
+     "分母上的 Δ 只是记号习惯",
+     "差距越大遗憾越大",
+     "差距小的臂难区分，被拉的次数多，虽然每次损失小，但乘起来贡献更大的遗憾",
+     "差距为零的臂贡献无穷遗憾"
+    ],
+    "a": 2,
+    "why": "界的形状是 8 log t · Σ_{a:Δ>0} (1/Δ_a)。这也解释了为什么「两条很接近的臂」是最难的情形。"
+   }
+  ],
+  "13": [
+   {
+    "q": "贪心算法的致命问题，课件用哪个词强调？",
+    "o": [
+     "sometimes",
+     "forever——can lock onto a suboptimal action, forever",
+     "slowly",
+     "approximately"
+    ],
+    "a": 1,
+    "why": "不是「可能慢一点」，是「可能永远不改」。机制是自我锁死：不拉 ⇒ 没数据 ⇒ 估计不变 ⇒ 更不拉。"
+   },
+   {
+    "q": "如果贪心锁死在一条差距为 Δ 的坏臂上，遗憾是什么量级？",
+    "o": [
+     "<code>log t</code>",
+     "<code>√t</code>",
+     "<code>Δ·t</code>，线性",
+     "常数"
+    ],
+    "a": 2,
+    "why": "线性遗憾意味着平均每步的损失不随时间下降——也就是你永远学不会。这是本讲判「不行」的标准。"
+   }
+  ],
+  "14": [
+   {
+    "q": "固定 ε 的 ε-贪心，遗憾是什么量级？",
+    "o": [
+     "<code>√t</code>",
+     "也是线性——因为它永远以 ε 的概率乱拉，这个代价不随时间衰减",
+     "<code>log t</code>",
+     "常数"
+    ],
+    "a": 1,
+    "why": "课件原话 Always will be making a sub-optimal decision ε fraction of the time。kp 那句「有探索不等于够」说的就是这个。"
+   },
+   {
+    "q": "贪心和 ε-贪心失败的原因是什么关系？",
+    "o": [
+     "都因为学习率不对",
+     "相反——贪心是探索不够，ε-贪心是探索过头",
+     "相同",
+     "互为因果"
+    ],
+    "a": 1,
+    "why": "两头都不对，说明光调 ε 的大小解决不了，需要让它随时间衰减（GLIE），而且探索还该看不确定性。"
+   },
+   {
+    "q": "即使按 GLIE 让 ε 衰减，ε-贪心相对 UCB 仍差在哪？",
+    "o": [
+     "它有偏",
+     "收敛更慢",
+     "它的探索是无差别的——试过一千次确定很差的臂和从没试过的臂，被选中概率一样",
+     "它需要知道时间horizon"
+    ],
+    "a": 2,
+    "why": "第十二讲 p2 会用具体数字对比：UCB 给明显坏的臂恰好零概率，ε-贪心给它 0.0333。"
+   }
+  ],
+  "15": [
+   {
+    "q": "这三个参数（0.95 / 0.90 / 0.10）的设计用意是什么？",
+    "o": [
+     "模拟真实医疗数据",
+     "让计算简单",
+     "让最优臂唯一",
+     "两条臂很接近、一条明显很差——同时演示「快速排除坏臂」和「接近的臂很难区分」"
+    ],
+    "a": 3,
+    "why": "差距是 0、0.05、0.85。而 UCB 界里 Δ 在分母上，说的正是第二件事的代价。"
+   },
+   {
+    "q": "这个例子里「拉一次臂」对应什么？",
+    "o": [
+     "查一次文献",
+     "做一次模拟",
+     "训练一个 epoch",
+     "给一个病人用一种治法，然后等六周看 X 光结果"
+    ],
+    "a": 3,
+    "why": "所以这里的「一步」是六周和一个真实的人。遗憾在这里数的是「本可以治好却没治好的人数」。"
+   },
+   {
+    "q": "为什么这个例子建模成老虎机是合适的？",
+    "o": [
+     "因为只有三个选项",
+     "病人之间独立（治这个不改变下一个的病情），而且每个病人只治一次——没有状态转移",
+     "因为时间很长",
+     "因为奖励是二值的"
+    ],
+    "a": 1,
+    "why": "但它丢掉了病人之间的差异。把那个加回去就是「上下文老虎机」——也正是「不同难度的输入该用不同配置」的标准形式。"
+   }
+  ],
+  "18": [
+   {
+    "q": "各拉一次之后 <code>Q̂(a1)=Q̂(a2)=1</code>、<code>Q̂(a3)=0</code>，贪心下一步选谁？",
+    "o": [
+     "一定选 a3（因为没试够）",
+     "三条臂各 1/3",
+     "a1 和 a2 打平，按「打平均匀分」各 1/2，a3 概率为 0",
+     "一定选 a1"
+    ],
+    "a": 2,
+    "why": "不说清打平怎么处理，这道题就没有唯一答案。老师在课上专门点了这个约定。"
+   },
+   {
+    "q": "这个演示里的三个数字说明了什么？",
+    "o": [
+     "a3 确实最差",
+     "算法已经学会了",
+     "所有数字都是「运气」不是「实力」——单次样本的信息量就是这么少",
+     "初始化方式有问题"
+    ],
+    "a": 2,
+    "why": "a1 拿 +1（真实 0.95）、a2 拿 +1（0.90）、a3 拿 0（0.10）都不奇怪，但它们让你以为 a1 和 a2 一样好。"
+   },
+   {
+    "q": "在这个三臂问题上，贪心一开始就把最优臂判死刑的概率大约是多少？",
+    "o": [
+     "0.95",
+     "0.05（a1 第一次拿到 0 的概率）",
+     "接近 0",
+     "0.5"
+    ],
+    "a": 1,
+    "why": "不算小。而一旦判死刑，a1 再也不会被拉，Q̂(a1) 永远停在那个倒霉的值上。"
+   }
+  ],
+  "21": [
+   {
+    "q": "ε=0.1、三条臂时，明显很差的 <code>a3</code> 被选中的概率是多少？",
+    "o": [
+     "0",
+     "0.1",
+     "0.333",
+     "0.0333"
+    ],
+    "a": 3,
+    "why": "ε/3 = 0.0333，而且这个数永远不降——你已经知道它很差，可它仍然每三十次被拉一次。"
+   },
+   {
+    "q": "ε=0.1 时贪心臂被选中的概率是多少？",
+    "o": [
+     "0.9",
+     "0.9333（= 1 − ε + ε/3）",
+     "0.8667",
+     "1"
+    ],
+    "a": 1,
+    "why": "随机分支里也有 1/|A| 的概率抽中它。L04 p18 讲过这个常见的算错。"
+   },
+   {
+    "q": "线性遗憾和 <code>log t</code> 遗憾，在 t=10 万时差多少？",
+    "o": [
+     "几乎没差",
+     "差一个数量级以上——线性约 3000，而 log(10⁵)≈11.5 乘常数也就几百",
+     "差一倍左右",
+     "无法比较"
+    ],
+    "a": 1,
+    "why": "而且 t 越大差得越多。这就是为什么「下界是 log t」和「UCB 达到 log t」合起来是一个重要结果。"
+   }
+  ]
+ }
+}

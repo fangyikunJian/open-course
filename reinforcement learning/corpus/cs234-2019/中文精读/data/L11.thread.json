@@ -1,0 +1,89 @@
+{
+ "title": "L11 接上课题的哪一段：先回答「你的问题到底是不是序贯的」",
+ "arc": "<b>这一讲对你的用处，不在它的算法，在它逼你回答的那个问题。</b><span class='k'>课件 p16 自己把它留成了检验题：<em>Why is it reasonable to model this as a multi-armed bandit instead of a Markov decision process?</em></span><b>而这个问题你一直默认答案是「我的是 MDP」，却没有检验过。</b><br><br><b>判据只有一条：<span class='k'>你这一步的决定，会不会改变你下一步面对的处境</span>。</b><span class='w'>节点 h 换一档保真度，h+1 收到的产物确实变了</span>——<b>但「变了」和「变得足以影响最优决策」是两回事，而后者是可以实测的。</b><br><br><b>研究笔记把这个实验写得很具体，它叫<span class='k'>可加性检验</span>，而且它是整个项目里最该先做的那一个：</b><br><b>① </b>对每个节点 h，测 <code>Δ_h^down = Acc(全高) − Acc(全高但 h 降级)</code>；<br><b>② </b>比较 <code>Σ_h Δ_h^down</code> 与 <code>Acc(全高) − Acc(全低)</code>。<br><span class='k'>在置信区间内相等 ⇒ 节点效应<b>可加</b>，问题实质上不是 MDP，诚实的建模是「逐节点的上下文老虎机」</span>；<span class='w'>前者明显小于后者 ⇒ 节点间有真实交互，你<b>挣到了</b>序贯建模的资格</span>。<br><br><b>而「可加」这个结果会让你的问题简单一大截，<b>而且是有依据地</b>简单。</b><span class='k'>单步决策没有分布漂移</span>——<b>于是 L05 的致命三件套、L07 的 <code>εT²</code>、L09 那个算不出的 <code>ρ^{π̃}</code>，统统不适用。</b><span class='w'>取而代之的是一套完整到罕见的理论：上下界吻合（p25 对 p34）、算法不需要知道差距、遗憾是 <code>log T</code></span>。<br><br><b>更现实的结果大概是「部分可加」，那时有一条务实的中间路线（p59 科研格）：</b><span class='k'>仍然建模成上下文老虎机，但把「上游做了什么、已花多少成本」塞进上下文</span>。<b>你保留单步决策的全部理论好处，又没丢掉节点间的依赖，代价是上下文维度变高。</b><span class='w'>而且这条路可以逐步加码：先只放 query 特征，再逐步加入上游信息，看指标涨不涨。</span><br><br><b>另外，p29–p33 那四步推导本身值得搬走（见 p29 的科研格）</b>——<span class='k'>它是「怎么给一个自适应选择开出可信保证」的标准模板，而其中的<b>并集界</b>那一步正好是 L04 最大化偏差的解药的另一种形式。</span>",
+ "pitfalls": [
+  {
+   "v": "<b>默认自己的问题是 MDP 而不检验。</b> <span class='k'>课件 p16 把这件事留成了检验题，而研究笔记把它列为「决定项目是否可行」的两个实验之一</span>。<b>两种结果都是结果，都该报告</b>——<span class='w'>审稿人尊重一篇检验了自己建模前提的论文，而惩罚一篇直接假设它的</span>。<b>而且如果答案是「可加」，你反而省掉了一大堆麻烦。</b>",
+   "tag": "推断",
+   "ref": "课件 p10 p16 · bridge-threads 线 1（Week 2）"
+  },
+  {
+   "v": "<b>把「有探索」当成「探索够了」。</b> <span class='k'>固定 ε-贪心是<b>线性</b>遗憾，和完全不探索的贪心同一个量级</span>。<span class='w'>ε=0.1、三条臂时，一条你已经确定很差的臂仍然每三十次被拉一次，而且永远不降</span>。<b>如果你的随机化强度是固定的，那你就在这个情形里</b>——<span class='k'>离线采数据时这是对的（覆盖要均匀，见 L04 p23 科研格），但别把它当成「探索做得好」。</span>",
+   "tag": "已核",
+   "ref": "课件 p14 p21 p62"
+  },
+  {
+   "v": "<b>用置信<b>下</b>界去做在线选择。</b> <span class='w'>p41 的检验题：拉它会让它的下界上升、不拉的臂下界下降——正反馈，永远锁死，线性遗憾</span>。<span class='k'>但<b>离线一次性选择</b>时按下界挑恰恰是对的</span>——<b>那是安全策略改进的标准形式（L15）。</b><b>同一个做法，在线错、离线对，差别全在「之后还探不探索」。</b><span class='w'>你的设定是离线的，所以别被这道题误导。</span>",
+   "tag": "已核",
+   "ref": "课件 p41 · L15"
+  },
+  {
+   "v": "<b>以为遗憾是可以监控的指标。</b> <span class='k'>遗憾用的是<b>真实均值</b>之差，而那正是你不知道的东西</span>——<b>它是分析用的概念，不是运行时能算的量。</b><span class='w'>所以报告「遗憾曲线」的实验一定是在模拟环境里做的</span>。<b>你要在真实系统里衡量类似的东西，只能靠那张穷举 oracle 表当基准（§4d）。</b>",
+   "tag": "已核",
+   "ref": "课件 p40 · 简报 §4d"
+  },
+  {
+   "v": "<b>把 Thompson 实现成「取后验均值最大」。</b> <span class='w'>那样它就退化成纯贪心了</span>。<span class='k'>必须<b>抽样本</b>，而且每一步重新抽、每条臂各抽一个</span>。<b>这是实现 Thompson 最常见的错误，而且它不会报错，只会让探索悄悄消失。</b>",
+   "tag": "已核",
+   "ref": "课件 p46–p47"
+  },
+  {
+   "v": "<b>照搬这一讲的计数型探索到高维状态。</b> <span class='w'>UCB 的半径要求你能数清每条臂被拉了多少次，而连续或高维状态下「同一个状态」几乎不会出现两次</span>。<span class='k'>思想能搬（给不确定处加乐观），计数不能直接搬</span>——<b>第十三讲最后一条明说「计数不泛化，而理论还没跟上」。</b><b>你的状态里有 query 嵌入，所以这一条直接适用。</b>",
+   "tag": "已核",
+   "ref": "课件 p63 · L13 kp"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你凭什么说这是个序贯决策问题？",
+   "a": "<b>我们没有假设它是，我们测了。</b><span class='k'>对每个节点测「单点降级」的准确率损失 <code>Δ_h</code>，再比较 <code>Σ_h Δ_h</code> 和「全高 vs 全低」的总差距</span>。<b>两者在置信区间内吻合就说明节点效应可加、问题实质上不是 MDP；明显欠缺才说明存在真实的节点间交互。</b><span class='w'>我们报告了这个检验的结果，并据此选择了建模方式</span>——<b>CS234 L11 p16 把这个判断留成了课堂检验题，我们把它做成了实验。</b>",
+   "tag": "推断",
+   "ref": "课件 p10 p16 · bridge-threads 线 1"
+  },
+  {
+   "q": "为什么不用更复杂的序贯方法？",
+   "a": "<b>因为如果问题是可加的，序贯方法买不到任何东西，却要付出全部代价。</b><span class='k'>单步决策没有分布漂移，于是致命三件套（CS234 L05）、行为克隆的 <code>εT²</code>（L07）、以及「新策略的状态分布算不出来」（L09）这些困难统统不出现</span>。<span class='w'>取而代之的是一套上下界吻合的理论：遗憾是 <code>log T</code>，而且算法不需要知道各选项之间的差距</span>。<b>用更复杂的方法去解一个更简单的问题，是在白白承担它的全部风险。</b>",
+   "tag": "推断",
+   "ref": "课件 p25 p34 p62 · L05 p38 · L07 p30 · L09 p33"
+  },
+  {
+   "q": "你们的探索策略有什么依据？",
+   "a": "<b>依据是「按不确定性分配探索」这个原则，而不是固定比例的随机化。</b><span class='k'>固定 ε 的随机化是<b>线性</b>遗憾——它会永远以同样的概率去试一个已经确定很差的选项</span>（CS234 L11 p14、p62）。<span class='w'>而 UCB 与 Thompson 都让「被选中的概率」和「你对它有多没把握」挂钩，两者的遗憾界同阶，都达到 Lai-Robbins 下界</span>。<b>我们在离线采数据阶段保持均匀覆盖（那时要的是覆盖不是效率），在选择阶段才用不确定性加权。</b>",
+   "tag": "推断",
+   "ref": "课件 p14 p26 p34 p60 p62 · L04 p23 科研格"
+  },
+  {
+   "q": "你们报的那个最优配置，怎么保证不是运气好？",
+   "a": "<b>我们做了并集界修正。</b><span class='k'>从 m 个候选里挑最大值时，单个候选的置信区间不够——必须让界对<b>所有</b>候选同时成立</span>，<b>而那要把 δ 换成 <code>δ/m</code>，半径里多一个 <code>√log m</code> 的因子。</b><span class='w'>这正是 CS234 L11 p29–p33 那段推导里的第三步（并集界，用 <code>Σt⁻² = π²/6 < 2</code>）</span>——<b>而不做这一步的后果就是 L04 p42 的最大化偏差：你报的那个数系统性地虚高。</b>",
+   "tag": "推断",
+   "ref": "课件 p29–p33 · L04 p42 · 本讲 p29 科研格"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Lai &amp; Robbins — Asymptotically Efficient Adaptive Allocation Rules",
+   "id": "Advances in Applied Mathematics 1985",
+   "why": "p25 那个下界的出处。<b>你需要它来论证「为什么不可能做得更好」</b>——<span class='k'>常数遗憾做不到，<code>log T</code> 是能指望的最好结果</span>。<span class='w'>这条在写 limitation 时有用：说明某些探索开销是问题本身要求的，不是方法的缺陷。</span>"
+  },
+  {
+   "t": "Auer, Cesa-Bianchi &amp; Fischer — Finite-time Analysis of the Multiarmed Bandit Problem (UCB1)",
+   "id": "Machine Learning 2002",
+   "why": "p34 的出处，课件直接标了它。<b>关键是它给的是<b>有限时间</b>的界，不只是渐近结论</b>——<span class='k'>而有限时间的界才能回答「我跑 1000 次够不够」这种实际问题</span>。"
+  },
+  {
+   "t": "Chapelle &amp; Li — An Empirical Evaluation of Thompson Sampling",
+   "id": "NIPS 2010",
+   "why": "p59 的出处，也是 Thompson 采样重新流行的直接原因。<b>对你最有用的是它的两个实证发现</b>：<span class='k'>① 上下文老虎机的工程形态（上下文 → 臂 → 延迟的二值反馈）和你的设定几乎同构；② 它对<b>延迟反馈</b>特别稳健</span>——<span class='w'>而你的奖励也是延迟的（要等整条流水线跑完）。</span>"
+  },
+  {
+   "t": "Li, Chu, Langford &amp; Schapire — A Contextual-Bandit Approach to Personalized News Article Recommendation (LinUCB)",
+   "id": "WWW 2010",
+   "why": "上下文老虎机最常被引的那个算法。<b>它把 UCB 的半径推广到线性模型上：<code>√(x^T A^{-1} x)</code></b>——<span class='k'>注意这个量同时衡量了「这个上下文我见过多少」</span>，<b>正是你需要的那个「覆盖率」的连续版本（L10 p22 科研格要的东西）。</b>"
+  },
+  {
+   "t": "Russo, Van Roy, Kazerouni, Osband &amp; Wen — A Tutorial on Thompson Sampling",
+   "id": "Foundations and Trends in ML 2018",
+   "why": "Thompson 采样的现代综述，比这一讲完整得多。<b>你要落地 Thompson 时该读的那一本</b>——<span class='k'>它系统地讲了怎么处理非共轭的后验（你的 Acc/Cost 不是伯努利）、怎么做近似采样、以及批量和延迟反馈怎么办</span>。"
+  }
+ ]
+}

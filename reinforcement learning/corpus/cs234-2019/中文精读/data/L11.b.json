@@ -1,0 +1,636 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 5
+ },
+ "_守住的数字": [
+  "p25 Lai-Robbins 下界：lim L_t ≥ log t · Σ_{a:Δ_a>0} Δ_a / D_KL(R^a‖R^{a*})；课件原话 Hard problems have similar looking arms with different means；Promising in that lower bound is sublinear",
+  "p28 Hoeffding：X_i ∈ [0,1] iid ⇒ P(E[X] > X̄_n + u) ≤ exp(−2nu²)",
+  "p28 反解半径：令 exp(−2nu²) = δ/t² ⇒ u = √((1/2n)·log(t²/δ))",
+  "【易错】板书上这个半径写成了 μ，但它<b>不是</b>均值——Hoeffding 原式里它叫 u",
+  "p29-33 两情形引理：若所有置信界成立，则 U_t(a_t) ≥ Q(a*)；情形二用到 UCB 的定义（选 arg max 上界）",
+  "p29-33 并集界：Σ_{t=1}^∞ t^{-2} = π²/6 < 2（Basel）⇒ 失败概率 ≤ 2mδ ⇒ 以至少 1 − 2mδ 的概率所有界在所有时刻成立；因为求和到无穷，界对无限 horizon 也成立",
+  "p34 UCB1（Auer, Cesa-Bianchi, Fischer 2002）：a_t = arg max_a [Q̂(a) + √(2 log t / N_t(a))]",
+  "p34 定理：lim L_t ≤ 8 log t · Σ_{a:Δ_a>0} Δ_a —— 与 p25 的下界同阶，只差常数",
+  "【要点】t 是「总共拉了任何臂多少次」，N_t(a) 是「拉了这一条多少次」；N 在分母递减、log t 在分子递增 —— 这就是每步要更新所有臂上界的原因",
+  "p41 检验题：按置信下界贪心会线性遗憾（正反馈锁死）；但离线一次性选择时它反而是对的"
+ ],
+ "notes": [
+  {
+   "r": [
+    24,
+    24
+   ],
+   "t": "两类遗憾界",
+   "star": 2,
+   "quote": "<b>Problem independent</b>: Bound how regret grows as a function of T, the total number of time steps the algorithm operates for &nbsp;·&nbsp; <b>Problem dependent</b>: Bound regret as a function of the number of times we pull each arm and the gap Δ_a",
+   "one": "<b>与问题无关的界</b>只看 T；<b>与问题有关的界</b>把差距写进去。",
+   "say": "老师补了一句行情：<b>MDP 上大多数界是与问题无关的，而老虎机上有很多与问题有关的界</b>。",
+   "pts": [
+    "<b>两类界的差别，用一句话说清：<span class='k'>要不要把「这个问题有多难」写进结论里</span>。</b><span class='w'>与问题无关（problem independent）：只用 T 和臂数 m，对<b>所有</b>老虎机实例都成立</span>——<b>典型形状是 <code>O(√(mT log T))</code>。</b><span class='k'>与问题有关（problem dependent）：把差距 <code>Δ_a</code> 写进去</span>——<b>典型形状是 <code>O(Σ_a log T / Δ_a)</code>。</b>",
+    "<b>两者不是谁更强，而是在不同的 T 范围内各自更紧，这一点值得想清楚。</b><span class='k'>T 很大时，<code>log T</code> 远小于 <code>√T</code>，所以与问题有关的界更好</span>；<span class='w'>但如果某个 <code>Δ_a</code> 极小，<code>1/Δ_a</code> 会爆炸，那时与问题无关的界反而更有意义</span>。<b>直觉上也对：两条臂几乎一样好时，你区分不出它们，但区分不出的代价也很小。</b><span class='k'>所以实践中常把两者取最小值当作真正的界。</span>",
+    "<b>老师那句行情对比也值得记，它解释了为什么这一讲要从老虎机讲起。</b><span class='w'>MDP 上大多数界是与问题无关的</span>——<b>因为 MDP 的「难度」没法用一两个数（像差距）概括，它牵涉整个转移结构。</b><span class='k'>而老虎机的难度恰好可以用一组差距完全刻画</span>，<b>于是能得到更精细的、与问题有关的结论。</b><span class='w'>这是老虎机作为「干净的实验场」的又一个好处。</span>"
+   ]
+  },
+  {
+   "r": [
+    25,
+    25
+   ],
+   "t": "下界：常数遗憾做不到",
+   "star": 3,
+   "quote": "Use lower bound to determine <b>how hard this problem is</b> &nbsp;·&nbsp; The performance of any algorithm is determined by <b>similarity between optimal arm and other arms</b> &nbsp;·&nbsp; <b>Hard problems have similar looking arms with different means</b> &nbsp;·&nbsp; formally described by the gap Δ_a and the similarity in distributions <b>D_KL(R^a ‖ R^{a*})</b> &nbsp;|&nbsp; <b>Theorem (Lai and Robbins)</b>: Asymptotic total regret is <b>at least logarithmic</b> in number of steps &nbsp;·&nbsp; <b>lim_{t→∞} L_t ≥ log t Σ_{a|Δ_a>0} Δ_a / D_KL(R^a ‖ R^{a*})</b> &nbsp;·&nbsp; <b>Promising in that lower bound is sublinear</b>",
+   "eq": "Lai & Robbins 下界：\n\n  lim_{t→∞} L_t  ≥  log t · Σ_{a: Δ_a > 0}  Δ_a / D_KL(R^a ‖ R^{a*})\n\n读法：\n  分子 Δ_a —— 这条臂有多坏（拉一次损失多少）\n  分母 D_KL —— 它和最优臂有多「像」（越像越难区分）\n\n两条臂越像 ⇒ D_KL 越小 ⇒ 这一项越大 ⇒ 遗憾下界越高",
+   "one": "<b>任何算法的遗憾至少是 <code>log t</code> 量级。</b>常数遗憾做不到——但次线性是能指望的。",
+   "pts": [
+    "<b>下界这个东西的作用要先说清楚，它和上界的角色完全不同。</b><span class='k'>上界说「某个算法能做到这么好」，是关于<b>算法</b>的陈述</span>；<span class='w'>下界说「<b>任何</b>算法都好不过这个」，是关于<b>问题</b>的陈述</span>。<b>所以下界告诉你的是这个问题有多难，而不是某个算法有多笨。</b><span class='k'>课件 p25 第一句就是这个意思：<em>Use lower bound to determine how hard this problem is</em>。</span>",
+    "<b>而这个下界的内容，一句话：<span class='w'>常数遗憾做不到，<code>log t</code> 是你能指望的最好结果</span>。</b><b>「常数遗憾」意味着你试错几次之后就再也不犯错了，总损失有界。</b><span class='k'>定理说这不可能</span>——<b>因为你永远无法<b>完全确定</b>哪条臂最好，所以必须持续地付出少量探索代价。</b><span class='w'>而那个代价累积起来，至少是 <code>log t</code>。</span>",
+    "<b>课件最后那句 <em>Promising in that lower bound is sublinear</em> 值得体会它的语气。</b><span class='k'>下界是 <code>log t</code>，而 <code>log t</code> 是<b>次线性</b>的</span>——<b>所以「学得会」这件事在原则上是可能的。</b><span class='w'>如果下界是线性的，那就意味着没有任何算法能学会，整个研究方向就没了</span>。<b>所以这个「坏消息」（做不到常数）同时是个「好消息」（能做到次线性）。</b><span class='k'>而 p34 会告诉你 UCB 恰好达到了这个 <code>log t</code>，上下界吻合。</span>",
+    "<b>那个表达式的结构值得逐项读，因为它精确地说出了「什么样的老虎机难」。</b><span class='k'>分子是 <code>Δ_a</code>（这条臂多坏），分母是 <code>D_KL(R^a ‖ R^{a*})</code>（它和最优臂的分布有多不像）</span>。<b>分母越小（两条臂越像），这一项越大。</b><span class='w'>课件的原话是 <em>Hard problems have similar looking arms with different means</em></span>——<b>难的不是「差得远」，是「看起来像但其实不一样」。</b><span class='k'>断脚趾例子里的 <code>a1</code>（0.95）和 <code>a2</code>（0.90）正是这种情形。</span>",
+    "<b>把分子分母合起来再想一层，你会发现一个有点反直觉的结论。</b><span class='w'>差距 <code>Δ_a</code> 极小的臂，分子小但分母也小</span>——<b>而分母（KL 散度）大致按 <code>Δ_a²</code> 衰减，分子只按 <code>Δ_a</code> 衰减。</b><span class='k'>所以整项大致是 <code>1/Δ_a</code>，<b>差距越小，贡献的遗憾越大</b></span>。<b>这和 p34 的 UCB 上界形状完全一致。</b><span class='w'>直觉：区分两条几乎一样的臂需要极多样本，而那些样本里有一半花在了次优臂上。</span>"
+   ],
+   "tbl": {
+    "head": [
+     "老虎机实例",
+     "差距",
+     "KL",
+     "难度",
+     "遗憾下界的贡献"
+    ],
+    "rows": [
+     [
+      "两条臂差很远",
+      "<span class='k'>大</span>",
+      "<span class='k'>大</span>",
+      "<span class='k'>容易</span>",
+      "小（几次就能区分）"
+     ],
+     [
+      "两条臂很接近",
+      "<span class='w'>小</span>",
+      "<span class='w'>更小（约 Δ²）</span>",
+      "<span class='w'>难</span>",
+      "<b>大（约 1/Δ）</b>"
+     ],
+     [
+      "<b>课件原话</b>",
+      "—",
+      "—",
+      "<b>Hard problems have similar looking arms with different means</b>",
+      "—"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    26,
+    26
+   ],
+   "t": "乐观面对不确定",
+   "star": 3,
+   "quote": "<b>Approach: Optimism in the Face of Uncertainty</b> &nbsp;·&nbsp; Choose actions that <b>might</b> have a high value &nbsp;·&nbsp; Why? &nbsp;·&nbsp; <b>Two outcomes:</b>",
+   "one": "挑<b>有可能</b>很好的那条。<span class='k'>两种结果，怎么样你都赢。</span>",
+   "pts": [
+    "<b>课件这一页只写了「Why? Two outcomes:」就把答案留给了课堂，而那个答案是整条线的核心，值得自己补出来。</b><span class='k'>你挑了一条「乐观估计最高」的臂去拉，接下来只有两种可能</span>：<br><b>① 它真的很好</b> ⇒ <span class='k'>那你这一拉赚到了，遗憾小</span>。<br><b>② 它其实不好</b> ⇒ <span class='k'>那你拿到了一个低奖励，它的估计会下降，以后就不会再被乐观地高估了</span>。<b>也就是说：要么你赚了，要么你学到了。</b>",
+    "<b>这就是 <code>kp</code> 那句「一次乐观的拉动<b>两难都赢</b>」的意思，而它的分量值得强调。</b><span class='w'>探索与利用的「两难」之所以是两难，是因为通常它们互相冲突</span>——<b>探索就得放弃当下的收益，利用就学不到新东西。</b><span class='k'>而乐观把这个冲突消解了：同一个动作同时服务于两者</span>。<b>这不是折中，是找到了一个两边都满足的选法。</b>",
+    "<b>但要注意「乐观」必须是<span class='k'>有依据的</span>乐观，否则它退化成乱猜。</b><span class='w'>如果你对一条臂的乐观估计是随便加的，那么情形②里「估计会下降」这一步就不成立</span>——<b>你可以永远乐观下去。</b><span class='k'>所以乐观的幅度必须和「你对这条臂有多不确定」挂钩</span>：<b>拉得越少，越不确定，乐观加得越多；拉得越多，估计越准，乐观加得越少。</b><span class='w'>p27–p28 要做的就是把这个「加多少」算出来。</span>",
+    "<b>最后把乐观和前面两个算法对比一次，三者的探索策略就清楚了。</b><span class='w'>贪心：不探索</span>；<span class='w'>ε-贪心：无差别地探索（所有非贪心臂等概率）</span>；<span class='k'>乐观：按不确定性探索——你对它越没把握，它的优先级越高</span>。<b>第三种才是把探索预算花在刀刃上。</b><span class='k'>而这正是为什么前两个是线性遗憾、第三个是 <code>log t</code>。</span>"
+   ]
+  },
+  {
+   "r": [
+    27,
+    27
+   ],
+   "t": "置信上界（UCB）",
+   "star": 3,
+   "quote": "Estimate an <b>upper confidence U_t(a)</b> for each action value, such that <b>Q(a) ≤ U_t(a) with high probability</b> &nbsp;·&nbsp; This depends on the number of times <b>N_t(a)</b> action a has been selected &nbsp;·&nbsp; Select action maximizing Upper Confidence Bound: <b>a_t = arg max_{a∈A} U_t(a)</b>",
+   "eq": "对每条臂维护一个置信上界 U_t(a)，使得\n    Q(a) ≤ U_t(a)   以高概率成立\n\nU_t(a) 依赖 N_t(a)（这条臂被拉过多少次）：\n    拉得少 ⇒ 不确定 ⇒ U 高出 Q̂ 很多\n    拉得多 ⇒ 确定   ⇒ U 贴近 Q̂\n\n每步选：a_t = arg max_a U_t(a)",
+   "one": "给每条臂算一个<b>高概率上界</b>，然后<b>贪婪地选上界最大的</b>。",
+   "say": "老师在这里点明了一个实现上的后果：<b>每拿到一个奖励，你要更新<b>所有</b>臂的置信上界</b>，然后再选下一个动作，如此反复。<span class='w'>为什么是「所有」而不只是刚拉过的那条？p28 之后会给出原因——上界里有一项依赖 t（总步数），而 t 每步都在涨。</span>",
+   "pts": [
+    "<b>UCB 的结构可以拆成两半，而这两半的分工值得记死。</b><span class='k'><code>U_t(a) = Q̂_t(a) + 半径</code></span>——<b>前一半是「我对它的估计」（利用），后一半是「我对这个估计有多没把握」（探索）。</b><span class='w'>于是一条臂能被选中有两条路</span>：<b>要么它的估计确实高，要么你对它特别没把握。</b><span class='k'>两条路加起来，就是 p26 说的「两难都赢」。</span>",
+    "<b>「以高概率成立」这个限定要当真，它是整套推导的技术核心。</b><span class='w'>你没法保证 <code>Q(a) ≤ U_t(a)</code> 永远成立</span>——<b>样本总有可能极端倒霉。</b><span class='k'>你能做的是：让它以 <code>1 − δ</code> 的概率成立，而 δ 由你定</span>。<b>而「所有臂、所有时刻都成立」这个更强的要求，要靠并集界去控制</b>（<span class='w'>p31 会做这件事，而那正是 δ/t² 和 Basel 问题登场的地方</span>）。",
+    "<b>那句 <em>This depends on the number of times N_t(a) action a has been selected</em> 是把「乐观」和「不确定性」绑在一起的那一步。</b><span class='k'>半径必须随 <code>N_t(a)</code> 递减</span>——<b>拉得越多，你越确定，加的乐观越少。</b><span class='w'>这正是 p26 说的「乐观必须有依据」</span>。<b>如果半径是个不随 N 变的常数，那么被拉过一千次的臂和从没拉过的臂享受同样的加成</b>——<span class='k'>那就退化成了「所有估计一起平移」，等于没加。</span>",
+    "<b>老师那句「每步要更新所有臂」现在还看不出原因，但值得先记下来，因为它是这一讲最容易被忽略的一句。</b><span class='w'>直觉上你会以为：只有刚拉过的那条臂的 <code>N</code> 变了，所以只需要更新它</span>。<span class='k'>但半径里还有一个依赖 <b>t</b> 的项，而 t 每步都在涨</span>——<b>于是<b>没被拉</b>的那些臂，它们的上界反而在<b>上升</b>。</b><span class='w'>p32 的科研格会把这件事的含义说透，它是 UCB 最漂亮的一个机制。</span>"
+   ]
+  },
+  {
+   "r": [
+    28,
+    28
+   ],
+   "t": "Hoeffding 不等式：半径从哪来",
+   "star": 3,
+   "quote": "<b>Theorem (Hoeffding's Inequality)</b>: Let X_1, ..., X_n be i.i.d. random variables in <b>[0,1]</b>, and let <b>X̄_n = (1/n) Σ_{τ=1}^{n} X_τ</b> be the sample mean. Then &nbsp;·&nbsp; <b>P( E[X] > X̄_n + u ) ≤ exp(−2n u²)</b>",
+   "eq": "Hoeffding：X_1..X_n 独立同分布、取值在 [0,1]，X̄_n 是样本均值，则\n\n    P( E[X] > X̄_n + u )  ≤  exp(−2n u²)\n\n读法：真均值超出「样本均值 + u」的概率，随 n 和 u 指数衰减\n\n反解：令  exp(−2n u²) = δ / t²，解出\n\n    u = √( (1/2n) · log(t² / δ) )\n\n这个 u 就是 UCB 的半径",
+   "one": "<b>半径不是拍出来的，是从 Hoeffding 反解出来的。</b>",
+   "say": "老师在板书上推这一步时，为了「和 Hoeffding 保持同一套记号」，把那个偏移量<b>写成了 μ</b>——原话大意是「我们想让『经验均值加上 μ』小于真均值的概率等于 δ/t²，既然如此就能解出 μ 该是多少」，最后得到 <code>μ = √( (1/2n)·log(t²/δ) )</code>。<br><span class='w'><b>注意这个 μ 是<b>半径</b>，不是真均值</b>。</span>课件原文的 Hoeffding 里这个量写作 <code>u</code>，而 μ 在概率论里几乎总是指均值——两个符号在板上撞了车。<b>读的时候按「半径」理解，别和 <code>E[X]</code> 混。</b>",
+   "pts": [
+    "<b>这是 <code>kp</code> 点名的第一处陷阱，务必先把符号理清：<span class='w'>板上那个 μ 是<b>半径</b>（Hoeffding 原式里的 <code>u</code>），不是均值</span>。</b><b>概率论里 μ 几乎总是指期望，所以这个撞车极其容易误导。</b><span class='k'>判断方法：它出现在「<code>X̄_n + ?</code>」这个位置上，那就是半径</span>；<b>出现在不等式左边 <code>E[X]</code> 的位置上，那才是均值。</b>",
+    "<b>Hoeffding 本身说的是一件很朴素的事，值得先用人话说一遍。</b><span class='k'>你用 n 个样本的平均去估真均值，那么「真均值比你的估计高出 u 以上」这件事，概率随 <code>n</code> 和 <code>u²</code> 指数地小</span>。<b>样本越多越不可能，偏差要求越大越不可能。</b><span class='w'>注意它要求样本在 <code>[0,1]</code> 之间</span>——<b>这正是断脚趾例子用二值奖励的方便之处。</b><span class='k'>奖励范围变大，界会按范围的平方变松。</span>",
+    "<b>而这一步真正的技巧是<span class='k'>反过来用</span>它：不是问「给定 u，概率是多少」，而是问「要让概率等于某个值，u 该多大」。</b><b>令 <code>exp(−2nu²) = δ/t²</code>，两边取对数解出 <code>u = √( (1/2n)·log(t²/δ) )</code>。</b><span class='w'>于是半径不是拍脑袋定的，它是「你要多大的信心」倒推出来的</span>。<span class='k'>这是整套置信界方法的标准动作：先定失败概率，再解出需要多宽的区间。</span>",
+    "<b>为什么右边偏偏取 <code>δ/t²</code> 而不是 δ，这是这一步最该问的问题，而答案要等到 p31。</b><span class='w'>老师在课上也说了「我们待会儿会看到为什么要选这个特定的概率」</span>。<span class='k'>简短的答案：因为你要让界在<b>所有</b>时刻都成立，而不只是某一个时刻</span>——<b>于是要对 t 做并集界，而 <code>Σ_t 1/t²</code> 恰好收敛。</b><span class='w'>如果取成 δ，<code>Σ_t δ</code> 发散，整个论证就垮了。</span>",
+    "<b>最后记一个这个半径的量纲感，它会让后面的结论容易接受。</b><span class='k'>半径大致是 <code>√(log t / n)</code></span>——<b>分母上的 n 开根号，所以样本翻四倍，半径减半（和标准误差同阶）；分子里的 <code>log t</code> 增长极慢。</b><span class='w'>两相比较：<code>n</code> 的衰减比 <code>log t</code> 的增长快得多</span>，<b>所以只要一条臂持续被拉，它的半径就会持续缩小。</b><span class='k'>而如果一条臂<b>不</b>被拉，n 不变而 t 在涨，它的半径反而会慢慢变大——这是 p32 的要点。</span>"
+   ]
+  },
+  {
+   "r": [
+    29,
+    33
+   ],
+   "t": "高概率遗憾界：板书上的完整推导",
+   "star": 3,
+   "quote": "High Probability Regret Bound for UCB Multi-armed Bandit &nbsp;|&nbsp; <b>Regret(UCB, T) = Σ_{t=1}^{T} [ Q(a*) − Q(a_t) ]</b> &nbsp;·&nbsp; （这五页课件上几乎是空的——整段推导是在黑板上做的）",
+   "eq": "第 1 步 —— 定半径（p28 已做）\n  U_t(a) = Q̂_t(a) + √( (1/2N_t(a)) · log(t²/δ) )\n  单个臂、单个时刻失败的概率 ≤ δ/t²\n\n第 2 步 —— 两情形引理\n  若所有置信界都成立，则对任意 t：  U_t(a_t) ≥ Q(a*)\n    情形一 a_t = a*：  U_t(a*) ≥ Q(a*)      ← 置信界成立的直接含义\n    情形二 a_t ≠ a*：  U_t(a_t) ≥ U_t(a*) ≥ Q(a*)\n                       ↑ 因为 UCB 选的就是上界最大的那条\n\n第 3 步 —— 并集界（对所有臂、所有时刻）\n  失败概率 ≤ Σ_{a=1}^{m} Σ_{t=1}^{∞} δ/t²  =  m·δ·Σ_t t^{-2}\n  而 Σ_{t=1}^{∞} t^{-2} = π²/6 < 2        ← Basel 问题\n  ⇒ 失败概率 ≤ 2mδ\n  ⇒ 以至少 1 − 2mδ 的概率，所有置信界在所有时刻都成立\n\n第 4 步 —— 把遗憾套进去\n  Q(a*) − Q(a_t)  ≤  U_t(a_t) − Q(a_t)        ← 用第 2 步\n                  ≤  2 · 半径(a_t)             ← 上界与真值相差至多两个半径\n  再对 t 求和即得 log 量级的高概率遗憾界",
+   "one": "<b>这五页课件是空的——推导在黑板上。</b>四步：定半径 → 两情形引理 → 并集界 → 套进遗憾。",
+   "say": "这一段是全讲最该跟着推一遍的地方，老师也在课上让大家「和邻座讨论一下」。<br><b>两情形引理</b>她是这么引的：如果所有置信界都成立，那么 <code>U_t(a_t)</code>——也就是<b>你实际选的那条臂</b>的上界——会大于等于 <code>Q(a*)</code>，也就是最优臂的真值。<span class='k'>「为什么？这里有两种情形：要么 a_t 就是 a*，要么不是。」</span><br><b>并集界与 Basel</b>：「现在我们对所有时刻取并集、对所有臂取并集，每个是 δ 除以 t 平方。注意如果你把 t 从 1 加到无穷的 <code>t^{-2}</code>，那等于 <b>π² / 6，它小于 2</b>。所以求和之后你得到 <code>2mδ</code>。」她还补了一句：<span class='w'>「这不是我期望你们见过的东西……算是个有趣的小知识。」</span><br>而这个无穷求和还顺带回答了课堂上的一个提问：<b>正因为求和到无穷，这个界对无限 horizon 也成立。</b>",
+   "pts": [
+    "<b>先说这五页为什么在 PDF 上几乎是空的：<span class='k'>整段推导是在黑板上做的</span>。</b><b>所以光看课件你什么也得不到，必须跟着实录走一遍。</b><span class='w'>这也是这一讲最值得花时间的地方</span>——<b>它是整门课里少数几次完整地、从头到尾地证一个界。</b><span class='k'>而这个四步结构（定半径 → 引理 → 并集界 → 代回去）在任何「高概率界」的论证里都一样。</span>",
+    "<b>第 2 步的两情形引理是 <code>kp</code> 点名的第二处，它的作用是<b>把一个不可观测的量消掉</b>。</b><span class='w'>遗憾的定义里有 <code>Q(a*)</code>——最优臂的真值，而你根本不知道它是多少</span>。<span class='k'>引理说：只要置信界都成立，<code>U_t(a_t) ≥ Q(a*)</code></span>，<b>于是你可以把不可观测的 <code>Q(a*)</code> 换成可计算的 <code>U_t(a_t)</code>。</b><b>这一步是整个推导能进行下去的关键。</b>",
+    "<b>而引理本身的证明只有两行，值得自己走一遍，因为它漂亮得出奇。</b><span class='k'>情形一：<code>a_t = a*</code>。那么 <code>U_t(a_t) = U_t(a*) ≥ Q(a*)</code></span>——<b>这就是「置信界成立」的字面意思。</b><span class='k'>情形二：<code>a_t ≠ a*</code>。那么 <code>U_t(a_t) ≥ U_t(a*)</code>（因为 UCB 选的就是上界最大的那条），而 <code>U_t(a*) ≥ Q(a*)</code></span>。<b>两步相连得证。</b><span class='w'>注意情形二用到了<b>算法的定义</b>（选 arg max 上界）——所以这个引理只对 UCB 成立，换个算法就不对了。</span>",
+    "<b>第 3 步的并集界是 <code>kp</code> 点名的第三处，而它要处理的是一个很实际的问题。</b><span class='w'>你证的是「某一条臂在某一个时刻」的界</span>，<span class='k'>而你需要的是「所有臂在所有时刻」都成立</span>——<b>否则只要有一次失手，上面那个引理就断了。</b><span class='w'>并集界说：若干个事件至少有一个发生的概率，不超过各自概率之和</span>。<b>于是失败概率 ≤ <code>Σ_a Σ_t δ/t²</code>。</b>",
+    "<b>而这个和之所以收敛，靠的正是 p28 那个看起来随意的 <code>δ/t²</code> 选法。</b><span class='k'><code>Σ_{t=1}^{∞} t^{-2} = π²/6 ≈ 1.645 < 2</code></span>——<b>这就是 Basel 问题，欧拉 1734 年解决的那个经典结果。</b><span class='w'>于是总失败概率 ≤ <code>m·δ·(π²/6) < 2mδ</code></span>，<b>也就是以至少 <code>1 − 2mδ</code> 的概率，所有界在所有时刻成立。</b><span class='k'>如果当初取的是 δ（不除 t²），<code>Σ_t δ</code> 发散，这一步就做不了</span>——<b>那个 <code>t²</code> 是为了这里才放进去的。</b>",
+    "<b>这里还藏着一个回答课堂提问的要点，值得单独指出：<span class='k'>因为求和到了无穷，这个界对<b>无限 horizon</b> 也成立</span>。</b><b>也就是说，你不需要事先知道要跑多久。</b><span class='w'>而另一位同学问的正是这件事的反面：如果你<b>确实</b>知道 horizon T，那就可以把 t 直接设成 T，于是 <code>log</code> 那一项变成常数，界会紧一些</span>。<b>老师承认了这一点（「你说得对，我这里说得稍微不精确」）。</b><span class='k'>两种做法都对，取决于你知不知道 T。</span>",
+    "<b>第 4 步把前三步串起来，而串法只有两个不等号。</b><span class='k'>第一个：<code>Q(a*) − Q(a_t) ≤ U_t(a_t) − Q(a_t)</code></span>（<b>用第 2 步的引理，把 <code>Q(a*)</code> 换掉</b>）；<span class='k'>第二个：<code>U_t(a_t) − Q(a_t) ≤ 2 × 半径</code></span>（<b>因为上界高出估计一个半径，而估计离真值也不超过一个半径</b>）。<span class='w'>于是单步遗憾被一个<b>可以算的</b>量控制住了</span>，<b>再对 t 求和，就得到 <code>log</code> 量级的结果。</b>",
+    "<b>最后把这个界的性质说准，因为它和前面那些「期望遗憾」的结论不是一回事。</b><span class='k'>这是一个<b>高概率</b>界：以至少 <code>1 − 2mδ</code> 的概率，遗憾不超过某个量</span>；<span class='w'>而 p11 定义的遗憾是<b>期望</b>意义上的</span>。<b>高概率界更强——它排除了「平均还行但偶尔极差」的情形。</b><span class='k'>而代价是界里多了一个 δ，而且它出现在 <code>log(1/δ)</code> 里</span>——<b>你要的信心越高，界越松，但只是对数地松。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "步骤",
+     "做什么",
+     "用掉什么",
+     "kp 标的陷阱"
+    ],
+    "rows": [
+     [
+      "① 定半径",
+      "<code>exp(−2nu²) = δ/t²</code> 反解出 u",
+      "Hoeffding",
+      "<span class='w'>板上写成 μ，但它是<b>半径</b>不是均值</span>"
+     ],
+     [
+      "② 两情形引理",
+      "<code>U_t(a_t) ≥ Q(a*)</code>",
+      "<b>UCB 的定义（选 arg max 上界）</b>",
+      "<span class='k'>作用是把不可观测的 Q(a*) 消掉</span>"
+     ],
+     [
+      "③ 并集界",
+      "失败概率 ≤ 2mδ",
+      "<code>Σ t^{-2} = π²/6 < 2</code>（Basel）",
+      "<span class='k'>这就是当初取 δ/t² 的原因；也让界对无限 horizon 成立</span>"
+     ],
+     [
+      "④ 代回遗憾",
+      "单步遗憾 ≤ 2×半径",
+      "①②",
+      "得到 <code>log</code> 量级的<b>高概率</b>界"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这四步的结构，比它证出来的那个界更值得你带走——因为它是「怎么给一个自适应算法开出可信保证」的标准模板，而你的课题正需要这种保证。</b><br><br><b>把四步抽象一下：</b><br><b>① </b><span class='k'>给每个候选配一个置信区间，宽度由样本量和你要的信心决定</span>；<br><b>② </b><span class='k'>证明一个引理，把你<b>不知道</b>的那个量（真实最优）换成你<b>能算</b>的量</span>；<br><b>③ </b><span class='w'>用并集界把「某一个候选、某一次」的保证升级成「所有候选、所有次」</span>；<br><b>④ </b><b>把前面的结论代回你真正关心的那个指标。</b><br><br><b>第 ③ 步对你尤其要紧，而且很容易被忽略。</b><span class='k'>L04 p42 的最大化偏差，本质上就是「没做并集界」的后果</span>——<b>你对<b>每一个</b>配置的估计都是无偏的、区间也是对的，但你要在 2187 个候选里挑最大的那个，就必须对<b>所有</b>候选同时成立。</b><span class='w'>而「同时成立」要付的价正是这里的 <code>log m</code>（m 是候选数）</span>。<b>所以：候选越多，你给每个候选的区间就必须越宽。</b><br><br><b>落到具体做法上，这给了你一条比 L04 的样本拆分更精细的选择：</b><span class='k'>与其把留出集拆两半，不如给每个候选的 <code>Ĝ</code> 配一个<b>经过并集界修正</b>的置信下界，然后挑<b>下界</b>最大的那个</span>。<b>修正的方式就是把 δ 换成 <code>δ/m</code>（Bonferroni），于是半径里多一个 <code>√log m</code> 的因子——m = 2187 时约是 <code>√7.7 ≈ 2.8</code> 倍。</b><span class='w'>代价是区间宽了约三倍，但换来的是「我报告的那个数，以 1−δ 的概率不高于真值」这个真正的保证</span>。<b>而这正是你在 §4d 想要的那种「上线前的证书」（L10 p16 科研格讨论过它该长什么样）。</b><br><br><span class='k'>注意「挑下界最大」和 p41 那道检验题说的「按下界贪心」不是一回事</span>——<b>那里是在线学习、要继续探索；你这里是离线一次性选择、不再探索。</b><span class='w'>离线选择时按置信下界挑是对的，这正是安全策略改进的标准做法（L15 会讲）。</span>",
+    "ref": "课件 p28–p33 板书推导 · 实录 L11 · L04 p42 · L10 p16 科研格 · 简报 §4d"
+   }
+  },
+  {
+   "r": [
+    34,
+    34
+   ],
+   "t": "UCB1 与对数遗憾定理",
+   "star": 3,
+   "quote": "This leads to the <b>UCB1</b> algorithm &nbsp;·&nbsp; <b>a_t = arg max_{a∈A} [ Q̂(a) + √(2 log t / N_t(a)) ]</b> &nbsp;|&nbsp; <b>Theorem</b>: The UCB algorithm achieves <b>logarithmic asymptotic total regret</b> &nbsp;·&nbsp; <b>lim_{t→∞} L_t ≤ 8 log t Σ_{a|Δ_a>0} Δ_a</b>",
+   "eq": "UCB1（Auer, Cesa-Bianchi, Fischer 2002）：\n\n    a_t = arg max_a [ Q̂(a) + √( 2 log t / N_t(a) ) ]\n                      └ 利用 ┘   └──── 探索 ────┘\n\n定理：  lim_{t→∞} L_t  ≤  8 log t · Σ_{a: Δ_a > 0} Δ_a\n\n对照 p25 的下界：     L_t  ≥  log t · Σ_a Δ_a / D_KL\n⇒ 上下界都是 log t —— 只差常数",
+   "one": "<b><code>Q̂ + √(2 log t / N)</code></b>——一行公式，上下界吻合。",
+   "say": "老师在这里把那个半径的两个下标掰开讲了一遍，而这是全讲最该记住的一句：<b><code>t</code> 是「总共拉了任何臂多少次」，<code>n</code>（也就是 <code>N_t(a)</code>）是「拉了<b>这一条</b>臂多少次」——两者不是一回事。</b><br><span class='k'>「所以在这个置信界里，有一项按『这条臂被拉了多少次』的速率<b>递减</b>，还有一个 log 项按『任何臂被拉了多少次』的速率<b>递增</b>。这就是为什么每一步之后你都得更新<b>所有</b>臂的置信上界。你有这么两个互相竞争的速率。」</span><br><span class='w'>她还回答了两个提问：如果你知道时间 horizon，可以把 t 直接设成最大值，那样 log 项就固定了；而 δ 是你指定的「这个界成立的概率」。</span>",
+   "pts": [
+    "<b>这个公式只有两项，但两项的方向相反，而这正是 <code>kp</code> 点名的第四处。</b><span class='k'><code>Q̂(a)</code>：利用——这条臂看起来有多好</span>；<span class='k'><code>√(2 log t / N_t(a))</code>：探索——你对它有多没把握</span>。<b>而括号里那两个量的方向是相反的：</b><span class='w'><code>N_t(a)</code> 在分母上（这条臂拉得越多，半径越小）</span>，<span class='w'><code>log t</code> 在分子上（总步数越多，半径越大）</span>。",
+    "<b>这两个相反的速率，产生了 UCB 最漂亮的一个机制，值得单独想明白。</b><span class='k'>一条<b>没被拉</b>的臂：<code>N</code> 不变，而 <code>t</code> 在涨⇒ 它的上界在<b>缓慢上升</b></span>。<b>也就是说，一条被冷落的臂会自己「浮上来」，直到重新被选中。</b><span class='w'>于是 UCB 不需要任何显式的「强制探索」机制</span>——<b>遗忘本身就产生了探索压力。</b><span class='k'>这就是为什么每一步都要更新所有臂的上界：不更新，这个机制就不存在了。</span>",
+    "<b>而 <code>log t</code> 增长得极慢这件事，保证了这个机制不会失控。</b><span class='w'>如果分子是 <code>t</code> 而不是 <code>log t</code>，那么被冷落的臂的上界会迅速冲到最高，算法就退化成了轮流拉每条臂</span>。<span class='k'>而 <code>log t</code> 的增长慢到：一条已经被判定很差的臂，要等很久才会重新浮上来</span>。<b>这个速度恰好就是「既不放弃探索、又不浪费太多」的那个平衡点。</b>",
+    "<b>定理的形状和 p25 的下界对照一次，这是这一讲最重要的一次呼应。</b><span class='k'>下界：<code>L_t ≥ log t · Σ_a Δ_a / D_KL(R^a‖R^{a*})</code></span>；<span class='k'>上界：<code>L_t ≤ 8 log t · Σ_a Δ_a</code></span>。<b>两者都是 <code>log t</code>，只差常数因子。</b><span class='w'>这意味着 UCB 在<b>阶</b>上是最优的</span>——<b>不可能有算法在数量级上比它更好。</b><span class='k'>上下界吻合是理论工作最想要的结果，而老虎机是少数几个真的做到了的问题。</span>",
+    "<b>最后提一个关于 <code>8</code> 这个常数的实践提醒。</b><span class='w'>8 是为了让证明走得通而取的，不是最优的</span>——<b>实践中大家常把 <code>√(2 log t / N)</code> 里的 2 换成一个更小的调参系数 <code>c</code>（比如 <code>√(c log t / N)</code>，<code>c</code> 取 0.5 到 2）。</b><span class='k'>小的 <code>c</code> 探索少、收敛快，但可能锁死；大的探索多、更稳</span>。<b>这和 L10 p20 的那个 39600ε 是同一类情形：理论常数太保守，实践中要调。</b>"
+   ]
+  },
+  {
+   "r": [
+    35,
+    39
+   ],
+   "t": "UCB1 在断脚趾例子上",
+   "star": 2,
+   "quote": "<b>UCB1 (Auer, Cesa-Bianchi, Fischer 2002)</b> &nbsp;·&nbsp; 1 Sample each arm once &nbsp;·&nbsp; Take a1, get +1, Q̂(a1)=1 · a2, get +1, Q̂(a2)=1 · a3, get 0, Q̂(a3)=0 &nbsp;·&nbsp; 2 Set t = 3, Compute upper confidence bound on each action: <b>UCB(a) = Q̂(a) + √(2 log t / N_t(a))</b> &nbsp;·&nbsp; 3 Select a_t = arg max_a UCB(a) &nbsp;·&nbsp; 4 Observe reward &nbsp;·&nbsp; 5 Recompute upper confidence bounds on <b>each</b> action",
+   "eq": "各拉一次后：Q̂ = (1, 1, 0)，N = (1, 1, 1)，t = 3\n\n半径 = √(2 log 3 / 1) = √(2 × 1.0986) = √2.197 ≈ 1.482\n三条臂的半径相同（因为 N 都是 1）\n\n  UCB(a1) = 1 + 1.482 = 2.482\n  UCB(a2) = 1 + 1.482 = 2.482\n  UCB(a3) = 0 + 1.482 = 1.482\n\n⇒ 仍在 a1、a2 之间打平，a3 暂时出局\n但注意：a3 没出局多久 —— 它的 N 不再增加，而 t 在涨，半径会追上来",
+   "one": "各拉一次后三条臂半径相同，所以<b>这一步和贪心选一样</b>——差别要再过几步才显出来。",
+   "pts": [
+    "<b>第一轮之后 UCB 的选择和贪心<b>相同</b>，这件事值得注意，它说明 UCB 不是靠「一开始就不一样」取胜的。</b><span class='k'>因为三条臂的 <code>N</code> 都是 1，半径完全相同，加上去不改变排序</span>。<b>所以这一步仍然在 <code>a1</code>、<code>a2</code> 之间打平。</b><span class='w'>UCB 和贪心的差别不在第一步，而在<b>长期</b>——贪心会永远不碰 <code>a3</code>，而 UCB 最终一定会回头再看它一眼。</span>",
+    "<b>算一下 <code>a3</code> 要等多久才会重新浮上来，这个数字能让你对那个机制有实感。</b><span class='k'>假设 <code>a1</code>、<code>a2</code> 轮流被拉，而 <code>a3</code> 的 <code>N</code> 一直是 1</span>。<b><code>a3</code> 的上界是 <code>0 + √(2 log t)</code>，而另两条大致是 <code>1 + √(2 log t / (t/2))</code>。</b><span class='w'>前者随 <code>√(log t)</code> 增长，后者趋向 1</span>——<b>所以当 <code>√(2 log t) > 1</code>，也就是 <code>t > e^{0.5} ≈ 1.65</code> 时，<code>a3</code> 的上界就已经超过了……</b><span class='k'>也就是说它很快就会被重新拉一次</span>。<b>这正是 UCB 不会像贪心那样把一条臂永久判死刑的原因。</b>",
+    "<b>但它也不会一直拉 <code>a3</code>——每拉一次，<code>N(a3)</code> 加一，半径缩小。</b><span class='w'>拉几次之后，<code>Q̂(a3)</code> 稳定在 0.1 附近，半径也缩到足够小，于是它的上界再也追不上 <code>a1</code> 和 <code>a2</code></span>。<span class='k'>这就是「按不确定性分配探索」的实际表现</span>：<b>先多试几次把不确定性消掉，确认它确实差，然后就基本不碰了。</b><b>对比 ε-贪心：它会<b>永远</b>每三十次拉一次 <code>a3</code>，而且永远不会因为「已经确定它差」而停。</b>",
+    "<b>课件把第 5 步写成 <em>Compute upper confidence bound on <b>each</b> action</em>，那个 each 不是废话。</b><span class='k'>每一步之后，<b>所有</b>臂的上界都变了——因为 <code>t</code> 变了</span>。<b>只更新刚拉过的那条是实现 UCB 最常见的错误。</b><span class='w'>这个错误的后果很具体：被冷落的臂的上界不再上升，于是它们永远不会被重新选中</span>——<b>UCB 就退化成了贪心。</b><span class='k'>老师在 p27 和 p34 两次强调这一点，可见它多容易被忽略。</span>",
+    "<b>最后留意课件在这几页上的一处笔误，免得你对着抄的时候困惑。</b><span class='w'>p37 的第 3 步写的是 <code>t = 3</code>，而 p38 的同一步写成了 <code>t = t + 1</code></span>。<span class='k'>按后者理解是对的：每拉一次，<code>t</code> 加一</span>。<b>前者是在交代「刚拉完三次初始化，现在 t 等于 3」，两句说的是不同的时刻。</b><span class='w'>这几页 PDF 的页脚也串行了（标题文字和脚注叠在一起），属于排版问题，不影响内容。</span>"
+   ]
+  },
+  {
+   "r": [
+    40,
+    40
+   ],
+   "t": "把遗憾一步步记下来",
+   "star": 2,
+   "quote": "Toy Example: Ways to Treat Broken Toes, Optimism, <b>Assessing Regret</b> &nbsp;·&nbsp; Action / Optimal Action / Regret &nbsp;·&nbsp; a1→a1, a2→a1, a3→a1, a1→a1, a2→a1",
+   "eq": "逐步记账（最优臂恒为 a1，V* = 0.95）：\n\n  选 a1  ⇒  单步遗憾 = 0.95 − 0.95 = 0\n  选 a2  ⇒  单步遗憾 = 0.95 − 0.90 = 0.05\n  选 a3  ⇒  单步遗憾 = 0.95 − 0.10 = 0.85\n\n注意：遗憾用的是**真实均值**，不是你观测到的奖励\n  ——你拉 a3 哪怕碰巧拿到 +1，这一步的遗憾仍然是 0.85",
+   "one": "一张逐步记账表。<b>关键：遗憾算的是真实均值之差，和你这次的运气无关。</b>",
+   "pts": [
+    "<b>这张表最该注意的是：<span class='k'>遗憾用的是<b>真实均值</b>，不是你观测到的奖励</span>。</b><b>你拉 <code>a3</code>，哪怕碰巧拿到 +1，这一步的遗憾仍然是 0.85。</b><span class='w'>反过来，你拉 <code>a1</code> 碰巧拿到 0，遗憾仍然是 0</span>。<span class='k'>因为遗憾衡量的是「你的<b>决策</b>有多差」，不是「你这次运气如何」</span>。<b>这个区分很重要：它让遗憾成为一个关于算法的指标，而不是关于运气的指标。</b>",
+    "<b>直接的后果是：<span class='w'>遗憾是一个你在实际运行时<b>算不出来</b>的量</span>。</b><b>因为它需要 <code>V*</code> 和 <code>Q(a_t)</code>，而那正是你不知道的东西。</b><span class='k'>它是一个<b>分析用</b>的概念，不是一个可以监控的指标</span>。<b>这一点在读论文时要清楚：报告「遗憾曲线」的实验，一定是在模拟环境里做的（真值已知）。</b><span class='w'>真实系统里你只能报告累计奖励，而那个数没有基准可比。</span>",
+    "<b>这张表还提示了一个计算上的便利，在做题时很有用。</b><span class='k'>因为最优臂恒为 <code>a1</code>，所以单步遗憾只有三个可能的取值：0、0.05、0.85</span>。<b>于是累计遗憾 = <code>0.05 × (拉 a2 的次数) + 0.85 × (拉 a3 的次数)</code>。</b><span class='w'>这正是 p12 那个「计数 × 差距」分解的具体样子</span>——<b>你只需要数两个计数，不需要逐步累加。</b>"
+   ]
+  },
+  {
+   "r": [
+    41,
+    41
+   ],
+   "t": "检验题：为什么不能用置信下界",
+   "star": 3,
+   "quote": "<b>Check Your Understanding</b> &nbsp;·&nbsp; An alternative would be to always select the arm with the <b>highest lower bound</b> &nbsp;·&nbsp; <b>Why can this yield linear regret?</b> &nbsp;·&nbsp; Consider a two arm case for simplicity",
+   "eq": "假设两条臂，真值 Q(a1) = 0.9 > Q(a2) = 0.5\n初始各拉一次，运气使得  Q̂(a1) = 0  而  Q̂(a2) = 1\n\n按「下界最大」选：\n  LCB(a1) = 0 − 半径   很低\n  LCB(a2) = 1 − 半径   较高\n  ⇒ 选 a2\n\n拉 a2 ⇒ N(a2) 增加 ⇒ a2 的半径缩小 ⇒ 它的下界**升高**\n而 a1 不被拉 ⇒ N(a1) 不变 ⇒ 它的下界**不会升高**\n\n⇒ 永远锁死在 a2 上 ⇒ 线性遗憾",
+   "one": "<b>用下界贪心会把自己锁死。</b>因为「拉它」只会让它的下界更高，而没拉的那条永远翻不了身。",
+   "pts": [
+    "<b>这道题是整讲最该想明白的一道，因为它解释了「为什么必须是<b>上</b>界」。</b><span class='k'>直觉上「挑下界最高的」听起来很稳健——至少它保证不差</span>。<span class='w'>但它会产生线性遗憾，而且机制和贪心的锁死一模一样，只是更隐蔽</span>。",
+    "<b>机制是这样的：<span class='k'>拉一条臂会让它的下界<b>上升</b>（因为半径缩小），而不拉一条臂会让它的下界<b>下降</b>（因为 <code>t</code> 涨、半径变大）</span>。</b><b>于是「下界最高」这个标准，本身就在奖励「已经被拉得多的那条」。</b><span class='w'>一旦某条臂因为运气好被选中几次，它的下界就会一路升高，而其余臂的下界一路降低</span>——<b>再也翻不了身。</b><span class='k'>这是一个正反馈：选它 ⇒ 它的下界更高 ⇒ 更选它。</span>",
+    "<b>和上界对比，你就看出符号反过来之后机制完全颠倒了。</b><span class='k'>上界：拉它 ⇒ 半径缩小 ⇒ 上界<b>下降</b> ⇒ 其他臂有机会追上</span>（<b>负反馈</b>）；<span class='w'>下界：拉它 ⇒ 半径缩小 ⇒ 下界<b>上升</b> ⇒ 其他臂更没机会</span>（<b>正反馈</b>）。<b>负反馈自我纠正，正反馈自我强化。</b><span class='k'>这就是为什么乐观（上界）对而悲观（下界）错。</span>",
+    "<b>第十二讲会给这件事一个更有名的名字：<span class='k'>确认偏误</span>。</b><b>按下界贪心的算法，只会去验证它已经相信的东西，而不会去检验它不相信的东西。</b><span class='w'>而乐观恰恰相反：它主动去试那些「有可能很好但我不确定」的选项</span>——<b>也就是最可能推翻当前信念的那些。</b><span class='k'>从这个角度看，「乐观面对不确定」其实是一条关于<b>怎么做实验</b>的原则，而不只是一个算法技巧。</span>",
+    "<b>最后提醒一个边界，免得这条结论被用错：<span class='w'>「按下界挑」在<b>离线</b>设定下是对的</span>。</b><b>这道题的前提是在线学习——你还要继续拉、继续学。</b><span class='k'>而如果数据已经采完、你只做一次最终选择、之后不再探索，那么按置信下界挑恰恰是正确的做法</span>——<b>它给你的是「我选的这个，以高概率不比报告的差」。</b><span class='w'>那就是安全策略改进的标准形式，第十五讲的主题。</span><b>同一个做法，在线错、离线对，差别全在「之后还探不探索」。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "",
+     "按上界挑（UCB）",
+     "按下界挑"
+    ],
+    "rows": [
+     [
+      "拉了它之后",
+      "<span class='k'>上界下降</span>",
+      "<span class='w'>下界上升</span>"
+     ],
+     [
+      "没拉的臂",
+      "<span class='k'>上界缓慢上升（有机会翻身）</span>",
+      "<span class='w'>下界缓慢下降（更没机会）</span>"
+     ],
+     [
+      "反馈类型",
+      "<span class='k'>负反馈，自我纠正</span>",
+      "<span class='w'>正反馈，自我强化</span>"
+     ],
+     [
+      "在线遗憾",
+      "<span class='k'><code>log t</code></span>",
+      "<span class='w'>线性</span>"
+     ],
+     [
+      "<b>离线一次性选择呢</b>",
+      "—",
+      "<b>反而是对的——安全策略改进（L15）</b>"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "24": [
+   {
+    "q": "「与问题无关」和「与问题有关」的遗憾界，区别是什么？",
+    "o": [
+     "前者更紧",
+     "前者是上界，后者是下界",
+     "前者只用 T 和臂数，对所有实例成立；后者把差距 Δ_a 写进结论",
+     "后者只对特定算法成立"
+    ],
+    "a": 2,
+    "why": "典型形状分别是 O(√(mT log T)) 和 O(Σ log T / Δ_a)。两者在不同 T 范围内各自更紧，实践中取最小值。"
+   }
+  ],
+  "25": [
+   {
+    "q": "下界和上界的角色有什么不同？",
+    "o": [
+     "下界只对确定性算法成立",
+     "下界说「任何算法都好不过这个」，是关于问题的；上界说「某个算法能做到这么好」，是关于算法的",
+     "两者等价",
+     "下界更紧"
+    ],
+    "a": 1,
+    "why": "课件 p25 第一句就是这个意思：Use lower bound to determine how hard this problem is。"
+   },
+   {
+    "q": "Lai-Robbins 下界说了什么？",
+    "o": [
+     "遗憾至少是 √t",
+     "遗憾至少是线性的",
+     "常数遗憾做不到，<code>log t</code> 是能指望的最好结果",
+     "任何算法都能做到常数遗憾"
+    ],
+    "a": 2,
+    "why": "课件接着说 Promising in that lower bound is sublinear——这个「坏消息」同时是「好消息」：学得会是可能的。"
+   },
+   {
+    "q": "什么样的老虎机最难？",
+    "o": [
+     "臂数最多的",
+     "看起来像但均值不同的——课件原话 Hard problems have similar looking arms with different means",
+     "奖励方差最大的",
+     "差距最大的"
+    ],
+    "a": 1,
+    "why": "下界表达式里分母是 KL 散度，两条臂越像分母越小，这一项越大。断脚趾例子里 a1(0.95) 和 a2(0.90) 正是这种。"
+   }
+  ],
+  "26": [
+   {
+    "q": "「乐观面对不确定」为什么两难都赢？",
+    "o": [
+     "因为它方差小",
+     "要么这条臂真的好（赚了），要么它不好（但你学到了，它的估计会下降）",
+     "因为它不需要探索",
+     "因为它总是选最好的臂"
+    ],
+    "a": 1,
+    "why": "探索与利用的冲突被消解了——同一个动作同时服务于两者。这不是折中，是找到了两边都满足的选法。"
+   },
+   {
+    "q": "「乐观」必须满足什么条件才不退化成乱猜？",
+    "o": [
+     "乐观的幅度必须和不确定性挂钩——拉得越少加得越多，拉得越多加得越少",
+     "必须配合 ε-贪心",
+     "乐观的幅度必须是常数",
+     "必须知道真实均值"
+    ],
+    "a": 0,
+    "why": "如果是随便加的常数，那么「估计会下降」这一步就不成立，你可以永远乐观下去。"
+   }
+  ],
+  "27": [
+   {
+    "q": "<code>U_t(a) = Q̂_t(a) + 半径</code>，两半各代表什么？",
+    "o": [
+     "前者是利用（它看起来多好），后者是探索（你对它多没把握）",
+     "两者都是探索",
+     "两者都是利用",
+     "前者是探索，后者是利用"
+    ],
+    "a": 0,
+    "why": "于是一条臂能被选中有两条路：估计确实高，或者你对它特别没把握。两条路加起来就是「两难都赢」。"
+   },
+   {
+    "q": "为什么每一步都要更新<b>所有</b>臂的上界，而不只是刚拉过的那条？",
+    "o": [
+     "为了防止溢出",
+     "为了数值稳定",
+     "半径里有一项依赖 t（总步数），而 t 每步都在涨",
+     "这其实不必要"
+    ],
+    "a": 2,
+    "why": "于是没被拉的臂的上界反而在上升。不更新的话这个机制就没了，UCB 退化成贪心。"
+   }
+  ],
+  "28": [
+   {
+    "q": "老师板书上那个 μ 是什么？",
+    "o": [
+     "真均值",
+     "半径（Hoeffding 原式里的 u）——和概率论里表示均值的 μ 撞了符号",
+     "方差",
+     "样本均值"
+    ],
+    "a": 1,
+    "why": "判断方法：它出现在「X̄_n + ?」这个位置上就是半径；出现在不等式左边 E[X] 的位置才是均值。"
+   },
+   {
+    "q": "半径是怎么得到的？",
+    "o": [
+     "经验取值",
+     "最小化方差得到",
+     "由 Lai-Robbins 下界给出",
+     "令 <code>exp(−2nu²) = δ/t²</code> 反解出 u"
+    ],
+    "a": 3,
+    "why": "u = √((1/2n)·log(t²/δ))。先定失败概率，再解出需要多宽的区间——这是置信界方法的标准动作。"
+   },
+   {
+    "q": "为什么右边取 <code>δ/t²</code> 而不是 δ？",
+    "o": [
+     "为了让 u 更小",
+     "因为要对 t 做并集界，而 <code>Σ 1/t²</code> 收敛；取 δ 的话 <code>Σ δ</code> 发散",
+     "为了配合 Hoeffding 的形式",
+     "这是任意的选择"
+    ],
+    "a": 1,
+    "why": "那个 t² 是为了 p31 的并集界才放进去的。老师在课上也说「我们待会儿会看到为什么要选这个特定的概率」。"
+   }
+  ],
+  "29": [
+   {
+    "q": "两情形引理的作用是什么？",
+    "o": [
+     "给出遗憾的下界",
+     "把不可观测的 <code>Q(a*)</code> 换成可计算的 <code>U_t(a_t)</code>",
+     "证明半径递减",
+     "证明 UCB 收敛"
+    ],
+    "a": 1,
+    "why": "遗憾的定义里有 Q(a*)——最优臂的真值，而你根本不知道它。这一步是整个推导能进行下去的关键。"
+   },
+   {
+    "q": "两情形引理的情形二用到了什么？",
+    "o": [
+     "大数定律",
+     "并集界",
+     "Hoeffding 不等式",
+     "UCB 的定义——因为算法选的就是上界最大的那条，所以 <code>U_t(a_t) ≥ U_t(a*)</code>"
+    ],
+    "a": 3,
+    "why": "所以这个引理只对 UCB 成立，换个算法就不对了。"
+   },
+   {
+    "q": "<code>Σ_{t=1}^{∞} t^{-2}</code> 等于多少？",
+    "o": [
+     "1",
+     "发散",
+     "2",
+     "<code>π²/6 ≈ 1.645</code>，小于 2"
+    ],
+    "a": 3,
+    "why": "这就是 Basel 问题（欧拉 1734）。于是总失败概率 ≤ m·δ·(π²/6) < 2mδ。"
+   },
+   {
+    "q": "为什么这个界对无限 horizon 也成立？",
+    "o": [
+     "它其实不成立",
+     "因为并集界里的求和做到了无穷，而那个和收敛",
+     "因为 Hoeffding 不要求有限 horizon",
+     "因为 log t 有界"
+    ],
+    "a": 1,
+    "why": "所以你不需要事先知道要跑多久。反过来，如果确实知道 T，可以把 t 设成 T，log 项变成常数，界会更紧。"
+   },
+   {
+    "q": "这个界和 p11 定义的遗憾有什么不同？",
+    "o": [
+     "这是高概率界（以至少 1−2mδ 的概率成立），而 p11 的遗憾是期望意义上的",
+     "两者相同",
+     "这是下界",
+     "这个界更松"
+    ],
+    "a": 0,
+    "why": "高概率界更强——它排除了「平均还行但偶尔极差」的情形。代价是界里多一个 log(1/δ)。"
+   }
+  ],
+  "34": [
+   {
+    "q": "UCB1 公式里 <code>t</code> 和 <code>N_t(a)</code> 分别是什么？",
+    "o": [
+     "t 是时间，N 是臂数",
+     "t 是总共拉了任何臂多少次，N 是拉了这一条多少次",
+     "两者相同",
+     "t 是这条臂拉的次数，N 是总次数"
+    ],
+    "a": 1,
+    "why": "老师专门强调「它们不是一回事」。N 在分母（递减），log t 在分子（递增）——两个方向相反的速率。"
+   },
+   {
+    "q": "一条<b>没被拉</b>的臂，它的上界会怎样？",
+    "o": [
+     "下降",
+     "立刻归零",
+     "缓慢上升——因为 N 不变而 t 在涨",
+     "不变"
+    ],
+    "a": 2,
+    "why": "于是被冷落的臂会自己「浮上来」直到重新被选中。UCB 不需要任何显式的强制探索机制。"
+   },
+   {
+    "q": "如果公式里分子是 <code>t</code> 而不是 <code>log t</code>，会怎样？",
+    "o": [
+     "被冷落的臂的上界迅速冲到最高，算法退化成轮流拉每条臂",
+     "收敛更快",
+     "没有区别",
+     "界会更紧"
+    ],
+    "a": 0,
+    "why": "log t 增长极慢，恰好是「既不放弃探索、又不浪费太多」的平衡点。"
+   },
+   {
+    "q": "UCB1 的上界和 Lai-Robbins 下界的关系是什么？",
+    "o": [
+     "两者无关",
+     "上界是线性的",
+     "两者都是 <code>log t</code>，只差常数——所以 UCB 在阶上是最优的",
+     "上界更松一个数量级"
+    ],
+    "a": 2,
+    "why": "上下界吻合是理论工作最想要的结果，而老虎机是少数几个真的做到了的问题。"
+   }
+  ],
+  "35": [
+   {
+    "q": "各拉一次之后，UCB 的选择和贪心相同吗？",
+    "o": [
+     "不同，UCB 会选 a3",
+     "不同，UCB 会选 a1",
+     "相同——因为三条臂的 N 都是 1，半径完全一样，加上去不改变排序",
+     "无法确定"
+    ],
+    "a": 2,
+    "why": "UCB 和贪心的差别不在第一步，而在长期：贪心会永远不碰 a3，UCB 最终一定会回头再看它一眼。"
+   },
+   {
+    "q": "UCB 对待明显很差的 <code>a3</code>，和 ε-贪心有什么不同？",
+    "o": [
+     "UCB 拉得更频繁",
+     "UCB 先多试几次消掉不确定性，确认它差之后就基本不碰；而 ε-贪心会永远每三十次拉一次",
+     "两者相同",
+     "UCB 完全不碰它"
+    ],
+    "a": 1,
+    "why": "这就是「按不确定性分配探索」的实际表现。ε-贪心永远不会因为「已经确定它差」而停。"
+   },
+   {
+    "q": "实现 UCB 最常见的错误是什么？",
+    "o": [
+     "没有归一化奖励",
+     "忘了初始化",
+     "只更新刚拉过的那条臂的上界——于是被冷落的臂永远不会被重新选中，UCB 退化成贪心",
+     "半径算错"
+    ],
+    "a": 2,
+    "why": "课件把第 5 步写成 Compute upper confidence bound on each action，那个 each 不是废话。"
+   }
+  ],
+  "40": [
+   {
+    "q": "遗憾用的是什么？",
+    "o": [
+     "你观测到的奖励",
+     "真实均值之差——拉 a3 哪怕碰巧拿到 +1，这一步遗憾仍是 0.85",
+     "置信上界之差",
+     "样本均值之差"
+    ],
+    "a": 1,
+    "why": "遗憾衡量的是「你的决策有多差」，不是「你这次运气如何」。这让它成为关于算法的指标。"
+   },
+   {
+    "q": "遗憾在实际运行时能算出来吗？",
+    "o": [
+     "能，直接累加",
+     "能，用样本均值代替",
+     "只有离线时能",
+     "不能——它需要 V* 和 Q(a_t)，而那正是你不知道的；它是分析用的概念"
+    ],
+    "a": 3,
+    "why": "所以报告「遗憾曲线」的实验一定是在模拟环境里做的。真实系统里你只能报告累计奖励，而那没有基准可比。"
+   }
+  ],
+  "41": [
+   {
+    "q": "「按置信<b>下</b>界贪心」为什么会线性遗憾？",
+    "o": [
+     "拉它会让它的下界上升、不拉的臂下界下降——正反馈自我强化，永远锁死",
+     "因为它不探索",
+     "因为下界太保守",
+     "因为半径算错了"
+    ],
+    "a": 0,
+    "why": "对比上界：拉它会让上界下降，其他臂有机会追上——负反馈自我纠正。符号反过来机制完全颠倒。"
+   },
+   {
+    "q": "第十二讲会给这个现象什么名字？",
+    "o": [
+     "最大化偏差",
+     "确认偏误——只去验证已经相信的，不去检验不相信的",
+     "分布漂移",
+     "过拟合"
+    ],
+    "a": 1,
+    "why": "而乐观恰恰相反：它主动去试「有可能很好但我不确定」的选项——也就是最可能推翻当前信念的那些。"
+   },
+   {
+    "q": "「按下界挑」什么时候反而是对的？",
+    "o": [
+     "永远不对",
+     "臂数很多时",
+     "离线设定——数据采完、只做一次最终选择、之后不再探索；那是安全策略改进（L15）的标准形式",
+     "奖励有界时"
+    ],
+    "a": 2,
+    "why": "同一个做法，在线错、离线对，差别全在「之后还探不探索」。"
+   }
+  ]
+ }
+}
