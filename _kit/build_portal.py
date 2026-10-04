@@ -257,6 +257,15 @@ def main():
         % url("cs224r-2025/index.html"),
         cs224r, "cs224r"))
 
+    # ③b CSE 541
+    cse541 = course_rows("bandits-cse541")
+    body.append(render_course(
+        "CSE 541 交互式学习 · 中文学习站",
+        '华盛顿大学 Spring 2025（Kevin Jamieson）。<b>学习清单条目 1 的主体</b> —— '
+        '纯探索 bandit。⚠ 讲义是手写稿，推导全在墨迹里。<a href="%s">课程入口 ↗</a>'
+        % url("bandits-cse541/index.html"),
+        cse541, "cse541"))
+
     # ④ ARTI2001
     arti = []
     for label, rel, color in [
@@ -280,7 +289,7 @@ def main():
         '逐页精读 · 备考包 · 复习放映厅</div></div>'
         '<div class="btns">%s</div></div></section>' % btns)
 
-    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + 1)
+    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + len(cse541) + 1)
     html = TPL
     for a, b in (("{{LIGHT}}", theme.LIGHT), ("{{DARK}}", theme.DARK), ("{{CSS}}", CSS),
                  ("{{LEDE}}", "一个入口，四块内容：研究学习清单、两门强化学习课的中文学习站、"
@@ -297,8 +306,8 @@ def main():
     out = os.path.join(ROOT, "★总入口.html")
     io.open(out, "w", encoding="utf-8", newline="\n").write(html)
     print("写出 %s" % os.path.basename(out))
-    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · ARTI2001 1 块 ⇒ 共 %d 条"
-          % (len(plan["items"]), len(cs234), len(cs224r), n_items))
+    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · CSE541 %d 讲 · ARTI2001 1 块 ⇒ 共 %d 条"
+          % (len(plan["items"]), len(cs234), len(cs224r), len(cse541), n_items))
 
 
 if __name__ == "__main__":
