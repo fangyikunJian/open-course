@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSE541 第 9 讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cse541-l09">
+
+<div id="bar">
+  <h1>CSE541 第 9 讲 · <span>淘汰算法的遗憾界 · <b>纯探索</b> · Thompson 采样</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 12</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_9.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L09-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "纯探索与累积遗憾最本质的差别是什么？", "o": ["纯探索只在意最后交出的答案对不对，中途拉多差的臂都不计入损失", "纯探索只能用于线性模型", "纯探索不需要值函数", "纯探索的样本复杂度一定更低"], "a": 0, "why": "因为中途不计损失，纯探索的最优策略可能专门去拉一条明知很差的臂 —— 只要它能帮你分辨另外两条。p10 会把这件事画出来。"}, {"q": "线性结构（n 条臂共享同一个 θ*）带来的好处是？", "o": ["臂数可以是无穷", "拉一条臂的观测同时提供关于所有臂的信息", "不需要最小二乘", "噪声变小"], "a": 1, "why": "这正是「组合结构臂」能比 n 条独立臂便宜得多的原因 —— 代价最终由维度 d 决定而不是臂数 n。"}],
+2: [{"q": "θ̂ − θ* = (XᵀX)⁻¹Xᵀζ 这一步用到了什么？", "o": ["把 y = Xθ* + ζ 代进最小二乘解，真值原样浮出来", "噪声是高斯的", "X 是方阵", "θ* 是稀疏的"], "a": 0, "why": "代入之后真值 θ* 分离出来，剩下全是噪声项 —— 于是「估计有多准」变成了「这个线性组合有多大」，后面整套分析都建立在这上面。"}, {"q": "分析里为什么盯 xᵀθ̂ 的误差，而不是 ‖θ̂ − θ*‖ 整体？", "o": ["我们最终只关心臂之间的比较，盯整体会被那些根本没有臂指过去的方向拖累", "因为 θ 的维度太高", "整体误差算不出来", "整体误差总是无穷大"], "a": 0, "why": "控整体对应 A-最优性（最小化 Tr(A⁻¹)），而本讲要的是 G-最优性（最小化 max_x xᵀA⁻¹x）—— 判据直接对着「每条臂的得分都估得准」这个目标。"}],
+3: [{"q": "simple regret 分解里，「第一项 ≤ 0」靠的是什么？", "o": ["x̂ 是按 θ̂ 选出来的最大者，所以 x_*ᵀθ̂ ≤ x̂ᵀθ̂", "好事件成立", "θ̂ 是无偏的", "G-最优设计"], "a": 0, "why": "算法的推荐规则在整个证明里只被用掉这一次，而且就用在这一步。剩下两项是两个方向上的估计误差。"}, {"q": "G-最优设计下 simple regret 的界里出现的是 d 还是 n？", "o": ["d 在根号里，n 只进 log", "n，臂数", "两者都在根号里", "n 在根号里，d 只进 log"], "a": 0, "why": "界是 2√(2d·log(2n/δ)/T)。所以臂数可以是 2^d 那么多（组合臂），界几乎不变 —— 这一条决定了这套方法能不能用在组合结构上。"}],
+4: [{"q": "引入设计测度 λ 的好处是？", "o": ["可以不用最小二乘", "把「拉哪 T 条臂」这个组合问题变成单纯形上的连续凸优化", "让 XᵀX 必定可逆", "可以去掉噪声"], "a": 1, "why": "而且 T 被提了出来：XᵀX = T·A(λ)，设计与预算彻底分开 —— 所有界里的 (XᵀX)⁻¹ 都能写成 A(λ)⁻¹/T。"}, {"q": "Carathéodory 定理在这里的用处是？", "o": ["保证最优设计唯一", "保证 A(λ) 可逆", "ℝᵈ 凸包里的点可用至多 d+1 个顶点表示，于是最优设计可以稀疏化到很少几条臂", "把噪声界收紧"], "a": 2, "why": "即使 n 是天文数字，真正要去拉的臂也只有 O(d²) 量级 —— Kiefer-Wolfowitz 给出的精确数是 d(d+1)/2。"}],
+5: [{"q": "Kiefer-Wolfowitz 定理说 G-最优设计的最优值 f_G(λ*) 等于多少？", "o": ["n（臂数）", "log n", "d（维度），而且是精确相等", "√d"], "a": 2, "why": "不是「大约 d」而是恰好等于 d。再怎么优化，最坏方向上的不确定度也降不到 d 以下，而且确实能达到 —— 这正是上一页那个界里 d 的来源。"}, {"q": "实际求解时为什么解 D-最优而不是直接解 G-最优？", "o": ["G-最优无解", "两者同解，而 D 的目标 log|A_λ| 凹且可微，G 的目标带 max 不可微", "D-最优的界更紧", "D-最优的解更稀疏"], "a": 1, "why": "这就是等价性定理的实用价值。关键的一步是 ∂/∂x log|A(λ)| = xᵀA(λ)⁻¹x —— 「加一点测量信息涨多少」恰好等于「这个方向现在有多不确定」。"}, {"q": "Proposition 2 里取整 ⌈τλ*_x⌉ 带来的代价是？", "o": ["可能导致 A(λ) 奇异", "需要重新做并集界", "界变松一个 √2 因子", "最多多拉 d(d+1)/2 次，而界只会更紧"], "a": 3, "why": "⌈τλ*⌉ ≥ τλ* 给出 Σ⌈τλ*⌉xxᵀ ⪰ τ·A(λ*)，取逆反号 —— 取整只会让信息更多。代价只是多拉的那几次。"}],
+6: [{"q": "取整 ⌈λ_x τ⌉ 为什么让界更紧而不是更松？", "o": ["因为取整误差可以忽略", "因为 τ 很大", "⌈a⌉ ≥ a 使信息矩阵在半正定序下更大，而矩阵越大其逆越小", "因为 λ 是概率分布"], "a": 2, "why": "A ⪰ B ≻ 0 ⟹ A⁻¹ ⪯ B⁻¹。取整只会让我们测得更多、不确定度更小，代价只是多拉的那几次（最多 d(d+1)/2 次）。"}],
+7: [{"q": "算法为什么强调「只用本轮的观测」构造 θ̂_ℓ？", "o": ["否则 θ̂_ℓ 会与「哪些臂活到这一轮」纠缠，条件独立不成立，并集界的拆分就垮了", "因为旧数据噪声更大", "为了省内存", "因为设计 λ 每轮都变"], "a": 0, "why": "代价是丢掉前几轮的数据，换来 P(·, 𝒳_ℓ=𝒱) = P(·)·P(𝒳_ℓ=𝒱) 这一步成立 —— 一个干净的证明。"}, {"q": "存活集合 𝒳_ℓ 是随机的，并集界怎么处理？", "o": ["假设 𝒳_ℓ 固定", "只对最后一轮做并集", "对 𝒳_ℓ 取期望", "对所有可能的子集 𝒱 ⊆ 𝒳 取并集，再按 𝒳_ℓ=𝒱 条件分解"], "a": 3, "why": "子集虽有 2ⁿ 个，但 Σ_𝒱 P(𝒳_ℓ=𝒱) = 1，所以这一层不花钱 —— 最终仍然是 Σ_ℓ δ/(2ℓ²) ≤ δ。"}],
+8: [{"q": "线性版的遗憾界与 L06 的最大差别是？", "o": ["多了一个 log 因子", "根号里的臂数 n 变成了维度 d，n 只进 log", "不依赖差距", "不再需要好事件"], "a": 1, "why": "√(nT) → √(dT)。臂数可以是 2^d（组合臂），界只多一个 log —— 这就是把问题写成线性模型的全部收益。"}, {"q": "界里那个 d²log(|𝒳|/δ) 常数项是哪来的？", "o": ["并集界", "噪声的方差", "G-最优设计的最优值", "每轮在至多 d(d+1)/2 条臂上向上取整的代价，对 ℓ 求和收敛，与 T 无关"], "a": 3, "why": "Σ_ℓ 8ε_ℓ·d²/2 = 4d²Σ2^(−ℓ) ≤ 4d²，等比级数收敛。这也解释了为什么这套方法在小预算下不划算 —— 要等 √(dT) 那项占主导。"}],
+9: [{"q": "BAI 的判据里，要控的范数作用在哪个向量上？", "o": ["两条臂之差 x_* − x", "θ̂ − θ*", "臂本身 x", "设计测度 λ"], "a": 0, "why": "这正是与前半讲（simple regret 用 G-最优，控 max_x ‖x‖²）最大的差别。对象变了，最优设计也就变了 —— 这叫 XY-最优 / transductive 设计。"}, {"q": "判据 ‖x_*−x‖²_{A⁻¹}/Δ_x² 里，差距 Δ_x 在分母说明什么？", "o": ["设计自适应于实例：差距大的臂容易分辨，不必在它身上花力气", "差距越大越难分辨", "Δ_x 必须相等", "必须先知道 Δ_x 才能跑算法"], "a": 0, "why": "差距小的臂才需要精确测量。这个比值的倒数就是样本复杂度的量纲，两页之后被命名为 ρ*。"}],
+10: [{"q": "三条臂那张图想说明什么？", "o": ["维度越高越容易", "最优设计总是均匀分配", "为了分辨 x₁ 和 x₃，最该拉的是与 x₁−x₃ 对齐的 x₂ —— 哪怕 x₂ 自己最差", "应该多拉得分最高的臂"], "a": 2, "why": "这在累积遗憾下绝不会发生（每拉一次 x₂ 都在实打实亏钱）。纯探索与 regret minimization 的分野，在这张图上最直观。"}, {"q": "往臂集里加一条「得分很差但方向好」的臂，会发生什么？", "o": ["ρ* 不变", "ρ* 可能变小，问题反而更容易", "算法无法收敛", "ρ* 变大，问题更难"], "a": 1, "why": "因为它提供了一个更高效的测量方向。反过来，把 x₂ 删掉会让 ρ* 显著变大 —— 这在标准 regret 框架里是不可能发生的事。"}],
+11: [{"q": "Theorem 5 与其下界合起来说明了什么？", "o": ["δ 越小代价越大且是线性的", "线性模型比表格模型更难", "ρ* 不是算法的性质而是问题本身的难度 —— 换任何算法都省不掉", "这个算法比别的算法快"], "a": 2, "why": "上界 cρ*log(Δ⁻¹)[...] 与下界 ρ*log(1/δ) 在 ρ* 上对齐，只差 log 因子。这是「实例最优」的标准呈现方式。"}, {"q": "算法里用 f(𝒳_ℓ) 而不是直接用 ρ*，原因是？", "o": ["ρ* 可能是无穷", "ρ* 的定义里含 x_* 与 Δ_x，这两样算法都不知道，所以用一个不需要知道答案的保守代理量", "f 更容易计算", "f 的值更小"], "a": 1, "why": "代价是 Theorem 5 里那个 log(Δ⁻¹) 因子。随着淘汰推进 𝒳_ℓ 变小，f(𝒳_ℓ) 逐渐逼近 ρ* ——「用保守但可算的代理量，再靠淘汰收紧」是这一族算法的通用模式。"}, {"q": "下界 E[τ] ≥ ρ*·log(1/δ) 里 δ 的依赖是什么形式？", "o": ["平方，1/δ²", "对数，log(1/δ)", "线性，1/δ", "与 δ 无关"], "a": 1, "why": "固定置信度设定的标志性结论：把失败概率从 5% 降到 0.1% 只要多付一个常数倍，而不是成百倍。"}]
+};
+
+var N = [
+{"r": [1, 1], "t": "换一个问法：不问「一路亏多少」，问「最后选得对不对」", "star": 3, "quote": "𝒳 = {x_1,…,x_n} ⊂ ℝ^d. Assume ∃θ* ∈ ℝ^d: pulling arm x_t @ time t ∈ ℕ results in a reward y_t = x_tᵀθ* + ζ_t where E[ζ_t] = 0, E[exp(λζ_t)] ≤ e^{λ²/2}.", "one": "<b>这一讲是整门课的转折点</b>：前面都在算累积遗憾，从这里开始问的是 <code>E[(x_* − x̂)ᵀθ*]</code> —— <span class='k'>推荐出来的那条臂，比最优的差多少</span>。", "eq": "设定（线性 bandit）：\n  臂集 𝒳 = {x_1,…,x_n} ⊂ ℝ^d，存在未知 θ* ∈ ℝ^d\n  拉臂 x_t 得到  y_t = x_tᵀθ* + ζ_t，噪声 1-sub-Gaussian\n\n累积遗憾（前几讲的问法）：\n  Regret = max_{x∈𝒳} Σ_{t=1}^T xᵀθ* − x_tᵀθ*\n\n纯探索（本讲的问法）：\n  选 x_1,…,x_T 去测 → 最小二乘 θ̂ = argmin_θ Σ_t (y_t − x_tᵀθ)²\n  推荐 x̂ = argmax_{x∈𝒳} xᵀθ̂\n  问：E[(x_* − x̂)ᵀθ*] 有多大？其中 x_* = argmax_x xᵀθ*", "pts": ["<b>两个问法的差别不是技术性的，是目标不同。</b>累积遗憾在意「这一路上总共亏多少」，所以探索本身是有代价的；纯探索只在意「最后交出来的答案对不对」，<span class='k'>中途拉多差的臂都不要紧</span>。", "<b>于是最优策略完全不同。</b>累积遗憾下你会尽量多拉看起来好的臂；纯探索下你可能<span class='w'>专门去拉一条你明知道很差的臂</span>——只因为它能帮你分辨另外两条。p10 会把这件事画出来。", "<b>线性结构是本讲的第二个主角。</b>n 条臂共享同一个 θ*，所以拉一条臂的观测<span class='k'>同时提供了关于所有臂的信息</span>——这正是「组合结构臂」能比 n 条独立臂便宜得多的原因。", "最小二乘的正规方程手写在底部：<code>0 = −Σ_t 2(y_t − x_tᵀθ)x_t ⟹ (Σ_t x_t x_tᵀ)θ = Σ_t x_t y_t ⟹ θ̂ = (Σ_t x_t x_tᵀ)^(−1) Σ_t x_t y_t</code>。<span class='w'>注意那个矩阵要可逆</span>——它要求你选的臂张满 ℝ^d。", "<b>这就是你论文要的那一侧。</b>学习清单条目 1 的主线是纯探索，而第 6 讲讲的还是累积遗憾。<span class='k'>从这一讲起才真正进入正题。</span>"], "tbl": {"cap": "两种问法，逐项对照", "head": ["", "累积遗憾（L06）", "纯探索 / BAI（本讲）"], "rows": [["关心什么", "一路上总共亏多少", "<b>最后交出来的答案对不对</b>"], ["探索的代价", "每次探索都在亏", "<b>不计中途损失</b>"], ["会不会拉明显差的臂", "不会（那是纯浪费）", "<b>会</b> —— 如果它能帮你分辨别人"], ["指标", "R_T = Σ Δ_i E[T_i]", "E[(x_*−x̂)ᵀθ*]，或「选对的概率」"], ["典型结果形状", "√(nT) 或 Σ Δ⁻¹log T", "<b>ρ*·log(1/δ)</b>（见 p11）"]]}, "say": "<b>补推导（正规方程）</b>：对 <code>L(θ) = Σ_t (y_t − x_tᵀθ)²</code> 求梯度，<code>∇L = −2Σ_t (y_t − x_tᵀθ)x_t</code>。置零即得 <code>Σ_t x_t y_t = (Σ_t x_t x_tᵀ)θ</code>。<span class='k'>左边是「观测与方向的相关」，右边的矩阵是「你朝各个方向测了多少」</span>——后面所有分析都围着这个矩阵转，它会被记成 <code>XᵀX</code> 或 <code>T·A(λ)</code>。", "link": {"t": "你学过的对应：本课 L06 逐次淘汰（累积遗憾那一侧，同一副骨架）", "href": "L06-精读.html"}},
+{"r": [2, 2], "t": "误差长什么样：θ̂ − θ* 是噪声的一个线性函数", "star": 3, "quote": "θ̂ = θ* + (XᵀX)^{-1}Xᵀζ, where X = [x_1ᵀ; …; x_Tᵀ] ∈ ℝ^{T×d}, y ∈ ℝ^T, ζ ∈ ℝ^T.", "one": "把 <code>y = Xθ* + ζ</code> 代进最小二乘，误差立刻变成一个<b>关于噪声的线性式子</b>：<code>θ̂ − θ* = (XᵀX)^(−1)Xᵀζ</code>。", "eq": "θ̂ = (Σ_t x_t x_tᵀ)^(−1) Σ_t x_t y_t\n  = (Σ_t x_t x_tᵀ)^(−1) Σ_t x_t (x_tᵀθ* + ζ_t)\n  = θ* + (Σ_t x_t x_tᵀ)^(−1) Σ_t x_t ζ_t\n  = θ* + (XᵀX)^(−1) Xᵀ ζ\n\n固定某个 x ∈ 𝒳，看它那一个方向上的误差：\n  xᵀ(θ̂ − θ*) = xᵀ(XᵀX)^(−1)Xᵀ ζ  =:  wᵀζ  =  Σ_{t=1}^T w_t ζ_t\n\n矩母函数（用噪声独立 + 1-sub-Gaussian）：\n  E[exp(λ·xᵀ(θ̂−θ*))] = E[exp(λ Σ_t w_t ζ_t)] = Π_t E[exp(λ w_t ζ_t)]", "pts": ["<b>第一步「代入 y」是整个分析的支点</b>：真值 θ* 原样浮出来，剩下的全是噪声项。<span class='k'>于是「估计有多准」这个问题，变成了「这个线性组合有多大」。</span>", "<b>w = X(XᵀX)^(−1)x 这个向量值得记住名字</b>：它把 T 个噪声加权成一个数。<span class='w'>权重由你选的臂决定</span>——这就是「实验设计」能插手的地方。", "<b>第三行用到噪声相互独立</b>（讲义写了 ζ_t IID），所以期望可以拆成连乘。", "<b>注意我们只盯一个方向</b>：不是问「θ̂ 整体有多准」，而是问「<code>xᵀθ̂</code> 有多准」。<span class='k'>这个取舍后面会一直贯穿</span>——因为我们最终只关心臂之间的比较，不关心 θ 本身。", "右侧红字 <code>E[(θ̂−θ*)(θ̂−θ*)ᵀ] = XᵀX</code> 是老师的笔误，<span class='w'>正确的是 (XᵀX)^(−1)</span>（协方差是信息矩阵的逆）。下一页用到的也是逆。"], "tbl": {"cap": "三个矩阵记号，别混", "head": ["记号", "是什么", "维度", "直觉"], "rows": [["X", "把 T 个被拉的臂按行堆起来", "T × d", "你的实验方案"], ["XᵀX = Σ_t x_t x_tᵀ", "<b>信息矩阵</b>", "d × d", "你朝各方向测了多少"], ["(XᵀX)^(−1)", "<b>协方差</b>", "d × d", "各方向还剩多少不确定"], ["w = X(XᵀX)^(−1)x", "噪声的加权向量", "T", "这次测量怎么被加权"]]}, "say": "<b>补推导（为什么盯方向而不是盯 θ 整体）</b>：如果去控 <code>‖θ̂−θ*‖₂</code>，得到的界会同时受<span class='w'>所有方向</span>上最差的那个限制——包括那些根本没有臂指过去的方向。而我们真正要的只是 <code>xᵀθ̂</code> 这类标量。<br><br>p4 的手写部分正好算了整体那一版：<code>E[‖θ̂−θ*‖²] = Trace((XᵀX)^(−1))</code>，用的是迹的轮换性 <code>Tr(ABC)=Tr(BCA)</code> 与 <code>Tr(aᵀBa)=Tr(Baaᵀ)</code>。<span class='k'>这正是后面「A-最优性」要最小化的那个量</span>——而我们要的是另一个（G-最优性）。"},
+{"r": [3, 3], "t": "simple regret 的界：两次「加减同一项」，一次 G-最优", "star": 3, "quote": "(x_* − x̂)ᵀθ* = (x_* − x̂)ᵀθ̂ + (x_* − x̂)ᵀ(θ* − θ̂) … ≤ 2·√( max_x xᵀA(λ)^{-1}x · 2log(2n/δ) / T ), = d if λ is G-optimal.", "one": "推荐错臂的代价，被<b>两件事</b>夹住：一件是 x̂ 按 θ̂ 看是最好的（所以第一项 ≤ 0），另一件是估计误差被设计控住。", "eq": "先得到单方向的置信界（由上一页的 MGF）：\n  ‖w‖₂² = xᵀ(XᵀX)^(−1)x\n  ⟹ P( (θ̂−θ*)ᵀx > ε ) ≤ exp( −ε² / (2·xᵀ(XᵀX)^(−1)x) ) = δ\n  ⟹ (θ̂−θ*)ᵀx ≤ √( 2·xᵀ(XᵀX)^(−1)x·log(1/δ) )，概率 ≥ 1−δ\n\n再把 simple regret 拆开：\n  (x_*−x̂)ᵀθ* = (x_*−x̂)ᵀθ̂ + (x_*−x̂)ᵀ(θ*−θ̂)\n                 └── ≤ 0，因为 x̂ 是按 θ̂ 选的最大者\n              ≤ x_*ᵀ(θ*−θ̂) − x̂ᵀ(θ*−θ̂)\n              ≤ 2·√( max_{x∈𝒳} xᵀ(XᵀX)^(−1)x · 2log(2n/δ) )\n              ≈ 2·√( max_x xᵀA(λ)^(−1)x · 2log(2n/δ) / T )\n                      └── <b>若 λ 是 G-最优，这一项 = d</b>", "pts": ["<b>「第一项 ≤ 0」是全讲最省力的一步</b>：x̂ 按 θ̂ 看就是最好的，所以 <code>x_*ᵀθ̂ ≤ x̂ᵀθ̂</code>，差是非正的。<span class='k'>算法的推荐规则在这里被用掉了，而且只用这一次。</span>", "<b>剩下两项各是一个方向上的估计误差</b>，各用一次置信界，所以前面是系数 <b>2</b>；并集界要覆盖 n 条臂的两侧，所以 log 里是 <code>2n/δ</code>。", "<b>最后那一步是本讲的核心</b>：<code>max_x xᵀA(λ)^(−1)x</code> 这个量，在 G-最优设计下<span class='k'>恰好等于 d</span>（Kiefer-Wolfowitz，下一页）。于是 simple regret ≲ <code>2√(2d·log(2n/δ)/T)</code>。", "<b>读一下这个结论的分量</b>：误差只随 <span class='w'>d</span>（维度）增长，臂数 n <span class='k'>只进 log</span>。n 可以是 2^d 那么多（组合臂！），界几乎不变。", "底部那张图解释了为什么是 <code>(XᵀX)^(−1)</code>：把它特征分解成 <code>V₁V₁ᵀσ₁ + V₂V₂ᵀσ₂</code>，则 <code>xᵀ(XᵀX)^(−1)x = (xᵀV₁)²σ₁^(−1) + (xᵀV₂)²σ₂^(−1)</code>。<span class='w'>σ 小的方向（测得少）贡献大</span>——椭球扁的那一头就是你不确定的方向。"], "tbl": {"cap": "这个界里每个因子从哪来", "head": ["因子", "来自", "能不能改善"], "rows": [["系数 2", "x_* 与 x̂ 两个方向各一次误差", "不能"], ["<b>d</b>", "G-最优设计（Kiefer-Wolfowitz）", "<b>不能</b> —— 这是最优值"], ["log(2n/δ)", "对 n 条臂两侧取并集", "只能到 log"], ["1/√T", "样本量", "<b>能</b> —— 多测就小"]]}, "say": "<b>补推导（从 MGF 到置信界）</b>：由上一页 <code>E[exp(λ·xᵀ(θ̂−θ*))] ≤ exp(λ²‖w‖²/2)</code>，这说明 <code>xᵀ(θ̂−θ*)</code> 是 <code>‖w‖</code>-sub-Gaussian。标准的 Chernoff 给出 <code>P(· > ε) ≤ exp(−ε²/(2‖w‖²))</code>。令右边 = δ 反解 ε，就是讲义那一行。<br><br>而 <code>‖w‖² = wᵀw = xᵀ(XᵀX)^(−1)Xᵀ·X(XᵀX)^(−1)x = xᵀ(XᵀX)^(−1)x</code>——<span class='k'>中间的 XᵀX 和一个逆抵消掉了</span>。这个化简很值得自己写一遍，它是「设计矩阵的逆」出现在所有界里的原因。", "res": {"tag": "推断", "v": "<b>「n 只进 log」这一条直接关系到你的问题能不能做。</b>你的臂是组合结构的配置，数量随节点数指数增长——若界里带 n，一切免谈。这一讲说：<span class='k'>只要臂能嵌进一个 d 维线性模型，代价就由 d 而不是 n 决定</span>。<br><br>所以对你的论文，一个要正面回答的问题是：<b>节点级保真度分配能不能写成线性（或某种低维）模型？</b>简报 §5 的「可加性检验」其实就是在问这件事的一个特例 —— <span class='w'>若节点效应近似可加，那恰好是一个线性模型，d = 节点数而不是 2^节点数</span>。可加性检验通过，这一整套实验设计的机器就能搬过来；不通过，就得另找结构。", "ref": "本讲 p3；你的科研简报 §5「可加性检验」"}},
+{"r": [4, 4], "t": "设计测度 λ：把「拉哪些臂」变成一个凸优化的变量", "star": 3, "quote": "∃λ ∈ Δ_𝒳 = {λ_x ∈ ℝ_+^{|𝒳|} : Σ_{x∈𝒳} λ_x = 1}. XᵀX = Σ_{t=1}^T x_t x_tᵀ = T·Σ_{x∈𝒳} λ_x x xᵀ =: T·A(λ), where λ_x = (1/T)Σ_t 1{x_t = x}.", "one": "把「我拉了哪些臂」换成「<b>我在每条臂上花了多大比例</b>」，离散的选择问题就变成了一个<span class='k'>在单纯形上的连续优化</span>。", "eq": "λ_x = (1/T)·Σ_{t=1}^T 1{x_t = x}        ← 分配给臂 x 的比例\nA(λ) = Σ_{x∈𝒳} λ_x x xᵀ                  ← 单位时间的信息矩阵\nXᵀX = T·A(λ)                              ← 所以 (XᵀX)^(−1) = A(λ)^(−1)/T\n\n整体误差（p4 手写那一段）：\n  E[‖θ̂−θ*‖²] = E[‖(XᵀX)^(−1)Xᵀζ‖²]\n              = E[ Tr( (XᵀX)^(−1)(XᵀX)^(−1)XᵀζζᵀX ) ]\n              = Tr( (XᵀX)^(−1)(XᵀX)^(−1)Xᵀ E[ζζᵀ] X )\n              = Tr( (XᵀX)^(−1) )              ← 用 E[ζ_iζ_j] = E[ζ_i²]1{i=j} ≤ 1{i=j}", "pts": ["<b>这一步的意义是把问题交给凸优化。</b>原来要问「拉哪 T 条臂」（组合问题），现在只要问「λ 怎么分」——<span class='k'>而 λ 的可行域是单纯形，目标函数是凸的</span>，可以直接解。", "<b>T 被提了出来</b>：<code>XᵀX = T·A(λ)</code>，所以所有界里的 <code>(XᵀX)^(−1)</code> 都可以写成 <code>A(λ)^(−1)/T</code>。<span class='w'>设计（λ）与预算（T）彻底分开了</span>——这是上一页那个 <code>/T</code> 的由来。", "<b>λ 一般不是整数比例</b>，所以实际执行要取整。底部的 <b>Carathéodory 定理</b>管这件事：ℝ^d 中凸包里的任何点，都能表示成<span class='k'>至多 d+1 个顶点</span>的凸组合。所以最优设计可以只用很少几条臂。", "<b>迹的那一串用了两个恒等式</b>，讲义写在 p3 右下角：<code>Tr(ABC)=Tr(BCA)=Tr(CAB)</code> 与 <code>Tr(aᵀBa)=Tr(Baaᵀ)</code>。<span class='w'>把标量写成迹，再轮换，是这类计算的通用招数。</span>", "<code>Tr((XᵀX)^(−1))</code> 正是下一页 <b>A-最优性</b>要最小化的目标。而我们要的是 G-最优性——<span class='k'>目标不同，解也不同</span>。"], "tbl": {"cap": "从「拉哪些臂」到「λ 怎么分」", "head": ["", "原问题", "换成 λ 之后"], "rows": [["变量", "x_1,…,x_T ∈ 𝒳", "λ ∈ Δ_𝒳（单纯形）"], ["类型", "<b>组合</b>", "<b>连续、凸</b>"], ["规模", "|𝒳|^T", "|𝒳| 维"], ["与 T 的关系", "纠缠在一起", "<b>分开了</b>：XᵀX = T·A(λ)"], ["落地", "直接就是方案", "要取整（Carathéodory 兜底）"]]}, "say": "<b>补推导（Carathéodory 在这里做什么）</b>：讲义底部画了一个六边形凸包和一个内点 x，写着 <code>x = Σ_{i=1}^6 p_i w_i</code>，然后 <code>= p'_1w_1 + p'_2w_2 + p'_5w_5</code> —— <span class='k'>六个点的凸组合，可以改写成只用三个点</span>（ℝ² 里 d+1 = 3）。<br><br>这件事在算法里的用处是：最优设计 λ* 虽然形式上对所有 n 条臂都有一个权重，<b>但可以稀疏化到只有 O(d²) 条臂上非零</b>（下一页 Kiefer-Wolfowitz 给的是 (d+1)d/2）。<span class='w'>于是即使 n 是天文数字，真正要去拉的臂也只有 d² 量级</span>——这对你的组合臂是关键。"},
+{"r": [5, 5], "t": "Kiefer-Wolfowitz：G-最优设计的最优值恰好是 d", "star": 3, "quote": "Lemma 10 (Kiefer-Wolfowitz (1960)). For any 𝒳 with d = dim(span(𝒳)), there exists a λ* ∈ Δ_𝒳 that: max_λ g_D(λ) = g_D(λ*); min_λ f_G(λ) = f_G(λ*); f_G(λ*) = d; support(λ*) = (d+1)d/2.", "one": "整讲最漂亮的一条：<b>D-最优与 G-最优是同一个解</b>，而且那个最优值<span class='k'>恰好是 d</span>——不是「大约 d」，是精确等于。", "eq": "四种最优性判据（都在 A(λ) 上做文章）：\n  A-最优  min f_A(λ) = Tr(A_λ^(−1))            ⟹ 最小化 E‖θ̂−θ‖²\n  E-最优  min f_E(λ) = max_{‖u‖≤1} uᵀA_λ^(−1)u  ⟹ 最小化最坏方向的误差\n  D-最优  max g_D(λ) = log|A_λ|                 ⟹ 最大化信息量；等价于包住 𝒳 的最小体积椭球\n  G-最优  min f_G(λ) = max_{x∈𝒳} xᵀA_λ^(−1)x    ⟹ 最小化 max_x E[(⟨x, θ̂−θ*⟩)²]\n\nProposition 2：λ* 是 G-最优，按 ⌈τλ*_x⌉ 拉臂，则对每个 x，概率 ≥ 1−δ：\n  ⟨x, θ̂−θ*⟩ ≤ ‖x‖_{(Σ⌈τλ*_x⌉xxᵀ)^(−1)}·√(2log(1/δ))\n              ≤ (1/√τ)·‖x‖_{(Σλ*_x xxᵀ)^(−1)}·√(2log(1/δ))\n              ≤ √( 2d·log(1/δ) / τ )\n总拉臂次数最多 τ + d(d+1)/2", "pts": ["<b>为什么是 G-最优而不是别的</b>：我们要的是「<span class='k'>每一条臂的得分都估得准</span>」，而不是「θ 整体准」。G-最优正是最小化 <code>max_x</code> 那个——判据直接对着目标。", "<b>f_G(λ*) = d 这个等号很不平凡。</b>注意 <code>xᵀA_λ^(−1)x</code> 的量纲：它是「x 这个方向上还有多少不确定」。定理说<span class='w'>再怎么优化，最坏方向的那个数也降不到 d 以下</span>——而且确实能达到 d。", "<b>D-最优 = G-最优（等价性定理）</b>是实用上的大便利：D-最优的目标 <code>log|A_λ|</code> 是<span class='k'>凹函数、可微</span>，好优化；G-最优的目标带 max，不可微。<b>于是实际求解时解 D，拿到的就是 G 的解。</b>", "<b>support(λ*) = (d+1)d/2</b>：最优设计只需要在 <span class='k'>d(d+1)/2 条臂</span>上非零。这是上一页 Carathéodory 的精确版本（对称矩阵的自由度正好是 d(d+1)/2）。", "Proposition 2 的第二步 <code>⌈τλ*_x⌉ ≥ τλ*_x</code> 给出 <code>Σ⌈τλ*⌉xxᵀ ⪰ τ·A(λ*)</code>，取逆反号，所以 <code>1/√τ</code> 提出来。<span class='w'>取整只会让信息更多、界更紧</span>，代价是最多多拉 d(d+1)/2 次。"], "tbl": {"cap": "四种最优性：各自在最小化什么", "head": ["判据", "目标", "最小化的是", "本讲用哪个"], "rows": [["A-最优", "Tr(A_λ⁻¹)", "E‖θ̂−θ‖²（整体）", "不用"], ["E-最优", "max_{‖u‖≤1} uᵀA_λ⁻¹u", "最坏方向（含没有臂的方向）", "不用"], ["D-最优", "max log|A_λ|", "椭球体积 / 信息熵", "<b>当作求解手段</b>"], ["<b>G-最优</b>", "max_{x∈𝒳} xᵀA_λ⁻¹x", "<b>最坏那条臂的得分误差</b>", "<b>正是要的</b>"]]}, "say": "<b>补推导（为什么 D 和 G 会同解）</b>：讲义手写了关键的一步 <code>∂/∂x log|A(λ)| = xᵀA(λ)^(−1)x</code>。<span class='k'>也就是说，「往方向 x 加一点测量，信息的对数行列式涨多少」，恰好等于「x 方向上现在有多不确定」。</span><br><br>于是 D-最优的一阶条件（所有被用到的方向边际收益相等、其余不更高）直接翻译成 G-最优的条件（所有被用到的方向不确定度相等、其余不更高）。<b>这就是等价性定理的来路</b>，而 <code>f_G(λ*) = d</code> 来自对 <code>Tr(A_λ^(−1)A_λ) = d</code> 取加权平均。<br><br>讲义左下角写了 <b>Pukelsheim、Pronzato</b> 两个名字——那是实验设计这一行的标准参考，<span class='w'>要深挖最优设计就查他们</span>。底部还补了 Fisher 信息矩阵：线性回归 <code>I(θ) = Σ xxᵀ</code>，逻辑回归 <code>I(θ) = Σ xxᵀσ(⟨x,θ⟩)(1−σ(⟨x,θ⟩))</code> —— <span class='k'>换成广义线性模型，整套设计理论照搬，只是 A(λ) 要加权。</span>"},
+{"r": [6, 6], "t": "取整那一步的代价，以及又一次 Basel", "star": 1, "quote": "Σ_{ℓ=1}^∞ 1/ℓ² = π²/6 ≤ 2", "one": "半页纸的技术细节，但两件事都要用：<b>取整只会让界更紧</b>，以及<b>又一次靠 Σ1/ℓ² 收敛来对无穷多轮买保险</b>。", "eq": "‖x'‖²_{(Σ_{x∈𝒳} xxᵀ⌈λ_x τ⌉)^(−1)}\n  = x'ᵀ( Σ_x xxᵀ⌈λ_x τ⌉ )^(−1) x'\n  ≤ x'ᵀ( Σ_x xxᵀ λ_x τ )^(−1) x'        ← ⌈a⌉ ≥ a ⟹ 矩阵更大 ⟹ 逆更小\n  = (1/τ)·x'ᵀ( Σ_x xxᵀλ_x )^(−1) x'\n  = (1/τ)·x'ᵀA(λ)^(−1)x'\n  = (1/τ)·‖x'‖²_{A(λ)^(−1)}", "pts": ["<b>这一串的要害是那个「≤」。</b><code>⌈a⌉ ≥ a</code> 使得信息矩阵在<span class='k'>半正定序</span>下更大；而矩阵越大，它的逆在半正定序下越小，二次型也就越小。<span class='w'>取整帮了我们，没有坏事。</span>", "<b>「矩阵更大 ⟹ 逆更小」这一步是矩阵不等式</b>，不是逐元素比较：若 <code>A ⪰ B ≻ 0</code>，则 <code>A^(−1) ⪯ B^(−1)</code>。<span class='k'>这条性质在实验设计里到处都是，值得专门记住。</span>", "<code>P(A) = Σ_b P(A ∩ b)</code> 是全概率公式的提醒，下一页分析随机的 𝒳_ℓ 时要用。", "<b><code>Σ_{ℓ=1}^∞ 1/ℓ² = π²/6 ≤ 2</code> 又出现了</b>。和 L06 第 3 页、和 CS234 L11 的 UCB 一模一样：<span class='k'>算法轮数事先不知道，所以对所有轮都买保险，靠 1/ℓ² 收敛兜住总预算</span>。", "<b>这是本讲第三次用到同一套手法</b>（好事件 + 并集界 + ℓ² 衰减）。到这里应该已经形成条件反射了：<span class='w'>看见「对所有轮成立」，就去找 log 里的 ℓ²。</span>"], "tbl": {"cap": "同一招，三处用过", "head": ["出处", "对什么取并集", "log 里的因子"], "rows": [["CS234 L11（UCB）", "所有时刻 t", "δ/t²"], ["本课 L06（逐次淘汰）", "n 条臂 × 所有轮 ℓ", "4ℓ²|𝒳|/δ"], ["本讲 p7（线性淘汰）", "所有轮 ℓ × <b>所有子集 𝒱</b>", "4ℓ²|𝒳|/δ"]]}, "say": "<b>补推导（为什么 A ⪰ B ⟹ A⁻¹ ⪯ B⁻¹）</b>：设 <code>A ⪰ B ≻ 0</code>。令 <code>C = B^(−1/2)AB^(−1/2) ⪰ I</code>，则 C 的特征值全 ≥ 1，所以 <code>C^(−1) ⪯ I</code>，即 <code>B^{1/2}A^(−1)B^{1/2} ⪯ I</code>，两边夹 <code>B^(−1/2)</code> 得 <code>A^(−1) ⪯ B^(−1)</code>。<span class='k'>这个「夹一个开方」的手法在矩阵不等式里很常用。</span>"},
+{"r": [7, 7], "t": "线性版的逐次淘汰，以及随机集合带来的新麻烦", "star": 3, "quote": "Let λ̂_ℓ ∈ Δ_{𝒳_ℓ} be a d(d+1)/2-sparse minimizer of f(λ) = max_{x∈𝒳_ℓ} ‖x‖²_{(Σ λ_x xxᵀ)^{-1}}; ε_ℓ = 2^{-ℓ}, τ_ℓ = 2dε_ℓ^{-2}log(4ℓ²|𝒳|/δ); Pull arm x exactly ⌈λ̂_{ℓ,x}τ_ℓ⌉ times and construct θ̂_ℓ using only the observations of this round.", "one": "把 L06 的逐次淘汰<b>原样搬过来</b>，只换两处：均匀拉臂 → <b>按 G-最优设计拉</b>，每臂次数 → <b>τ_ℓ 里多一个 d</b>。", "eq": "算法（与 L06 逐行对照）：\n  𝒳_1 ← 𝒳,  ℓ ← 1\n  while |𝒳_ℓ| > 1:\n    λ̂_ℓ = 在 𝒳_ℓ 上的 G-最优设计（d(d+1)/2 稀疏）\n    ε_ℓ = 2^(−ℓ),  τ_ℓ = 2d·ε_ℓ^(−2)·log(4ℓ²|𝒳|/δ)\n    按 ⌈λ̂_{ℓ,x}τ_ℓ⌉ 拉臂，用**本轮观测**构造 θ̂_ℓ\n    𝒳_{ℓ+1} ← 𝒳_ℓ \\ { x : max_{x'∈𝒳_ℓ} ⟨x'−x, θ̂_ℓ⟩ > 2ε_ℓ }\n\n好事件（注意 𝒳_ℓ 是随机的）：\n  ℰ_{x,ℓ}(𝒱) = { |⟨x, θ̂_ℓ(𝒱) − θ*⟩| ≤ ε_ℓ }\n  P( ∪_ℓ ∪_{x∈𝒳_ℓ} ℰ^c_{x,ℓ}(𝒳_ℓ) )\n    ≤ Σ_ℓ Σ_{𝒱⊆𝒳} P( ∪_{x∈𝒱} ℰ^c_{x,ℓ}(𝒱) , 𝒳_ℓ=𝒱 )\n    = Σ_ℓ Σ_𝒱 P( ∪_{x∈𝒱} ℰ^c_{x,ℓ}(𝒱) )·P(𝒳_ℓ=𝒱)      ← 用「只用本轮观测」⟹ 独立\n    ≤ Σ_ℓ Σ_𝒱 (δ|𝒱|)/(2ℓ²|𝒳|)·P(𝒳_ℓ=𝒱)  ≤  Σ_ℓ δ/(2ℓ²)  ≤  δ", "pts": ["<b>「using only the observations of this round」这句话不是省事，是必需的。</b>若用上所有历史观测，θ̂_ℓ 就和「哪些臂活到了这一轮」纠缠在一起，<span class='w'>条件独立没了，上面那个拆分就不成立</span>。代价是丢掉前几轮的数据——换来一个干净的证明。", "<b>随机集合是这一页真正的新东西。</b>𝒳_ℓ 取决于前几轮的随机结果，所以不能直接对「𝒳_ℓ 里的臂」用并集界。<span class='k'>办法是对所有可能的子集 𝒱 取并集，再按 𝒳_ℓ=𝒱 条件分解</span>——这就是上一页那个全概率公式的用处。", "<b>关键的一步是 <code>P(·, 𝒳_ℓ=𝒱) = P(·)·P(𝒳_ℓ=𝒱)</code></b>：因为 θ̂_ℓ 只用本轮数据，而 𝒳_ℓ 只由前几轮决定，两者独立。<span class='w'>这一步就是上面那条设计选择的回报。</span>", "<b>Σ_𝒱 P(𝒳_ℓ=𝒱) = 1</b>，而 <code>|𝒱| ≤ |𝒳|</code>，所以 <code>Σ_𝒱 (δ|𝒱|)/(2ℓ²|𝒳|)·P(𝒳_ℓ=𝒱) ≤ δ/(2ℓ²)</code>。<span class='k'>子集虽然有 2^n 个，但它们的概率加起来只有 1，所以不花钱。</span>", "最后两行手写：<b>x_* ∈ 𝒳_ℓ 对所有 ℓ</b>（与 L06 同一个论证），以及 <b>max_{x∈𝒳_ℓ}⟨x_*−x, θ*⟩ ≤ 8ε_ℓ</b>——讲义原话 <span class='k'>“by same argument as MAB case”</span>，直接指回 L06。"], "tbl": {"cap": "L06 与本讲：逐行对照", "head": ["", "L06 逐次淘汰", "本讲 G-最优淘汰"], "rows": [["怎么拉", "每条存活臂<b>各拉 τ_ℓ 次</b>", "按 <b>G-最优设计 λ̂_ℓ</b> 分配"], ["τ_ℓ", "2ε_ℓ⁻²log(4ℓ²|𝒳|/δ)", "<b>2d</b>·ε_ℓ⁻²log(4ℓ²|𝒳|/δ)"], ["用哪些观测", "本轮", "本轮（<b>而且必须是</b>）"], ["淘汰判据", "max θ̂_j − θ̂_i > 2ε_ℓ", "max ⟨x'−x, θ̂_ℓ⟩ > 2ε_ℓ"], ["并集界要覆盖", "n 条臂 × ∞ 轮", "<b>2^n 个子集</b> × ∞ 轮"], ["结论", "max Δ ≤ 8ε_ℓ", "同（原文说 same argument）"]]}, "say": "<b>补推导（最后两行的论证）</b>：讲义写 <code>max_{x'∈𝒳_ℓ}⟨x'−x_*, θ̂_ℓ⟩ = max⟨x'−x_*, θ*⟩ + ⟨x'−x_*, θ̂_ℓ−θ*⟩ ≤ 0 + 2ε_ℓ</code>。第一项 ≤ 0 因为 x_* 是真最优；第二项 ≤ 2ε_ℓ 因为两个方向各带 ε_ℓ 的误差。<span class='k'>与 L06「最优臂永不被淘汰」逐字对应，只是把标量 θ̂_i 换成了内积 ⟨x, θ̂⟩。</span><br><br>这就是我在 L06 的主线卡里说的那句话被原文证实了：<b>「先把这一讲的证明写顺，第 9 讲会省一半力气。」</b> 讲义自己写的 <span class='w'>“by same argument as MAB case”</span> 就是这个意思。", "link": {"t": "你学过的对应：本课 L06（同一副骨架：分轮、拉够、砍掉；好事件 + 并集界）", "href": "L06-精读.html"}},
+{"r": [8, 8], "t": "线性版的遗憾界：√(dT) 而不是 √(nT)", "star": 3, "quote": "R_T ≤ d²log(|𝒳|/δ) + √(dT log(|𝒳|/δ))", "one": "证明与 L06 逐步对应，结论却换了一个量级：<b>根号里的 n 变成了 d</b>，臂数只进 log。", "eq": "R_T = Σ_{t=1}^T ⟨x_*−x_t, θ*⟩,   Δ_x = ⟨x_*−x, θ*⟩\n  = νT + Σ_ℓ Σ_{x∈𝒳_ℓ, Δ_x>ν} Δ_x·⌈λ_{ℓ,x}τ_ℓ⌉            ← 照 L06 按 ν 拆两堆\n  ≤ νT + Σ_ℓ Σ 8ε_ℓ·⌈λ_{ℓ,x}τ_ℓ⌉                          ← 上一页：活着 ⟹ Δ_x ≤ 8ε_ℓ\n  ≤ νT + Σ_ℓ ( 8ε_ℓ d² + Σ_x 8ε_ℓ λ_{ℓ,x}τ_ℓ )            ← 取整代价：支撑集 ≈ d²\n  ≈ νT + d²log(|𝒳|/δ) + d(Δ∨ν)^(−1)log(|𝒳|/δ)\n\nν = 0:      R_T ≤ d²log(|𝒳|/δ) + (d/Δ)·log(|𝒳|/δ)\nmin over ν: R_T ≤ d²log(|𝒳|/δ) + √( dT·log(|𝒳|/δ) )", "pts": ["<b>第一步到第三步与 L06 一模一样</b>：按 ν 分两堆、用「活着 ⟹ 差距小」、把存活轮数换算成拉臂次数。<span class='k'>只有被求和的东西从「每臂 τ_ℓ 次」换成了「按 λ 分配的 ⌈λτ⌉ 次」。</span>", "<b>第四步的 <code>8ε_ℓ d²</code> 是取整的代价</b>：每一轮最多在 <code>d(d+1)/2 ≈ d²/2</code> 条臂上向上取整，每条多拉 1 次，每次最多亏 8ε_ℓ。<span class='w'>这一项与 T 无关，所以最终只贡献一个常数级的 d²log(|𝒳|/δ)。</span>", "<b>第五步用几何和</b>（与 L06 同）：<code>Σ_ℓ 8ε_ℓ·λ τ_ℓ</code> 里 <code>ε_ℓ·τ_ℓ ∝ d·ε_ℓ^(−1)</code>，对 ℓ 求和由末项主导，给出 <code>d(Δ∨ν)^(−1)</code>。<span class='k'>注意这里多出来的那个 d 正是 τ_ℓ 定义里的 2d。</span>", "<b>两种读法</b>：ν=0 得到<span class='k'>依赖差距</span>的界 <code>(d/Δ)log(·)</code>；对 ν 取 min 得到<span class='k'>极小极大</span>的界 <code>√(dT log(·))</code>。与 L06 的 <code>Σ Δ⁻¹log T</code> 与 <code>√(nT)</code> 一一对应。", "<b>把两讲的结论并排看，线性结构买到的东西一目了然</b>：<code>√(nT) → √(dT)</code>。n 可以是 2^d，而界只多一个 log。<span class='w'>这就是为什么「把问题写成线性模型」值得花力气。</span>"], "tbl": {"cap": "L06 与本讲的结论对账", "head": ["", "L06（n 条独立臂）", "本讲（d 维线性）"], "rows": [["极小极大", "√(nT·log(·))", "<b>√(dT·log(|𝒳|/δ))</b>"], ["依赖差距", "Σ_i Δ_i⁻¹log(·)", "<b>(d/Δ)·log(|𝒳|/δ)</b>"], ["臂数 n 出现在", "<b>根号里</b>", "<b>只在 log 里</b>"], ["额外常数项", "无", "d²log(|𝒳|/δ)（取整代价）"], ["什么时候更划算", "d ≈ n 时两者相当", "<b>d ≪ n 时（组合臂）</b>"]]}, "say": "<b>补推导（d² 那一项为什么与 T 无关）</b>：每轮取整最多多拉 <code>|support(λ̂_ℓ)| = d(d+1)/2</code> 次。第 ℓ 轮每次最多亏 <code>8ε_ℓ</code>，所以这一轮的取整代价 ≤ <code>8ε_ℓ·d²/2</code>。对 ℓ 求和：<code>Σ_ℓ 8ε_ℓ d²/2 = 4d²Σ_ℓ 2^(−ℓ) ≤ 4d²</code>——<span class='k'>等比级数收敛，与轮数无关，也与 T 无关</span>。再乘上 log 因子就是那一项。<br><br><span class='w'>这解释了一个实践现象</span>：维度高时，前几轮的取整开销会显得很大（d² 量级），但只要 T 足够大，<code>√(dT)</code> 那一项很快占主导。<b>所以这套方法在小预算下反而不划算</b>。"},
+{"r": [9, 9], "t": "BAI 的判据：要控的是<b>差方向</b>上的不确定度", "star": 3, "quote": "If x_* = argmax_x ⟨x, θ*⟩ and x̂ = argmax_x ⟨x, θ̂⟩, we have that x̂ = x_* if ⟨x_* − x, θ̂⟩ > 0, ∀x ∈ 𝒳\\x_*.", "one": "「选对了」这件事，等价于<b>对每一条别的臂，θ̂ 都判定 x_* 更好</b>。于是要控的不再是单条臂的误差，而是<span class='k'>每一对臂之差</span>的误差。", "eq": "⟨x_*−x, θ̂⟩ = ⟨x_*−x, θ*⟩ + ⟨x_*−x, θ̂−θ*⟩\n                  └── = Δ_x（真差距）  └── 误差项\n\n对任意 v ∈ ℝ^d：  |vᵀ(θ̂−θ*)| ≤ ‖v‖_{(Σ_t x_t x_tᵀ)^(−1)}·√(2log(2/δ))\n\n取 v = x_*−x：误差项 ≥ −‖x_*−x‖_{(Σ x_t x_tᵀ)^(−1)}·√(2log(|𝒳|/δ))\n\n要让 ⟨x_*−x, θ̂⟩ > 0，充分条件是 Δ_x > ‖x_*−x‖_{(Σ)^(−1)}√(2log(|𝒳|/δ))，即\n\n   ‖x_* − x‖²_{(Σ_t x_t x_tᵀ)^(−1)}  /  ⟨x_*−x, θ*⟩²   ≤  1 / (c·log(|𝒳|/δ))     ∀x", "pts": ["<b>这个判据是本讲的中心。</b>分子是「<span class='k'>x_*−x 这个方向上还有多少不确定</span>」，分母是「<span class='k'>这个方向上的真差距有多大</span>」。两者之比要足够小。", "<b>注意范数里的向量是 x_*−x，不是 x。</b>这是与前半讲（simple regret）最大的差别：前面控的是 <code>max_x ‖x‖²_{A^(−1)}</code>（G-最优），<span class='w'>这里控的是 max_x ‖x_*−x‖²_{A^(−1)}/Δ_x²</span>——<b>对象变了，最优设计也就变了</b>。", "<b>差距 Δ_x 进了分母</b>，意味着设计是<span class='k'>自适应于实例</span>的：差距大的臂容易分辨，不必在它身上花力气；差距小的臂才需要精确测量。", "<b>这个比值的倒数就是样本复杂度的量纲。</b>两页之后它会被正式命名为 ρ*，并被证明是<span class='k'>信息论意义上的最优值</span>。", "<b>一个麻烦</b>：判据里出现了 <code>x_*</code> 和 <code>Δ_x</code>，而这两样我们都<span class='w'>不知道</span>。所以实际算法必须边做边估——p11 的分轮淘汰就是在解决这件事。"], "tbl": {"cap": "前半讲与后半讲：要控的量变了", "head": ["", "simple regret（p1–p8）", "BAI（p9–p11）"], "rows": [["要控的范数", "‖<b>x</b>‖²_{A(λ)⁻¹}", "‖<b>x_*−x</b>‖²_{A(λ)⁻¹}"], ["要不要除以差距", "不除", "<b>除以 Δ_x²</b>"], ["最优设计叫什么", "G-最优", "<b>XY-最优 / transductive</b>"], ["最优值", "= d（Kiefer-Wolfowitz）", "= ρ*（依赖实例）"], ["需不需要知道 θ*", "不需要", "<b>需要</b>（所以要边做边估）"]]}, "say": "<b>补推导（为什么分母是平方）</b>：条件 <code>Δ_x > ‖x_*−x‖_{A^(−1)}√(2log(·))</code> 两边除以 Δ_x 再平方，得 <code>‖x_*−x‖²_{A^(−1)}/Δ_x² < 1/(2log(·))</code>。<span class='k'>平方来自把一次不等式两边平方，不是什么深刻的东西</span>，但它让这个量成为一个漂亮的「归一化不确定度」。<br><br>另外注意 <code>A^(−1)</code> 里含 <code>1/T</code>（因为 <code>Σ_t x_t x_tᵀ = T·A(λ)</code>），所以这个条件实际是在说「<b>T 要大到某个由 ρ* 决定的量</b>」——下一页就把那个量写出来。", "res": {"tag": "推断", "v": "<b>这个判据的形状，很可能就是你那个 constrained BAI 要改写的对象。</b>这里是「找最大的 ⟨x,θ*⟩」，所以判据围绕 <code>⟨x_*−x, θ*⟩</code>；你的问题是「在精度约束下找最便宜的」，于是<span class='k'>要同时处理两类比较</span>：成本的比较（已知、确定）与精度是否过线的比较（要估、带噪声）。<br><br>照这个框架写下去，你的设计目标大概会长成 <code>max_x ‖·‖²_{A(λ)⁻¹} / (精度边际)²</code> 的形状，<span class='w'>而成本那一维不进范数、只进可行性筛选</span> —— 因为它不需要统计推断。这正是简报 §4e「估计量要拆成两半」在设计层面的对应物。", "ref": "本讲 p9；简报 §4e；thresholding bandit（Locatelli et al. 2016）"}},
+{"r": [10, 10], "t": "那张三条臂的图：该测的东西，不等于该用的东西", "star": 3, "quote": "We need to estimate ⟨x_1 − x_3, θ*⟩ accurately. x_2 is most aligned w/ x_1 − x_3 and is thus optimally reduces # meas to identify x_1 as best.", "one": "整讲最该记住的一句话，就在这张图的红字里：<b>为了分辨 x₁ 和 x₃，最该拉的是 x₂</b>——哪怕 x₂ 自己是最差的那条。", "eq": "ρ* := min_{λ∈Δ_𝒳} max_{x≠x_*}  ‖x_* − x‖²_{A(λ)^(−1)} / ⟨x_*−x, θ*⟩²\n\n而样本量条件是：  ρ*·c·log(|𝒳|/δ)  ≤  τ", "pts": ["<b>图上的几何</b>：θ* 大致指向 x₁；x₁ 与 x₃ 挨得很近（所以 <code>⟨x₁−x₃, θ*⟩</code> 很小，难分辨）；x₂ 几乎与 <code>x₁−x₃</code> 同向。", "<b>于是最优设计把预算几乎全压在 x₂ 上</b>。而 x₂ 按 <code>⟨x₂, θ*⟩</code> 算可能是三条里最差的——<span class='w'>你花钱去拉一条你根本不会推荐的臂</span>。", "<b>这件事在累积遗憾下绝不会发生</b>：那边每拉一次 x₂ 都在实打实地亏钱。<span class='k'>纯探索与累积遗憾的分野，在这张图上最直观。</span>", "<b>这就是「transductive / XY 设计」的名字由来</b>：你优化的是对<span class='k'>一组差向量</span> <code>{x_*−x}</code> 的估计精度，而采样是从<span class='k'>另一组向量</span> <code>𝒳</code> 里选。<b>测的集合与关心的集合不是同一个。</b>", "<b>对组合臂这是决定性的</b>：当臂是组合对象时，差向量 <code>x_*−x</code> 往往比臂本身<span class='w'>稀疏得多</span>（只有少数几个分量不同），于是「沿着差方向测」比「挨个试配置」便宜一个量级。"], "tbl": {"cap": "图上三条臂，各自的角色", "head": ["臂", "⟨x, θ*⟩（好不好）", "与 x₁−x₃ 的对齐度", "该不该拉"], "rows": [["x₁", "<b>最好</b>（是 x_*）", "低", "少量"], ["x₃", "接近 x₁", "低", "少量"], ["x₂", "<b>最差</b>", "<b>最高</b>", "<b>几乎全部预算</b>"]]}, "say": "<b>这张图值得你照着自己画一遍</b>，因为它把「为什么 BAI 的最优设计不是『多拉好臂』」讲透了，而这正是 BAI 与一切 regret-minimization 直觉最冲突的地方。<br><br><b>一个可自检的推论</b>：若把 x₂ 从臂集里删掉，<code>ρ*</code> 会<span class='w'>显著变大</span>——因为再没有哪条臂与 <code>x₁−x₃</code> 对齐了，你只能用 x₁ 与 x₃ 本身去估它们的差，而那是低效的。<span class='k'>也就是说，往臂集里加一条「没用但方向好」的臂，能让问题变容易</span>。这在标准 regret 框架里是不可能发生的事。", "res": {"tag": "推断", "v": "<b>这一页对你的课题有一条很具体的提示。</b>你的配置空间里，有些配置<span class='k'>本身不会被采用</span>（比如全弱模型），但它们可能正是<b>最能分辨两个候选配置的探针</b>。简报 §4d 的「穷举 oracle 表」是在所有 2^k 分配上全跑；而这一页说：<span class='w'>如果目标只是分辨出最优的那个，你不必均匀地跑，应该沿着候选之间的差方向集中采样</span>。<br><br>k=4 时全因子是 16 个叶子；若候选只剩两三个，XY-设计可能只需要在<b>少数几个「方向好」的配置</b>上多跑，而那几个配置自己未必是好配置。这是一个能直接省算力的角度。", "ref": "本讲 p10；简报 §4d「穷举 oracle」"}},
+{"r": [11, 11], "t": "ρ*：上界与下界在同一个量上对齐", "star": 3, "quote": "Theorem 5. Assume that max_{x∈𝒳}⟨x*−x, θ*⟩ ≤ 2. Then with probability at least 1−δ, x* is returned from the algorithm at a time τ that satisfies τ ≤ cρ*log(Δ^{-1})[log(1/δ) + log(log(Δ^{-1})) + log(|𝒳|)]. Furthermore, any algorithm requires E[τ] ≥ ρ* log(1/δ).", "one": "<b>这是整门课最该带走的一页</b>：一个量 ρ*，同时是算法能做到的上界，也是任何算法都逃不掉的下界。", "eq": "记号：\n  Δ_x = ⟨x_* − x, θ*⟩,   Δ = min_{x≠x_*} Δ_x\n  ρ* = min_{λ∈Δ_𝒳} max_{x≠x_*}  ‖x − x_*‖²_{A(λ)^(−1)} / Δ_x²\n\n算法（与 p7 只差一处：G-最优换成 XY-最优）：\n  λ̂_ℓ = f(λ; 𝒳_ℓ) 的 d(d+1)/2-稀疏最小化者，其中\n       f(𝒱) = inf_λ max_{x,x'∈𝒱} ‖x − x'‖²_{(Σ_{x∈𝒳} λ_x xxᵀ)^(−1)}\n  ε_ℓ = 2^(−ℓ),  τ_ℓ = 2ε_ℓ^(−2)·f(𝒳_ℓ)·log(4ℓ²|𝒳|/δ)\n  按 ⌈τ_ℓ λ̂_{ℓ,x}⌉ 拉臂，构造 θ̂_ℓ\n  𝒳_{ℓ+1} ← 𝒳_ℓ \\ { x : max_{x'∈𝒳_ℓ}⟨x'−x, θ̂_ℓ⟩ > ε_ℓ }\n\n上界：τ ≤ c·ρ*·log(Δ^(−1))·[ log(1/δ) + log(log(Δ^(−1))) + log(|𝒳|) ]\n下界：任何算法都需要  E[τ] ≥ ρ*·log(1/δ)", "pts": ["<b>τ_ℓ 里的 d 被换成了 f(𝒳_ℓ)</b>。对照 p7：那里是 <code>2d·ε_ℓ^(−2)log(·)</code>，这里是 <code>2ε_ℓ^(−2)·f(𝒳_ℓ)·log(·)</code>。<span class='k'>f 是当前存活集合上「差方向」的最优设计值</span>，它随着臂被淘汰而<b>变小</b>——所以后面的轮次反而更便宜。", "<b>f(𝒱) 里的 max 是对一对 (x, x') 取的</b>，不是对单个 x。这正是上一页说的「要控的是差方向」。<span class='w'>而且 λ 是在整个 𝒳 上分配的，不限于 𝒱</span>——这就是「测的集合与关心的集合不同」。", "<b>上下界只差一个 log(Δ^(−1)) 与若干 log</b>。<span class='k'>也就是说 ρ* 不是一个「算法的性质」，而是「问题本身的难度」</span>——换任何算法都省不掉。", "<b>前提 <code>max_x⟨x_*−x, θ*⟩ ≤ 2</code> 是归一化</b>，与 L06 里 <code>max Δ_i ≤ 4</code> 的作用一样：给第一轮一个起点。", "<b>下界的形状 <code>ρ*log(1/δ)</code> 值得记住</b>：δ 越小（要求越可靠），代价只是<span class='k'>对数增长</span>。这是固定置信度设定的标志性结论——把失败概率从 5% 降到 0.1% 只要多付一个常数倍。"], "tbl": {"cap": "ρ* 在三处的化身", "head": ["设定", "要最小化的量", "最优值"], "rows": [["simple regret（p3）", "max_x ‖x‖²_{A(λ)⁻¹}", "<b>= d</b>（与实例无关）"], ["BAI（p9–p11）", "max_x ‖x−x_*‖²_{A(λ)⁻¹}/Δ_x²", "<b>= ρ*</b>（依赖实例）"], ["算法里用的（p11）", "max_{x,x'∈𝒳_ℓ}‖x−x'‖²_{A(λ)⁻¹}", "f(𝒳_ℓ)，随淘汰变小"]]}, "say": "<b>为什么算法里用的是 f(𝒳_ℓ) 而不是 ρ*</b>：ρ* 的定义里有 <code>x_*</code> 和 <code>Δ_x</code>，这两样算法都<span class='w'>不知道</span>。所以算法退一步，用一个<b>不需要知道答案</b>的替代量：对当前存活集合里<span class='k'>所有</span>臂对的差方向做最优设计。<br><br>这会不会太保守？会一点，但代价只是 Theorem 5 里那个 <code>log(Δ^(−1))</code> 因子——<b>随着淘汰推进，𝒳_ℓ 变小，f(𝒳_ℓ) 也变小，逐渐逼近 ρ*</b>。<span class='k'>「用一个保守但可算的代理量，再靠淘汰让它收紧」是这一族算法的通用设计模式</span>，值得记住。", "res": {"tag": "已核", "v": "<b>这一页就是你论文最该对标的理论形态。</b>学习清单条目 1 的第二条验收标准是「写一页纸把 cheapest-feasible 问题形式化：拿哪个现有算法的样本复杂度当 baseline，你的组合结构又打破了它的哪条假设」—— <span class='k'>这里的 ρ* 与 Theorem 5 就是那个 baseline</span>。<br><br>要点明的「打破了哪条假设」大概有三处：① 这里的目标是<b>最大化线性得分</b>，你的是<b>成本最小 + 精度达标</b>（两个判据，其中一个是约束不是目标）；② 这里假设 𝒳 是<b>显式枚举</b>的有限集，而你的配置空间随节点数指数增长，<span class='w'>连 max_{x∈𝒳} 都算不动</span>；③ 这里的 λ 是在整个 𝒳 上的分布，你那边要利用组合结构把它压缩。<b>每一条都是可写的贡献点。</b>", "ref": "本讲 p11 Theorem 5 与其下界；学习清单条目 1 的第二条验收标准"}}
+];
+
+var TH = {"title": "L09 接上课题的哪一段：这一讲就是你论文要对标的那套理论", "arc": "如果整门课只读一讲，读这一讲。<b>它同时给出了你论文需要的三样东西</b>：纯探索的问题形式、实例最优的样本复杂度 ρ*、以及一个配套的下界。<br><br><b>一、线性结构让组合臂变得可做。</b>p3 的 simple regret 界是 <code>2√(2d·log(2n/δ)/T)</code> —— <span class='k'>d 在根号里，臂数 n 只进 log</span>。你的配置空间随节点数指数增长，若界里带 n 一切免谈；这一讲说，只要臂能嵌进 d 维线性模型，代价就由 d 决定。<b>所以「节点效应能不能写成（近似）可加/线性」不是一个技术细节，是你整条路线的生死线</b> —— 而简报 §5 的可加性检验正好在问这件事。<br><br><b>二、BAI 的设计判据长这样</b>（p9）：<code>max_x ‖x_*−x‖²_{A(λ)⁻¹} / Δ_x²</code>。注意范数作用在<span class='k'>差向量</span>上、还要除以<span class='k'>差距平方</span>。你的 cheapest-feasible 问题要改写的正是这个对象：成本那一维不进范数（它已知、不需要统计推断），精度那一维进。这与简报 §4e「估计量要拆成两半」是同一句话在设计层面的说法。<br><br><b>三、ρ* 与 Theorem 5 就是你的 baseline。</b>学习清单条目 1 的第二条验收标准要你「拿哪个现有算法的样本复杂度当 baseline，你的组合结构又打破了它的哪条假设」—— 答案在 p11。三条假设都被你打破了，每一条都是可写的贡献点（见下面「可用的弹药」）。<br><br>最后，这一讲与 L06 的关系：讲义自己在 p7 写了 <b>“by same argument as MAB case”</b>。<span class='w'>骨架完全一样</span>（分轮、拉够、砍掉、好事件、并集界、ℓ² 衰减），换掉的只有「怎么分配预算」—— 均匀变成最优设计。先把 L06 写顺再读这一讲，确实省一半力气。", "pitfalls": [{"v": "<b>把 G-最优当成 BAI 的最优设计。</b> 两者控的对象不同：G-最优控 <code>max_x ‖x‖²_{A⁻¹}</code>（用于 simple regret，最优值恒等于 d）；BAI 控 <code>max_x ‖x_*−x‖²_{A⁻¹}/Δ_x²</code>（最优值是依赖实例的 ρ*）。<span class='w'>前者与实例无关，后者高度依赖实例</span> —— 混用会让你的界要么太松要么根本不成立。", "tag": "已核", "ref": "本讲 p3 与 p9 对照"}, {"v": "<b>以为纯探索就是「把 regret 算法跑久一点」。</b> p10 那张图是反例：BAI 的最优设计会把几乎全部预算押在一条<span class='k'>自己最差</span>的臂上，只因为它与差方向对齐。在 regret 框架里这是纯亏钱、绝不会发生的事。<b>两种设定的最优策略在结构上就不同。</b>", "tag": "已核", "ref": "本讲 p10"}, {"v": "<b>忽略「只用本轮观测」这个约束。</b> p7 的算法每轮都丢掉历史数据。这看着浪费，但它是<span class='w'>并集界那一步成立的前提</span> —— 否则 θ̂_ℓ 与「哪些臂活到这一轮」纠缠，条件独立没了。你自己设计算法时若想复用历史数据，<b>必须另找办法处理这个相依性</b>（鞅型置信界，第 11–12 讲）。", "tag": "已核", "ref": "本讲 p7；课程表第 11–12 讲 Martingale Confidence Bounds"}, {"v": "<b>把 ρ* 当成可以直接算的东西。</b> 它的定义里含 <code>x_*</code> 与 <code>Δ_x</code>，都是未知的。算法用的是保守代理 <code>f(𝒳_ℓ)</code>，靠淘汰逐渐收紧。<span class='k'>你写算法时也会面对同一件事：目标量依赖答案</span> —— 「用可算的代理量 + 逐步收紧」是这一族的通用模式，照抄即可。", "tag": "已核", "ref": "本讲 p11"}, {"v": "<b>小预算下套用这套方法。</b> 遗憾界里有一项 <code>d²log(|𝒳|/δ)</code> 来自每轮取整（支撑集 d(d+1)/2），<span class='w'>它与 T 无关</span>。T 不够大时这一项会主导，方法反而不划算。你的实验预算有限，<b>报告结果时要说清楚是否已越过这个门槛</b>。", "tag": "推断", "ref": "本讲 p8 的 d² 项"}], "ammo": [{"q": "你的问题相对现有的线性 BAI，新在哪？", "a": "按 p11 的 Theorem 5 逐条列出被打破的假设，每一条都是贡献点：<br>① <b>目标不同</b> —— 那里是「最大化线性得分」单目标；你是「<span class='k'>成本最小 + 精度达标</span>」，其中一个是约束不是目标，于是判据从「两两比较」变成「比较 + 可行性筛选」。<br>② <b>臂集不可枚举</b> —— 那里 𝒳 是显式有限集，<code>max_{x∈𝒳}</code> 直接扫；你的配置空间随节点数指数增长，<span class='w'>连目标函数都算不动</span>，必须利用组合结构。<br>③ <b>λ 的表示</b> —— 那里 λ 是 𝒳 上的显式分布（n 维）；你那边要把它压缩成结构化的表示。<br><b>三条都是真缺口，不是包装。</b>", "tag": "已核", "ref": "本讲 p11；学习清单条目 1 第二条验收标准"}, {"q": "为什么你的方法里成本不需要「探索」？", "a": "引这一讲的分工来答：<b>ρ* 之所以出现，是因为 Δ_x 未知、必须靠采样估</b>（它在 p9 判据的分母里，而分子是估计不确定度）。你的成本 c_a <span class='k'>近乎确定</span>（简报 §4e：成本回归预期 R² &gt; 0.95），所以它<b>不进不确定度那一侧</b>，只进可行域筛选。<br><br>于是你的设计目标只需要对「精度是否过线」这一维做实验设计 —— <span class='w'>问题的有效维度比看上去低</span>。这是一个可以正面论证的简化，不是偷懒。", "tag": "推断", "ref": "本讲 p9 的判据结构；简报 §4e"}, {"q": "你凭什么说你的采样策略是对的、而不是拍脑袋？", "a": "p10 给了一个可直接引用的先例：<b>最该测的对象不是最该用的对象</b>。若你的搜索会去跑一些「本身不会被采用、但能分辨候选」的配置，这不是浪费 —— <span class='k'>transductive / XY 实验设计正是为这件事设计的</span>，而且有 ρ* 的下界背书。<br><br>反过来，如果你的策略只跑「看起来好的」配置，那它在 BAI 意义下<b>可证地次优</b>，审稿人会问为什么。", "tag": "推断", "ref": "本讲 p10；p11 的下界"}, {"q": "组合结构具体能帮上什么忙？", "a": "两处，都能量化：<br>① <b>Carathéodory + Kiefer-Wolfowitz</b>（p4、p5）：最优设计的支撑集最多 <code>d(d+1)/2</code> 条臂。<span class='k'>即使配置空间是 2^k，真正要跑的只有 O(d²) 个</span>。<br>② <b>差向量更稀疏</b>（p10）：组合臂之间的差 <code>x_*−x</code> 往往只有少数分量不同，沿差方向测比挨个试配置便宜一个量级。<br>这两条合起来，正是「指数大的臂集仍然可做」的具体机制。", "tag": "推断", "ref": "本讲 p4、p5、p10"}], "papers": [{"t": "Soare, Lazaric & Munos, Best-Arm Identification in Linear Bandits", "id": "NeurIPS 2014", "why": "<b>把 XY-设计引进线性 BAI 的原始文献</b>，p9–p11 这一套的源头。ρ* 与 XY-allocation 的提法都出自这里。<span class='k'>写 related work 绕不开</span>。"}, {"t": "Fiez, Jain, Jamieson & Ratliff, Sequential Experimental Design for Transductive Linear Bandits（RAGE）", "id": "NeurIPS 2019", "why": "p11 那个算法的完整版，作者里就有本课讲者 Jamieson。<b>“transductive” 正是「测的集合与关心的集合不同」</b> —— 你的问题天然就是 transductive 的（可测的配置 ≠ 候选的配置）。"}, {"t": "Katz-Samuels & Scott, Feasible Arm Identification", "id": "ICML 2018", "why": "<b>多约束下找可行臂</b>，与本讲的单目标 BAI 互补。你的「最便宜且精度达标」= 它的可行性判定 + 一个成本目标。<span class='w'>这是目前最接近你问题形式的现成工作。</span>"}, {"t": "Chen, Lin, King, Lyu & Chen, Combinatorial Pure Exploration of Multi-Armed Bandits（CLUCB）", "id": "NeurIPS 2014", "why": "<b>组合臂的纯探索</b>，与本讲的线性视角是另一条路线（用拟阵/组合约束而非线性嵌入）。<span class='k'>两条路线怎么选、你的问题更像哪一条，是形式化阶段要定的事。</span>"}, {"t": "Pukelsheim, Optimal Design of Experiments / Pronzato & Pázman", "id": "教材", "why": "讲义 p5 左下角点名的两个名字。<b>最优设计的标准参考</b>，要深挖 A/E/D/G 各种最优性与等价性定理就查它们。<span class='w'>不必通读</span>，当手册用。"}]};
+
+(function(){
+  var PDF="../corpus/slides/lecture_9.pdf", MAX=12;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l09quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l09p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l09quiz");
+      localStorage.removeItem("l09p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
