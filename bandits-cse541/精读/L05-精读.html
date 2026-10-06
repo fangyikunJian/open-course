@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSE541 第 5 讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cse541-l05">
+
+<div id="bar">
+  <h1>CSE541 第 5 讲 · <span>集中不等式 · 多臂老虎机开篇</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 10</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_5.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L05-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+2: [{"q": "两枚硬币的例子里，遗憾 R(T) 的含义是？", "o": ["你选错的次数", "「一开始就知道答案、每轮都选最好那枚」能拿到的总和，减去你实际拿到的", "你扔出正面的总次数", "两枚硬币均值之差"], "a": 1, "why": "等价地也可以说是「选错的次数 × ε」—— 这正是 L06 第 1 页那个遗憾分解在两臂情形下的样子。"}],
+3: [{"q": "把 bandit 问题「降级」成纯统计问题（n 个样本的均值离真值多远），好处是什么？", "o": ["一旦有了「|μ̄−μ| ≤ r(n,δ)」这个式子，它就能被塞回任何算法：r 比差距小时就能确信地排除一条臂", "可以去掉随机性", "样本量会变少", "可以不用算法"], "a": 0, "why": "L06 的逐次淘汰、UCB 的置信上界，用的都是同一个 r。所以先把这个纯统计问题解决，是最省力的路线。"}],
+4: [{"q": "Markov 不等式为什么要求 X 非负？", "o": ["为了让 E[X] 存在", "为了独立性", "否则 E[X] 可能很小甚至为负，而大的正值仍可能常常出现，界不成立", "为了让积分收敛"], "a": 2, "why": "直观上：E[X] 是「P(X≥t) 曲线下的面积」，而 t₀·P(X≥t₀) 是嵌在里面的矩形。若 X 能取负值，这个面积表示就不成立了。"}, {"q": "Markov → Chebyshev → Chernoff 这条线的共同套路是？", "o": ["都给出指数衰减", "把 X 换成一个增长更快的函数（X、X²、exp(λX)）再用 Markov", "都需要知道分布", "都用到独立性"], "a": 1, "why": "换的函数增长越快，分母上的幂次越高，尾部衰减越快。取 exp 是极致 —— 它给出指数衰减。"}],
+5: [{"q": "Chernoff 方法里，为什么偏偏取 exp(λX) 而不是别的快速增长函数？", "o": ["因为高斯密度里有 exp", "因为 exp 可导", "因为 exp 恒为正，且 exp(和) = 积(exp) 让独立性能派上用场", "因为 exp 增长最快"], "a": 2, "why": "两个好处缺一不可：恒为正让 Markov 的前提自动满足；把求和变成乘积，独立随机变量的积的期望才能拆开。"}, {"q": "Chernoff 界里的 inf_{λ>0} 是什么意思？", "o": ["λ 是失败概率", "λ 是证明里的自由度，我们自己挑，所以挑到最好", "λ 是样本量", "λ 是分布的参数，要估计"], "a": 1, "why": "与 L06 那个 inf_ν 是同一类东西 —— 只存在于分析里的参数。算法本身完全不知道 λ。"}],
+6: [{"q": "Chernoff 的六步证明里，有几步是放缩（而不是恒等变形）？", "o": ["三步", "全部六步", "一步（用 Markov 那一步）", "没有放缩"], "a": 2, "why": "乘 λ、取 exp、拆成乘积、用独立、写成指数形式全是恒等变形。几乎没有浪费，这正是 Chernoff 界常常很紧的原因。"}, {"q": "独立性在 Chernoff 方法里被用在哪一步？", "o": ["每一步都用到", "对 λ 取 inf 那一步", "用 Markov 那一步", "把积的期望拆成期望的积那一步，且只在那一步"], "a": 3, "why": "这解释了为什么处理相依数据（自适应采样的 bandit）必须另起炉灶，用鞅型工具 —— 本课第 11–12 讲的内容。"}],
+7: [{"q": "算 E[e^{λZ}]（Z 高斯）时用的技术是？", "o": ["换元为极坐标", "配方：λz − z²/(2σ²) = −(z−λσ²)²/(2σ²) + λ²σ²/2", "泰勒展开", "分部积分"], "a": 1, "why": "配方之后括号里是一个完整的高斯密度，积分等于 1；剩下的 e^{λ²σ²/2} 与 z 无关，提出来就是答案。"}, {"q": "最优的 λ* 等于多少？", "o": ["ε/σ²", "ε", "1/n", "σ²/ε"], "a": 0, "why": "指数 n(−ελ + λ²σ²/2) 关于 λ 开口向上，求导置零得 λ* = ε/σ²。代回得 −nε²/(2σ²)。"}],
+8: [{"q": "半径 σ√(2log(1/δ)/n) 里，要把半径减半需要多少样本？", "o": ["两倍", "十倍", "不变", "四倍"], "a": 3, "why": "半径随 1/√n 衰减，所以减半要四倍样本 —— 这是「样本很贵」的来源。相比之下 log(1/δ) 很便宜：δ 降一百倍只多付常数倍。"}, {"q": "UCB 里出现的是 log t 而不是 log(1/δ)，原因是？", "o": ["log t 更紧", "它要对每个时刻 t 都成立，于是取 δ ≈ 1/t²，log(1/δ) = 2log t", "UCB 用的是另一个不等式", "t 是样本量"], "a": 1, "why": "那一步（并集界 + δ/t²）在 CS234 L11 里讲过。两边合起来，UCB 那个 √(log t/n) 就彻底通了 —— 这正是学习清单梯队 0 的自检题。"}],
+9: [{"q": "sub-Gaussian 的定义「log E[e^{λZ}] ≤ σ²λ²/2」为什么够用？", "o": ["因为它保证对称", "因为它蕴含有界", "因为 Chernoff 的推导里，高斯的身份只在 ψ(λ)=λ²σ²/2 这一处被用到，换成 ≤ 整条推导不变", "因为它等价于高斯"], "a": 2, "why": "这是「把条件抽象到刚好够用」的典范。所以 bandit 论文都说「假设噪声 1-sub-Gaussian」而不说「假设高斯」—— 前者宽得多，结论一样。"}, {"q": "0/1 奖励对应的 σ² 是多少？", "o": ["1/4", "1", "1/8", "1/2"], "a": 0, "why": "Hoeffding 引理：X ∈ [a,b] ⟹ σ² = (b−a)²/4。b−a = 1 时 σ² = 1/4，σ = 1/2。代进半径得 √(log(1/δ)/(2n))，正是伯努利例子里那个式子。"}],
+10: [{"q": "要分辨差距为 Δ 的两条臂，大约需要多少样本？", "o": ["与 Δ 无关", "Δ⁻² 量级", "log(1/Δ) 量级", "Δ⁻¹ 量级"], "a": 1, "why": "半径随 1/√n 衰减，要让半径降到 Δ 量级就需要 n ≈ c/Δ²。这个平方贯穿整个 bandit 理论。"}, {"q": "遗憾界里两项取 min，交叉点大致在哪？", "o": ["Δ ≈ √(log T/T)", "Δ ≈ 1/2", "Δ ≈ 1/T", "Δ ≈ log T"], "a": 0, "why": "令 log T/Δ = ΔT/2 解得 Δ ≈ √(2log T/T)，代回得 ≈ √(T log T/2)。这也解释了为什么最坏情况总出现在 Δ ≈ √(1/T) 这个「刚好分不开」的尺度上。"}]
+};
+
+var N = [
+{"r": [2, 2], "t": "两枚硬币：整门课最小的那个问题", "star": 2, "quote": "Stochastic M.A.B. 2 coins → Heads or Tails (1 / 0). E[X₁] = 1/2, E[X₂] = 1/2 + ε, ε > 0. Coin 2 is the best option. If we choose coin 1, losing out by ε.", "one": "<b>两枚硬币，一枚好一点点。</b>整门课的问题都是它的放大版：你不知道哪枚好，只能靠扔来判断，而每扔错一次就亏 ε。", "eq": "设定：\n  X₁ ~ 硬币 1，E[X₁] = μ₁ = 1/2\n  X₂ ~ 硬币 2，E[X₂] = μ₂ = 1/2 + ε，ε > 0\n\n记 I_t 为第 t 轮你选的硬币编号，则\n\n  R(T) = T·(1/2 + ε) − Σ_{t=1}^T E[ μ_{I_t} ]", "pts": ["<b>遗憾的定义只有一个意思</b>：「<span class='k'>如果我一开始就知道答案、每轮都选第 2 枚</span>」能拿到的总和，减去「我实际拿到的总和」。", "<b>ε 既是差距也是代价</b>：每选错一次就亏 ε。所以遗憾 = 选错的次数 × ε —— 这正是 L06 第 1 页那个分解式在两臂情形下的样子。", "<b>难点全在 ε 很小的时候。</b>ε 大时扔几次就看出来了；ε 小时，<span class='w'>你得扔很多次才能把两个经验均值分开</span>。这一讲剩下的九成篇幅，都在回答「到底要多少次」。", "<b>这里的奖励是 0/1（正面反面）</b>，所以它有界 —— 这个性质到 p9 的 Hoeffding 引理才会被正式用上，但现在就该记住。", "读这一讲时带着一个目标：<span class='k'>推出 UCB 那个置信半径 √(log t / n) 到底是怎么来的</span>。到 p8 就能自己写出来。"], "tbl": {"cap": "两枚硬币的问题，三个量", "head": ["量", "是什么", "你知不知道"], "rows": [["μ₁, μ₂", "两枚硬币的真实正面概率", "<b>不知道</b>"], ["ε = μ₂ − μ₁", "差距", "<b>不知道</b>（但它决定难度）"], ["I_t", "第 t 轮你选了哪枚", "你自己定"], ["R(T)", "总遗憾", "事后才算得出"]]}, "say": "<b>为什么从两枚硬币讲起</b>：因为它把问题剥到了最小而不失本质。K 条臂的情形里，真正的困难仍然是「<span class='k'>把最优臂与次优臂分开</span>」——其余的臂要么早就被排除，要么差距大到不用费心。<br><br>所以后面那些看起来复杂的算法，骨子里都在做同一件事：<b>反复地扔，直到两个置信区间不再重叠</b>。p10 会把这句话变成一个精确的遗憾界。"},
+{"r": [3, 3], "t": "推广到 K 条臂，以及真正要回答的那个问题", "star": 2, "quote": "K-arms μ₁ > μ₂ ≥ … ≥ μ_K. Sampling an arm / Pulling an arm: X ~ 𝒟_i → dist of arm i, E[X] = μ_i. X₁,…,X_n ~iid 𝒟₁, μ̄₁ = (1/n)Σ X_i. |μ₁ − μ̄₁| w.h.p. 1−δ", "one": "把问题正式写出来之后，<b>整讲收缩成一个纯概率问题</b>：扔了 n 次，经验均值 μ̄ 离真值 μ 能有多远？", "eq": "K 条臂，均值已排序：μ₁ > μ₂ ≥ … ≥ μ_K\n拉第 i 条臂 = 从分布 𝒟_i 抽一个样本，E[X] = μ_i\n\n固定一条臂（比如第 1 条），独立抽 n 次：\n  X₁,…,X_n ~iid 𝒟₁,   μ̄₁ = (1/n)·Σ_{i=1}^n X_i\n\n要回答：  |μ₁ − μ̄₁|  有多大？（以 1−δ 的概率）", "pts": ["<b>注意这一步把 bandit 问题「降级」成了一个纯统计问题。</b>算法、探索、遗憾全都先放下，只问：<span class='k'>n 个样本的平均，离真值多远</span>？", "<b>这是个好交易。</b>一旦有了「|μ̄ − μ| ≤ r(n, δ)」这样一个式子，它就能被塞回算法里：<span class='w'>r 比差距小的时候，你就能确信地排除一条臂</span>。L06 的逐次淘汰、UCB 的置信上界，用的都是这同一个 r。", "<b>「w.h.p. 1−δ」（以 1−δ 的概率）这个措辞要留心</b>：我们永远得不到「一定」。δ 是你愿意承担的失败概率，而它会以 <code>log(1/δ)</code> 的形式出现在答案里——<span class='k'>这意味着把失败概率降低一百倍，只要多付几倍样本</span>。", "<b>排序 μ₁ > μ₂ ≥ … 只是记号方便</b>，算法当然不知道这个顺序。L06 第 1 页做过同样的假设。", "接下来四页（p4–p7）全在搭工具：Markov → Chebyshev → Chernoff → 高斯的矩母函数。<span class='w'>到 p8 才回答上面那个问题。</span>"], "tbl": {"cap": "接下来五页的路线", "head": ["页", "工具", "给出什么"], "rows": [["p4", "<b>Markov</b>", "最朴素的尾概率界，只要非负"], ["p5", "Chebyshev / <b>Chernoff</b> 陈述", "用二阶矩 / 用矩母函数"], ["p6", "Chernoff 的证明", "把尾概率换成 MGF"], ["p7", "高斯的 MGF", "ψ(λ) = λ²σ²/2，再对 λ 取 inf"], ["<b>p8</b>", "反解", "<b>ε = σ√(2log(1/δ)/n)</b> ← 要的答案"]]}, "say": "<b>这条路线值得整体记住，因为它是通用的。</b>「想界住一个随机量的尾巴」在学习理论里的标准解法就是这四步：<span class='k'>① 把尾事件改写成某个非负量超过阈值 ② 用 Markov ③ 那个非负量取成 exp(λ·) ④ 对 λ 取最优</span>。<br><br>第 ③ 步是整套方法的灵魂——<b>取指数是为了把「和」变成「积」</b>，而独立随机变量的积的期望可以拆开。p6 会把这一步写出来。"},
+{"r": [4, 4], "t": "Markov 不等式：一行证明，但它是所有尾界的祖先", "star": 3, "quote": "Markov's inequality: For any positive R.V. X, P(X ≥ t) ≤ E[X]/t, [t > 0].", "one": "<b>非负随机变量超过 t 的概率，不会超过它的均值除以 t。</b>证明只有两行，而后面所有的集中不等式都是它的变形。", "eq": "证明：\n  E[X] = ∫_{t=0}^∞ P(X ≥ t) dt            ← 非负随机变量的「层饼公式」\n       ≥ t₀ · P(X ≥ t₀)                    ← 只保留 [0, t₀] 那一段，被积函数 ≥ P(X ≥ t₀)\n\n  ⟹  P(X ≥ t₀) ≤ E[X] / t₀", "pts": ["<b>「非负」这个前提不能丢。</b>若 X 可以取负值，E[X] 可能很小甚至为负，而大的正值仍可能常常出现——<span class='w'>界就不成立了</span>。", "<b>讲义右下角那张小图是最好的理解方式</b>：画出 <code>P(X ≥ t)</code> 关于 t 的递减曲线，<span class='k'>E[X] 就是曲线下的全部面积</span>，而 <code>t₀·P(X ≥ t₀)</code> 是嵌在它里面的一个矩形。<b>矩形装不下整块面积，所以不等式成立。</b>", "<b>Markov 很弱</b>：它只用到一阶矩，衰减只有 <code>1/t</code>。要得到指数衰减，必须先把 X 换成一个增长更快的函数——下一页的 Chebyshev 用平方，再下一页的 Chernoff 用指数。", "<b>但「弱」正是它通用的原因</b>：它对<span class='k'>任何</span>非负随机变量都成立，不需要独立、不需要有界、不需要知道分布。", "记住这个套路的名字：<b>把尾事件改写成「某个非负量超过阈值」，再用 Markov</b>。这一招在 p5 和 p6 各用一次。"], "tbl": {"cap": "同一招，三次变形", "head": ["用什么替代 X", "得到", "衰减速度", "要什么前提"], "rows": [["X 本身", "<b>Markov</b>：E[X]/t", "1/t", "非负"], ["X²", "<b>Chebyshev</b>：E[X²]/t²", "1/t²", "二阶矩存在"], ["exp(λX)", "<b>Chernoff</b>：e^{−λt}E[e^{λX}]", "<b>指数</b>", "MGF 存在"]]}, "say": "<b>补推导（层饼公式）</b>：<code>E[X] = ∫_0^∞ P(X ≥ t)dt</code> 对非负随机变量成立。证法是交换积分次序：<code>E[X] = E[∫_0^X dt] = E[∫_0^∞ 1{t ≤ X}dt] = ∫_0^∞ P(X ≥ t)dt</code>。<span class='k'>这个「把随机变量写成示性函数的积分」的手法，和 L06 第 1 页把奖励写成 Σ_i 1{I_t=i}X_{i,t} 是同一种思路</span>——都是用示性函数把一个量拆成可以交换期望与求和的形式。"},
+{"r": [5, 5], "t": "Chebyshev 与 Chernoff：把 X 换成增长更快的东西", "star": 3, "quote": "Chebyshev's ineq: P(X² ≥ t²) ≤ E[X²]/t². Chernoff Bound: Let Z₁,…,Z_n be mean-zero IID RV and define ψ_Z(λ) = log(E[exp(λZ₁)]). Then P((1/n)Σ Z_i ≥ ε) ≤ inf_{λ>0} exp(−nελ + n·ψ_Z(λ)).", "one": "同一个 Markov，代入不同的函数：<b>平方给出 1/t²，指数给出指数衰减</b>。后者就是我们要的。", "eq": "Chebyshev：对 |X| 用 Markov 得 P(|X| ≥ t) ≤ E[|X|]/t\n            对 X² 用 Markov 得 P(X² ≥ t²) ≤ E[X²]/t²\n\nChernoff（本讲的主角）：\n  设 Z₁,…,Z_n 均值为零、独立同分布\n  定义对数矩母函数   ψ_Z(λ) = log( E[exp(λZ₁)] )\n  则\n    P( (1/n)·Σ_{i=1}^n Z_i ≥ ε )  ≤  inf_{λ>0} exp( −nελ + n·ψ_Z(λ) )", "pts": ["<b>Chebyshev 的要点是「平方让大偏差更显眼」</b>：事件 <code>|X| ≥ t</code> 与 <code>X² ≥ t²</code> 是同一件事，但对后者用 Markov 时，分母变成了 <code>t²</code>。<span class='k'>换个函数，衰减就快一档。</span>", "<b>Chernoff 把这件事做到极致：用 exp(λX)。</b>指数增长比任何多项式都快，于是得到<span class='w'>指数级的尾界</span>——这正是所有集中不等式的来源。", "<b>ψ_Z(λ) 叫「对数矩母函数」（cumulant generating function）。</b>它把分布的全部信息压缩成一个关于 λ 的函数，<span class='k'>而 Chernoff 界的紧度完全取决于它</span>。", "<b>注意 inf_{λ>0}</b>：λ 是我们自己挑的，所以可以挑到最好。<span class='w'>λ 不是问题的参数，是证明里的自由度</span>——这与 L06 那个 inf_ν 是同一类东西。", "<b>为什么是 (1/n)ΣZ_i 而不是 ΣZ_i</b>：因为我们关心的是<span class='k'>经验均值</span>偏离多少，而不是和偏离多少。式子里的 n 乘在指数上，这正是「样本越多越集中」的来源。"], "tbl": {"cap": "三个不等式，各要什么、给什么", "head": ["", "要求", "用到的信息", "尾部衰减"], "rows": [["Markov", "X ≥ 0", "E[X]", "1/t"], ["Chebyshev", "二阶矩存在", "E[X²]", "1/t²"], ["<b>Chernoff</b>", "MGF 存在 + <b>独立</b>", "整个 ψ_Z(λ)", "<b>exp(−n·…)</b>"]]}, "say": "<b>为什么 Chernoff 需要独立而前两个不需要</b>：下一页的证明里有一步 <code>E[Π exp(λZ_i)] = Π E[exp(λZ_i)]</code>，<span class='w'>这一步要求独立</span>。Markov 与 Chebyshev 对单个随机变量就成立，不涉及求和，所以不需要。<br><br>讲义在 p6 右上角专门标了这件事：<b>「A 与 B 独立 ⟹ E[AB] = E[A]·E[B]」</b>。<span class='k'>整个 Chernoff 方法里，独立性只在这一步被用掉</span>——这也解释了为什么处理相依数据（比如自适应采样的 bandit）要另起炉灶，用鞅型的工具（第 11–12 讲）。"},
+{"r": [6, 6], "t": "Chernoff 的证明：六行，每一行都值得认一遍", "star": 3, "quote": "A & B Ind. R.V ⟹ E[AB] = E[A]·E[B]", "one": "从尾概率到矩母函数，一共六步。<b>关键只有两处</b>：乘 λ 再取指数（不改变事件），以及用独立把积的期望拆开。", "eq": "P( Σ_{i=1}^n Z_i ≥ εn )\n  = P( λ·Σ Z_i ≥ λεn )                      ← λ > 0，乘正数不改变不等号\n  = P( exp(λ·Σ Z_i) ≥ exp(λεn) )            ← exp 单调递增，事件完全相同\n  ≤ e^{−λεn}·E[ exp(λ·Σ Z_i) ]              ← 对非负量 exp(λΣZ) 用 Markov\n  = e^{−λεn}·E[ Π_{i=1}^n exp(λ Z_i) ]      ← exp(和) = 积(exp)\n  = e^{−λεn}·Π_{i=1}^n E[ exp(λ Z_i) ]      ← **独立**，积的期望 = 期望的积\n  = e^{−λεn}·E[ exp(λ Z₁) ]^n               ← 同分布\n  = exp( −λεn + n·log E[exp(λZ₁)] )\n                           └── ψ_Z(λ)", "pts": ["<b>前两步不是放缩，是恒等变形。</b>乘以正数 λ、再取单调函数 exp，<span class='k'>事件一个样本都没变</span>。所以这两步不损失任何紧度。", "<b>第三步是全证明唯一用 Markov 的地方</b>，也是唯一的放缩之一。注意 <code>exp(λΣZ)</code> 恒为正，<span class='w'>Markov 的前提自动满足</span>——这正是「取指数」的第一个好处。", "<b>第四步「exp(和) = 积(exp)」是取指数的第二个好处</b>，也是更重要的那个：它把<span class='k'>求和变成了乘积</span>，于是独立性才有用武之地。", "<b>第五步用掉独立性</b>（讲义右上角专门标了这条性质）。<span class='w'>这是整个方法里独立性唯一被用到的地方</span>。", "<b>最后一步把 n 次方写进指数</b>：<code>A^n = exp(n log A)</code>。于是 n 乘在指数上，<span class='k'>样本量的作用一目了然</span>——n 越大，exp 里的负项越大，尾概率越小。"], "tbl": {"cap": "六步里，哪些是恒等、哪些是放缩", "head": ["步", "做了什么", "恒等还是放缩"], "rows": [["1", "乘 λ > 0", "<b>恒等</b>"], ["2", "取 exp", "<b>恒等</b>（单调）"], ["3", "Markov", "<b>放缩</b>（唯一一处）"], ["4", "exp(和)=积(exp)", "<b>恒等</b>"], ["5", "独立 ⟹ 拆开期望", "<b>恒等</b>（但要前提）"], ["6", "写成指数形式", "<b>恒等</b>"]]}, "say": "<b>整条链只放缩了一次（第 3 步），其余全是恒等变形。</b>这件事值得注意：<span class='k'>Chernoff 界之所以常常很紧，就是因为它几乎没有浪费</span>。真正决定紧度的是你对 ψ_Z(λ) 的刻画有多准，以及 λ 挑得好不好。<br><br><b>一个常见的误解</b>：以为 Chernoff 是「一个不等式」。它其实是<span class='w'>一套方法</span>——对不同的分布，ψ_Z(λ) 不同，得到的界也不同。下一页算高斯的，p9 给出有界随机变量的（Hoeffding）。"},
+{"r": [7, 7], "t": "算一个具体的 ψ：高斯，然后对 λ 取最优", "star": 3, "quote": "Ex: Z ~ N(0, σ²). E[e^{λZ}] = e^{λ²σ²/2}. ψ_Z(λ) = λ²σ²/2. P((1/n)ΣZ_i ≥ ε) ≤ inf_{λ>0} exp(−nελ + nλ²σ²/2) = exp(−nε²/(2σ²))", "one": "高斯的对数矩母函数恰好是 <code>λ²σ²/2</code>，代进 Chernoff 再对 λ 求最优，<b>得到整门课最常见的那个指数</b>。", "eq": "第一步：算 E[e^{λZ}]，Z ~ N(0, σ²)\n  E[e^{λZ}] = (1/√(2πσ²))·∫ e^{λz}·e^{−z²/(2σ²)} dz\n            = (1/√(2πσ²))·∫ e^{−(z−λσ²)²/(2σ²)}·e^{λ²σ²/2} dz      ← **配方**\n            = e^{λ²σ²/2}·(1/√(2πσ²))·∫ e^{−(z−λσ²)²/(2σ²)} dz\n            = e^{λ²σ²/2}·1                                          ← 括号里是一个完整的高斯密度，积分 = 1\n  ⟹ ψ_Z(λ) = λ²σ²/2\n\n第二步：代回 Chernoff 并对 λ 取最优\n  P( (1/n)ΣZ_i ≥ ε ) ≤ inf_{λ>0} exp( −nελ + n·λ²σ²/2 )\n  指数对 λ 求导置零：−nε + nλσ² = 0  ⟹  **λ* = ε/σ²**\n  代回：−nε·(ε/σ²) + n·(ε/σ²)²σ²/2 = −nε²/σ² + nε²/(2σ²) = −nε²/(2σ²)\n  ⟹  P( (1/n)ΣZ_i ≥ ε )  ≤  exp( −nε² / (2σ²) )", "pts": ["<b>配方那一步是整页唯一的技术动作</b>：<code>λz − z²/(2σ²) = −(z−λσ²)²/(2σ²) + λ²σ²/2</code>。<span class='k'>展开右边验证一下就信了</span>，讲义用红色大括号标出了「积分 = 1」的那一块。", "<b>剩下的 e^{λ²σ²/2} 与 z 无关，所以能提到积分号外</b>——这就是答案。", "<b>对 λ 求最优是一个一元二次问题</b>：指数是 <code>n(−ελ + λ²σ²/2)</code>，关于 λ 开口向上，顶点在 <code>λ* = ε/σ²</code>。<span class='w'>讲义用蓝色写出了这个 λ*。</span>", "<b>注意最优值 −nε²/(2σ²) 的形状</b>：<span class='k'>ε 以平方出现，n 以一次方出现</span>。这就是为什么后面反解时会出现 <code>√(1/n)</code> 而不是 <code>1/n</code>。", "<b>这个 exp(−nε²/(2σ²)) 你已经见过很多次</b>：L06 的 τ_ℓ 是照它反解的，CS234 L11 的 UCB 半径也是。<span class='w'>到这里你终于看到了它的出处。</span>"], "tbl": {"cap": "两步，各自在做什么", "head": ["步", "做什么", "用到的技术", "结果"], "rows": [["① 算 ψ", "对高斯密度积分", "<b>配方</b>", "ψ(λ) = λ²σ²/2"], ["② 优化 λ", "一元二次取顶点", "求导置零", "λ* = ε/σ²"], ["代回", "—", "—", "<b>exp(−nε²/2σ²)</b>"]]}, "say": "<b>补推导（配方的细节）</b>：要把 <code>λz − z²/(2σ²)</code> 写成 <code>−(z−a)²/(2σ²) + b</code>。展开后者得 <code>−z²/(2σ²) + az/σ² − a²/(2σ²) + b</code>。对比一次项系数：<code>a/σ² = λ ⟹ a = λσ²</code>。对比常数项：<code>−a²/(2σ²) + b = 0 ⟹ b = λ²σ²/2</code>。<span class='k'>这正是讲义上那两个数。</span><br><br><b>为什么偏偏是高斯</b>：因为它的 ψ 是<span class='w'>精确的二次函数</span>，没有高阶项。下一页会看到，很多别的分布虽然 ψ 不是二次的，但可以被一个二次函数<b>从上面压住</b>——那就是 sub-Gaussian 的定义。"},
+{"r": [8, 8], "t": "反解出半径：√(2log(1/δ)/n)，你一直在用的那个数", "star": 3, "quote": "exp(+nε²/(2σ²)) = 1/δ ⟹ nε²/(2σ²) = log(1/δ) ⟹ ε = σ√(2log(1/δ)/n). w.p. 1−δ: P((1/n)ΣZ_i < √(2log(1/δ)/n))", "one": "<b>把不等式倒过来用</b>：不问「偏离 ε 的概率有多大」，改问「<span class='k'>要以 1−δ 的概率不偏离，ε 得取多大</span>」。答案就是 UCB 里那个半径。", "eq": "令  exp( −nε²/(2σ²) ) = δ\n  ⟹  nε²/(2σ²) = log(1/δ)\n  ⟹  ε = σ·√( 2·log(1/δ) / n )\n\n于是以概率 ≥ 1−δ：   (1/n)·Σ Z_i  <  σ√( 2log(1/δ)/n )\n另一侧同理：          (1/n)·Σ Z_i  >  −σ√( 2log(1/δ)/n )\n\n用到均值估计上：令 Z_i = X_i − μ₁（均值为零），则\n  P( μ̄₁ − μ₁ < √(2log(1/δ)/n) )  ≥  1−δ", "pts": ["<b>这是整讲的落点，也是你一直在用却没推过的那个式子。</b>UCB 的置信半径、L06 的 τ_ℓ、L09 的所有界，全是它的变形。", "<b>三个因子各自的含义</b>：<code>σ</code> 是噪声大小（越吵越宽）、<code>log(1/δ)</code> 是可靠性要求（<span class='k'>只进对数，所以很便宜</span>）、<code>1/√n</code> 是样本量（<span class='w'>要让半径减半，样本要翻四倍</span>）。", "<b>「log(1/δ) 很便宜」这件事值得单独体会</b>：δ 从 0.05 降到 0.001，<code>log(1/δ)</code> 只从 3.0 涨到 6.9，<span class='k'>样本量只要翻一倍多一点</span>。这就是为什么固定置信度的算法可以把 δ 设得很小。", "<b>两侧都要</b>：讲义画了一条数轴，标出 <code>−1/√n</code> 与 <code>+1/√n</code> 两个端点。实际用时两侧各花 δ/2，或者直接对 <code>|·|</code> 用并集界得一个 2 的因子。", "<b>最后那一步「令 Z_i = X_i − μ₁」是把工具接回问题的关键</b>：原始的 X_i 均值不是零，但减掉 μ₁ 之后就是了。<span class='w'>于是 Chernoff 立刻可用，而 (1/n)ΣZ_i 恰好就是 μ̄₁ − μ₁。</span>"], "tbl": {"cap": "半径 σ√(2log(1/δ)/n) 的三个因子", "head": ["因子", "含义", "改善它要付什么"], "rows": [["σ", "噪声尺度", "换更稳的测量方式"], ["log(1/δ)", "可靠性", "<b>很便宜</b>：δ 降百倍只多付常数倍"], ["1/√n", "样本量", "<b>很贵</b>：半径减半要四倍样本"]]}, "say": "<b>这一页就是学习清单梯队 0 的自检题。</b>原话是：「你能不能自己推出 UCB 的置信半径为什么是 √(log t / n) 这个形式。推不出来，就先读 Lattimore & Szepesvári 第 5 章，再进梯队 1。」<br><br><b>现在你可以把它从头推一遍了</b>：Markov（p4）→ 取指数变成 Chernoff（p6）→ 算高斯的 ψ 并对 λ 取优（p7）→ 反解（p8）。<span class='k'>UCB 里的 log t 而不是 log(1/δ)，是因为它对每个时刻 t 都要成立，于是取 δ ≈ 1/t²，log(1/δ) = 2log t</span> —— 那一步在 CS234 L11 里讲过。两边合起来，这个式子就彻底通了。", "link": {"t": "你学过的对应：CS234 L11（Hoeffding 给出半径、并集界与 δ/t² 撑起「永远成立」）", "href": "../../reinforcement learning/theater/影片/L11-快速强化学习I与多臂老虎机.html"}, "res": {"tag": "已核", "v": "<b>这一页直接结清学习清单的梯队 0。</b>清单原文：「集中不等式是所有 BAI 证明的地基，包括 Hoeffding、union bound、sub-Gaussian 和 anytime 置信区间。自检标准是：你能不能自己推出 UCB 的置信半径为什么是 √(log t/n) 这个形式。」<br><br>p4–p8 给了前半（Hoeffding 与 sub-Gaussian 在下一页），<span class='k'>CS234 L11 给了 union bound 与 δ/t²</span>，两边合起来这条自检就过了。<b>剩下没覆盖的只有 anytime（LIL 型）置信区间</b> —— 那是本课第 11–12 讲（鞅型置信界、混合法）的内容，<span class='w'>还没人做，是条目 1 里下一个该补的洞</span>。", "ref": "本讲 p4–p8；学习清单「梯队 0：自检」；本课第 11–12 讲"}},
+{"r": [9, 9], "t": "sub-Gaussian：不是高斯，但被高斯压得住", "star": 3, "quote": "Defn: We say a mean-zero R.V. Z is σ²-sub-gaussian if log E[e^{λZ}] ≤ σ²λ²/2. Lemma (Hoeffding's ineq): Let X be a mean-zero R.V. and X ∈ [a,b] almost surely. Then log(E[e^{λX}]) ≤ ((b−a)²/8)λ² for all λ ⟹ X is (b−a)²/4 - sub-gaussian.", "one": "<b>把上一页的结论推广</b>：只要一个分布的 ψ 能被 <code>σ²λ²/2</code> 从上面压住，所有的界原样成立——<span class='k'>不必真的是高斯</span>。", "eq": "定义：均值为零的 Z 是 <b>σ²-sub-Gaussian</b>，若\n    ψ_Z(λ) = log E[e^{λZ}] ≤ σ²λ²/2     对所有 λ 成立\n\nHoeffding 引理：X 均值为零、X ∈ [a,b] 几乎必然，则\n    log E[e^{λX}] ≤ ((b−a)²/8)·λ²\n  ⟹ X 是 ((b−a)²/4)-sub-Gaussian\n\n伯努利的例子：Y_i ~ Bernoulli(θ)，Y_i ∈ {0,1}\n  以概率 1−δ：  (1/n)·Σ Y_i  ≤  θ + √( log(1/δ) / (2n) )\n  以概率 1−δ：  (1/n)·Σ Y_i  ≥  θ − √( log(1/δ) / (2n) )", "pts": ["<b>sub-Gaussian 是一个「够用就行」的定义。</b>Chernoff 的推导里，高斯的身份只在<span class='k'>「ψ(λ) = λ²σ²/2」这一处</span>被用到。所以把等号换成 ≤，整条推导一字不改地成立。", "<b>Hoeffding 引理把「有界」翻译成「sub-Gaussian」</b>：任何取值落在 <code>[a,b]</code> 里的随机变量，自动是 <code>(b−a)²/4</code>-sub-Gaussian。<span class='w'>于是有界的奖励不需要任何分布假设就能用全套工具。</span>", "<b>对 0/1 奖励：b−a = 1，所以 σ² = 1/4，σ = 1/2。</b>代进上一页的半径 <code>σ√(2log(1/δ)/n)</code> 得 <code>√(log(1/δ)/(2n))</code> —— <span class='k'>正是伯努利例子里那个式子</span>。两页完全对得上。", "<b>注意引理里 ((b−a)²/8)λ² 与定义里 σ²λ²/2 的换算</b>：令 <code>σ²/2 = (b−a)²/8</code>，得 <code>σ² = (b−a)²/4</code>。<span class='w'>那个 /4 不是 /8，别抄错。</span>", "<b>这就是 L06 为什么假设奖励在 [0,1]</b>：那个假设的唯一作用，就是让 Hoeffding 引理可用，从而 σ = 1/2。"], "tbl": {"cap": "从分布到半径：三步换算", "head": ["你知道的", "得到的 σ²", "半径 σ√(2log(1/δ)/n)"], "rows": [["Z ~ N(0, σ²)", "σ²", "σ√(2log(1/δ)/n)"], ["X ∈ [a,b]", "<b>(b−a)²/4</b>", "((b−a)/2)√(2log(1/δ)/n)"], ["<b>0/1 奖励</b>", "<b>1/4</b>", "<b>√(log(1/δ)/(2n))</b>"]]}, "say": "<b>为什么要造 sub-Gaussian 这个概念</b>：因为它<span class='k'>恰好刻画了「Chernoff 方法能走通」所需要的全部条件</span>，不多不少。你不需要知道分布长什么样，不需要它对称，不需要它有密度——只要 ψ 被一个二次函数压住。<br><br><b>这就是「把条件抽象到刚好够用」的典范</b>。后面所有的 bandit 论文都直接说「假设噪声是 1-sub-Gaussian」，而不说「假设噪声是高斯的」——<span class='w'>前者宽得多，而所有结论一样</span>。L09 第 1 页的设定里写的正是 <code>E[exp(λζ)] ≤ e^{λ²/2}</code>，就是 1-sub-Gaussian。", "link": {"t": "你学过的对应：本课 L09（设定里直接写「1-sub-Gaussian」，用的就是这个定义）", "href": "L09-精读.html"}},
+{"r": [10, 10], "t": "合起来用一次：两臂的遗憾界，以及它的两种读法", "star": 3, "quote": "R(T) = min{(100/Δ²)·Δ + 0, ΔT/2} = min{100log T/Δ, ΔT/2} ≤ C·√(T log T). R(T) ≤ min{ Σ_{i=2}^K (log T)/Δ_i, √(KT log T) }", "one": "<b>把置信区间用进算法</b>：一直扔，直到两个区间不再重叠；分开之后就一直选赢的那个。<span class='k'>遗憾等于「分开所需的样本数 × 差距」。</span>", "eq": "两臂：μ₁ = 1/2，μ₂ = 1/2 + Δ\n\n区间分开的条件（讲义那张数轴）：\n   μ̄₁ + √(log(1/δ)/(2n))  <  μ̄₂ − √(log(1/δ)/(2n))\n⟸ 两个半径合起来小于 Δ，即半径 ≈ Δ/c\n⟹ 需要  n ≈ c/Δ²  次（讲义写作 100/Δ²）\n\n遗憾：\n  R(T) = min{ (100/Δ²)·Δ ,  Δ·T/2 }        ← 分开前每次亏 Δ；或者干脆一直乱选\n       = min{ 100·log T/Δ ,  Δ·T/2 }        ← 取 δ = 1/T²，log(1/δ) = 2log T\n       ≤ C·√(T log T)                        ← 两项在 Δ ≈ √(log T/T) 处相等\n\n一般 K 臂：\n  R(T) ≤ min{ Σ_{i=2}^K (log T)/Δ_i ,  √(K·T·log T) }，  Δ_i = μ₁ − μ_i", "pts": ["<b>「扔到分开为止」就是最朴素的算法</b>，而它已经给出正确的量级。<span class='k'>L06 的逐次淘汰是它的严谨版本</span>——分轮、每轮精度翻倍，而不是一口气扔到够。", "<b>c/Δ² 这个样本量是本讲一切的落点</b>：要分辨差距为 Δ 的两条臂，需要 <span class='w'>Δ^(−2)</span> 量级的样本。这个平方来自上一页半径里的 <code>1/√n</code>。", "<b>δ = 1/T² 的取法</b>（讲义方框里标出）：与 L06 取 δ=1/T 同理 —— <span class='k'>让坏事件的代价 δ·T 变成常数</span>。这里取平方是因为还要对 T 个时刻取并集。", "<b>两种读法，与 L06 一模一样</b>：<code>min</code> 里第一项是<b>依赖差距</b>的界（Δ 大时很小），第二项是<b>极小极大</b>的界（Δ 小时主导）。<span class='w'>两者在 Δ ≈ √(log T/T) 处交叉。</span>", "<b>一般 K 臂的式子里，求和从 i=2 开始</b> —— 最优臂不贡献遗憾。<span class='k'>这正是 L06 第 1 页遗憾分解的结论</span>，在这里被直接拿来用。"], "tbl": {"cap": "本讲与 L06 的对照（同一结论，两种严谨度）", "head": ["", "本讲 p10（朴素）", "L06（严谨）"], "rows": [["算法", "扔到分开，然后一直选赢家", "分轮淘汰，每轮精度翻倍"], ["样本量", "c/Δ² 一口气", "τ_ℓ = 2ε_ℓ⁻²log(·) 每轮"], ["坏事件", "δ = 1/T²", "δ/(2|𝒳|ℓ²)，对所有轮"], ["依赖差距", "Σ log T/Δ_i", "Σ c·Δ_i⁻¹log(·)"], ["极小极大", "√(KT log T)", "c'√(nT log(·))"]]}, "say": "<b>为什么两项要取 min</b>：这两个界都成立，所以实际遗憾不超过较小的那个。<span class='k'>Δ 大时第一项小</span>（容易分辨，很快就不亏了）；<span class='k'>Δ 小时第二项小</span>（虽然久久分不开，但每次只亏一点点）。<br><br><b>交叉点在哪</b>：令 <code>log T/Δ = ΔT/2</code> 解得 <code>Δ ≈ √(2log T/T)</code>，代回任一项得 <code>≈ √(T log T/2)</code>。<span class='w'>这就是讲义上那个 C√(T log T)</code> 的来路</span>，也解释了为什么「最坏情况」总是出现在 <b>Δ ≈ √(1/T)</b> 这个尺度上——<b>不大不小、刚好分不开</b>。这一点在 L06 第 6 页讲两个下界为什么不矛盾时用过，现在可以把它算出来了。", "link": {"t": "你学过的对应：本课 L06（同一结论的严谨版本，含两个配套下界）", "href": "L06-精读.html"}}
+];
+
+var TH = {"title": "L05 接上课题的哪一段：梯队 0 到此结清，只剩一个洞", "arc": "这一讲不直接给你论文里的任何一个定理，<b>但它是你写得出任何 bound 的前提</b>。<br><br>学习清单的梯队 0 原话是：「集中不等式是所有 BAI 证明的地基，包括 Hoeffding、union bound、sub-Gaussian 和 anytime 置信区间。<b>自检标准是：你能不能自己推出 UCB 的置信半径为什么是 √(log t / n) 这个形式。</b>推不出来，就先读 Lattimore & Szepesvári 第 5 章，再进梯队 1。」<br><br><b>这一讲的 p4–p9 把这条自检补齐了大半</b>：Markov（p4）→ 取指数变成 Chernoff（p5–p6）→ 算高斯的 ψ 并对 λ 取优（p7）→ 反解出半径（p8）→ sub-Gaussian 与 Hoeffding 引理（p9）。<span class='k'>而 union bound 与 δ/t² 那一半你在 CS234 L11 已经学过</span>。两边合起来，UCB 那个 √(log t/n) 就能从头推到尾。<br><br><b>⚠ 梯队 0 还剩一个洞没补：anytime（LIL 型）置信区间。</b>这一讲给的界是「<span class='w'>固定 n、固定 δ</span>」的；而自适应算法在每个时刻都要回头看自己的估计，<b>n 本身成了随机变量</b>，此时上面的界不再直接成立。补洞的地方是本课<b>第 11–12 讲：鞅型置信界与混合法</b>（lecture_11.pdf 与 lecture_12.pdf，注意两者有 2/5 页重复）。<span class='k'>那两讲还没人做，是条目 1 里下一个该补的位置。</span><br><br>对论文最直接的一条：p10 把「要分辨差距 Δ 的两条臂，需要 <code>Δ^(−2)</code> 量级样本」算了出来。<b>你的问题里「精度是否过线」正是一个两侧比较</b>，所以这个 Δ^(−2) 会直接出现在你的样本复杂度里 —— 其中 Δ 是「该配置的真实精度与阈值之间的裕度」。<span class='w'>裕度小的配置贵得离谱，这是你做实验预算时必须先算的一笔账。</span>", "pitfalls": [{"v": "<b>把这一讲的界直接用在自适应采样上。</b> p8 的半径 <code>σ√(2log(1/δ)/n)</code> 要求 <span class='w'>n 事先固定</span>。而 UCB 这类算法是边看边决定拉几次，n 是随机的 —— <b>此时这个界不直接成立</b>。L06 绕开的办法是「分轮、每轮内 n 固定」；真正的解法是鞅型置信界（第 11–12 讲）。<span class='k'>这是初学者最常犯的一个错，而且犯了也不会报错。</span>", "tag": "已核", "ref": "本讲 p8；对照 L06 的分轮设计"}, {"v": "<b>把 Chernoff 当成「一个不等式」。</b> 它是<span class='k'>一套方法</span>：对不同分布 ψ_Z(λ) 不同，得到的界也不同。高斯给 λ²σ²/2，有界随机变量给 (b−a)²λ²/8（Hoeffding 引理）。<b>写论文时若噪声不是这两类，必须自己算 ψ 或论证 sub-Gaussian。</b>", "tag": "已核", "ref": "本讲 p5–p7、p9"}, {"v": "<b>Hoeffding 引理的常数抄错。</b> 引理给 <code>log E[e^{λX}] ≤ ((b−a)²/8)λ²</code>，而 sub-Gaussian 的定义是 <code>σ²λ²/2</code>，所以 <code>σ² = (b−a)²/4</code> —— <span class='w'>是 /4 不是 /8</span>。0/1 奖励时 σ² = 1/4、σ = 1/2。", "tag": "已核", "ref": "本讲 p9"}, {"v": "<b>忘了独立性是在哪一步被用掉的。</b> 整个 Chernoff 推导里，独立性<span class='k'>只在「积的期望 = 期望的积」那一步</span>被使用。知道这一点，你才知道换成相依数据时该从哪里下手修 —— 而不是整个重来。", "tag": "已核", "ref": "本讲 p6"}], "ammo": [{"q": "你的样本复杂度为什么是那个形状？", "a": "可以一路推回这一讲：半径 <code>∝ √(log(1/δ)/n)</code>（p8）⟹ 要把半径压到裕度 Δ 以下需要 <code>n ≳ Δ^(−2)log(1/δ)</code>（p10）。<span class='k'>所有 bandit 样本复杂度里的 Δ^(−2) 都是这么来的</span>，不是经验公式。<br><br>你的问题里 Δ 是「该配置的真实精度与阈值之间的裕度」，所以<b>裕度接近 0 的配置，代价趋于无穷</b> —— 这意味着你的保证必须写成「对裕度 ≥ γ 的配置成立」，或者改用能容忍边界情形的目标（例如只保证 ε-最优）。<span class='w'>这是形式化阶段必须做的一个选择。</span>", "tag": "推断", "ref": "本讲 p8、p10；thresholding bandit 的标准处理"}, {"q": "你凭什么假设成本/精度的噪声是 sub-Gaussian？", "a": "引 p9 的 <b>Hoeffding 引理</b>：<span class='k'>任何取值有界的随机变量自动是 sub-Gaussian</span>，σ² = (b−a)²/4，不需要任何分布假设。你的准确率是 0/1 或 [0,1] 的分数 ⟹ 有界 ⟹ σ² ≤ 1/4，<b>白送</b>。<br><br>这比「假设高斯噪声」干净得多，也更难被挑刺 —— <span class='w'>有界是可验证的事实，高斯不是</span>。", "tag": "已核", "ref": "本讲 p9"}, {"q": "为什么你的实验要跑那么多次？", "a": "把 p8 那张「三个因子」的账摆出来：<code>σ</code>（噪声）· <code>log(1/δ)</code>（可靠性，<b>很便宜</b>）· <code>1/√n</code>（样本量，<b>很贵</b>）。<span class='k'>要把置信半径减半必须四倍样本</span>，而把失败概率从 5% 降到 0.1% 只要多付一倍多一点。<br><br>这个不对称给了一条很实际的建议：<b>与其纠结 δ，不如先确认裕度 Δ 够大</b> —— 因为代价是 Δ^(−2) 而不是 log(1/δ)。", "tag": "推断", "ref": "本讲 p8"}], "papers": [{"t": "Lattimore & Szepesvári, Bandit Algorithms, 第 5 章（Concentration of Measure）", "id": "官方免费全书", "why": "<b>学习清单梯队 0 点名的那一章</b>，与本讲 p4–p9 几乎一一对应，但写得更系统（含 Bernstein 等本讲没提的）。<span class='k'>本讲看懂了，这一章可以当查阅手册而不必通读。</span>"}, {"t": "Boucheron, Lugosi & Massart, Concentration Inequalities", "id": "教材", "why": "集中不等式的标准参考。<span class='w'>不必读</span>，但当你需要一个本讲没给的不等式（Bernstein、Bennett、McDiarmid）时，去这里查。"}, {"t": "本课第 11–12 讲：Martingale Confidence Bounds, Method of Mixtures", "id": "lecture_11.pdf / lecture_12.pdf", "why": "<b>补上这一讲留下的那个洞</b>：anytime（LIL 型）置信区间，即 n 为随机变量时仍成立的界。<span class='k'>自适应算法真正需要的是这一套</span>。⚠ 两份讲义有 2/5 页重复，做之前先查。"}]};
+
+(function(){
+  var PDF="../corpus/slides/lecture_5.pdf", MAX=10;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l05quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l05p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l05quiz");
+      localStorage.removeItem("l05p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

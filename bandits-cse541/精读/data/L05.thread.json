@@ -1,0 +1,63 @@
+{
+ "title": "L05 接上课题的哪一段：梯队 0 到此结清，只剩一个洞",
+ "arc": "这一讲不直接给你论文里的任何一个定理，<b>但它是你写得出任何 bound 的前提</b>。<br><br>学习清单的梯队 0 原话是：「集中不等式是所有 BAI 证明的地基，包括 Hoeffding、union bound、sub-Gaussian 和 anytime 置信区间。<b>自检标准是：你能不能自己推出 UCB 的置信半径为什么是 √(log t / n) 这个形式。</b>推不出来，就先读 Lattimore & Szepesvári 第 5 章，再进梯队 1。」<br><br><b>这一讲的 p4–p9 把这条自检补齐了大半</b>：Markov（p4）→ 取指数变成 Chernoff（p5–p6）→ 算高斯的 ψ 并对 λ 取优（p7）→ 反解出半径（p8）→ sub-Gaussian 与 Hoeffding 引理（p9）。<span class='k'>而 union bound 与 δ/t² 那一半你在 CS234 L11 已经学过</span>。两边合起来，UCB 那个 √(log t/n) 就能从头推到尾。<br><br><b>⚠ 梯队 0 还剩一个洞没补：anytime（LIL 型）置信区间。</b>这一讲给的界是「<span class='w'>固定 n、固定 δ</span>」的；而自适应算法在每个时刻都要回头看自己的估计，<b>n 本身成了随机变量</b>，此时上面的界不再直接成立。补洞的地方是本课<b>第 11–12 讲：鞅型置信界与混合法</b>（lecture_11.pdf 与 lecture_12.pdf，注意两者有 2/5 页重复）。<span class='k'>那两讲还没人做，是条目 1 里下一个该补的位置。</span><br><br>对论文最直接的一条：p10 把「要分辨差距 Δ 的两条臂，需要 <code>Δ^(−2)</code> 量级样本」算了出来。<b>你的问题里「精度是否过线」正是一个两侧比较</b>，所以这个 Δ^(−2) 会直接出现在你的样本复杂度里 —— 其中 Δ 是「该配置的真实精度与阈值之间的裕度」。<span class='w'>裕度小的配置贵得离谱，这是你做实验预算时必须先算的一笔账。</span>",
+ "pitfalls": [
+  {
+   "v": "<b>把这一讲的界直接用在自适应采样上。</b> p8 的半径 <code>σ√(2log(1/δ)/n)</code> 要求 <span class='w'>n 事先固定</span>。而 UCB 这类算法是边看边决定拉几次，n 是随机的 —— <b>此时这个界不直接成立</b>。L06 绕开的办法是「分轮、每轮内 n 固定」；真正的解法是鞅型置信界（第 11–12 讲）。<span class='k'>这是初学者最常犯的一个错，而且犯了也不会报错。</span>",
+   "tag": "已核",
+   "ref": "本讲 p8；对照 L06 的分轮设计"
+  },
+  {
+   "v": "<b>把 Chernoff 当成「一个不等式」。</b> 它是<span class='k'>一套方法</span>：对不同分布 ψ_Z(λ) 不同，得到的界也不同。高斯给 λ²σ²/2，有界随机变量给 (b−a)²λ²/8（Hoeffding 引理）。<b>写论文时若噪声不是这两类，必须自己算 ψ 或论证 sub-Gaussian。</b>",
+   "tag": "已核",
+   "ref": "本讲 p5–p7、p9"
+  },
+  {
+   "v": "<b>Hoeffding 引理的常数抄错。</b> 引理给 <code>log E[e^{λX}] ≤ ((b−a)²/8)λ²</code>，而 sub-Gaussian 的定义是 <code>σ²λ²/2</code>，所以 <code>σ² = (b−a)²/4</code> —— <span class='w'>是 /4 不是 /8</span>。0/1 奖励时 σ² = 1/4、σ = 1/2。",
+   "tag": "已核",
+   "ref": "本讲 p9"
+  },
+  {
+   "v": "<b>忘了独立性是在哪一步被用掉的。</b> 整个 Chernoff 推导里，独立性<span class='k'>只在「积的期望 = 期望的积」那一步</span>被使用。知道这一点，你才知道换成相依数据时该从哪里下手修 —— 而不是整个重来。",
+   "tag": "已核",
+   "ref": "本讲 p6"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你的样本复杂度为什么是那个形状？",
+   "a": "可以一路推回这一讲：半径 <code>∝ √(log(1/δ)/n)</code>（p8）⟹ 要把半径压到裕度 Δ 以下需要 <code>n ≳ Δ^(−2)log(1/δ)</code>（p10）。<span class='k'>所有 bandit 样本复杂度里的 Δ^(−2) 都是这么来的</span>，不是经验公式。<br><br>你的问题里 Δ 是「该配置的真实精度与阈值之间的裕度」，所以<b>裕度接近 0 的配置，代价趋于无穷</b> —— 这意味着你的保证必须写成「对裕度 ≥ γ 的配置成立」，或者改用能容忍边界情形的目标（例如只保证 ε-最优）。<span class='w'>这是形式化阶段必须做的一个选择。</span>",
+   "tag": "推断",
+   "ref": "本讲 p8、p10；thresholding bandit 的标准处理"
+  },
+  {
+   "q": "你凭什么假设成本/精度的噪声是 sub-Gaussian？",
+   "a": "引 p9 的 <b>Hoeffding 引理</b>：<span class='k'>任何取值有界的随机变量自动是 sub-Gaussian</span>，σ² = (b−a)²/4，不需要任何分布假设。你的准确率是 0/1 或 [0,1] 的分数 ⟹ 有界 ⟹ σ² ≤ 1/4，<b>白送</b>。<br><br>这比「假设高斯噪声」干净得多，也更难被挑刺 —— <span class='w'>有界是可验证的事实，高斯不是</span>。",
+   "tag": "已核",
+   "ref": "本讲 p9"
+  },
+  {
+   "q": "为什么你的实验要跑那么多次？",
+   "a": "把 p8 那张「三个因子」的账摆出来：<code>σ</code>（噪声）· <code>log(1/δ)</code>（可靠性，<b>很便宜</b>）· <code>1/√n</code>（样本量，<b>很贵</b>）。<span class='k'>要把置信半径减半必须四倍样本</span>，而把失败概率从 5% 降到 0.1% 只要多付一倍多一点。<br><br>这个不对称给了一条很实际的建议：<b>与其纠结 δ，不如先确认裕度 Δ 够大</b> —— 因为代价是 Δ^(−2) 而不是 log(1/δ)。",
+   "tag": "推断",
+   "ref": "本讲 p8"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Lattimore & Szepesvári, Bandit Algorithms, 第 5 章（Concentration of Measure）",
+   "id": "官方免费全书",
+   "why": "<b>学习清单梯队 0 点名的那一章</b>，与本讲 p4–p9 几乎一一对应，但写得更系统（含 Bernstein 等本讲没提的）。<span class='k'>本讲看懂了，这一章可以当查阅手册而不必通读。</span>"
+  },
+  {
+   "t": "Boucheron, Lugosi & Massart, Concentration Inequalities",
+   "id": "教材",
+   "why": "集中不等式的标准参考。<span class='w'>不必读</span>，但当你需要一个本讲没给的不等式（Bernstein、Bennett、McDiarmid）时，去这里查。"
+  },
+  {
+   "t": "本课第 11–12 讲：Martingale Confidence Bounds, Method of Mixtures",
+   "id": "lecture_11.pdf / lecture_12.pdf",
+   "why": "<b>补上这一讲留下的那个洞</b>：anytime（LIL 型）置信区间，即 n 为随机变量时仍成立的界。<span class='k'>自适应算法真正需要的是这一套</span>。⚠ 两份讲义有 2/5 页重复，做之前先查。"
+  }
+ ]
+}
