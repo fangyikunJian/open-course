@@ -7,11 +7,16 @@
 今天写死的「十一讲」明天就是十三讲。每讲的四种读法（放映厅 / 速览 / 精读 /
 课件）各自存在与否，都是现查的 —— 文件不在就把按钮灰掉，不会给出死链。
 
-收录四块：
+收录六块：
   ① 研究学习清单（plan.json 的十个条目，链到 ★科研学习清单.html 的锚点）
   ② CS234 强化学习      —— reinforcement learning/course.json
   ③ CS224R 深度强化学习 —— cs224r-2025/course.json
-  ④ ARTI2001 课程材料   —— G:/Adelaide COMSC/.../Machine Learning（它有自己的总入口）
+  ④ CSE 541 交互式学习  —— bandits-cse541/course.json
+  ⑤ Sutton & Barto 第二版 —— reinforcement learning/corpus/sutton-barto/course.json
+  ⑥ ARTI2001 课程材料   —— G:/Adelaide COMSC/.../Machine Learning（它有自己的总入口）
+
+**加一门课要改两处**：`main()` 里加一个 `course_rows(...)` 区块，
+以及下面那行 `n_items` 的求和 —— 还有这段 docstring 与页面的 LEDE。
 
 配色与各页同一套变量（coursekit/theme.py 的 LIGHT / DARK），浅色为默认。
 搜索框是纯前端过滤，键入即筛，不依赖任何服务。
@@ -266,6 +271,16 @@ def main():
         % url("bandits-cse541/index.html"),
         cse541, "cse541"))
 
+    # ③c Sutton & Barto
+    sb = course_rows("reinforcement learning/corpus/sutton-barto")
+    body.append(render_course(
+        "Sutton & Barto 第二版 · 中文精读",
+        '经典教材（2020 年印次，作者免费提供全文）。<b>只读 CS234 没系统讲过的那几章</b>，'
+        '按节写不逐页。<b>真正的增量是第 8 章</b>：规划与学习的统一视角、Dyna、'
+        '优先遍历、决策时规划、rollout 与 MCTS。<a href="%s">课程入口 ↗</a>'
+        % url("reinforcement learning/corpus/sutton-barto/index.html"),
+        sb, "suttonbarto"))
+
     # ④ ARTI2001
     arti = []
     for label, rel, color in [
@@ -289,10 +304,11 @@ def main():
         '逐页精读 · 备考包 · 复习放映厅</div></div>'
         '<div class="btns">%s</div></div></section>' % btns)
 
-    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + len(cse541) + 1)
+    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + len(cse541) + len(sb) + 1)
     html = TPL
     for a, b in (("{{LIGHT}}", theme.LIGHT), ("{{DARK}}", theme.DARK), ("{{CSS}}", CSS),
-                 ("{{LEDE}}", "一个入口，四块内容：研究学习清单、两门强化学习课的中文学习站、"
+                 ("{{LEDE}}", "一个入口：研究学习清单、三门课（CS234 / CS224R / CSE 541）"
+                              "与一本书（Sutton &amp; Barto）的中文学习站、"
                               "以及本学期 ARTI2001 的全部材料。<b>按 / 搜索</b>，Esc 清空。"),
                  ("{{BODY}}", "\n".join(body)),
                  ("{{FOOT}}", "课件版权归各校与讲者；中文部分是配合原件阅读的学习笔记。<br>"
@@ -306,8 +322,8 @@ def main():
     out = os.path.join(ROOT, "★总入口.html")
     io.open(out, "w", encoding="utf-8", newline="\n").write(html)
     print("写出 %s" % os.path.basename(out))
-    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · CSE541 %d 讲 · ARTI2001 1 块 ⇒ 共 %d 条"
-          % (len(plan["items"]), len(cs234), len(cs224r), len(cse541), n_items))
+    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · CSE541 %d 讲 · S&B %d 章 · ARTI2001 1 块 ⇒ 共 %d 条"
+          % (len(plan["items"]), len(cs234), len(cs224r), len(cse541), len(sb), n_items))
 
 
 if __name__ == "__main__":
