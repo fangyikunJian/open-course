@@ -1,0 +1,256 @@
+{
+  "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+  "_守住的数字": [
+    "p6 的三行对照：每上下文一个 bandit → √(n|C|T)，|Π| = n^{|C|}；忽略上下文 → √(nT)，|Π| = n；策略遗憾 → √(nT log|Π|)。",
+    "策略是 π: C → [n]（确定性）或 π(c) ∈ Δ_n（随机化）；a_t ~ π(c_t)。",
+    "p7 的一般形式 Theorem 17 多了一条假设：E[ℓ̂_{t,i}|F_{t−1}] = ℓ_{t,i}（原版是直接给定估计量）。",
+    "⚠ 记号换了：这一段 n = 策略数 |Π|，d = 动作数（讲义页边写着 d→actions, n→policies）。",
+    "策略版的损失：ℓ_{t,i} := E_{a~π_i(c_t)}[ℓ(c_t,a)]（第 i 个策略在本轮上下文下的期望损失）。",
+    "策略版估计量：ℓ̂_{t,i} = π_i(a_t|c_t) / (Σ_{k=1}^n q_{t,k}π_k(a_t|c_t)) · ℓ(c_t,a_t)，其中 I_t ~ q_t、a_t ~ π_{I_t}(c_t)。",
+    "无偏的关键：P(a_t = j) = Σ_s P(a_t=j|I_t=s)P(I_t=s) = Σ_s π_s(j|c_t)q_{t,s} —— 与分母逐字相同，直接约掉。",
+    "Proposition：对 i=1..n 的 p_i ∈ Δ_d，min_{λ∈Δ_n} max_{i} Σ_{j=1}^d p_{i,j}/(Σ_k λ_k p_{k,j}) = d。",
+    "证明用 f(λ) := Σ_{j=1}^d log(Σ_k λ_k p_{k,j})，λ* = argmax f；凹函数的一阶最优性给 0 ≥ ∇f(λ*)ᵀ(λ−λ*)。",
+    "⇒ −ηℓ̂_{t,i} ≤ ηd/γ ≤ 1 当 γ = ηd；E[Σ_t Σ_i p_{t,i}ℓ̂²_{t,i}] ≤ dT/(1−γ)。",
+    "⚠ 这里的 d 是<b>动作数</b>（|𝒜| = d），不是向量空间维数 —— 与 p1–p4 那个 d 同名不同义。"
+  ],
+  "notes": [
+    {
+      "r": [6, 6],
+      "t": "策略遗憾：把「基准」从一条臂换成一整个策略类，于是 |Π| 只进 log",
+      "star": 3,
+      "quote": "<em>Total Reward:</em><br><em>Bandit per context: Σ<sub>t</sub> r(c<sub>t</sub>,I<sub>t</sub>) ≥ Σ<sub>t</sub> max<sub>i</sub> r(c<sub>t</sub>,i) − √(n|C|T),　|Π| = n<sup>|C|</sup></em><br><em>Ignore context: Σ<sub>t</sub> r(c<sub>t</sub>,I<sub>t</sub>) ≥ max<sub>i</sub> Σ<sub>t</sub> r(c<sub>t</sub>,i) − √(nT),　|Π| = n</em><br><em>Policy regret: Σ<sub>t</sub> r(c<sub>t</sub>,a<sub>t</sub>) ≥ max<sub>π∈Π</sub> Σ<sub>t</sub> E[r(c<sub>t</sub>,π)] − √(nT log|Π|)</em><br><em>Consider a finite set of policies Π, π ∈ Π, π: C → [n]. Policy regret max<sub>π∈Π</sub> Σ<sub>t</sub> r(c<sub>t</sub>,π) − r(c<sub>t</sub>,â<sub>t</sub>). π(c<sub>t</sub>) ∈ Δ<sub>d</sub>, a<sub>t</sub> ~ π(c) then P(a<sub>t</sub> = a) = π(a|c)</em><br><em>Suppose contexts are arbitrary (adversarial!). Adversary chooses {c<sub>t</sub>}<sub>t=1</sub><sup>T</sup> in advance. for t = 1,…,T: Adversary reveals c<sub>t</sub>; Player chooses I<sub>t</sub> ∈ [n], draws a<sub>t</sub> ~ π<sub>I<sub>t</sub></sub>(c<sub>t</sub>), gets loss ℓ(c<sub>t</sub>,a<sub>t</sub>)</em>",
+      "one": "<b>上一页那两个极端其实是同一个公式的两端：遗憾 <code>√(nT log|Π|)</code>。<code>|Π| = n</code> 给 <code>√(nT log n)</code>，<code>|Π| = n^{|C|}</code> 给 <code>√(nT|C|log n)</code>。<span class='k'>于是「要多强的基准」成了你手上一个可以连续调的旋钮</span>，而调它的代价只有 log。</b>",
+      "pts": [
+        "<b>先把三行并排读完，这是全讲最该抄进论文的一张表。</b> <span class='k'>三行比的基准一行比一行弱或强，而遗憾里出现的量从 <code>√|C|</code> 变成 <code>√log|Π|</code></span>。<b>第三行是前两行的严格推广</b>：<span class='w'>代 <code>|Π| = n</code> 回到第二行，代 <code>|Π| = n^{|C|}</code>（<code>log|Π| = |C|log n</code>）大致回到第一行</span>。",
+        "<b>⚠ 第三行与前两行有一个容易看漏的差别：它的基准带 <code>E</code>。</b> <code>max_π Σ_t E[r(c_t,π)]</code>，<span class='k'>因为策略可以是<b>随机化</b>的——<code>π(c) ∈ Δ_n</code> 是动作上的一个分布，不是一个动作</span>。<b>讲义在下一行专门补了 <code>a_t ~ π(c)</code> 与 <code>P(a_t = a) = π(a|c)</code></b>，就是在定义这件事。",
+        "<b>为什么非要允许随机化策略？</b> <span class='w'>因为算法本身要对策略做指数权重，而指数权重输出的是策略上的一个分布 <code>q_t</code></span>；<b>「先按 <code>q_t</code> 抽一个策略 <code>π_{I_t}</code>，再按 <code>π_{I_t}(c_t)</code> 抽一个动作」这个两级抽样，整体上就是一个随机化策略</b>。<span class='k'>不允许随机化的话，这个算法连自己的输出都不在比较类里</span>。",
+        "<b>页下半把上下文从 iid 放松到<span class='w'>对抗</span>——而且是「对手事先选好全部 <code>c_t</code>」的那种（oblivious）。</b> <span class='k'>值得注意的是：遗憾界<b>一点没变</b></span>。<b>这正是指数权重这条路线的卖点</b>：<span class='w'>它从来不假设上下文的分布，只假设损失有界</span>，<b>所以 iid 与对抗对它来说是同一个证明</b>。",
+        "<b>交互协议要逐行读清，尤其是「玩家先挑策略、再由策略挑动作」这个顺序。</b> <span class='k'>玩家选 <code>I_t ∈ [n]</code>（挑哪个<b>策略</b>），然后 <code>a_t ~ π_{I_t}(c_t)</code>（由那个策略挑<b>动作</b>），只吃到 <code>ℓ(c_t,a_t)</code></span>。<b>⚠ 反馈是动作级的，而你要更新的是策略级的权重</b>——<span class='w'>这个「观测粒度与决策粒度不一致」正是下一页那个估计量要解决的全部问题</span>。",
+        "<b>一个方便的检查：若 <code>Π</code> 里每个策略都是常值（<code>π_i(c) ≡ i</code>），这个协议就退化成普通 bandit</b>，<span class='k'>估计量也该退化成朴素的 <code>1{a_t=i}ℓ/q_{t,i}</code></span>。<b>下一页的式子确实会退化成它</b>——<span class='w'>这是检验自己有没有读懂那个分母的最快办法</span>。"
+      ],
+      "eq": "三行对照（同一个公式的三个端点）：\n  每上下文一个 bandit   基准 = 逐上下文最优    |Π| = n^{|C|}   遗憾 √(n|C|T)\n  忽略上下文           基准 = 一条固定臂      |Π| = n         遗憾 √(nT)\n  ⭐ 策略遗憾          基准 = Π 里最好的 π    |Π| 任你挑       遗憾 √(nT·log|Π|)\n\n对抗上下文的协议（oblivious adversary）：\n  对手事先定好 c_1..c_T\n  for t: 对手亮出 c_t → 玩家挑策略 I_t ~ q_t → 动作 a_t ~ π_{I_t}(c_t) → 只看到 ℓ(c_t,a_t)\n  Regret = max_{π∈Π} Σ_t ( E_{a~π(c_t)}[ℓ(c_t,a)] − ℓ(c_t,a_t) )",
+      "tbl": {
+        "head": ["", "决策的粒度", "反馈的粒度", "⚠ 由此产生的难处"],
+        "rows": [
+          ["普通 bandit", "动作", "动作", "无 —— 拉哪条臂就看哪条臂，对得上"],
+          ["策略版上下文 bandit", "策略（n = |Π| 个）", "动作（d 个）", "⭐ 对不上：要给没被抽中的策略也报一个无偏损失"],
+          ["全信息专家问题", "专家", "全部专家的损失", "无 —— 所以只要指数权重，不需要估计量"]
+        ]
+      },
+      "say": "<b>补一句讲义没写、但决定了这一段怎么读的：为什么「策略类」这个设计在实际里远比它看上去重要？</b><br>因为 <code>Π</code> 是你<b>唯一</b>能注入先验知识的地方。<span class='k'>遗憾界对 <code>Π</code> 的内容一无所知，只认它的大小</span>——<b>于是「把 <code>Π</code> 设计好」和「把算法调好」是两件完全分开的事，而前者的杠杆大得多</b>。<span class='w'>⚠ 反过来说也成立：界里那个 <code>log|Π|</code> 便宜到几乎免费，意味着<b>把 <code>Π</code> 做大几乎不要钱</b></span>，<b>真正的风险在界<span class='w'>看不见</span>的那一侧——<code>Π</code> 里到底有没有一个好策略</b>。<span class='k'>这一项叫近似误差，遗憾界一个字都不保证它</span>。",
+      "res": {
+        "tag": "推断",
+        "v": "<b>这三行直接给你一张论文里的消融表，而且第三行就是你该主张的位置。</b> <span class='k'>AFlow 搜出<b>一个</b>固定 workflow，对所有 query 一视同仁 = 第二行；「每条 query 单独搜一遍」样本上做不到 = 第一行</span>。<b>你的 node-level fidelity assignment 落在第三行：挑一个策略类，比如「按难度打分 s(q) 分三档，每档一套档位分配」</b>，<span class='w'>这样 <code>|Π| = k^{H·3}</code>，<code>log|Π| = 3H log k</code>，<code>H=10,k=2</code> 时只有 <code>≈21</code></span>。<b>⇒ 相对 <code>√(nT)</code> 只多了约 4.6 倍的根号因子，却把基准从「一个固定 workflow」抬成「一族按难度自适应的 workflow」</b>。⚠ <b>但这条界管的是<b>遗憾</b>不是<b>最优</b></b>——<span class='k'>「按难度三档」里有没有好策略，得靠简报 §5 的 P2 vs P3 消融去测，界帮不上忙</span>。",
+        "ref": "本讲 p6 三行对照 · 简报 §1（AFlow 固定 M）· 简报 §5（P2 vs P3 消融）"
+      }
+    },
+    {
+      "r": [7, 7],
+      "t": "同一份定理第二次使用：把 EXP3 开在策略上，估计量的分母换成「混合倾向」",
+      "star": 3,
+      "quote": "<em><b>EXP3(γ)</b>　Player defines λ<sub>t</sub> ∈ Δ<sub>n</sub> and plays I<sub>t</sub> ~ q<sub>t</sub> := (1−γ)p<sub>t</sub> + γλ<sub>t</sub></em><br><em>Player suffers (and observes) loss ℓ<sub>t,I<sub>t</sub></sub> (but does <b>not</b> observe ℓ<sub>t,i</sub> for i ≠ I<sub>t</sub>)</em><br><em>Player computes loss estimator ℓ̂<sub>t,i</sub> for all i ∈ [n]</em><br><em><b>Theorem 17.</b> Fix any sequence ℓ<sub>t</sub> ∈ [−1,1] for all t. <b>For any ℓ̂<sub>t,i</sub> and η,γ ≥ 0 that satisfy E[ℓ̂<sub>t,i</sub>|ℱ<sub>t−1</sub>] = ℓ<sub>t,i</sub> and −ηℓ̂<sub>t,i</sub> ≤ 1 for all i,t</b> we have …</em><br><em>ℓ<sub>t,i</sub> := E<sub>a~π<sub>i</sub></sub>[ℓ(c<sub>t</sub>,a)]　I observe ℓ(c<sub>t</sub>,a<sub>t</sub>)</em><br><em>ℓ̂<sub>t,i</sub> = π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>) / (Σ<sub>k=1</sub><sup>n</sup> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>)) · ℓ(c<sub>t</sub>,a<sub>t</sub>)　a<sub>t</sub> ~ π<sub>I<sub>t</sub></sub>(c<sub>t</sub>), I<sub>t</sub> ~ q<sub>t</sub></em><br><em>(页边) d → actions,　n → policies</em>",
+      "one": "<b>讲义把 Theorem 17 重抄了一遍，这一次把假设<span class='k'>显式写进定理陈述</span>：「对<b>任何</b>满足无偏与单边有界的 ℓ̂」。estimator 成了一个可插拔的参数——而上下文版要插进去的那一个，分母是<span class='w'>混合倾向</span>，不是单个策略的倾向。</b>",
+      "pts": [
+        "<b>两版 EXP3 框的差别只有两行，但这两行是全讲的结构主张。</b> <span class='k'>p1 版写死了「observes ℓ_{t,I_t}」并给出具体的 <code>ℓ̂</code>；p7 版改成「Player computes loss estimator <code>ℓ̂_{t,i}</code> for all <code>i</code>」，<b>把估计量留空</b></span>；<b>定理也相应改成「For any <code>ℓ̂</code> … that satisfy …」</b>。<span class='w'>⚠ 这不是写法上的润色，是把一条定理改造成一个接口</span>。",
+        "<b>页边那行小字 <code>d → actions, n → policies</code> 必须先读，否则后面每个符号都会错位。</b> <span class='k'>p1–p4 里 <code>n</code> 是臂数、<code>d</code> 是向量维数；p7 起 <code>n</code> 是<b>策略数</b> <code>|Π|</code>、<code>d</code> 是<b>动作数</b> <code>|𝒜|</code></span>。<b>于是最终的 <code>√(12dT log n)</code> 读作 <code>√(12·|𝒜|·T·log|Π|)</code></b>。",
+        "<b>要估的量是 <code>ℓ_{t,i} = E_{a~π_i(c_t)}[ℓ(c_t,a)]</code>——第 <code>i</code> 个策略<b>这一轮</b>的期望损失。</b> <span class='w'>注意它依赖 <code>c_t</code>，所以每一轮都不一样</span>；<b>而你只观测到 <code>ℓ(c_t,a_t)</code> 这一个数</b>。<span class='k'>与 p2 完全同构的困境：一次观测，要给 n 个对象各报一个无偏估计</span>。",
+        "<b>估计量只有一行，而全部玄机在分母：</b><code>ℓ̂_{t,i} = π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)</code>。<span class='k'>分子是「策略 <code>i</code> 会不会走这个动作」，分母是「<b>算法整体</b>走这个动作的概率」</span>。<b>⚠ 分母不是 <code>q_{t,i}</code>，也不是 <code>π_i(a_t|c_t)</code>，而是对全部策略按 <code>q_t</code> 做的加权和</b>。",
+        "<b>为什么分母必须是混合的？一句话：因为「谁产生了这个动作」是不可观测的。</b> <span class='w'>同一个动作 <code>a_t</code> 可能由很多个策略产生</span>，<b>你抽中的是 <code>I_t</code>，但你无从知道「如果抽中的是别的策略，会不会也走 <code>a_t</code>」</b>——<span class='k'>所以正确的倾向分数是边缘概率 <code>P(a_t = a)</code>，而它正好等于那个混合和</span>。",
+        "<b>做一次退化检验：令每个策略都是常值 <code>π_i(·|c) = e_i</code>（第 <code>i</code> 个策略永远走动作 <code>i</code>）。</b> <span class='k'>分子 <code>π_i(a_t|c_t) = 1{a_t = i}</code>，分母 <code>Σ_k q_{t,k}1{a_t=k} = q_{t,a_t}</code></span>，<b>于是 <code>ℓ̂_{t,i} = 1{a_t=i}ℓ(c_t,a_t)/q_{t,i}</code>——正是 p1 里最朴素的那个 bandit 估计量</b>。<span class='w'>退化检验通过，说明这个分母是对的推广</span>。"
+      ],
+      "eq": "p1 版 → p7 版：把估计量从定理里抽出来，变成参数\n\n  Theorem 17（一般形式）\n    条件：ℓ_t ∈ [−1,1]^n\n          ① E[ℓ̂_{t,i} | ℱ_{t−1}] = ℓ_{t,i}        （无偏，对每个 i）\n          ② −ηℓ̂_{t,i} ≤ 1                          （单边有界）\n    结论：max_i E[Σ_t ℓ_{t,I_t} − ℓ_{t,i}] ≤ 2γT + log(n)/η + (1−γ)η E[ΣΣ p ℓ̂²]\n\n上下文版要插进去的估计量（d = 动作数，n = 策略数）：\n        π_i(a_t | c_t)\n  ℓ̂_{t,i} = ───────────────────────── · ℓ(c_t, a_t)\n        Σ_{k=1}^{n} q_{t,k} π_k(a_t | c_t)\n        └ 算法整体走出 a_t 的概率 = 混合倾向 ┘",
+      "tbl": {
+        "head": ["填进接口的是什么", "p1–p4 线性 bandit", "p7–p10 上下文 bandit"],
+        "rows": [
+          ["n 的含义", "臂数 |𝒳|", "策略数 |Π|"],
+          ["d 的含义", "向量空间维数", "动作数 |𝒜|"],
+          ["估计量 ℓ̂_{t,i}", "x_iᵀA(q_t)⁻¹x_{I_t}ℓ_{t,I_t}", "π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)"],
+          ["无偏靠什么对消", "A(q_t)⁻¹·A(q_t) = I（线性假设）", "分母逐字等于 P(a_t = j)（全概率公式）"],
+          ["−ηℓ̂ ≤ 1 靠什么", "Kiefer–Wolfowitz：f_G(λ*) = d", "p9 的 Proposition：min max Σ p/(Σλp) = d"],
+          ["最终遗憾", "√(12 d T log|𝒳|)", "√(12 |𝒜| T log|Π|)"]
+        ]
+      },
+      "say": "<b>补一处讲义只用一个箭头带过、但不想清楚会卡住的：<code>λ_t</code> 为什么这一版带了下标 <code>t</code>？</b><br>p1 版写的是固定的 <code>λ</code>（G-最优设计只依赖 <code>𝒳</code> 的几何，算一次就够）。<span class='w'>这一版 <code>λ_t ∈ Δ_n</code> 带了时间下标</span>，<b>因为它要解的那个优化问题依赖 <code>c_t</code></b>——<span class='k'><code>p_{i,j} := π_i(j|c_t)</code> 这张表每一轮都随上下文变</span>，<b>所以探索分布必须逐轮重算</b>。<span class='w'>⚠ 这是一个实现上的真代价：每一轮要解一个 <code>n</code> 变量的凸优化（<code>n</code> 是策略数，可能很大）</span>，<b>而 p1 那一版只在开头解一次</b>。<span class='k'>这正是 model-free 路线（本讲）与 model-based 路线（L20）要权衡的地方之一</span>。",
+      "res": {
+        "tag": "已核",
+        "v": "<b>「分母必须用混合倾向」这一条，直接否掉一种你很可能会写错的日志方案。</b> <span class='k'>如果你的 fork 在每条 query 上「先抽一个策略、再按它执行」，那么记日志时自然会想记下<b>被抽中那个策略</b>给这个动作的概率</span>——<b>错的</b>。<span class='w'>正确的倾向是「所有候选策略按抽样权重混合之后，走出这个动作的总概率」</span>。<b>两者在策略类里有多个策略会走同一动作时差别巨大，而那是常态</b>（<span class='k'>大多数 workflow 配置在大多数节点上是一样的，只在少数节点分叉</span>）。<b>⇒ 日志字段里要存的不是一个数，而是「这一轮的 <code>q_t</code> 与各 <code>π_k(·|c_t)</code> 足以重算出那个混合概率」</b>。⚠ <b>而这也意味着：倾向分数依赖于你当时的<b>整个候选集合</b></b>，<span class='w'>事后往 <code>Π</code> 里加策略，旧日志的倾向就不再对得上</span>。",
+        "ref": "本讲 p7 的估计量 · p8 的 P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s} · 简报 §4a"
+      }
+    },
+    {
+      "r": [8, 8],
+      "t": "无偏性：分母逐字就是 P(a_t = j)，于是全概率公式把它整块约掉",
+      "star": 3,
+      "quote": "<em>E[ℓ̂<sub>t,i</sub>] = E[ π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>)ℓ(c<sub>t</sub>,a<sub>t</sub>) / Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>) ]</em><br><em>= Σ<sub>j=1</sub><sup>d</sup> E[ <u>P(a<sub>t</sub> = j)</u> · π<sub>i</sub>(j|c<sub>t</sub>)ℓ(c<sub>t</sub>,j) / Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(j|c<sub>t</sub>) ]</em><br><em>P(a<sub>t</sub>=j) = Σ<sub>s=1</sub><sup>n</sup> P(a<sub>t</sub>=j | I<sub>t</sub>=s)·P(I<sub>t</sub>=s) = Σ<sub>s=1</sub><sup>n</sup> π<sub>s</sub>(j|c<sub>t</sub>)·q<sub>t,s</sub></em><br><em>= Σ<sub>j=1</sub><sup>d</sup> E[ π<sub>i</sub>(j|c<sub>t</sub>)ℓ(c<sub>t</sub>,j) ] = E<sub>a~π<sub>i</sub>(c<sub>t</sub>)</sub>[ℓ(c<sub>t</sub>,a)] = ℓ<sub>t,i</sub></em><br><em>−ηℓ̂<sub>t,i</sub> ≤ η·π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>)/Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>) ≤ η Σ<sub>j=1</sub><sup>d</sup> π<sub>i</sub>(j|c<sub>t</sub>)/Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(j|c<sub>t</sub>)</em>",
+      "one": "<b>整个证明只用一次全概率公式：把对 <code>a_t</code> 的期望写成对 <code>j</code> 的求和，系数就是 <code>P(a_t = j)</code>；而那个系数与估计量的分母<span class='k'>逐字相同</span>，约掉之后剩下的正好是策略 <code>i</code> 的期望损失。</b>",
+      "pts": [
+        "<b>第一步是把期望展开成对动作的求和。</b> <code>E[f(a_t)] = Σ_{j=1}^d P(a_t = j)·f(j)</code>，<span class='k'>这里 <code>f(j) = π_i(j|c_t)ℓ(c_t,j)/Σ_k q_{t,k}π_k(j|c_t)</code></span>。<b>讲义在 <code>P(a_t = j)</code> 底下画了一条波浪线</b>——<span class='w'>那是在提示：接下来要动的就是它</span>。",
+        "<b>第二步算 <code>P(a_t = j)</code>，用的是对「抽中了哪个策略」做全概率分解。</b> <code>P(a_t=j) = Σ_s P(a_t=j|I_t=s)P(I_t=s)</code>；<span class='k'><code>P(a_t=j|I_t=s) = π_s(j|c_t)</code>（抽中策略 s 之后动作由它抽），<code>P(I_t=s) = q_{t,s}</code></span>，<b>于是 <code>P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s}</code></b>。",
+        "<b>第三步只需要对比两个式子：</b><span class='w'>刚算出的 <code>P(a_t=j) = Σ_s q_{t,s}π_s(j|c_t)</code></span>，<span class='k'>与估计量的分母 <code>Σ_k q_{t,k}π_k(j|c_t)</code></span>——<b>换个求和下标名字而已，<b>完全一样</b></b>。<b>于是分子分母对消，求和塌成 <code>Σ_j π_i(j|c_t)ℓ(c_t,j)</code></b>。",
+        "<b>第四步认出它是什么：<code>Σ_j π_i(j|c_t)ℓ(c_t,j) = E_{a~π_i(c_t)}[ℓ(c_t,a)]</code>，按定义正是 <code>ℓ_{t,i}</code>。</b> <span class='k'>⭐ 无偏性成立，而且对<b>每一个</b> <code>i</code> 都成立，包括这一轮完全没被抽中的那些策略</span>。",
+        "<b>⚠ 这个证明有一个前提，讲义没有单独标出来但它是硬的：分母必须恒为正。</b> <span class='w'>若某个动作 <code>j</code> 在所有策略下概率都是 0，那么 <code>P(a_t=j) = 0</code>，它根本不会被抽到，<code>0/0</code> 不出现</span>；<b>但若分母极小而非零，估计量会炸到极大</b>——<span class='k'>这正是下一步要用 <code>γλ_t</code> 去托住的东西</span>。",
+        "<b>页末开始界 <code>−ηℓ̂</code>，第一步就很妙：把「实际抽到的那个动作」放大成「对所有动作求和」。</b> <code>π_i(a_t|c_t)/Σ_k q_{t,k}π_k(a_t|c_t) ≤ Σ_{j=1}^d π_i(j|c_t)/Σ_k q_{t,k}π_k(j|c_t)</code>。<span class='w'>⚠ 因为每一项都非负，所以「单项 ≤ 总和」</span>，<b>而这一放大把随机的 <code>a_t</code> 消掉了，剩下的量只依赖 <code>c_t</code> 与 <code>q_t</code>——于是可以对它做确定性的优化</b>。<span class='k'>那正是 p9 的 Proposition 要解的对象</span>。"
+      ],
+      "eq": "E[ℓ̂_{t,i}]\n  = Σ_{j=1}^{d}  P(a_t = j) ·  π_i(j|c_t) ℓ(c_t,j) / ( Σ_k q_{t,k} π_k(j|c_t) )\n                 ╰────────╯                              ╰──────────────────╯\n                       └────────── 这两处逐字相同 ──────────┘\n\n  其中  P(a_t = j) = Σ_s P(a_t=j | I_t=s) P(I_t=s) = Σ_s π_s(j|c_t) q_{t,s}\n\n  ⇒ = Σ_j π_i(j|c_t) ℓ(c_t,j) = E_{a~π_i(c_t)}[ℓ(c_t,a)] = ℓ_{t,i}   ∀i  ✔\n\n接着界单边：\n  −ηℓ̂_{t,i} ≤ η · π_i(a_t|c_t)/Σ_k q_{t,k}π_k(a_t|c_t)\n              ≤ η · Σ_{j=1}^{d} π_i(j|c_t)/Σ_k q_{t,k}π_k(j|c_t)     ← 单项 ≤ 总和，把随机的 a_t 消掉",
+      "say": "<b>补一处讲义默认你会的、但它其实是这个估计量能成立的根本原因：为什么「混合倾向」正好是对的那个分母？</b><br>把它放回重要性采样的标准形式看：<span class='k'>你想估的是在<b>目标分布</b> <code>π_i(·|c_t)</code> 下的期望，而样本是从<b>行为分布</b> <code>P(a_t = ·) = Σ_k q_{t,k}π_k(·|c_t)</code> 里抽的</span>。<b>重要性权重按定义就是「目标 / 行为」</b>，<span class='w'>于是分子 <code>π_i</code>、分母那个混合，一个字都不能改</span>。<b>⇒ 这里的「行为策略」不是某一个 <code>π_k</code>，而是算法这一轮诱导出的那个<b>边缘</b>分布</b>。<span class='k'>覆盖条件也随之而来：要让 <code>π_i</code> 可估，必须 <code>π_i(a|c) &gt; 0 ⇒ Σ_k q_{t,k}π_k(a|c) &gt; 0</code></span>——<b>而 <code>q_t</code> 里混了 <code>γλ_t</code>，正是为了把这件事变成恒真</b>。",
+      "link": {
+        "t": "你学过的对应：CS234 L15 批量离线强化学习与安全策略改进（那边讲的重要性采样与这一页是同一件事的两种写法：目标/行为之比。差别在于这一页的「行为」是算法自己诱导的混合分布，所以覆盖条件可以靠 γλ_t 人为保证；离线那边的行为策略是别人留下的，覆盖与否你说了不算）",
+        "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L15-精读.html"
+      },
+      "res": {
+        "tag": "已核",
+        "v": "<b>这一页把你简报 §4a 里那条结论的<b>充分条件</b>写出来了：重要性采样要成立，必须 <code>π_目标(a|c) &gt; 0 ⇒ P_行为(a|c) &gt; 0</code>，而这里的 <code>P_行为</code> 是<b>混合</b>后的边缘分布。</b> <span class='k'>好消息是：在<b>线上</b>你可以自己制造覆盖——<code>q_t = (1−γ)p_t + γλ_t</code> 里的 <code>γλ_t</code> 就是在买它，代价写在遗憾的 <code>2γT</code> 一项里，明码标价</span>。<span class='w'>⚠ 坏消息是：<b>离线做不到</b></span>——<b>你现有的 AFlow 日志是确定性执行的，<code>P_行为 ∈ {0,1}</code>，再多数据也补不出覆盖</b>。<b>⇒ 两个结论：① 要做 OPE 就必须<b>先</b>改执行器加随机化，这是前置条件不是优化项；② <code>γ</code> 的大小不是调参，它等价于「你愿意为可评估性付多少遗憾」，可以直接写进实验设计里当一个旋钮</b>。",
+        "ref": "本讲 p7–p8（混合倾向与 γλ_t）· 简报 §4a（deficient support）· 简报 §4c（随机化 3–4 个节点）"
+      }
+    },
+    {
+      "r": [9, 9],
+      "t": "策略版的 Kiefer–Wolfowitz：min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) 恰好等于动作数 d",
+      "star": 3,
+      "quote": "<em>≤ (η/γ) Σ<sub>j=1</sub><sup>d</sup> π<sub>i</sub>(j|c)/Σ<sub>k=1</sub><sup>n</sup> λ<sub>t,k</sub>π<sub>k</sub>(j|c) ≤ ηd/γ ≤ 1　if γ = ηd</em><br><em><b>Proposition.</b> For i = 1,…,n let p<sub>i</sub> ∈ Δ<sub>d</sub>. Then min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i=1,…,n</sub> Σ<sub>j=1</sub><sup>d</sup> p<sub>i,j</sub>/(Σ<sub>k</sub> λ<sub>k</sub>p<sub>k,j</sub>) = d.</em><br><em><b>Proof.</b> f(λ) := Σ<sub>j=1</sub><sup>d</sup> log(Σ<sub>k</sub> λ<sub>k</sub>p<sub>k,j</sub>),　λ* = argmax<sub>λ</sub> f(λ)</em><br><em>for any λ:　f(λ) ≤ f(λ*) + ∇f(λ*)<sup>T</sup>(λ − λ*)</em><br><em>⇒ 0 ≥ ∇f(λ*)<sup>T</sup>(λ − λ*) = Σ<sub>i</sub>Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>p<sub>k,j</sub>λ*<sub>k</sub>)·(λ<sub>i</sub> − λ*<sub>i</sub>) = Σ<sub>i</sub>Σ<sub>j</sub> p<sub>i,j</sub>λ<sub>i</sub>/(Σ<sub>k</sub>p<sub>k,j</sub>λ*<sub>k</sub>) − d</em>",
+      "one": "<b>和 p3 一模一样的剧本：有一个「最坏情况下的放大倍数」要界住，而它的最小值恰好是一个你认识的整数。只不过这里的 <code>d</code> 是<span class='w'>动作数</span>，不是空间维数；而扮演 D-最优那个对数行列式的，是 <code>Σ_j log(Σ_k λ_k p_{k,j})</code>。</b>",
+      "pts": [
+        "<b>先认出这个命题就是 Kiefer–Wolfowitz 换了一身衣服。</b> <span class='k'>L07 那边：<code>min_λ max_x xᵀA(λ)⁻¹x = d</code>，<code>d</code> = 维数；这里：<code>min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = d</code>，<code>d</code> = 动作数</span>。<b>两边都是「一个关于 λ 的 min-max，最优值等于某个结构性的整数，与 <code>n</code> 无关」</b>。<span class='w'>⚠ 「与 n 无关」是这两条定理共同的要害——<code>n</code> 可以指数大</span>。",
+        "<b>要界的量从哪来，上一页已经交代：</b><code>Σ_j π_i(j|c)/Σ_k q_{t,k}π_k(j|c)</code>，<span class='k'>再用 <code>q_t ⪰ γλ_t</code> 换成 <code>(1/γ)Σ_j π_i(j|c)/Σ_k λ_{t,k}π_k(j|c)</code></span>。<b>记 <code>p_{i,j} := π_i(j|c_t)</code>，它就是命题里那个量</b>。<span class='w'>⚠ <code>p_i ∈ Δ_d</code> 因为每个策略在动作上是一个分布，逐行和为 1</span>。",
+        "<b>证明用的是「对数势函数 + 一阶最优性」，这套路值得单独记。</b> 定义 <code>f(λ) = Σ_j log(Σ_k λ_k p_{k,j})</code>，<span class='k'>它是凹的（log 凹 + 线性复合），所以 <code>λ* = argmax f</code> 存在且一阶条件可用</span>。<b>凹函数在最优点满足 <code>f(λ) ≤ f(λ*) + ∇f(λ*)ᵀ(λ−λ*)</code>，而最优性给 <code>∇f(λ*)ᵀ(λ−λ*) ≤ 0</code> 对单纯形里所有 λ 成立</b>。",
+        "<b>把梯度算出来是关键一步：</b><code>∂f/∂λ_i = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})</code>。<span class='w'>⚠ 注意这<b>恰好</b>就是命题里要界的那个量（对第 i 个策略的）</span>——<b>这不是巧合，整个构造就是为了让「梯度的第 i 个分量」等于「第 i 个策略的放大倍数」</b>。<span class='k'>于是「min-max 一个放大倍数」被翻译成了「某个凹函数的梯度」，而梯度在最优点有结构</span>。",
+        "<b>展开 <code>∇f(λ*)ᵀ(λ − λ*) ≤ 0</code> 里的第二项：</b><code>Σ_i λ*_i Σ_j p_{i,j}/(Σ_k p_{k,j}λ*_k) = Σ_j (Σ_i λ*_i p_{i,j})/(Σ_k p_{k,j}λ*_k) = Σ_j 1 = d</code>。<span class='k'>⭐ 分子分母在交换求和次序后<b>逐项相同</b>，每一项都等于 1，<code>d</code> 项加起来就是 <code>d</code></span>。<b>这是整个证明的支点，而它只是一次求和次序交换</b>。",
+        "<b>于是不等式化成 <code>Σ_i λ_i·(第 i 个放大倍数) ≤ d</code> 对<b>所有</b> <code>λ ∈ Δ_n</code> 成立</b>。<span class='w'>下一页取 <code>λ = e_i</code>（全部质量压在第 i 个策略上）就得到「<b>每一个</b> <code>i</code> 的放大倍数 <code>≤ d</code>」</span>，<b>也就是 <code>max_i ≤ d</code>，上界到手</b>。"
+      ],
+      "eq": "要界的量（记 p_{i,j} := π_i(j|c_t)）：\n  Σ_{j=1}^{d}  p_{i,j} / ( Σ_{k=1}^{n} λ_k p_{k,j} )\n\nProposition:  min_{λ∈Δ_n} max_{i∈[n]} Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})  =  d\n\n证明骨架：\n  f(λ) := Σ_{j=1}^{d} log( Σ_k λ_k p_{k,j} )        凹\n  ∂f/∂λ_i = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})           ← 恰好是「第 i 个策略的放大倍数」\n  λ* = argmax f  ⇒  ∇f(λ*)ᵀ(λ − λ*) ≤ 0  ∀λ∈Δ_n\n  而 Σ_i λ*_i ∂f/∂λ_i|_{λ*} = Σ_j (Σ_i λ*_i p_{i,j})/(Σ_k λ*_k p_{k,j}) = Σ_j 1 = d\n  ⇒ Σ_i λ_i·(第 i 个放大倍数) ≤ d   ∀λ",
+      "tbl": {
+        "head": ["", "L07/L09 的 Kiefer–Wolfowitz", "本讲 p9 的 Proposition"],
+        "rows": [
+          ["决策变量 λ 住在哪", "Δ_𝒳（臂上的分布）", "Δ_n（<b>策略</b>上的分布）"],
+          ["要最小化的最坏量", "max_x xᵀA(λ)⁻¹x", "max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})"],
+          ["配套的凹势函数", "log|A(λ)|（D-最优）", "Σ_j log(Σ_k λ_k p_{k,j})"],
+          ["最优值", "d = dim(span(𝒳))", "d = 动作数 |𝒜|"],
+          ["与候选个数的关系", "与 |𝒳| 无关", "与 |Π| 无关"],
+          ["⚠ 要重算的频率", "一次（只依赖 𝒳 的几何）", "每一轮（p_{i,j} 随 c_t 变）"]
+        ]
+      },
+      "say": "<b>补一处讲义没说、但这两条定理摆在一起就该问的：为什么两次都是「对数势函数的最优点」？</b><br>因为两次要控的都是<b>一族线性泛函被同一个归一化除过之后的最大值</b>，<span class='k'>而 <code>log</code> 的梯度恰好产生「被自己的值除」这个结构</span>——<code>∂/∂λ log(Σ_k λ_k p_{k,j}) = p_{i,j}/(Σ_k λ_k p_{k,j})</code>。<b>于是「梯度」和「要界的量」自动是同一个东西，一阶最优性直接给出界</b>。<span class='w'>⚠ 另一半魔法在归一化：<code>Σ_i λ*_i p_{i,j}</code> 与分母逐字相同，于是加权平均恰好等于 1</span>。<b>这两件事合起来，就是「D-最优 ⇒ G-最优」等价定理在抽象层面的样子</b>——<span class='k'>L07 的 Lemma 10 第一条 <code>max_λ g_D(λ) = g_D(λ*)</code> 与 <code>min_λ f_G(λ) = f_G(λ*)</code> 同解，说的正是这件事</span>。",
+      "res": {
+        "tag": "推断",
+        "v": "<b>这条命题告诉你一件对实现很实在的事：探索分布应该开在<b>策略</b>上，不是开在<b>动作</b>上。</b> <span class='k'>朴素做法是「以 γ 的概率均匀随机挑一个动作」；这里要的是「以 γ 的概率按 <code>λ_t</code> 挑一个<b>策略</b>，再由它挑动作」</span>。<b>两者在你的场景里差别巨大</b>：<span class='w'>均匀随机挑动作 = 在每个节点上独立乱选档位，产生的多半是没人会用的荒唐配置</span>；<b>按 <code>λ_t</code> 挑策略 = 只在你真正关心的那些配置之间分配探索预算</b>。<b>⇒ 放大倍数的上界因此是<b>动作数</b> <code>d</code>（节点档位数，很小），而不是配置数</b>。⚠ <b>代价是每轮要解一个 <code>n = |Π|</code> 变量的凸优化</b>，<span class='k'>而 <code>|Π|</code> 可能很大 —— 这正是这条 model-free 路线在实现上最贵的地方，也是 L20 换 model-based 的动机</span>。",
+        "ref": "本讲 p9 Proposition · CSE541 L07 p5 Lemma 10 · 简报 §4c"
+      }
+    },
+    {
+      "r": [10, 10],
+      "t": "把命题收口（取 λ = e_i），以及第二矩项又一次塌成 dT/(1−γ)",
+      "star": 2,
+      "quote": "<em>Take λ = e<sub>i</sub> ⇒ Σ<sub>j=1</sub><sup>d</sup> p<sub>i,j</sub>/(Σ<sub>k</sub> p<sub>k,j</sub>λ*<sub>k</sub>) ≤ d</em><br><em>min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i=1,…,n</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) ≤ max<sub>i=1,…,n</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ*<sub>k</sub>p<sub>k,j</sub>) ≤ d</em><br><em>min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) ≥ min<sub>λ</sub> Σ<sub>i</sub> λ<sub>i</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) = d</em><br><em>E[Σ<sub>t=1</sub><sup>T</sup>Σ<sub>i=1</sub><sup>n</sup> p<sub>t,i</sub>ℓ̂<sup>2</sup><sub>t,i</sub>] ≤ dT/(1−γ)</em>",
+      "one": "<b>上界取 <code>λ = e_i</code>，下界用「最大值 ≥ 加权平均」—— 两头夹住，等号成立。而第二矩项再一次塌成 <code>dT/(1−γ)</code>，与 p4 那次是同一个机制：求和凑出归一化，整块等于 1。</b>",
+      "pts": [
+        "<b>上界：在「<code>Σ_i λ_i·(第 i 个放大倍数) ≤ d</code> 对所有 λ 成立」里取 <code>λ = e_i</code>（单位向量）。</b> <span class='k'>左边只剩第 <code>i</code> 项，于是<b>每一个</b> <code>i</code> 的放大倍数都 <code>≤ d</code></span>，<b>所以 <code>max_i ≤ d</code>，而 <code>min_λ max_i ≤</code> 在 <code>λ*</code> 处的值 <code>≤ d</code></b>。",
+        "<b>下界用的是一句几乎是废话但很好使的话：最大值不小于任何加权平均。</b> <code>max_i a_i ≥ Σ_i λ_i a_i</code> 对任何 <code>λ ∈ Δ_n</code> 成立；<span class='k'>取权重就用 <code>λ</code> 自己</span>，<b>于是 <code>Σ_i λ_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = Σ_j (Σ_i λ_i p_{i,j})/(Σ_k λ_k p_{k,j}) = Σ_j 1 = d</code></b>。",
+        "<b>⚠ 下界这一步对<b>任何</b> <code>λ</code> 都成立，不只是 <code>λ*</code>。</b> <span class='w'>所以 <code>min_λ max_i ≥ d</code> 是无条件的</span>——<b>换句话说：<span class='k'>无论你的探索分布怎么设计，放大倍数的最坏值都不可能小于动作数 <code>d</code></span></b>。<b>这是一条<b>下界</b>，它说明 <code>d</code> 不是分析松不松的问题，是问题本身的硬度</b>。",
+        "<b>两头合起来：<code>min_λ max_i = d</code>，取等的 <code>λ</code> 就是那个对数势函数的最大值点。</b> <span class='k'>于是回到 p9 开头：<code>−ηℓ̂_{t,i} ≤ ηd/γ</code>，取 <code>γ = ηd</code> 就有 <code>≤ 1</code>，Theorem 17 的第二条假设达成</b></span>。",
+        "<b>剩下第二矩项。</b> <span class='w'>讲义直接写了结论 <code>≤ dT/(1−γ)</code></span>，<b>机制与 p4 完全相同</b>：<span class='k'>展开 <code>ℓ̂²</code>，用 <code>|ℓ| ≤ 1</code> 丢掉损失，对 <code>a_t</code> 取期望让分母的一个因子被约掉，再用 <code>p ≤ q/(1−γ)</code> 换概率，最后对 <code>j</code> 求和凑出 1，对 <code>i</code> 求和凑出 <code>d</code></span>。",
+        "<b>于是最终的界与线性情形逐字相同：<code>3ηdT + log(n)/η ≤ √(12 d T log n)</code>。</b> <span class='k'>只是现在 <code>d = |𝒜|</code>、<code>n = |Π|</code></span>，<b>读作 <span class='w'><code>Regret ≤ √(12·|𝒜|·T·log|Π|)</code></span></b>。<b>⭐ 动作数一次方，策略类只进 log —— 这就是 p6 第三行那个 <code>√(nT log|Π|)</code> 的出处</b>。"
+      ],
+      "eq": "上界：Σ_i λ_i·a_i(λ*) ≤ d  ∀λ，取 λ = e_i  ⇒  a_i(λ*) ≤ d  ∀i  ⇒  max_i a_i(λ*) ≤ d\n\n下界：max_i a_i(λ) ≥ Σ_i λ_i a_i(λ)\n              = Σ_j (Σ_i λ_i p_{i,j}) / (Σ_k λ_k p_{k,j}) = Σ_j 1 = d    ∀λ\n      ⇒ min_λ max_i a_i(λ) ≥ d        ← 无条件，与 λ 怎么选无关\n\n⇒ min_λ max_i a_i(λ) = d\n\n代回：−ηℓ̂ ≤ ηd/γ ≤ 1（取 γ = ηd）；E[ΣΣ p ℓ̂²] ≤ dT/(1−γ)\n     Regret ≤ 2ηdT + log(n)/η + ηdT = 3ηdT + log(n)/η ≤ √(12·d·T·log n)\n     读作：√( 12 · |𝒜| · T · log|Π| )",
+      "tbl": {
+        "head": ["夹逼的两边", "用的工具", "对 λ 的要求"],
+        "rows": [
+          ["上界 ≤ d", "凹函数的一阶最优性 + 取 λ = e_i", "必须在 λ*（对数势函数的最大点）处"],
+          ["下界 ≥ d", "max ≥ 加权平均，再交换求和次序", "⚠ 任何 λ 都成立 —— 所以 d 是问题的硬度，不是分析的松紧"]
+        ]
+      },
+      "say": "<b>补一句这两页读完该带走的结构性结论，讲义没有总结但它值一整页：</b><br><span class='k'>EXP3 的三项里，<b>只有第三项（估计量的方差）是「算法设计」能动的</b></span>；<b>而两次具体化（线性、上下文）做的事情一模一样</b>：<span class='w'>① 造一个无偏估计量；② 找到一个凹势函数，让「最坏放大倍数」等于它的梯度；③ 一阶最优性给出那个倍数的最小值 = 某个结构性的整数 <code>d</code>；④ 取 <code>γ = ηd</code></span>。<b>⇒ 想把这套机器用到<b>第三种</b>问题上，你要回答的也就是这四问</b>。<span class='k'>而最值钱的是第 ③ 步那个整数——它决定了你的遗憾对「候选个数」是 log 依赖还是多项式依赖</b></span>。",
+      "res": {
+        "tag": "推断",
+        "v": "<b>下界那一半对你更有用：<code>min_λ max_i ≥ d</code> <b>无条件</b>成立，意味着「探索开销正比于动作数」这件事没法靠设计绕开。</b> <span class='k'>落到课题上：如果你把「动作」定义成<b>整条配置</b>（<code>d = k^H</code>），那么任何 model-free 的上下文 bandit 路线都要为 <code>√(k^H·T)</code> 买单，直接不可行</span>。<b>⇒ 必须把动作定义在<b>节点级</b>（<code>d = k</code>，两三个档位），把组合结构推进策略类 <code>Π</code> 里去——因为 <code>Π</code> 只收 <code>log</code> 的费用</b>。<span class='w'>⚠ 这是一条「怎么形式化」的硬约束，不是调参建议</span>：<b>同一个问题，把组合性放在动作上就不可行，放在策略类上就可行</b>。<span class='k'>和 CSE541 L16 那条教训是一套：先想清楚承诺的是什么，再去选工具</span>。",
+        "ref": "本讲 p10 的下界 · CSE541 L16 主线卡（下界模板的两个空）· 简报 §4b（H=5~10 把有效样本打光）"
+      }
+    }
+  ],
+  "quiz": {
+    "6": [
+      {
+        "q": "p6 的三行对照里，第三行（策略遗憾 √(nT log|Π|)）为什么说它是前两行的推广？",
+        "o": [
+          "因为它的常数更小",
+          "因为代 |Π| = n 得到第二行、代 |Π| = n^{|C|}（log|Π| = |C|log n）大致得到第一行 —— 策略类的大小成了一个可调参数",
+          "因为它不需要假设上下文是 iid 的",
+          "因为它同时适用于随机和确定性策略"
+        ],
+        "a": 1,
+        "why": "三行其实是同一个公式在 |Π| 取不同值时的样子。把「要多强的基准」变成一个连续旋钮，而调它的代价只有 log，这是整段设计的核心。注意第三行同时也放松到了对抗上下文，但那不是它成为推广的原因。"
+      },
+      {
+        "q": "策略版上下文 bandit 的根本困难是什么？",
+        "o": [
+          "策略之间可能相关，不能独立处理",
+          "决策的粒度是策略（n = |Π| 个），而反馈的粒度是动作（d 个）—— 要给没被抽中的策略也报一个无偏损失",
+          "损失函数不一定有界",
+          "上下文空间可能是连续的"
+        ],
+        "a": 1,
+        "why": "你挑的是策略，看到的却只是某个动作上的损失。普通 bandit 里决策与反馈粒度一致（拉哪条臂看哪条臂），全信息专家问题里反馈比决策还细，都没有这个困难。p7–p8 那个估计量存在的全部理由就是弥合这个落差。"
+      }
+    ],
+    "7": [
+      {
+        "q": "策略版估计量的分母是 Σ_k q_{t,k}π_k(a_t|c_t)，而不是被抽中策略自己的 π_{I_t}(a_t|c_t)。为什么？",
+        "o": [
+          "因为「谁产生了这个动作」不可观测；重要性采样的行为分布是算法诱导的边缘分布 P(a_t = a)，它正好等于那个混合和",
+          "因为这样可以避免除以零",
+          "为了让分母更大，估计量更稳定",
+          "因为 q_{t,k} 是已知的而 π_{I_t} 不是"
+        ],
+        "a": 0,
+        "why": "重要性权重按定义是「目标分布 / 行为分布」。目标是 π_i(·|c_t)，行为是算法这一轮真正诱导出的动作分布，即 Σ_k q_{t,k}π_k(·|c_t)。p8 的证明正是把 P(a_t=j) 展开后发现它与分母逐字相同。用单个策略的倾向会得到有偏的估计。"
+      },
+      {
+        "q": "令每个策略都是常值策略（π_i(·|c) = e_i，第 i 个策略永远走动作 i），策略版估计量会退化成什么？",
+        "o": [
+          "ℓ̂_{t,i} = ℓ(c_t,a_t)，与 i 无关",
+          "ℓ̂_{t,i} = 1{a_t=i}·ℓ(c_t,a_t)/q_{t,i} —— 正是 p1 里最朴素的 bandit 估计量",
+          "ℓ̂_{t,i} = 0 对所有 i ≠ I_t",
+          "ℓ̂_{t,i} = π_i(a_t|c_t)·ℓ(c_t,a_t)"
+        ],
+        "a": 1,
+        "why": "分子 π_i(a_t|c_t) = 1{a_t=i}，分母 Σ_k q_{t,k}1{a_t=k} = q_{t,a_t}。于是退化成朴素的逆倾向估计量。做这个退化检验是检验自己有没有读懂那个分母的最快办法。"
+      }
+    ],
+    "9": [
+      {
+        "q": "p9 的 Proposition 用 f(λ) = Σ_j log(Σ_k λ_k p_{k,j}) 作势函数。这个构造的妙处在哪里？",
+        "o": [
+          "它把 d 个约束化成了一个",
+          "它是线性的，所以最优点在单纯形顶点上",
+          "log 的梯度恰好产生「被自己的值除」这个结构，于是 ∂f/∂λ_i 正好等于第 i 个策略的放大倍数 —— 要界的量与梯度是同一个东西",
+          "它保证了 λ* 唯一"
+        ],
+        "a": 2,
+        "why": "∂/∂λ_i Σ_j log(Σ_k λ_k p_{k,j}) = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})，这正是命题要 min-max 的那个量。于是「min-max 一个放大倍数」被翻译成「某凹函数的梯度」，一阶最优性直接给界。这与 L07 里「D-最优与 G-最优同解」是同一件事的抽象版本。"
+      }
+    ],
+    "10": [
+      {
+        "q": "min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) ≥ d 这个下界，对 λ 有什么要求？",
+        "o": [
+          "必须 n ≥ d",
+          "必须在 λ*（对数势函数的最大点）处才成立",
+          "必须 λ 的支撑张满动作空间",
+          "没有任何要求 —— 对任何 λ ∈ Δ_n 都成立，所以 d 是问题本身的硬度，不是分析松紧的问题"
+        ],
+        "a": 3,
+        "why": "下界用的是「最大值 ≥ 以 λ 自己为权的加权平均」，而那个加权平均经过一次求和次序交换后恒等于 d，与 λ 无关。所以无论探索分布怎么设计，最坏放大倍数都不可能小于动作数。上界那一半才需要 λ*。"
+      },
+      {
+        "q": "最终遗憾 √(12 d T log n) 在这一段里该怎么读？",
+        "o": [
+          "√(12 · 策略数 · T · log 动作数)",
+          "√(12 · 维数 · T · log 臂数)",
+          "√(12 · 动作数 · T · log 策略类大小)",
+          "√(12 · 上下文数 · T · log 动作数)"
+        ],
+        "a": 2,
+        "why": "p7 页边写着 d → actions, n → policies。所以 d = |𝒜|、n = |Π|，界读作 √(12·|𝒜|·T·log|Π|)。这正是 p6 第三行那个 √(nT log|Π|) 的出处。同一份定理在 p1–p4 里 d 是向量维数、n 是臂数 —— 同名不同义，是这一讲最容易读错的地方。"
+      }
+    ]
+  }
+}

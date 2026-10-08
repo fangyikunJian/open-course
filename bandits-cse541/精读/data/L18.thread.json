@@ -1,0 +1,100 @@
+{
+  "title": "L18 接上课题的哪一段：离线评估那一半，以及「选」与「报」必须分开",
+  "arc": "<b>这一讲是全课里离你那条「拿现成日志评估没跑过的配置」最近的一讲，而且它同时给了三样东西：一个否决、一个速率、一条可以反打基线的批评。</b><br><br><span class='w'><b>一、否决（p11–p12）。</b></span> 你简报 §4a 的结论是「现有日志做不了 IS —— 不是方差大，是估计量不存在」。<b>这一讲把它写成了一行式子</b>：<code>V̂(π) = (1/T)Σ_t 1{x_t = π(c_t)}/p_t · y_t</code>，<span class='k'>确定性日志下那个指示函数只在「目标策略恰好等于日志策略」时非零</span>。<b>方差界 <code>(1/T)E_{c~ν}[1/μ(π(c)|c)]</code> 则给出同一件事的定量版本</b>：<span class='w'>某个上下文上 <code>μ(π(c)|c) = 0</code> ⇒ 这个量是 <b>+∞</b></span>。<b>⇒ 要做任何离线评估，执行器必须先改三处：① 动作按一个<b>随机</b>策略 <code>μ</code> 抽；② <code>p_t = μ(x_t|c_t)</code> <b>当场</b>写进日志；③ <code>μ</code> 的定义本身要存档。</b><span class='k'>第 ③ 条简报里没写但一样是硬的 —— 没有 <code>μ</code> 的定义，连「覆盖了哪些配置」都说不清，更算不出 <code>E[1/μ]</code>。</span><br><br><span class='k'><b>二、速率（p13）。</b></span> <b><code>|V̂(π) − V(π)| ≤ √(4|𝒳|log(2|Π|/δ)/T)</code></b>（均匀探索下）。<span class='w'>动作数 <code>|𝒳|</code> 一次方，策略类 <code>|Π|</code> 只进 log</span>。<b>反过来读成样本量：<code>T ≳ 4|𝒳|log(2|Π|/δ)/ε²</code></b>。<span class='k'>按简报 §4c 随机化 <code>k=4</code> 个节点、每节点两档 ⇒ 有效动作数 16；策略类取「按难度三档」<code>log|Π| ≈ 21</code> ⇒ 要 <code>ε = 0.02</code> 的宽度需 <code>T ≈ 4×10⁶</code></span>。<b>⚠ 这个数说明纯 IPS 在你的预算下不可行 —— 而这正是简报 §4d「穷举 oracle 碾压任何估计量」的量化支撑。</b><span class='w'>⇒ 这一讲最大的用处可能不是「教你做 OPE」，而是让你能在论文里<b>有根据地</b>说明为什么不做 OPE 而去穷举。</span><br><br><span class='k'><b>三、可以反打基线的批评（p15–p16）。</b></span> <b>优化者的诅咒</b>：<code>x̂ = argmax f̂(x)</code> ⇒ <code>E[f̂(x̂)] ≫ max_x f(x)</code>。<span class='w'>而简报 §2【已核】记着 AFlow 的选择规则就是「按分数排序取 top-k、再 softmax 采样」，§3【已核】记着每个 workflow 的分数是在 <code>D_V</code> 上跑 5 次得来的</span>——<b>5 次的标准误差不小，而且各 workflow 的样本量相同但<b>方差不同</b>（难 query 上方差大得多）</b>。<b>⇒ 它的 top-k 系统性地偏向「方差大、碰巧跑高」的那些 workflow。</b><span class='k'>替代是现成的：把选择规则改成 <code>argmax (score − c·se)</code>，而 <code>se</code> 它已经在算了（5 次重复），只是没用。</span><br><br><b>⭐ 而整讲最该带走的一条操作规程只有一句：<span class='k'>用悲观去「选」，用独立的留出集去「报」</span>。</b><span class='w'>只做前者会得到一个虚高的数字，只做后者会在选择阶段就被坏覆盖的策略骗走。两件事缺一不可，顺序不能换。</span><br><br><b>另外，前十页（在线那一半）给的是一个<b>形式化上的硬约束</b>，比它的算法更有用。</b><span class='k'>遗憾 <code>√(12·|𝒜|·T·log|Π|)</code> ——动作数一次方、策略类只进 log，而 p10 的下界 <code>min_λ max_i ≥ d</code> 是<b>无条件</b>的</span>。<b>⇒ 若把「动作」定义成<b>整条配置</b>（<code>d = k^H</code>），任何 model-free 路线都要为 <code>√(k^H·T)</code> 买单，直接不可行；必须把动作定义在<b>节点级</b>（<code>d = k</code>），把组合结构推进策略类 <code>Π</code> 里去</b>。<span class='w'>同一个问题，组合性放在动作上不可行、放在策略类上可行 —— 这是「怎么形式化」的硬约束，不是调参建议。</span>",
+  "pitfalls": [
+    {
+      "v": "<b>⚠ 记号在这一讲里换了两次，<code>d</code> 和 <code>n</code> 都换了含义。</b> <span class='k'>p1–p4：<code>n</code> = 臂数 <code>|𝒳|</code>，<code>d</code> = 向量空间维数；p7–p10：<code>n</code> = 策略数 <code>|Π|</code>，<code>d</code> = 动作数 <code>|𝒜|</code></span>（讲义 p7 页边用一行小字写着 <code>d → actions, n → policies</code>）。<b>于是同一个结论 <code>√(12dT log n)</code> 在两段里读法完全不同</b>。<span class='w'>另外 p11 起 <code>p_t</code> 从「策略分布向量」变成了「倾向分数标量」</span>。<b>引用这一讲的任何公式前，先确认自己在哪一段。</b>",
+      "tag": "已核",
+      "ref": "本讲 p7 页边批注 · p1 与 p7 的两版 Theorem 17"
+    },
+    {
+      "v": "<b>⚠ 「倾向分数」不是被抽中那个策略给动作的概率，而是算法整体走出这个动作的<b>混合</b>概率。</b> <code>Σ_k q_{t,k}π_k(a_t|c_t)</code>，<span class='k'>而不是 <code>π_{I_t}(a_t|c_t)</code></span>。<b>p8 的无偏性证明之所以成立，全靠这个分母与 <code>P(a_t = j)</code> 逐字相同</b>。<span class='w'>两者在「多个策略会走同一动作」时差别巨大，而那在 workflow 场景里是常态</b></span>（<b>大多数配置在大多数节点上相同，只在少数节点分叉</b>）。<b>⇒ 日志里要存的不是一个数，而是「这一轮的 <code>q_t</code> 与各 <code>π_k(·|c_t)</code> 足以重算出那个混合概率」</b>。<span class='k'>副作用：倾向依赖于当时的<b>整个候选集合</b>，事后往 <code>Π</code> 里加策略，旧日志的倾向就不再对得上。</span>",
+      "tag": "已核",
+      "ref": "本讲 p7–p8（混合倾向与 P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s}）"
+    },
+    {
+      "v": "<b>⚠ 策略类 <code>Π</code> 必须与随机化范围严格对齐，否则 MLE 的保证在第一行就没了。</b> <span class='k'>MLE 的代价是 <code>2·max_{π∈Π}C_T(π)</code> —— 由<b>最难评估的那个策略</b>决定</span>；<b>按简报 §4c 你只在 top-3~4 个节点上随机化、其余钉死，那么任何「在被钉死的节点上换档位」的策略都有 <code>C_T(π) = ∞</code></b>，<span class='w'>只要它在 <code>Π</code> 里，整个保证失效 —— 哪怕 <code>π_*</code> 本身覆盖得很好</span>。<b>⚠ 这一条极易在实现里违反</b>：<span class='k'>写策略类时自然会写成「所有 <code>k^H</code> 个配置」，而随机化只做了 4 个节点</span>，<b>于是保证没了，而代码一点报错都不会有</b>。<span class='w'>（用悲观可以免掉这个 <code>max_π</code>，这也是选悲观的第二个理由。）</span>",
+      "tag": "推断",
+      "ref": "本讲 p14 第 ④ 步 · p15 · 简报 §4c"
+    },
+    {
+      "v": "<b>⚠ 在线加置信宽度，离线减置信宽度 —— 符号相反，写代码时最容易搞反。</b> <span class='k'>UCB 乐观，是因为「去没测过的地方」有信息价值、而且猜错下一轮能纠正；离线只有一次输出机会，不确定性是<b>纯风险</b></span>。<b>把它记成「同一个 <code>c(x)</code>，在线 <code>+</code>、离线 <code>−</code>」最省脑子。</b><span class='w'>⚠ 而你的课题<b>两种都要用</b>：自适应淘汰阶段是在线的（该乐观 / 该用随时有效的界，见 CSE541 L12），最终输出配置是离线的一次性决定（该悲观）</span>——<b>同一个项目里两个阶段符号相反，这是一处真实的混淆风险</b>。",
+      "tag": "推断",
+      "ref": "本讲 p15 的 tip · CSE541 L12 主线卡（随时有效的界）"
+    },
+    {
+      "v": "<b>⚠ <code>C_T(π)</code> 里有<b>两个</b>关于倾向的量，混起来会把样本量算错一个数量级。</b> <span class='k'><code>E_{c~ν}[1/μ(π(c)|c)]</code> 是<b>沿目标策略走</b>的平均，进<b>根号</b>项、以 <code>1/√T</code> 收敛；<code>V̄ = max_{c,x}1/μ(x|c)</code> 是<b>全表最坏</b>，进<b>线性</b>项、以 <code>1/T</code> 收敛</span>。<b>均匀探索是个特例（两者都等于 <code>|𝒳|</code>），所以从那个式子看不出区别</b>——<span class='w'>而你的 <code>μ</code> 一旦不均匀（简报 §4c 建议按扫描结果倾斜），两者会差很远</span>。<b>⇒ 报样本量时必须分别算。</b>",
+      "tag": "已核",
+      "ref": "本讲 p13 Corollary"
+    },
+    {
+      "v": "<b>⚠ 替代损失那一步有一道理论与实现之间的真缝，讲义没说。</b> <span class='k'>p13 把离线挑策略归约成加权 0/1 分类，p14 接着说「换成 softmax 交叉熵」—— 但交叉熵的 <code>argmin</code> 与 0/1 的 <code>argmin</code> 一般<b>不相同</b></span>，<b>而 <code>C_T(π)</code>、并集界那一整套保证是对<b>精确</b> <code>argmax V̂</code> 证的</b>。<span class='w'>⇒ 你用分类器求出来的 <code>π̂</code> 严格说不满足那个保证，中间差一个「优化误差」</span>。<b>论文里该明说而不是含糊过去</b>——<span class='k'>审稿人若懂这一块，这是他会问的第一个问题</span>。",
+      "tag": "推断",
+      "ref": "本讲 p13–p14（归约与替代损失）"
+    },
+    {
+      "v": "<b>⚠ 重尾会让你同时拿到「偏低的点估计」和「偏窄的置信区间」，两个错误同向叠加。</b> <span class='k'>重要性权重的分布极度偏斜：大部分轮次为 0，少部分很大（p12 页末那根贴着 0 的尖峰）</span>；<b>于是<b>样本方差这个估计量本身</b>也偏斜 —— 若那条长尾在你的 T 个样本里一次都没抽到，算出的样本方差远小于真方差</b>。<span class='w'>⇒ 结果看起来又准又稳，其实两头都错</span>。<b>所以 Bernstein 里那个 <code>B</code>（最坏倾向的倒数）必须按 <code>μ</code> 的<b>定义</b>算，不能用样本里见到的最大权重去估。</b>",
+      "tag": "推断",
+      "ref": "本讲 p12（方差界与页末的尖峰图）"
+    }
+  ],
+  "ammo": [
+    {
+      "q": "你为什么不做 off-policy evaluation，而要去穷举？那不是很笨吗？",
+      "a": "<b>因为算过，而且差了两个数量级。</b> <span class='k'>IPS 的置信宽度是 <code>√(4|𝒳|log(2|Π|/δ)/T)</code>（CSE541 L18 p13）。在我的设定里随机化 4 个节点、每节点两档，有效动作数 16；策略类「按难度三档」<code>log|Π| ≈ 21</code></span>。<b>要把宽度压到 0.02，需要约 <code>4×10⁶</code> 条 query —— 而穷举 oracle 用 200–300 条留出 query、跨分支共享前缀，约 9000 次节点调用就能把精确表 <code>R(x, a_1..a_k)</code> 建出来，估计量方差<b>为零</b></b>。<span class='w'>⇒ 在我付得起的规模上，全因子实验碾压任何估计量</span>。<b>我把 IPS 那条路算到底，正是为了能有根据地说这句话</b>；<span class='k'>而且那张精确表同时充当独立的报告集，顺手解决了优化者的诅咒</span>。",
+      "tag": "推断",
+      "ref": "本讲 p13 · 简报 §4d（穷举 oracle）· 简报 §4b（ESS = n·2^{−k}）"
+    },
+    {
+      "q": "你的配置空间是组合的（k^H 个），上下文 bandit 那套理论怎么可能用得上？",
+      "a": "<b>用得上，但前提是把组合性放在<b>策略类</b>里而不是放在<b>动作</b>里 —— 而这不是技巧，是一条硬约束。</b> <span class='k'>CSE541 L18 的遗憾是 <code>√(12·|𝒜|·T·log|Π|)</code>：<b>动作数一次方，策略类只进 log</b></span>。<b>若把「动作」定义成整条配置，<code>|𝒜| = k^H</code>，任何 model-free 路线都要为 <code>√(k^H T)</code> 买单，直接不可行</b>；<span class='w'>而把动作定义在<b>节点级</b>（<code>|𝒜| = k</code>，两三个档位），组合性进 <code>Π</code>，只付 <code>log|Π| = O(H log k)</code></span>。<b><code>H=10, k=2</code> 时 <code>log|Π| ≈ 21</code> —— 相对于忽略上下文只多约 4.6 倍的根号因子</b>。<b>而且这不是我挑的最优写法：p10 证了 <code>min_λ max_i ≥ d</code> 是<b>无条件</b>的下界</b>，<span class='k'>也就是说「探索开销正比于动作数」没法靠设计绕开，所以动作必须定义在节点级</span>。",
+      "tag": "推断",
+      "ref": "本讲 p6 三行对照 · p7 页边（d→actions, n→policies）· p10 的无条件下界"
+    },
+    {
+      "q": "AFlow 报告的最佳 workflow 分数，你凭什么说它虚高？",
+      "a": "<b>凭一个有定理撑着的机制，而且两边的事实都核过。</b> <span class='k'>AFlow 的选择规则是「把已评估的 workflow 按分数排序取 top-k（k=3），再按 softmax 采样」【已核，Algorithm 1】；每个 workflow 的分数是在 <code>D_V</code> 上跑 5 次得来的【已核，§4 + Appendix D】</span>。<b>CSE541 L18 p16：<code>x̂ = argmax f̂(x)</code> ⇒ <code>E[f̂(x̂)] ≫ max_x f(x)</code> —— <code>argmax</code> 偏爱「真值一般、这次噪声往上偏」的点，这是一个<b>方向固定向上</b>的偏差，不是方差</b>。<span class='w'>量级可以估：<code>m</code> 个候选、误差 iid 标准正态，虚高约 <code>σ√(2log m)</code></span>。<b>⇒ 我的对照实验很便宜：把它选出的 workflow 在<b>新</b>留出集上重评一次，差额就是这个偏差</b>。<span class='k'>⚠ 我会把它写成「方法学差异」而不是「他们错了」——这个偏差来自流程，在当时的通行做法下不算疏漏；而且修法对原作者的代码改动极小：<code>argmax(score − c·se)</code>，<code>se</code> 他们已经在算了。</span>",
+      "tag": "推断",
+      "ref": "本讲 p16 · 简报 §2（top-k + softmax）· 简报 §3（D_V 上跑 5 次）"
+    },
+    {
+      "q": "你既然要做自适应淘汰，为什么最后一步又要用悲观？这两个方向不是矛盾吗？",
+      "a": "<b>不矛盾，因为两个阶段对「不确定性」的定价本来就不同，而这一讲把分界写得很清楚。</b> <span class='k'>在线阶段（淘汰）用乐观：不确定 = 还没探索 = 有信息价值，而且猜错了下一轮能纠正 —— 这是 UCB，<code>argmax f̂ + c</code></span>；<b>最终输出配置是一次性的离线决定：不确定 = 没有证据 = 纯风险，所以 <code>argmax f̂ − c</code></b>（CSE541 L18 p15）。<span class='w'>⚠ 同一个 <code>c(x)</code>，符号相反</span>。<b>而悲观买到的东西是具体的：保证从 <code>V(π_*) − 2max_{π∈Π}C_T(π)</code> 变成 <code>V(π_*) − 2C_T(π_*)</code>，<code>max_π</code> 消失</b>——<span class='k'>也就是说「策略类里有多少个覆盖极差的配置」不再影响我的保证，只要最优那个被覆盖了就行</span>。<b>这对我特别重要，因为我的策略类是组合的，里面必然有大量从没跑过的配置。</b>",
+      "tag": "推断",
+      "ref": "本讲 p15（悲观原则与两种保证的对比）· CSE541 L12 主线卡（随时有效的界）"
+    },
+    {
+      "q": "你的「按难度分档」策略类是拍脑袋定的吗？凭什么说它里面有好策略？",
+      "a": "<b>遗憾界确实<b>不</b>保证这件事，我不会拿它来撑。</b> <span class='k'>CSE541 L18 p6 的界只认策略类的<b>大小</b>（<code>log|Π|</code>），对它的<b>内容</b>一无所知</span>；<b>「<code>Π</code> 里有没有好策略」是<b>近似误差</b>，界里看不见它，而在应用里它通常才是主要误差来源</b>。<span class='w'>⇒ 这一项必须靠实验挣，不能靠定理</span>。<b>我的做法是简报 §5 的 P2 vs P3 消融：策略只看 (query, 节点 id) vs 也看部分轨迹</b>，<span class='k'>若序贯信息带来的提升不到 2 个百分点，就不用 MDP 框架；同理若「按难度分档」相对单一配置的提升不到阈值，这个策略类就不成立，我会如实报告</span>。<b>界的作用只有一个：告诉我把 <code>Π</code> 做大几乎不要钱（只进 log），所以该把预算花在<b>设计</b> <code>Π</code> 上，而不是花在控制它的大小上。</b>",
+      "tag": "推断",
+      "ref": "本讲 p6 的 say（遗憾与最优的分家）· 简报 §5（P2 vs P3 消融与可加性检验）"
+    }
+  ],
+  "papers": [
+    {
+      "t": "Auer, Cesa-Bianchi, Freund &amp; Schapire — EXP3 与对抗式 bandit",
+      "id": "1995 / 2002（讲义的 Theorem 17 就是它的那一族界）",
+      "why": "<b>本讲两段内容共用的那个接口的出处。</b> <span class='k'>值得引用的不是算法而是<b>定理的形状</b>：遗憾 <code>≤ 2γT + log(n)/η + (1−γ)η E[ΣΣ pℓ̂²]</code>，三项各自对应「强制探索 / 在候选里定位 / 估计量的方差」</span>。<b>你要用它说明「候选个数只进 log」这件事的来源</b>。⚠ <b>引用常数或精确条件时查原文</b>，讲义这两页是板书形式、并且把 <code>γ</code> 与 <code>λ</code> 的角色做了简化。"
+    },
+    {
+      "t": "Kiefer &amp; Wolfowitz — 等价定理（G-最优设计）",
+      "id": "1960（CSE541 L07 p5 的 Lemma 10 点名）",
+      "why": "<b>本讲 p3 那一步 <code>max_j‖x_j‖²_{A(λ)⁻¹} = d</code> 的依据。</b> <span class='k'>而 p9 的 Proposition（<code>min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = d</code>）是它在<b>策略空间</b>上的同构版本，用的是同一套「对数势函数 + 一阶最优性」</span>。<b>两条摆在一起读，能看出这类结论的共同机制：log 的梯度恰好产生「被自己的值除」的结构，于是要界的量与梯度是同一个东西。</b>"
+    },
+    {
+      "t": "Sachdeva, Su &amp; Joachims — Off-policy Bandits with Deficient Support",
+      "id": "KDD 2020（简报 §4a 点名）",
+      "why": "<b>你那条「确定性日志下 IS 无定义」的正式引用来源。</b> <span class='k'>本讲 p11–p12 给出的是它的充分条件那一侧（<code>E[1/μ(π(c)|c)]</code> 有限才有方差界）；这篇讲的是<b>支撑不足时该怎么办</b></span>——<b>三类处理：限制策略类到被支撑的那部分、估计量做截断/重加权、或者承认不可识别</b>。<b>⇒ 与本讲 p14 那条「<code>Π</code> 必须与随机化范围对齐」说的是同一件事，而这篇给了它名字和正式处理</b>。⚠ <b>具体方法与条件要查原文</b>，这里只核过它存在且主题相符。"
+    },
+    {
+      "t": "Smith &amp; Winkler — The Optimizer's Curse",
+      "id": "Management Science 2006（本讲 p16 讲的正是这件事，讲义未点名）",
+      "why": "<b>p16 那三行式子的标准引用。</b> <span class='k'>它的贡献是把「在同一批数据上既选又报」造成的向上偏差讲成了一个决策分析问题，并给出贝叶斯修正</span>。<b>你用它来给「AFlow 的 top-k 选择导致报告值虚高」这条批评一个正式的名字和出处</b>——<span class='w'>有名字的批评和没名字的批评，在审稿人眼里分量不同</span>。⚠ <b>讲义没点名这篇，引用前自行核对作者、年份与它到底证了什么</b>（本条属<b>待核</b>的那一类，只是主题高度吻合）。"
+    },
+    {
+      "t": "Jin, Yang &amp; Wang — Is Pessimism Provably Efficient for Offline RL?",
+      "id": "ICML 2021（本讲 p15 的「悲观原则」在离线 RL 里的代表作，讲义未点名）",
+      "why": "<b>本讲 p15 只给了一个两行证明；这一篇把同一个想法做成了离线 RL 的完整理论。</b> <span class='k'>核心结论与 p15 同构：悲观的次优性由<b>最优策略处</b>的不确定性决定，而不是由整个策略类的最坏情况决定</span>。<b>⇒ 你若要在论文里主张「最终输出该用悲观」，这是比讲义更合适的引用</b>；<span class='w'>而且它处理的是序贯情形，万一简报 §5 的可加性检验把你推向 MDP 形式化，这一篇正好在那一侧</span>。⚠ <b>讲义未点名，引用前核对。</b>"
+    }
+  ]
+}

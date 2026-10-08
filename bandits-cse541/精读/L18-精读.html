@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSE541 第 18–19 讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cse541-l18">
+
+<div id="bar">
+  <h1>CSE541 第 18–19 讲 · <span>一般策略类的上下文 bandit（model-free）</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 16</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_18.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L18-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "Theorem 17 对损失估计量 ℓ̂ 提了两条要求。为什么第二条写成单边的 −ηℓ̂_{t,i} ≤ 1，而不是双边的 |ηℓ̂_{t,i}| ≤ 1？", "o": ["因为 γ 的强制探索已经保证了 ℓ̂ 的正半边有界，所以不必再写", "因为单边条件更弱，作者只是想把定理写得尽量一般，没有别的原因", "因为证明要在 exp(−ηℓ̂) 上用 e^{−z} ≤ 1 − z + z²，这条不等式只在 z ≥ −1 时成立；ℓ̂ 过正只会压扁那条臂，不伤分析", "因为损失本身非负，ℓ̂ 不可能取到很大的正值，双边等价于单边"], "a": 2, "why": "单边性来自分析中那一步 e^{−z} ≤ 1 − z + z²，它要求 z ≥ −1。ℓ̂ 很负时 exp(−ηℓ̂) 会爆炸、权重一轮内塌给那条臂；ℓ̂ 很正只是把那条臂压扁，不会破坏界。所以 p3、p9 两处费力气界的都是 −ηℓ̂ 这一侧。"}],
+2: [{"q": "线性情形的估计量 ℓ̂_{t,i} = x_iᵀA(q_t)⁻¹x_{I_t}ℓ_{t,I_t} 中，无偏性证明的第二步把 ℓ_{t,j} 换回 x_jᵀθ_t。这一步为什么是关键？", "o": ["因为这样可以把 ℓ 的取值范围从 [−1,1] 放大到整个实轴", "因为 θ_t 是常数，换成它之后期望号可以直接拿掉", "因为换完之后求和项凑出了 Σ_j q_{t,j}x_jx_jᵀ，而它按定义就是 A(q_t)，于是与前面的 A⁻¹ 直接对消", "因为只有这样才能保证 A(q_t) 可逆"], "a": 2, "why": "这一步用掉的正是线性假设 ℓ_{t,j} = x_jᵀθ_t。换完之后 Σ_j q_{t,j}x_jx_jᵀ 恰好是 A(q_t) 的定义，于是 A⁻¹A = I，无偏性成立。换句话说：「按什么分布采样」与「怎么去偏」在同一个矩阵上相遇并对消——这是线性结构买到的东西。"}, {"q": "p2 的 Aside 并排写了 θ̂_LS 与 θ̂_IPS。算法里为什么必须用 IPS 那一版（分母是期望的 Σ_x λ_x x xᵀ）？", "o": ["因为 IPS 的方差更小", "因为 LS 需要矩阵求逆而 IPS 不需要", "因为 LS 的归一化矩阵依赖本轮实际抽到了哪条臂，代进去之后估计量不再无偏，而无偏性是 Theorem 17 的假设之一", "因为 LS 只在噪声服从高斯分布时才有定义"], "a": 2, "why": "两者都（渐近）无偏，但 LS 用的是实际抽样的二阶矩，是随机的；把它代进 ℓ̂ 会让条件期望不再等于 ℓ_{t,i}，而无偏性正是定理的假设。IPS 的分母是事先定下的 λ，与本轮结果无关。代价是方差更大——这正是后半段离线评估那条主线的起点。"}],
+3: [{"q": "p3 推导 −ηℓ̂ 的上界时，把 A(q_t)⁻¹ 劈成 A^{−1/2}·A^{−1/2}。这一招解决的是什么问题？", "o": ["保证 A(q_t) 正定", "x_iᵀA⁻¹x_j 既不是范数也不是内积、无从下手；写成 ⟨A^{−1/2}x_i, A^{−1/2}x_j⟩ 之后柯西—施瓦茨立刻可用，两个因子还能被同一个 max_j‖x_j‖² 盖住", "把矩阵求逆的数值误差降低一半", "把 d 维的问题降到 1 维"], "a": 1, "why": "关键在于凑出内积的形状。x_iᵀA⁻¹x_j 是一个双线性型，直接界不住；劈成两半后它成了两个向量的内积，柯西—施瓦茨给出 ‖x_i‖_{A⁻¹}‖x_j‖_{A⁻¹}，而这两个因子是同一个函数在两点的取值，于是能一并被 max_j 盖住，最后接上 Kiefer–Wolfowitz 的 d。"}],
+4: [{"q": "最终的界 3ηdT + log(n)/η 里出现了两个 d：一个来自 −ηℓ̂ 的界，一个来自方差项。它们的来历相同吗？", "o": ["不同：方差项的 d 来自 Tr(A⁻¹A) = Tr(I_d)，对任何 q_t 都成立；−ηℓ̂ 那个 d 要 λ 真的取成 G-最优设计才拿得到", "不同：方差项的 d 是臂数，−ηℓ̂ 那个 d 是维数", "相同，都是空间维数，所以可以合并成一个常数", "相同，都是 Kiefer–Wolfowitz 的 f_G(λ*) = d"], "a": 0, "why": "方差项那个 d 是恒等式白送的（迹轮换后得到单位矩阵的迹），与 λ 怎么取无关；−ηℓ̂ 那个 d 则是 max_j‖x_j‖²_{A(λ)⁻¹} 的最小值，必须解 G-最优设计才达到。分清这一点才知道：算法里「解凸优化求 λ」买的是稳定性，不是方差。"}],
+5: [{"q": "「每个上下文各跑一个 bandit」得到遗憾 √(n|C|T)。推导最后一步用柯西—施瓦茨把 Σ_c√(T_c) 放成 √(|C|T)，这一步在什么情况下取等？", "o": ["|C| = 1 时", "只有一个上下文出现、其余 T_c = 0 时", "T_c 服从几何分布时", "T_c 全部相等时，也就是上下文均匀出现时 —— 而这恰恰是最常见的情形"], "a": 3, "why": "柯西—施瓦茨在两个向量成比例时取等，即所有 √(T_c) 相同、也就是 T_c 全相等。所以这个界在上下文均匀出现时最紧（最差），而那正是常态。这也解释了为什么 |C| 以一次方开根进入——它不是放大的产物，是真实的代价。"}, {"q": "「完全忽略上下文」拿到 √(nT)，比 √(n|C|T) 小得多。它的代价在哪里？", "o": ["它的常数因子大得多，实际中反而更差", "它需要知道 ν 的分布", "它只在 T 很大时才成立", "它比较的基准是一条对所有上下文都相同的固定臂；若不同上下文的最优动作不同，这个基准本身就远低于真正的最优"], "a": 3, "why": "遗憾小不等于表现好——遗憾是相对基准说的。忽略上下文时基准塌成「单一固定臂」，策略类 |Π| = n。界里看不见的那一项（基准与真正最优之间的差，即近似误差）通常才是主要误差来源。p6 起引入策略类 Π 正是为了让这个基准可调。"}],
+6: [{"q": "p6 的三行对照里，第三行（策略遗憾 √(nT log|Π|)）为什么说它是前两行的推广？", "o": ["因为它的常数更小", "因为代 |Π| = n 得到第二行、代 |Π| = n^{|C|}（log|Π| = |C|log n）大致得到第一行 —— 策略类的大小成了一个可调参数", "因为它不需要假设上下文是 iid 的", "因为它同时适用于随机和确定性策略"], "a": 1, "why": "三行其实是同一个公式在 |Π| 取不同值时的样子。把「要多强的基准」变成一个连续旋钮，而调它的代价只有 log，这是整段设计的核心。注意第三行同时也放松到了对抗上下文，但那不是它成为推广的原因。"}, {"q": "策略版上下文 bandit 的根本困难是什么？", "o": ["策略之间可能相关，不能独立处理", "决策的粒度是策略（n = |Π| 个），而反馈的粒度是动作（d 个）—— 要给没被抽中的策略也报一个无偏损失", "损失函数不一定有界", "上下文空间可能是连续的"], "a": 1, "why": "你挑的是策略，看到的却只是某个动作上的损失。普通 bandit 里决策与反馈粒度一致（拉哪条臂看哪条臂），全信息专家问题里反馈比决策还细，都没有这个困难。p7–p8 那个估计量存在的全部理由就是弥合这个落差。"}],
+7: [{"q": "策略版估计量的分母是 Σ_k q_{t,k}π_k(a_t|c_t)，而不是被抽中策略自己的 π_{I_t}(a_t|c_t)。为什么？", "o": ["因为「谁产生了这个动作」不可观测；重要性采样的行为分布是算法诱导的边缘分布 P(a_t = a)，它正好等于那个混合和", "因为这样可以避免除以零", "为了让分母更大，估计量更稳定", "因为 q_{t,k} 是已知的而 π_{I_t} 不是"], "a": 0, "why": "重要性权重按定义是「目标分布 / 行为分布」。目标是 π_i(·|c_t)，行为是算法这一轮真正诱导出的动作分布，即 Σ_k q_{t,k}π_k(·|c_t)。p8 的证明正是把 P(a_t=j) 展开后发现它与分母逐字相同。用单个策略的倾向会得到有偏的估计。"}, {"q": "令每个策略都是常值策略（π_i(·|c) = e_i，第 i 个策略永远走动作 i），策略版估计量会退化成什么？", "o": ["ℓ̂_{t,i} = ℓ(c_t,a_t)，与 i 无关", "ℓ̂_{t,i} = 1{a_t=i}·ℓ(c_t,a_t)/q_{t,i} —— 正是 p1 里最朴素的 bandit 估计量", "ℓ̂_{t,i} = 0 对所有 i ≠ I_t", "ℓ̂_{t,i} = π_i(a_t|c_t)·ℓ(c_t,a_t)"], "a": 1, "why": "分子 π_i(a_t|c_t) = 1{a_t=i}，分母 Σ_k q_{t,k}1{a_t=k} = q_{t,a_t}。于是退化成朴素的逆倾向估计量。做这个退化检验是检验自己有没有读懂那个分母的最快办法。"}],
+9: [{"q": "p9 的 Proposition 用 f(λ) = Σ_j log(Σ_k λ_k p_{k,j}) 作势函数。这个构造的妙处在哪里？", "o": ["它把 d 个约束化成了一个", "它是线性的，所以最优点在单纯形顶点上", "log 的梯度恰好产生「被自己的值除」这个结构，于是 ∂f/∂λ_i 正好等于第 i 个策略的放大倍数 —— 要界的量与梯度是同一个东西", "它保证了 λ* 唯一"], "a": 2, "why": "∂/∂λ_i Σ_j log(Σ_k λ_k p_{k,j}) = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})，这正是命题要 min-max 的那个量。于是「min-max 一个放大倍数」被翻译成「某凹函数的梯度」，一阶最优性直接给界。这与 L07 里「D-最优与 G-最优同解」是同一件事的抽象版本。"}],
+10: [{"q": "min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) ≥ d 这个下界，对 λ 有什么要求？", "o": ["必须 n ≥ d", "必须在 λ*（对数势函数的最大点）处才成立", "必须 λ 的支撑张满动作空间", "没有任何要求 —— 对任何 λ ∈ Δ_n 都成立，所以 d 是问题本身的硬度，不是分析松紧的问题"], "a": 3, "why": "下界用的是「最大值 ≥ 以 λ 自己为权的加权平均」，而那个加权平均经过一次求和次序交换后恒等于 d，与 λ 无关。所以无论探索分布怎么设计，最坏放大倍数都不可能小于动作数。上界那一半才需要 λ*。"}, {"q": "最终遗憾 √(12 d T log n) 在这一段里该怎么读？", "o": ["√(12 · 策略数 · T · log 动作数)", "√(12 · 维数 · T · log 臂数)", "√(12 · 动作数 · T · log 策略类大小)", "√(12 · 上下文数 · T · log 动作数)"], "a": 2, "why": "p7 页边写着 d → actions, n → policies。所以 d = |𝒜|、n = |Π|，界读作 √(12·|𝒜|·T·log|Π|)。这正是 p6 第三行那个 √(nT log|Π|) 的出处。同一份定理在 p1–p4 里 d 是向量维数、n 是臂数 —— 同名不同义，是这一讲最容易读错的地方。"}],
+11: [{"q": "离线数据集写成四元组 {(c_t, x_t, y_t, p_t)}。为什么讲义要把 p_t 单独列成一个分量？", "o": ["因为它是连续值，其余三个是离散的", "因为估计量里只用到它", "因为它需要额外的存储空间", "因为 c_t、x_t、y_t 都是客观发生的事实、事后还能从别处捞，而 p_t = μ(x_t|c_t) 是「当时那个策略给这个动作的概率」—— 策略一换或一重启就永远重建不出来"], "a": 3, "why": "倾向分数是唯一一个不当场记下来就彻底丢失的量。这也是「要做 OPE 就必须先改执行器」的根本原因：不是算法不够好，是数据里缺了一列，而那一列事后补不出来。"}],
+12: [{"q": "单轮二阶矩算出来是 y²/μ(π(c)|c)，而不是 y²。μ 为什么只被对消一次？", "o": ["因为 y 也依赖 μ", "因为 μ 不是概率分布而是密度", "因为分母是平方的（1/μ²），而「抽到 x 的概率」只提供一次方的 μ，相除后剩下 1/μ 的一次方", "因为求期望时漏掉了一个归一化常数"], "a": 2, "why": "E[(1{x=π(c)}y/μ)²] = Σ_x μ(x|c)·1{x=π(c)}y²/μ(x|c)² = y²/μ(π(c)|c)。抽样概率贡献一次 μ，分母平方消掉两次，净剩 1/μ。这个「平方分母只被对消一半」是所有逆倾向方法方差爆炸的共同来源。"}, {"q": "这里为什么必须用 Bernstein 而不是 Hoeffding？", "o": ["Hoeffding 要求变量有界而这里无界", "因为取值范围 B ≈ 1/min μ 荒谬地大；Hoeffding 让它以 B/√m 进界、几乎没用，Bernstein 把它降到 B/m，主项交给平均的 1/μ", "因为 Bernstein 的常数更小", "因为 Bernstein 不需要独立性假设"], "a": 1, "why": "两者都要求有界。差别在于 Hoeffding 只认取值范围，Bernstein 认方差、把范围项的收敛速度从 1/√m 提到 1/m。重要性权重的取值范围由最小倾向决定、极大，而方差只认平均的 1/μ —— 所以这个区别在这里是决定性的。"}],
+13: [{"q": "C_T(π) 里有两个关于倾向的量：E[1/μ(π(c)|c)] 和 V̄ = max_{c,x} 1/μ(x|c)。它们的角色有什么不同？", "o": ["E[·] 进线性项，V̄ 进根号项", "E[·] 是沿目标策略走的平均、进根号项（T 大时主导）；V̄ 是全表最坏、进线性项（T 小时主导）", "两者相等，写成两个只是为了对称", "V̄ 只在 μ 不是均匀分布时才需要"], "a": 1, "why": "混淆这两个量会把样本量算错一个数量级。沿 π 的平均进根号、以 1/√T 收敛；全表最坏进线性、以 1/T 收敛。均匀探索是一个特例：两者都等于 |𝒳|，所以看不出区别。"}, {"q": "把 argmax_π V̂(π) 的式子改写之后得到 argmin_π (1/T)Σ 1{π(c_t) ≠ x_t}·y_t/p_t。这个形式说明了什么？", "o": ["V̂(π) 其实与 π 无关", "必须枚举 Π 中所有策略才能求解", "只有当 y_t 全为正时 argmax 才有意义", "离线挑策略是一个加权的 0/1 分类问题：样本是 (c_t, x_t)，「正确标签」是日志实际走的动作，权重是 y_t/p_t"], "a": 3, "why": "改写把常数项 (1/T)Σy_t/p_t 丢掉，剩下的正是带权 0/1 损失。于是不必枚举 |Π| 个策略，可以把日志变成带权分类数据集扔给现成分类器 —— 这也解释了 p14 为什么突然去讲 softmax。注意权重可以为负（y_t < 0 时会推开而非靠近）。"}],
+14: [{"q": "MLE 的保证最后一步放成 V(π_*) − 2·max_{π∈Π}C_T(π)。这个 max_π 为什么是致命的？", "o": ["因为只要 Π 里有一个策略被日志覆盖得极差（E[1/μ] 巨大），这一项就爆掉、整个保证变成废话 —— 哪怕 π_* 本身被覆盖得很好", "因为 max 运算在计算上不可行", "因为 max_π C_T(π) 总是无穷大", "因为 max 与并集界重复计算了 log|Π|"], "a": 0, "why": "π̂_MLE 的身份事先未知，只能按最坏情况放大。于是你付的代价由「策略类里最难评估的那个策略」决定，而那个策略你可能根本不想要。p15 的悲观原则正是为了去掉这个 max_π。实现上的推论：Π 的定义必须与 μ 的随机化范围严格对齐。"}],
+15: [{"q": "悲观原则的证明与 MLE 的证明几乎逐行相同，只有一步变了。是哪一步？", "o": ["第二步：MLE 用 V̂(π̂) ≥ V̂(π_*)，悲观用 V̂(π̂_pes) − C_T(π̂_pes) ≥ V̂(π_*) − C_T(π_*)，于是右边自带 −C_T(π_*) 而不必放成 max_π", "第一步的置信界 —— 悲观不需要并集界", "第三步 —— 悲观对 π_* 用的是双边界", "最后一步 —— 悲观不需要放大"], "a": 0, "why": "改动全在「用 argmax 的定义」那一步。因为 π̂_pes 最大化的是 V̂ − C_T，这一步直接给出 V̂(π_*) − C_T(π_*) 这个带着正确宽度的下界，max_π 再也不出现。代价从「最难评估的策略」变成「最优策略本身」。"}, {"q": "在线用 UCB（argmax f̂ + c），离线用悲观（argmax f̂ − c）。同一个 c 为什么符号相反？", "o": ["因为在线的 f̂ 系统性偏低而离线偏高", "因为离线的 c 是负的", "因为在线猜错了下一轮还能纠正、且「去没测过的地方」本身有信息价值，不确定性是机会；离线只有一次输出机会、没有纠正的轮次，不确定性是纯风险", "因为在线最大化奖励而离线最小化损失"], "a": 2, "why": "这是两种设定对「不确定性」的定价不同。在线：不确定 = 还没探索 = 有潜在收益；离线：不确定 = 没有证据 = 可能被骗。把它记成「同一个 c(x)，符号不同」最省脑子，也最不容易在写代码时搞反。"}],
+16: [{"q": "E[f̂(x̂)] ≫ max_x f(x)（优化者的诅咒）。这是偏差还是方差？", "o": ["是偏差，但符号不确定，取决于噪声分布", "既不是偏差也不是方差，是数值误差", "是偏差，符号固定向上：argmax 偏爱「真值一般、这次噪声往上偏」的点；加大样本会减小它但不改变符号", "是方差，多跑几次取平均就消掉了"], "a": 2, "why": "选择操作与噪声正相关，于是产生一个方向固定向上的偏差。它和过拟合是同一件事：在同一批数据上既选又报。取平均不能消除它，因为每次重复都会再选一次。彻底的修法是用独立的留出集重评选出的那一个。"}, {"q": "悲观（p15）和「在留出集上重评」（p16）都能对付虚高。它们可以互相替代吗？", "o": ["不能，只有悲观是对的，留出集浪费数据", "可以，两者数学上等价", "不能：悲观让选择更稳健但不自动给出无偏的报告值；留出集给出无偏的报告值但不保护选择阶段。用悲观选，用留出报，缺一不可", "不能，只有留出集是对的，悲观是启发式"], "a": 2, "why": "两者作用在不同环节。只做悲观：选得稳，但你报的那个数仍是在选择用过的数据上算的，仍然虚高。只做留出：报的数无偏，但选择阶段已经可能被覆盖极差、V̂ 虚高的策略骗走了。所以是「用悲观选、用留出报」这样一条完整规程，而且顺序不能换。"}]
+};
+
+var N = [
+{"r": [1, 1], "t": "把 EXP3 从「n 条臂」搬到「指数多个组合对象」，缺的只有一个损失估计量", "star": 3, "quote": "<em><b>EXP3(γ): Exponential Weights for Exploration Exploitation</b></em><br><em>Player draws I<sub>t</sub> ~ q<sub>t</sub> := (1−γ)p<sub>t</sub> + γλ and suffers (and observes) loss ℓ(I<sub>t</sub>,ℓ<sub>t</sub>) = ℓ<sub>t,I<sub>t</sub></sub></em><br><em>w<sub>t+1,i</sub> = w<sub>t,i</sub>exp(−ηℓ̂<sub>t,i</sub>)　　p<sub>t+1,i</sub> = w<sub>t+1,i</sub>/Σ<sub>j</sub>w<sub>t+1,j</sub></em><br><em><b>Theorem 17.</b> Fix any sequence ℓ<sub>t</sub> ∈ [−1,1] for all t and assume η,γ ≥ 0 satisfy −ηℓ̂<sub>t,i</sub> ≤ 1 for all i,t. Then we have max<sub>i=1,…,n</sub> E[Σ<sub>t=1</sub><sup>T</sup> ℓ<sub>t,I<sub>t</sub></sub> − ℓ<sub>t,i</sub>] ≤ 2γT + log(n)/η + (1−γ)η E[Σ<sub>t=1</sub><sup>T</sup>Σ<sub>j=1</sub><sup>n</sup> p<sub>t,j</sub>ℓ̂<sup>2</sup><sub>t,j</sub>]</em><br><em>Linear Bandits — Adversarial Setting. Input 𝒳 = {x<sub>1</sub>,…,x<sub>n</sub>} ⊂ ℝ<sup>d</sup>. Adversary chooses {θ<sub>t</sub>}<sub>t=1</sub><sup>T</sup> ⊂ ℝ<sup>d</sup>, max<sub>x∈𝒳</sub>|⟨x,θ<sub>t</sub>⟩| ≤ 1. Player chooses x<sub>t</sub> ∈ 𝒳. Adversary reveals ⟨θ<sub>t</sub>,x<sub>t</sub>⟩ (<b>not θ<sub>t</sub></b>!). Regret = max<sub>x∈𝒳</sub> Σ<sub>t=1</sub><sup>T</sup>⟨θ<sub>t</sub>, x<sub>t</sub> − x⟩</em>", "one": "<b>Theorem 17 不是一条关于 EXP3 的定理，它是一个<span class='k'>接口</span>：只要你能造出一个满足两条性质的损失估计量，指数权重的遗憾界就自动成立。本讲剩下的 15 页，全部是在给三种不同的问题各造一个估计量。</b>", "pts": ["<b>先看清这一页为什么要重抄一遍 EXP3。</b> 它上一次出现是在 L14（对抗式 bandit），那里的 <code>ℓ̂</code> 是最朴素的那个：<code>ℓ̂_{t,i} = 1{I_t=i}ℓ_{t,i}/q_{t,i}</code>。<span class='k'>这一页把它抄回来，是要你盯住定理的<b>条件</b>而不是它的<b>证明</b></span>——<b>条件里根本没有出现「ℓ̂ 必须长成那个样子」</b>。", "<b>定理真正要的只有两条</b>（p7 会把它们写成白纸黑字的假设）：<span class='k'>① <b>无偏</b>：<code>E[ℓ̂_{t,i} | F_{t−1}] = ℓ_{t,i}</code>，每一条臂都要，包括你这一轮根本没拉的那些；② <b>单边有界</b>：<code>−ηℓ̂_{t,i} ≤ 1</code></span>。<b>第二条只约束<span class='w'>负</span>的那一侧</b>——<span class='w'>因为 <code>exp(−ηℓ̂)</code> 在 <code>ℓ̂</code> 很负时会爆掉</span>，而 <code>ℓ̂</code> 很正只会让那条臂被压扁，不伤害分析。", "<b>于是「换一个问题」= 「换一个估计量」。</b> 这一讲三块内容其实是同一个模板填三次：<span class='k'>线性 bandit（p1–p4）填 <code>ℓ̂ = x_iᵀA(q)⁻¹x_{I_t}ℓ_{t,I_t}</code>；上下文 bandit 的策略版（p6–p10）填 <code>ℓ̂ = π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)</code></span>；<b>而两次都要再证一遍「这个 ℓ̂ 满足那两条」</b>。", "<b>对抗式线性 bandit 的设定里有一处最容易看漏：对手只告诉你 <code>⟨θ_t, x_t⟩</code>，不告诉你 <code>θ_t</code>。</b> <span class='w'>讲义在那里专门写了 <code>(not θ_t!)</code> 并加了感叹号</span>。<b>这正是「bandit」与「全信息在线学习」的分界</b>——<span class='k'>若给你 <code>θ_t</code>，你就能算出每条臂这一轮的损失，那是 L01 的指数权重，<code>√(T log n)</code> 直接拿到</span>。", "<b>这个设定值钱的地方在 <code>n</code> 与 <code>d</code> 的分离。</b> 讲义在页脚画了三样东西：<span class='k'>一棵带路径的树、一个井字棋盘、一张带 source/sink 的有向图并标了 <code>x ∈ {0,1}^{|E|}</code></span>。<b>意思是：臂可以是「一条路径」「一个走法」「一个子集」，于是 <code>n = |𝒳|</code> 可以是指数大的</b>；<span class='w'>而 <code>d</code> 只是边数</span>。", "<b>最终结论（p1 右上角那串紫色批注）把这件事量化了</b>：<code>3ηdT + log(n)/η</code>，对 <code>η</code> 优化得 <span class='k'><b>遗憾 ≤ √(12 · d · T · log n)</b></span>。<b><code>d</code> 是一次方，而 <code>n</code> 只进 <code>log</code></b>——<span class='w'><code>n = 2^{|E|}</code> 时 <code>log n = |E| = d</code></span>，<b>于是界变成 <code>√(12 d²T)= O(d√T)</code>，指数多的臂被完全吸收掉了</b>。"], "eq": "EXP3(γ)：\n  q_t = (1−γ)p_t + γλ,   I_t ~ q_t\n  w_{t+1,i} = w_{t,i}·exp(−η ℓ̂_{t,i}),   p_{t+1} = w_{t+1}/‖w_{t+1}‖₁\n\nTheorem 17（条件：ℓ_t ∈ [−1,1]^n，E[ℓ̂_{t,i}|F_{t−1}] = ℓ_{t,i}，−ηℓ̂_{t,i} ≤ 1）：\n  max_i E[Σ_t ℓ_{t,I_t} − ℓ_{t,i}]  ≤  2γT + log(n)/η + (1−γ)η·E[Σ_t Σ_j p_{t,j} ℓ̂²_{t,j}]\n                                      └探索代价┘ └学习代价┘ └────估计量的方差────┘\n\n对抗式线性 bandit：\n  对手出 θ_t，你出 x_t ∈ 𝒳 ⊂ ℝ^d，只看到 ⟨θ_t, x_t⟩\n  Regret = max_{x∈𝒳} Σ_t ⟨θ_t, x_t − x⟩", "tbl": {"head": ["定理里的那一项", "它在为什么买单", "谁能把它压小"], "rows": [["2γT", "强制探索：有 γ 的概率不听指数权重的，按 λ 乱走", "把 γ 调小 —— 但 γ 太小会让 ℓ̂ 爆掉，第三项先失控"], ["log(n)/η", "在 n 个候选里定位最优的那一个", "⚠ 只进 log，所以候选多到指数也不怕 —— 整讲的立身之本"], ["(1−γ)η·E[ΣΣ p ℓ̂²]", "估计量的二阶矩，即「你猜那些没拉的臂猜得多准」", "⭐ 换一个更好的 ℓ̂ —— 这一项是三块内容唯一真正在改的东西"]]}, "say": "<b>补一句讲义没写、但不说就接不上的：为什么 <code>−ηℓ̂ ≤ 1</code> 这条写成单边？</b><br>指数权重的标准分析要在 <code>exp(−ηℓ̂)</code> 上用 <code>e^{-z} ≤ 1 − z + z²</code>，<span class='w'>而这条不等式只在 <code>z ≥ −1</code> 时成立</span>。<code>z = ηℓ̂</code>，于是条件正是 <code>ηℓ̂ ≥ −1</code>，即 <code>−ηℓ̂ ≤ 1</code>。<b>一旦某条臂的 <code>ℓ̂</code> 负得过头，<code>exp</code> 会把它的权重抬成天文数字，算法在一轮之内塌给那条臂</b>——<span class='k'>所以后面 p3/p9 费那么大力气去界 <code>−ηℓ̂</code>，界的不是「精度」而是「别炸」</span>。", "link": {"t": "你学过的对应：CS234 L11 快速强化学习与多臂老虎机（那边是<b>随机</b> bandit，奖励有固定分布、遗憾比的是 μ*；这一讲的对手每轮都能换 θ_t，连「存在真值」都不假设，遗憾比的是事后最优的那一条固定臂。对你的课题反而是对抗式更贴——API 会降价、会换后端，同一配置上周和这周的 Acc 不一定一样）", "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L11-精读.html"}, "res": {"tag": "推断", "v": "<b>把配置写成指示向量，你的 2^H 个配置就是这一页脚那张 DAG 图。</b> <span class='k'>workflow 的一个配置 = 每个节点挑一个档位 = 一个 <code>x ∈ {0,1}^{H×k}</code>，<code>d = H×k</code> 只有几十，而 <code>|𝒳| = k^H</code> 指数大</span>。<b>本讲给的界 <code>√(12 d T log|𝒳|) = √(12 d T · H log k)</code> 对 <code>|𝒳|</code> 只收 log 的费用</b>。⚠ <b>但这条只在「<code>G</code> 对配置线性」时成立</b>，而线性正是 L07 主线卡里标着<b>待检验</b>的那条前提 —— <span class='w'>成本那一半精确线性（可加 ⇒ <code>Cost(x) = xᵀc</code>），准确率那一半要靠简报 §5 的可加性检验才知道</span>。", "ref": "本讲 p1 页脚的三张图 · CSE541 L07 主线卡 · 简报 §5（可加性检验）"}},
+{"r": [2, 2], "t": "线性情形的损失估计量：用 A(q)⁻¹ 把一次观测摊回到所有臂上", "star": 3, "quote": "<em>For x<sub>i</sub> ∈ 𝒳 define ℓ<sub>t,i</sub> = ⟨x<sub>i</sub>, θ<sub>t</sub>⟩</em><br><em>ℓ̂<sub>t,i</sub> = x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>ℓ<sub>t,I<sub>t</sub></sub>,　A(λ) = Σ<sub>x∈𝒳</sub> λ<sub>x</sub>xx<sup>T</sup></em><br><em>E[A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>ℓ<sub>t,I<sub>t</sub></sub>] = Σ<sub>j</sub> q<sub>t,j</sub>A(q<sub>t</sub>)<sup>−1</sup>x<sub>j</sub>ℓ<sub>t,j</sub> = Σ<sub>j</sub> q<sub>t,j</sub>A(q<sub>t</sub>)<sup>−1</sup>x<sub>j</sub>x<sub>j</sub><sup>T</sup>θ<sub>t</sub> = I·θ<sub>t</sub> = θ<sub>t</sub></em><br><em>⇒ E[ℓ̂<sub>t,i</sub>] = ℓ<sub>t,i</sub> ∀i</em><br><em>Aside: x<sub>t</sub> ~ λ, y<sub>t</sub> = ⟨x<sub>t</sub>,θ*⟩ + ε<sub>t</sub>. θ̂<sub>LS</sub> = (⅟T Σ x<sub>t</sub>x<sub>t</sub><sup>T</sup>)<sup>−1</sup>⅟T Σ x<sub>t</sub>y<sub>t</sub>. θ̂<sub>IPS</sub> = (Σ<sub>x∈𝒳</sub> λ<sub>x</sub>xx<sup>T</sup>)<sup>−1</sup>⅟T Σ x<sub>t</sub>y<sub>t</sub></em>", "one": "<b>一轮只看到一条臂的损失，却要给所有 n 条臂各报一个无偏估计。做法是乘上 <code>A(q)⁻¹</code>：那个矩阵的逆恰好把「我按 q 采样」这件事除掉，于是 <code>Σ_j q_j A⁻¹x_j x_jᵀ = A⁻¹A = I</code>。</b>", "pts": ["<b>先把要估的东西写清楚：</b><code>ℓ_{t,i} = ⟨x_i, θ_t⟩</code>，<span class='k'>这是「如果我这一轮拉的是第 i 条臂，会吃多少损失」</span>。<b>你只拉了 <code>I_t</code>，只看到 <code>ℓ_{t,I_t}</code> 这一个数</b>，<span class='w'>却要给全部 <code>n</code> 条臂各报一个无偏估计</span>——朴素 bandit 里这是不可能的，<b>线性结构正是在这里买了单</b>。", "<b>估计量只有一行：</b><code>ℓ̂_{t,i} = x_iᵀ A(q_t)⁻¹ x_{I_t} ℓ_{t,I_t}</code>。<span class='k'>注意它对 <code>i</code> 的依赖全在最前面那个 <code>x_iᵀ</code> 上</span>——<b>后面那一截 <code>A(q_t)⁻¹x_{I_t}ℓ_{t,I_t}</code> 与 <code>i</code> 无关，是一个<b>共用</b>的 <code>ℝ^d</code> 向量</b>。<span class='w'>所以真正被估的是 <code>θ_t</code> 本身，不是 n 个标量</span>。", "<b>无偏性的证明只有三步，每一步都该停一下。</b> ① 对 <code>I_t ~ q_t</code> 取期望：<code>Σ_j q_{t,j} A⁻¹ x_j ℓ_{t,j}</code>；② <span class='k'>把 <code>ℓ_{t,j}</code> 换回 <code>x_jᵀθ_t</code></span>，得 <code>A⁻¹(Σ_j q_{t,j} x_j x_jᵀ)θ_t</code>；③ <b>括号里恰好就是 <code>A(q_t)</code> 的定义</b>，于是 <code>A⁻¹A θ_t = θ_t</code>。", "<b>第 ② 步是全讲最该记住的一招：把观测到的标量换回「向量 × 未知参数」。</b> <span class='w'>只有在线性假设下 <code>ℓ_{t,j} = x_jᵀθ_t</code> 才成立</span>，<b>而正是这一换，让求和凑出了 <code>A(q_t)</code> 这个你自己选的矩阵</b>——<span class='k'>于是「我按什么分布采样」和「我怎么去偏」在同一个对象上相遇，直接对消</span>。", "<b>页下半的 Aside 看似离题，其实是整讲后半段的伏笔。</b> 它并排写了两个估计 <code>θ*</code> 的办法：<span class='k'><code>θ̂_LS</code> 用<b>实际</b>的二阶矩 <code>⅟T Σ_t x_t x_tᵀ</code> 做归一化；<code>θ̂_IPS</code> 用<b>期望</b>的二阶矩 <code>Σ_x λ_x x xᵀ</code></span>。<b>两者都无偏，协方差却不同</b>：<code>Cov(θ̂_LS) = (Σ_t x_t x_tᵀ)⁻¹</code>，<code>Cov(θ̂_IPS) = (T Σ_x λ_x x xᵀ)⁻¹</code>。", "<b>为什么要提这个？因为 <code>A(q_t)⁻¹</code> 用的正是<span class='w'>期望</span>那一版</b>。<span class='k'>算法必须用期望版，否则 <code>ℓ̂</code> 会依赖于「这一轮碰巧抽到了谁」，无偏性当场断掉</span>——<b>而代价是方差比最小二乘大</b>。<span class='w'>这个「无偏但方差大 vs 有偏但方差小」的张力，会在 p11 之后变成整个离线评估那一段的主线</b>。"], "eq": "ℓ̂_{t,i} = x_iᵀ · A(q_t)⁻¹ x_{I_t} ℓ_{t,I_t}        A(λ) := Σ_{x∈𝒳} λ_x x xᵀ\n           └i┘   └────与 i 无关的共用向量────┘\n\nE_{I_t~q_t}[A⁻¹x_{I_t}ℓ_{t,I_t}]\n  = Σ_j q_{t,j} A⁻¹ x_j ℓ_{t,j}\n  = Σ_j q_{t,j} A⁻¹ x_j x_jᵀ θ_t      ← 用了线性：ℓ_{t,j} = x_jᵀθ_t\n  = A⁻¹ (Σ_j q_{t,j} x_j x_jᵀ) θ_t\n  = A⁻¹ A(q_t) θ_t  =  θ_t           ← 括号里就是 A(q_t) 本身", "tbl": {"head": ["", "θ̂_LS（最小二乘）", "θ̂_IPS（逆倾向）"], "rows": [["归一化用的矩阵", "⅟T Σ_t x_t x_tᵀ —— <b>实际</b>抽到了什么", "Σ_x λ_x x xᵀ —— <b>期望</b>会抽到什么"], ["偏差", "E[θ̂] = θ*", "E[θ̂] = θ*（两者都无偏）"], ["协方差", "(Σ_t x_t x_tᵀ)⁻¹", "(T Σ_x λ_x x xᵀ)⁻¹"], ["算法能不能用", "⚠ 不能 —— 它依赖本轮抽样结果，代进去无偏性就断了", "✓ 能 —— 只依赖你事先定的 λ"]]}, "say": "<b>补一处讲义跳过的：<code>A(q_t)</code> 凭什么可逆？</b><br>如果 <code>𝒳</code> 张不满 <code>ℝ^d</code>，<code>A</code> 必然奇异。<span class='k'>标准处理是把 <code>d</code> 重新定义成 <code>dim(span(𝒳))</code>，在那个子空间里做一切</span>——<b>L07 的 Kiefer–Wolfowitz 引理原文写的就是 <code>d = dim(span(𝒳))</code>，不是环境空间的维数</b>。<span class='w'>另外，<code>q_t = (1−γ)p_t + γλ</code> 里那个 <code>γλ</code> 也在帮忙</span>：<b>只要 <code>λ</code> 的支撑张满子空间，<code>A(q_t) ⪰ γ·A(λ) ≻ 0</code> 就恒成立，与 <code>p_t</code> 塌成什么样无关</b>。<span class='k'>这是强制探索的第二重作用，而且比「探索」本身更硬——没有它，矩阵求逆这一步会在算法塌陷时直接崩掉</span>。", "res": {"tag": "已核", "v": "<b>这一页的 Aside 就是你简报 §4a 那条「IS 无定义」的正面版本。</b> <span class='k'>IPS 估计量的分母是<b>你事先选的</b> <code>λ</code>，不是数据里数出来的频率</span>——<b>于是「某个配置一次都没被抽到」时，<code>θ̂_LS</code> 的那一格分母是 0（估计量不存在），而 <code>θ̂_IPS</code> 的分母 <code>λ_x</code> 仍然是正的（估计量存在，只是方差大）</b>。<span class='w'>⚠ 但这要求 <code>λ_x > 0</code> 本来就成立，即日志必须是<b>随机化</b>产生的</span>；<b>你现在的日志是确定性的，<code>λ_x ∈ {0,1}</code>，连 IPS 这条路也一样走不通</b>。", "ref": "本讲 p2 的 Aside · 简报 §4a（deficient support）"}},
+{"r": [3, 3], "t": "两条臂的例子说清 LS 与 IPS 的差别；再用 G-最优设计把 −ηℓ̂ 压到 1 以下", "star": 3, "quote": "<em>𝒳 = {(1,0),(0,1)}　λ<sub>1</sub>, λ<sub>2</sub> = 1−λ<sub>1</sub>　T<sub>i</sub> = Σ<sub>t=1</sub><sup>T</sup>1{I<sub>t</sub>=i}</em><br><em>θ̂<sub>LS</sub> = [⅟T<sub>1</sub>Σ1{I<sub>t</sub>=1}y<sub>t</sub> ; ⅟(T−T<sub>1</sub>)Σ1{I<sub>t</sub>=2}y<sub>t</sub>]　θ̂<sub>IPS</sub> = [⅟(λ<sub>1</sub>T)Σ1{I<sub>t</sub>=1}y<sub>t</sub> ; ⅟((1−λ<sub>1</sub>)T)Σ1{I<sub>t</sub>=2}y<sub>t</sub>]</em><br><em>−ηℓ̂<sub>t,i</sub> ≤ η|x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>|　(|ℓ<sub>t,i</sub>| ≤ 1)</em><br><em>= η|⟨A(q<sub>t</sub>)<sup>−1/2</sup>x<sub>i</sub>, A(q<sub>t</sub>)<sup>−1/2</sup>x<sub>I<sub>t</sub></sub>⟩| ≤ η‖x<sub>i</sub>‖<sub>A(q)<sup>−1</sup></sub>·‖x<sub>I<sub>t</sub></sub>‖<sub>A(q)<sup>−1</sup></sub></em><br><em>≤ max<sub>j=1,…,n</sub> η‖x<sub>j</sub>‖<sup>2</sup><sub>A(q)<sup>−1</sup></sub> ≤ max<sub>j</sub> (η/γ)‖x<sub>j</sub>‖<sup>2</sup><sub>A(λ)<sup>−1</sup></sub> = (η/γ)·d　(if λ G-optimal)</em>", "one": "<b>页上半用两条正交臂把 LS 与 IPS 的差别摊开成一眼能看懂的式子：分母一个是<span class='w'>数出来的</span> <code>T_1</code>，一个是<span class='k'>定下来的</span> <code>λ_1 T</code>。页下半则是全讲最关键的一次代入——<code>d</code> 从 Kiefer–Wolfowitz 那里被搬了进来。</b>", "pts": ["<b>两条臂取成标准基 <code>(1,0)</code> 与 <code>(0,1)</code>，于是线性 bandit 退化成最普通的两臂 bandit</b>，<span class='k'>所有矩阵都变成对角，可以逐格看</span>。<b><code>θ̂_LS</code> 的第一格是 <code>(1/T_1)Σ1{I_t=1}y_t</code>——就是「拉过第一条臂的那些轮的样本均值」</b>，<span class='w'>而 <code>T_1</code> 是个<b>随机变量</b></span>。", "<b><code>θ̂_IPS</code> 的第一格把分母换成 <code>λ_1 T</code>，一个<span class='k'>常数</span>。</b> <b>后果是：如果这一次运气不好、<code>T_1</code> 比 <code>λ_1T</code> 小，IPS 会<b>低估</b>第一条臂；运气好就高估</b>。<span class='w'>单次看它比 LS 更抖</span>，<b>但它的期望精确等于 <code>θ*</code>，而 LS 因为分母是随机的，<span class='w'>严格说只是渐近无偏</span></b>。", "<b>⚠ 还有一个更要命的差别：<code>T_1</code> 可能是 0。</b> <span class='w'>那时 <code>θ̂_LS</code> 的第一格<b>没有定义</b></span>，<b>而 <code>θ̂_IPS</code> 的第一格老老实实地等于 0</b>（分子为空和）。<span class='k'>「没定义」与「等于 0」在算法里是天壤之别——前者让你无法继续，后者只是一个有偏的猜测</span>。", "<b>页下半进入全讲最关键的一次推导：把 <code>−ηℓ̂</code> 界住。</b> 第一步用 <code>|ℓ_{t,I_t}| ≤ 1</code> 把损失剥掉，剩下 <code>η|x_iᵀA(q_t)⁻¹x_{I_t}|</code>；<span class='k'>第二步把 <code>A⁻¹</code> 劈成两半 <code>A^{−1/2}·A^{−1/2}</code>，于是那个数变成一个内积</span>；<b>第三步柯西—施瓦茨</b>。", "<b>劈成两半这一招值得单独记住。</b> <span class='w'><code>x_iᵀA⁻¹x_j</code> 既不是范数也不是内积，直接界不了</span>；<b>写成 <code>⟨A^{−1/2}x_i, A^{−1/2}x_j⟩</code> 之后，柯西—施瓦茨立刻给出 <code>≤ ‖x_i‖_{A⁻¹}·‖x_j‖_{A⁻¹}</code></b>，<span class='k'>而这两个因子是同一个函数在两个点的取值，于是能一起被 <code>max_j‖x_j‖²_{A⁻¹}</code> 盖住</span>。", "<b>最后一步是整讲的支点：<code>A(q_t) ⪰ γA(λ)</code> ⇒ <code>A(q_t)⁻¹ ⪯ (1/γ)A(λ)⁻¹</code>。</b> <span class='w'>这里用的正是 <code>q_t = (1−γ)p_t + γλ</code> 里那个 <code>γλ</code></span>，<b>于是 <code>max_j‖x_j‖²_{A(q)⁻¹} ≤ (1/γ)max_j‖x_j‖²_{A(λ)⁻¹}</code></b>。<span class='k'>而 <code>max_j‖x_j‖²_{A(λ)⁻¹}</code> 正是 L07 里的 <code>f_G(λ)</code>，<b>Kiefer–Wolfowitz 说它的最小值恰好是 <code>d</code></b></span>——<b>所以你把 λ 取成 G-最优设计，这个 max 就变成 <code>d</code>，一个你认识的数</b>。"], "eq": "−ηℓ̂_{t,i}\n  ≤ η|x_iᵀ A(q_t)⁻¹ x_{I_t}|                       （|ℓ| ≤ 1）\n  = η|⟨A(q_t)^{−1/2}x_i , A(q_t)^{−1/2}x_{I_t}⟩|    （把 A⁻¹ 劈成两半）\n  ≤ η‖x_i‖_{A(q)⁻¹} · ‖x_{I_t}‖_{A(q)⁻¹}           （柯西—施瓦茨）\n  ≤ η · max_j ‖x_j‖²_{A(q)⁻¹}\n  ≤ (η/γ) · max_j ‖x_j‖²_{A(λ)⁻¹}                  （A(q_t) ⪰ γA(λ)）\n  = (η/γ) · d                                       （λ 取 G-最优：f_G(λ*) = d）", "tbl": {"head": ["推导的那一步", "用掉了哪条假设", "⚠ 这条假设没了会怎样"], "rows": [["剥掉 ℓ_{t,I_t}", "max_{x∈𝒳}|⟨x,θ_t⟩| ≤ 1（设定里对对手的约束）", "损失无界 ⇒ 整条链第一步就断"], ["劈 A⁻¹ 成两半", "A(q_t) ≻ 0（正定才有 A^{−1/2}）", "𝒳 张不满 ⇒ 要把 d 改成 dim(span(𝒳))"], ["A(q_t) ⪰ γA(λ)", "q_t 里混了 γλ 这一项", "γ = 0 ⇒ 没有下界，p_t 一塌 ℓ̂ 就爆"], ["max_j‖x_j‖²_{A(λ)⁻¹} = d", "λ 是 G-最优设计（Kiefer–Wolfowitz）", "λ 随便取 ⇒ 这个 max 可以任意大，γ 得跟着放大"]]}, "link": {"t": "你学过的对应：CSE 541 L07 线性 bandit 与实验设计（max_x xᵀA(λ)⁻¹x 就是那边的 f_G(λ)，Kiefer–Wolfowitz 说它的最小值恰好是 d。L07 用它做纯探索「估得准」，这一页用它做「别让指数权重炸掉」——同一个 d，在那边是精度的分子，在这里是稳定性的阈值）", "href": "L07-精读.html"}, "res": {"tag": "推断", "v": "<b>「分母用期望还是用实际」这一格，直接对应你在 fork 里要做的一个决定。</b> <span class='k'>如果你按简报 §4c 做随机化日志（只在 top-3~4 个节点上随机化），那么每个配置的抽中概率 <code>λ_x</code> 是你<b>自己写死</b>的，IPS 的分母就该用它，而不是事后数出来的频次</span>。<b>⚠ 但要当心：用实际频次做分母的那一版（叫 self-normalized IPS / Hájek 估计量）在实践里方差常常小得多，代价是引入 <code>O(1/T)</code> 的偏差</b>。<span class='w'>本讲在算法里<b>必须</b>用期望版，是因为无偏性进了定理的假设；而你做离线评估时没有这个约束，两版都能用</span>——<b>所以这是一处「课上必须这样、你不必这样」的地方，别照搬</b>。", "ref": "本讲 p2–p3 的 Aside 与两臂例子 · 简报 §4c（敏感度扫描后只随机化 3–4 个节点）"}},
+{"r": [4, 4], "t": "γ = ηd：一个让两条假设同时成立的取法，以及方差项为什么是 dT/(1−γ)", "star": 2, "quote": "<em>Suggests picking γ = ηd so −ηℓ̂<sub>t,i</sub> ≤ 1 true.</em><br><em>E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>ℓ̂<sup>2</sup><sub>t,i</sub>] = E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>x<sub>I<sub>t</sub></sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>ℓ<sup>2</sup><sub>t,I<sub>t</sub></sub>]</em><br><em>≤ E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>x<sub>I<sub>t</sub></sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>] = E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>]</em><br><em>≤ ⅟(1−γ) E[Σ<sub>t</sub>Σ<sub>i</sub> q<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>] = ⅟(1−γ) E[Σ<sub>t</sub>Σ<sub>i</sub> q<sub>t,i</sub>Trace(A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>x<sub>i</sub><sup>T</sup>)] = dT/(1−γ)</em>", "one": "<b><code>γ = ηd</code> 不是调出来的，是被<span class='k'>上一页那条链</span>逼出来的唯一自然取法：<code>(η/γ)d ≤ 1 ⟺ γ ≥ ηd</code>。而方差项的 <code>d</code> 来自一次迹的轮换，不是来自 G-最优设计——这两个 <code>d</code> 同名但出身不同。</b>", "pts": ["<b>上一页的结论是 <code>−ηℓ̂ ≤ (η/γ)d</code>，而定理要 <code>≤ 1</code>。</b> <span class='k'>于是 <code>γ ≥ ηd</code>，取等号就是讲义写的 <code>γ = ηd</code></span>。<b>⚠ 这一步看似平凡，但它决定了整个界的形状</b>：<span class='w'>代回定理的第一项 <code>2γT = 2ηdT</code></span>，<b>于是「强制探索的代价」和「估计量的方差」被绑成了同一个 <code>ηdT</code></b>。", "<b>方差项的推导有四步，第二步是关键。</b> 展开 <code>ℓ̂²</code> 得到 <code>x_iᵀA⁻¹x_{I_t}x_{I_t}ᵀA⁻¹x_i·ℓ²_{t,I_t}</code>；<span class='k'>第一步用 <code>ℓ² ≤ 1</code> 把损失丢掉</span>；<b>第二步对 <code>I_t ~ q_t</code> 取期望，中间那块 <code>E[x_{I_t}x_{I_t}ᵀ] = A(q_t)</code></b>，<span class='w'>于是 <code>A⁻¹A A⁻¹ = A⁻¹</code>，整串塌成 <code>x_iᵀA(q_t)⁻¹x_i</code></span>。", "<b>第三步换概率：<code>p_{t,i} ≤ q_{t,i}/(1−γ)</code>。</b> <span class='k'>这是因为 <code>q_t = (1−γ)p_t + γλ ≥ (1−γ)p_t</code> 逐格成立</span>。<b>外面求和用的是 <code>p</code>，而里面的矩阵是按 <code>q</code> 建的，不换这一下就凑不出迹</b>。", "<b>第四步是迹的轮换：</b><code>Σ_i q_{t,i} x_iᵀA⁻¹x_i = Σ_i q_{t,i} Tr(A⁻¹x_i x_iᵀ) = Tr(A⁻¹ Σ_i q_{t,i}x_ix_iᵀ) = Tr(A⁻¹A) = Tr(I_d) = d</code>。<span class='w'>⚠ 这个 <code>d</code> 是单位矩阵的迹，和 Kiefer–Wolfowitz 那个 <code>f_G(λ*) = d</code> <b>不是同一回事</b></span>——<span class='k'>它对<b>任何</b> <code>q_t</code> 都成立，不需要 G-最优</span>。", "<b>两个 <code>d</code> 的分工值得写下来，因为混起来会以为「只要 G-最优就什么都解决了」。</b> <span class='k'><b>方差项的 <code>d</code>：恒等式，白送的</b>；<b>−ηℓ̂ 那个 <code>d</code>：要你真的去解 G-最优设计才拿得到</b></span>。<b>所以算法里那个「解一个凸优化求 λ」的步骤，买的只是<span class='w'>稳定性</span>，不是方差</b>。", "<b>把三项拼起来：</b><code>2ηdT + log(n)/η + (1−γ)η·dT/(1−γ) = 3ηdT + log(n)/η</code>。<span class='k'>对 <code>η</code> 求导取零得 <code>η = √(log n/(3dT))</code>，代回得 <code>2√(3dT log n) = √(12 dT log n)</code></span>——<b>正是 p1 右上角那串紫色批注的终点</b>。"], "eq": "条件 ① −ηℓ̂ ≤ (η/γ)d ≤ 1  ⟺  γ ≥ ηd，取 γ = ηd\n\n方差项：\n  E[ΣΣ p_{t,i} ℓ̂²_{t,i}]\n    ≤ E[ΣΣ p_{t,i}·x_iᵀA⁻¹ x_{I_t}x_{I_t}ᵀ A⁻¹x_i]      （ℓ² ≤ 1）\n    = E[ΣΣ p_{t,i}·x_iᵀ A(q_t)⁻¹ x_i]                  （E[x_{I_t}x_{I_t}ᵀ] = A(q_t)）\n    ≤ ⅟(1−γ)·E[ΣΣ q_{t,i}·Tr(A(q_t)⁻¹x_i x_iᵀ)]        （p ≤ q/(1−γ)）\n    = ⅟(1−γ)·Σ_t Tr(A(q_t)⁻¹A(q_t)) = dT/(1−γ)\n\n代回：2ηdT + log(n)/η + ηdT = 3ηdT + log(n)/η\n  η = √(log n /(3dT))  ⇒  Regret ≤ √(12·d·T·log n)", "say": "<b>补一处讲义只写了结果的：为什么最后能直接写 <code>= dT/(1−γ)</code>，而不是 <code>≤</code>？</b><br>因为 <code>Σ_i q_{t,i} x_i x_iᵀ</code> <b>按定义就等于</b> <code>A(q_t)</code>，<span class='k'>于是 <code>Tr(A(q_t)⁻¹A(q_t)) = Tr(I_d) = d</code> 是恒等式，对每一个 <code>t</code> 都精确成立</span>，<b>求和得 <code>dT</code></b>。<span class='w'>⚠ 唯一的不等号在前面两步（丢掉 <code>ℓ²</code>、换 <code>p → q</code>），后面全是等号</span>——<b>所以这个 <code>dT</code> 是紧的，想改进只能改估计量本身，调参数没用</b>。"},
+{"r": [5, 5], "t": "上下文 bandit 的两个极端：每个上下文各学各的，还是干脆不看上下文", "star": 3, "quote": "<em><b>Contextual Bandits</b></em><br><em>for t = 1,2,…,T:　Nature reveals context c<sub>t</sub> ~<sup>iid</sup> ν;　Player chooses I<sub>t</sub> ∈ [n];　and gets reward y<sub>t</sub> ∈ [−1,1], s.t. E[y<sub>t</sub>|c<sub>t</sub>] = r(c<sub>t</sub>,I<sub>t</sub>)</em><br><em>Suppose support(ν) = C and |C| &lt; ∞. Treat each context as indep. bandit.</em><br><em>Σ<sub>t</sub> max<sub>i</sub>(r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>)) = Σ<sub>c∈C</sub> max<sub>i</sub> Σ<sub>t</sub> 1{c<sub>t</sub>=c}(r(c,i) − r(c,I<sub>t</sub>)) ≤ Σ<sub>c∈C</sub>√(n T<sub>c</sub>)　← If playing MAB w/ √(nT) regret,　T<sub>c</sub> = Σ<sub>t</sub>1{c<sub>t</sub>=c}</em><br><em>≤ √((Σ<sub>c∈C</sub>√(T<sub>c</sub>))<sup>2</sup>·(Σ<sub>c∈C</sub>1<sup>2</sup>)) = √(n|C|T)</em><br><em>Alternatively, what if we ignore context? max<sub>i</sub> Σ<sub>t</sub> r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>) ≤ √(nT)</em>", "one": "<b>两个极端各有各的毛病：「每个上下文各学各的」遗憾带 <code>√|C|</code>，上下文一多就废；「完全不看上下文」遗憾只有 <code>√(nT)</code>，但它比的那个基准弱到几乎没有意义。整讲后半段就是在这两极之间找一个能调的旋钮。</b>", "pts": ["<b>设定要先看清三件事。</b> ① <span class='k'>上下文是 <b>iid</b> 从 <code>ν</code> 抽的，不是对手挑的（p6 才放松到对抗）</span>；② <b>奖励只保证条件期望 <code>E[y_t|c_t] = r(c_t,I_t)</code></b>，<span class='w'>观测到的 <code>y_t</code> 带噪声</span>；③ <b>你只看到自己选的那条臂的奖励</b>，别的臂这一轮是什么你不知道。", "<b>第一个办法朴素到可爱：把每个上下文当成一个独立的小 bandit。</b> <span class='k'>看到 <code>c</code> 就去查「<code>c</code> 的那本账」，在它上面跑一个普通 MAB</span>。<b>关键的一步是把遗憾按上下文重排</b>：<code>Σ_t max_i(…) = Σ_{c∈C} max_i Σ_t 1{c_t=c}(…)</code>，<span class='w'>⚠ 注意 <code>max</code> 被挪到了求和里面——这是允许的，因为最优臂本来就可以逐上下文不同</span>。", "<b>每本账上吃 <code>√(nT_c)</code>，加起来是 <code>Σ_c√(T_c)</code>，再用一次柯西—施瓦茨：</b><code>Σ_c √(T_c)·1 ≤ √(Σ_c T_c)·√(Σ_c 1) = √(T·|C|)</code>。<span class='k'>于是总遗憾 <code>≤ √(n|C|T)</code></span>。<b>⚠ 这一步用的是 <code>Σ_c T_c = T</code>，而且<span class='w'>在 <code>T_c</code> 全相等时取等</span></b>——<b>也就是说上下文均匀出现时这个界最差，而那恰恰是常态</b>。", "<b>这个界里 <code>|C|</code> 是<span class='w'>一次方开根</span>，不是 log。</b> <span class='k'>上下文一旦是「用户画像」「query 文本」这类东西，<code>|C|</code> 轻易上百万甚至无穷，<code>√(n|C|T)</code> 比 <code>T</code> 还大，界就变成了废话</span>。<b>讲义特意写了 <code>|Π| = n^{|C|}</code>（p6）——这个策略类大得离谱，而遗憾正是在为这个大小付钱</b>。", "<b>另一个极端：干脆不看上下文，就当普通 <code>n</code> 臂 bandit 跑。</b> <span class='k'>遗憾 <code>√(nT)</code>，<code>|C|</code> 完全消失</span>。<b>看着赢麻了，但要盯住它比的是什么</b>：<span class='w'><code>max_i Σ_t r(c_t,i)</code>——<b>一条固定的臂</b>，对所有上下文都用同一个动作</b></span>。<b>如果不同上下文的最优动作不同，这个基准本身就远低于真正的最优</b>。", "<b>所以这一页真正的内容是一个<span class='k'>取舍的坐标系</span>，不是两个算法。</b> <b>一端：基准强（逐上下文最优）、代价高（<code>√|C|</code>）；另一端：基准弱（单一固定臂）、代价低（无 <code>|C|</code>）</b>。<span class='w'>⚠ 而「基准」就是策略类 <code>Π</code></span>——<b>下一页会把它变成一个你可以自由挑的参数，遗憾里出现的是 <code>log|Π|</code>，于是两个极端变成同一个公式的两个端点</b>。"], "eq": "每个上下文各跑一个 bandit：\n  Σ_t max_i (r(c_t,i) − r(c_t,I_t))\n    = Σ_{c∈C} max_i Σ_t 1{c_t=c}(r(c,i) − r(c,I_t))     ← 按上下文重排\n    ≤ Σ_{c∈C} √(n T_c)                                   ← 每本账上跑 MAB\n    ≤ √( (Σ_c T_c) · |C| ) · √n  =  √(n |C| T)           ← 柯西—施瓦茨，Σ_c T_c = T\n\n完全忽略上下文：\n  max_i Σ_t r(c_t,i) − r(c_t,I_t) ≤ √(nT)                ← 但基准只是「一条固定的臂」", "tbl": {"head": ["做法", "基准 Π 是什么", "|Π|", "遗憾", "什么时候废掉"], "rows": [["每个上下文各学各的", "任意映射 C → [n]", "n^{|C|}", "√(n|C|T)", "|C| 大（画像 / 文本）⇒ 界超过 T，没有意义"], ["完全忽略上下文", "常值映射（一条固定臂）", "n", "√(nT)", "不同上下文最优动作不同 ⇒ 基准本身就低"], ["⭐ 挑一个策略类 Π（p6 起）", "你自己挑的 π: C → [n]", "|Π|", "√(nT log|Π|)", "Π 里没有好策略 ⇒ 近似误差，遗憾界管不着"]]}, "say": "<b>补一处讲义没点破、但是整段设计的要害：第三行为什么能把 <code>|Π|</code> 放进 log？</b><br>因为一旦固定了策略类 <code>Π</code>，<b>你就不再是在 <code>n</code> 条臂里做 bandit，而是在 <code>|Π|</code> 个<b>专家</b>里做 bandit</b>——<span class='k'>而 Theorem 17 的第二项本来就是 <code>log(专家数)/η</code></span>。<span class='w'>⚠ 代价是：你只跟 <code>Π</code> 里最好的那个比</span>，<b><code>Π</code> 外面有多好的策略，遗憾界一个字都不保证</b>。<span class='k'>这是「遗憾」与「最优」的分家，在应用里几乎总是真正的误差来源</span>——<b>界里看不见的那一项（近似误差）通常比界里写着的那一项大</b>。", "res": {"tag": "推断", "v": "<b>这张取舍表可以原样搬到你的路由器上，而且中间那一行正好是 AFlow 的做法。</b> <span class='k'>「上下文」= 一条 query（或它的难度特征）；「动作」= 给某节点挑哪个档位</span>。<b>AFlow 搜出来的是<b>一个</b>固定 workflow，对所有 query 一视同仁 —— 正是「完全忽略上下文」那一行</b>，<span class='w'>而它的天花板就是那个弱基准</span>。<b>你要做的 node-level fidelity assignment 要么是第一行（逐 query 决策，样本打不起）、要么是第三行（挑一个策略类，比如「按难度打分分三档」）</b>。⚠ <b>第三行的 <code>log|Π|</code> 便宜到几乎免费，真正的风险在表里看不见的那一项——<code>Π</code> 里有没有好策略</b>，<span class='k'>而这恰恰是简报 §5 的 P2 vs P3 消融要测的东西</span>。", "ref": "本讲 p5–p6 · 简报 §1（AFlow 固定 M）· 简报 §5（P2 vs P3 消融）"}},
+{"r": [6, 6], "t": "策略遗憾：把「基准」从一条臂换成一整个策略类，于是 |Π| 只进 log", "star": 3, "quote": "<em>Total Reward:</em><br><em>Bandit per context: Σ<sub>t</sub> r(c<sub>t</sub>,I<sub>t</sub>) ≥ Σ<sub>t</sub> max<sub>i</sub> r(c<sub>t</sub>,i) − √(n|C|T),　|Π| = n<sup>|C|</sup></em><br><em>Ignore context: Σ<sub>t</sub> r(c<sub>t</sub>,I<sub>t</sub>) ≥ max<sub>i</sub> Σ<sub>t</sub> r(c<sub>t</sub>,i) − √(nT),　|Π| = n</em><br><em>Policy regret: Σ<sub>t</sub> r(c<sub>t</sub>,a<sub>t</sub>) ≥ max<sub>π∈Π</sub> Σ<sub>t</sub> E[r(c<sub>t</sub>,π)] − √(nT log|Π|)</em><br><em>Consider a finite set of policies Π, π ∈ Π, π: C → [n]. Policy regret max<sub>π∈Π</sub> Σ<sub>t</sub> r(c<sub>t</sub>,π) − r(c<sub>t</sub>,â<sub>t</sub>). π(c<sub>t</sub>) ∈ Δ<sub>d</sub>, a<sub>t</sub> ~ π(c) then P(a<sub>t</sub> = a) = π(a|c)</em><br><em>Suppose contexts are arbitrary (adversarial!). Adversary chooses {c<sub>t</sub>}<sub>t=1</sub><sup>T</sup> in advance. for t = 1,…,T: Adversary reveals c<sub>t</sub>; Player chooses I<sub>t</sub> ∈ [n], draws a<sub>t</sub> ~ π<sub>I<sub>t</sub></sub>(c<sub>t</sub>), gets loss ℓ(c<sub>t</sub>,a<sub>t</sub>)</em>", "one": "<b>上一页那两个极端其实是同一个公式的两端：遗憾 <code>√(nT log|Π|)</code>。<code>|Π| = n</code> 给 <code>√(nT log n)</code>，<code>|Π| = n^{|C|}</code> 给 <code>√(nT|C|log n)</code>。<span class='k'>于是「要多强的基准」成了你手上一个可以连续调的旋钮</span>，而调它的代价只有 log。</b>", "pts": ["<b>先把三行并排读完，这是全讲最该抄进论文的一张表。</b> <span class='k'>三行比的基准一行比一行弱或强，而遗憾里出现的量从 <code>√|C|</code> 变成 <code>√log|Π|</code></span>。<b>第三行是前两行的严格推广</b>：<span class='w'>代 <code>|Π| = n</code> 回到第二行，代 <code>|Π| = n^{|C|}</code>（<code>log|Π| = |C|log n</code>）大致回到第一行</span>。", "<b>⚠ 第三行与前两行有一个容易看漏的差别：它的基准带 <code>E</code>。</b> <code>max_π Σ_t E[r(c_t,π)]</code>，<span class='k'>因为策略可以是<b>随机化</b>的——<code>π(c) ∈ Δ_n</code> 是动作上的一个分布，不是一个动作</span>。<b>讲义在下一行专门补了 <code>a_t ~ π(c)</code> 与 <code>P(a_t = a) = π(a|c)</code></b>，就是在定义这件事。", "<b>为什么非要允许随机化策略？</b> <span class='w'>因为算法本身要对策略做指数权重，而指数权重输出的是策略上的一个分布 <code>q_t</code></span>；<b>「先按 <code>q_t</code> 抽一个策略 <code>π_{I_t}</code>，再按 <code>π_{I_t}(c_t)</code> 抽一个动作」这个两级抽样，整体上就是一个随机化策略</b>。<span class='k'>不允许随机化的话，这个算法连自己的输出都不在比较类里</span>。", "<b>页下半把上下文从 iid 放松到<span class='w'>对抗</span>——而且是「对手事先选好全部 <code>c_t</code>」的那种（oblivious）。</b> <span class='k'>值得注意的是：遗憾界<b>一点没变</b></span>。<b>这正是指数权重这条路线的卖点</b>：<span class='w'>它从来不假设上下文的分布，只假设损失有界</span>，<b>所以 iid 与对抗对它来说是同一个证明</b>。", "<b>交互协议要逐行读清，尤其是「玩家先挑策略、再由策略挑动作」这个顺序。</b> <span class='k'>玩家选 <code>I_t ∈ [n]</code>（挑哪个<b>策略</b>），然后 <code>a_t ~ π_{I_t}(c_t)</code>（由那个策略挑<b>动作</b>），只吃到 <code>ℓ(c_t,a_t)</code></span>。<b>⚠ 反馈是动作级的，而你要更新的是策略级的权重</b>——<span class='w'>这个「观测粒度与决策粒度不一致」正是下一页那个估计量要解决的全部问题</span>。", "<b>一个方便的检查：若 <code>Π</code> 里每个策略都是常值（<code>π_i(c) ≡ i</code>），这个协议就退化成普通 bandit</b>，<span class='k'>估计量也该退化成朴素的 <code>1{a_t=i}ℓ/q_{t,i}</code></span>。<b>下一页的式子确实会退化成它</b>——<span class='w'>这是检验自己有没有读懂那个分母的最快办法</span>。"], "eq": "三行对照（同一个公式的三个端点）：\n  每上下文一个 bandit   基准 = 逐上下文最优    |Π| = n^{|C|}   遗憾 √(n|C|T)\n  忽略上下文           基准 = 一条固定臂      |Π| = n         遗憾 √(nT)\n  ⭐ 策略遗憾          基准 = Π 里最好的 π    |Π| 任你挑       遗憾 √(nT·log|Π|)\n\n对抗上下文的协议（oblivious adversary）：\n  对手事先定好 c_1..c_T\n  for t: 对手亮出 c_t → 玩家挑策略 I_t ~ q_t → 动作 a_t ~ π_{I_t}(c_t) → 只看到 ℓ(c_t,a_t)\n  Regret = max_{π∈Π} Σ_t ( E_{a~π(c_t)}[ℓ(c_t,a)] − ℓ(c_t,a_t) )", "tbl": {"head": ["", "决策的粒度", "反馈的粒度", "⚠ 由此产生的难处"], "rows": [["普通 bandit", "动作", "动作", "无 —— 拉哪条臂就看哪条臂，对得上"], ["策略版上下文 bandit", "策略（n = |Π| 个）", "动作（d 个）", "⭐ 对不上：要给没被抽中的策略也报一个无偏损失"], ["全信息专家问题", "专家", "全部专家的损失", "无 —— 所以只要指数权重，不需要估计量"]]}, "say": "<b>补一句讲义没写、但决定了这一段怎么读的：为什么「策略类」这个设计在实际里远比它看上去重要？</b><br>因为 <code>Π</code> 是你<b>唯一</b>能注入先验知识的地方。<span class='k'>遗憾界对 <code>Π</code> 的内容一无所知，只认它的大小</span>——<b>于是「把 <code>Π</code> 设计好」和「把算法调好」是两件完全分开的事，而前者的杠杆大得多</b>。<span class='w'>⚠ 反过来说也成立：界里那个 <code>log|Π|</code> 便宜到几乎免费，意味着<b>把 <code>Π</code> 做大几乎不要钱</b></span>，<b>真正的风险在界<span class='w'>看不见</span>的那一侧——<code>Π</code> 里到底有没有一个好策略</b>。<span class='k'>这一项叫近似误差，遗憾界一个字都不保证它</span>。", "res": {"tag": "推断", "v": "<b>这三行直接给你一张论文里的消融表，而且第三行就是你该主张的位置。</b> <span class='k'>AFlow 搜出<b>一个</b>固定 workflow，对所有 query 一视同仁 = 第二行；「每条 query 单独搜一遍」样本上做不到 = 第一行</span>。<b>你的 node-level fidelity assignment 落在第三行：挑一个策略类，比如「按难度打分 s(q) 分三档，每档一套档位分配」</b>，<span class='w'>这样 <code>|Π| = k^{H·3}</code>，<code>log|Π| = 3H log k</code>，<code>H=10,k=2</code> 时只有 <code>≈21</code></span>。<b>⇒ 相对 <code>√(nT)</code> 只多了约 4.6 倍的根号因子，却把基准从「一个固定 workflow」抬成「一族按难度自适应的 workflow」</b>。⚠ <b>但这条界管的是<b>遗憾</b>不是<b>最优</b></b>——<span class='k'>「按难度三档」里有没有好策略，得靠简报 §5 的 P2 vs P3 消融去测，界帮不上忙</span>。", "ref": "本讲 p6 三行对照 · 简报 §1（AFlow 固定 M）· 简报 §5（P2 vs P3 消融）"}},
+{"r": [7, 7], "t": "同一份定理第二次使用：把 EXP3 开在策略上，估计量的分母换成「混合倾向」", "star": 3, "quote": "<em><b>EXP3(γ)</b>　Player defines λ<sub>t</sub> ∈ Δ<sub>n</sub> and plays I<sub>t</sub> ~ q<sub>t</sub> := (1−γ)p<sub>t</sub> + γλ<sub>t</sub></em><br><em>Player suffers (and observes) loss ℓ<sub>t,I<sub>t</sub></sub> (but does <b>not</b> observe ℓ<sub>t,i</sub> for i ≠ I<sub>t</sub>)</em><br><em>Player computes loss estimator ℓ̂<sub>t,i</sub> for all i ∈ [n]</em><br><em><b>Theorem 17.</b> Fix any sequence ℓ<sub>t</sub> ∈ [−1,1] for all t. <b>For any ℓ̂<sub>t,i</sub> and η,γ ≥ 0 that satisfy E[ℓ̂<sub>t,i</sub>|ℱ<sub>t−1</sub>] = ℓ<sub>t,i</sub> and −ηℓ̂<sub>t,i</sub> ≤ 1 for all i,t</b> we have …</em><br><em>ℓ<sub>t,i</sub> := E<sub>a~π<sub>i</sub></sub>[ℓ(c<sub>t</sub>,a)]　I observe ℓ(c<sub>t</sub>,a<sub>t</sub>)</em><br><em>ℓ̂<sub>t,i</sub> = π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>) / (Σ<sub>k=1</sub><sup>n</sup> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>)) · ℓ(c<sub>t</sub>,a<sub>t</sub>)　a<sub>t</sub> ~ π<sub>I<sub>t</sub></sub>(c<sub>t</sub>), I<sub>t</sub> ~ q<sub>t</sub></em><br><em>(页边) d → actions,　n → policies</em>", "one": "<b>讲义把 Theorem 17 重抄了一遍，这一次把假设<span class='k'>显式写进定理陈述</span>：「对<b>任何</b>满足无偏与单边有界的 ℓ̂」。estimator 成了一个可插拔的参数——而上下文版要插进去的那一个，分母是<span class='w'>混合倾向</span>，不是单个策略的倾向。</b>", "pts": ["<b>两版 EXP3 框的差别只有两行，但这两行是全讲的结构主张。</b> <span class='k'>p1 版写死了「observes ℓ_{t,I_t}」并给出具体的 <code>ℓ̂</code>；p7 版改成「Player computes loss estimator <code>ℓ̂_{t,i}</code> for all <code>i</code>」，<b>把估计量留空</b></span>；<b>定理也相应改成「For any <code>ℓ̂</code> … that satisfy …」</b>。<span class='w'>⚠ 这不是写法上的润色，是把一条定理改造成一个接口</span>。", "<b>页边那行小字 <code>d → actions, n → policies</code> 必须先读，否则后面每个符号都会错位。</b> <span class='k'>p1–p4 里 <code>n</code> 是臂数、<code>d</code> 是向量维数；p7 起 <code>n</code> 是<b>策略数</b> <code>|Π|</code>、<code>d</code> 是<b>动作数</b> <code>|𝒜|</code></span>。<b>于是最终的 <code>√(12dT log n)</code> 读作 <code>√(12·|𝒜|·T·log|Π|)</code></b>。", "<b>要估的量是 <code>ℓ_{t,i} = E_{a~π_i(c_t)}[ℓ(c_t,a)]</code>——第 <code>i</code> 个策略<b>这一轮</b>的期望损失。</b> <span class='w'>注意它依赖 <code>c_t</code>，所以每一轮都不一样</span>；<b>而你只观测到 <code>ℓ(c_t,a_t)</code> 这一个数</b>。<span class='k'>与 p2 完全同构的困境：一次观测，要给 n 个对象各报一个无偏估计</span>。", "<b>估计量只有一行，而全部玄机在分母：</b><code>ℓ̂_{t,i} = π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)</code>。<span class='k'>分子是「策略 <code>i</code> 会不会走这个动作」，分母是「<b>算法整体</b>走这个动作的概率」</span>。<b>⚠ 分母不是 <code>q_{t,i}</code>，也不是 <code>π_i(a_t|c_t)</code>，而是对全部策略按 <code>q_t</code> 做的加权和</b>。", "<b>为什么分母必须是混合的？一句话：因为「谁产生了这个动作」是不可观测的。</b> <span class='w'>同一个动作 <code>a_t</code> 可能由很多个策略产生</span>，<b>你抽中的是 <code>I_t</code>，但你无从知道「如果抽中的是别的策略，会不会也走 <code>a_t</code>」</b>——<span class='k'>所以正确的倾向分数是边缘概率 <code>P(a_t = a)</code>，而它正好等于那个混合和</span>。", "<b>做一次退化检验：令每个策略都是常值 <code>π_i(·|c) = e_i</code>（第 <code>i</code> 个策略永远走动作 <code>i</code>）。</b> <span class='k'>分子 <code>π_i(a_t|c_t) = 1{a_t = i}</code>，分母 <code>Σ_k q_{t,k}1{a_t=k} = q_{t,a_t}</code></span>，<b>于是 <code>ℓ̂_{t,i} = 1{a_t=i}ℓ(c_t,a_t)/q_{t,i}</code>——正是 p1 里最朴素的那个 bandit 估计量</b>。<span class='w'>退化检验通过，说明这个分母是对的推广</span>。"], "eq": "p1 版 → p7 版：把估计量从定理里抽出来，变成参数\n\n  Theorem 17（一般形式）\n    条件：ℓ_t ∈ [−1,1]^n\n          ① E[ℓ̂_{t,i} | ℱ_{t−1}] = ℓ_{t,i}        （无偏，对每个 i）\n          ② −ηℓ̂_{t,i} ≤ 1                          （单边有界）\n    结论：max_i E[Σ_t ℓ_{t,I_t} − ℓ_{t,i}] ≤ 2γT + log(n)/η + (1−γ)η E[ΣΣ p ℓ̂²]\n\n上下文版要插进去的估计量（d = 动作数，n = 策略数）：\n        π_i(a_t | c_t)\n  ℓ̂_{t,i} = ───────────────────────── · ℓ(c_t, a_t)\n        Σ_{k=1}^{n} q_{t,k} π_k(a_t | c_t)\n        └ 算法整体走出 a_t 的概率 = 混合倾向 ┘", "tbl": {"head": ["填进接口的是什么", "p1–p4 线性 bandit", "p7–p10 上下文 bandit"], "rows": [["n 的含义", "臂数 |𝒳|", "策略数 |Π|"], ["d 的含义", "向量空间维数", "动作数 |𝒜|"], ["估计量 ℓ̂_{t,i}", "x_iᵀA(q_t)⁻¹x_{I_t}ℓ_{t,I_t}", "π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)"], ["无偏靠什么对消", "A(q_t)⁻¹·A(q_t) = I（线性假设）", "分母逐字等于 P(a_t = j)（全概率公式）"], ["−ηℓ̂ ≤ 1 靠什么", "Kiefer–Wolfowitz：f_G(λ*) = d", "p9 的 Proposition：min max Σ p/(Σλp) = d"], ["最终遗憾", "√(12 d T log|𝒳|)", "√(12 |𝒜| T log|Π|)"]]}, "say": "<b>补一处讲义只用一个箭头带过、但不想清楚会卡住的：<code>λ_t</code> 为什么这一版带了下标 <code>t</code>？</b><br>p1 版写的是固定的 <code>λ</code>（G-最优设计只依赖 <code>𝒳</code> 的几何，算一次就够）。<span class='w'>这一版 <code>λ_t ∈ Δ_n</code> 带了时间下标</span>，<b>因为它要解的那个优化问题依赖 <code>c_t</code></b>——<span class='k'><code>p_{i,j} := π_i(j|c_t)</code> 这张表每一轮都随上下文变</span>，<b>所以探索分布必须逐轮重算</b>。<span class='w'>⚠ 这是一个实现上的真代价：每一轮要解一个 <code>n</code> 变量的凸优化（<code>n</code> 是策略数，可能很大）</span>，<b>而 p1 那一版只在开头解一次</b>。<span class='k'>这正是 model-free 路线（本讲）与 model-based 路线（L20）要权衡的地方之一</span>。", "res": {"tag": "已核", "v": "<b>「分母必须用混合倾向」这一条，直接否掉一种你很可能会写错的日志方案。</b> <span class='k'>如果你的 fork 在每条 query 上「先抽一个策略、再按它执行」，那么记日志时自然会想记下<b>被抽中那个策略</b>给这个动作的概率</span>——<b>错的</b>。<span class='w'>正确的倾向是「所有候选策略按抽样权重混合之后，走出这个动作的总概率」</span>。<b>两者在策略类里有多个策略会走同一动作时差别巨大，而那是常态</b>（<span class='k'>大多数 workflow 配置在大多数节点上是一样的，只在少数节点分叉</span>）。<b>⇒ 日志字段里要存的不是一个数，而是「这一轮的 <code>q_t</code> 与各 <code>π_k(·|c_t)</code> 足以重算出那个混合概率」</b>。⚠ <b>而这也意味着：倾向分数依赖于你当时的<b>整个候选集合</b></b>，<span class='w'>事后往 <code>Π</code> 里加策略，旧日志的倾向就不再对得上</span>。", "ref": "本讲 p7 的估计量 · p8 的 P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s} · 简报 §4a"}},
+{"r": [8, 8], "t": "无偏性：分母逐字就是 P(a_t = j)，于是全概率公式把它整块约掉", "star": 3, "quote": "<em>E[ℓ̂<sub>t,i</sub>] = E[ π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>)ℓ(c<sub>t</sub>,a<sub>t</sub>) / Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>) ]</em><br><em>= Σ<sub>j=1</sub><sup>d</sup> E[ <u>P(a<sub>t</sub> = j)</u> · π<sub>i</sub>(j|c<sub>t</sub>)ℓ(c<sub>t</sub>,j) / Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(j|c<sub>t</sub>) ]</em><br><em>P(a<sub>t</sub>=j) = Σ<sub>s=1</sub><sup>n</sup> P(a<sub>t</sub>=j | I<sub>t</sub>=s)·P(I<sub>t</sub>=s) = Σ<sub>s=1</sub><sup>n</sup> π<sub>s</sub>(j|c<sub>t</sub>)·q<sub>t,s</sub></em><br><em>= Σ<sub>j=1</sub><sup>d</sup> E[ π<sub>i</sub>(j|c<sub>t</sub>)ℓ(c<sub>t</sub>,j) ] = E<sub>a~π<sub>i</sub>(c<sub>t</sub>)</sub>[ℓ(c<sub>t</sub>,a)] = ℓ<sub>t,i</sub></em><br><em>−ηℓ̂<sub>t,i</sub> ≤ η·π<sub>i</sub>(a<sub>t</sub>|c<sub>t</sub>)/Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(a<sub>t</sub>|c<sub>t</sub>) ≤ η Σ<sub>j=1</sub><sup>d</sup> π<sub>i</sub>(j|c<sub>t</sub>)/Σ<sub>k</sub> q<sub>t,k</sub>π<sub>k</sub>(j|c<sub>t</sub>)</em>", "one": "<b>整个证明只用一次全概率公式：把对 <code>a_t</code> 的期望写成对 <code>j</code> 的求和，系数就是 <code>P(a_t = j)</code>；而那个系数与估计量的分母<span class='k'>逐字相同</span>，约掉之后剩下的正好是策略 <code>i</code> 的期望损失。</b>", "pts": ["<b>第一步是把期望展开成对动作的求和。</b> <code>E[f(a_t)] = Σ_{j=1}^d P(a_t = j)·f(j)</code>，<span class='k'>这里 <code>f(j) = π_i(j|c_t)ℓ(c_t,j)/Σ_k q_{t,k}π_k(j|c_t)</code></span>。<b>讲义在 <code>P(a_t = j)</code> 底下画了一条波浪线</b>——<span class='w'>那是在提示：接下来要动的就是它</span>。", "<b>第二步算 <code>P(a_t = j)</code>，用的是对「抽中了哪个策略」做全概率分解。</b> <code>P(a_t=j) = Σ_s P(a_t=j|I_t=s)P(I_t=s)</code>；<span class='k'><code>P(a_t=j|I_t=s) = π_s(j|c_t)</code>（抽中策略 s 之后动作由它抽），<code>P(I_t=s) = q_{t,s}</code></span>，<b>于是 <code>P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s}</code></b>。", "<b>第三步只需要对比两个式子：</b><span class='w'>刚算出的 <code>P(a_t=j) = Σ_s q_{t,s}π_s(j|c_t)</code></span>，<span class='k'>与估计量的分母 <code>Σ_k q_{t,k}π_k(j|c_t)</code></span>——<b>换个求和下标名字而已，<b>完全一样</b></b>。<b>于是分子分母对消，求和塌成 <code>Σ_j π_i(j|c_t)ℓ(c_t,j)</code></b>。", "<b>第四步认出它是什么：<code>Σ_j π_i(j|c_t)ℓ(c_t,j) = E_{a~π_i(c_t)}[ℓ(c_t,a)]</code>，按定义正是 <code>ℓ_{t,i}</code>。</b> <span class='k'>⭐ 无偏性成立，而且对<b>每一个</b> <code>i</code> 都成立，包括这一轮完全没被抽中的那些策略</span>。", "<b>⚠ 这个证明有一个前提，讲义没有单独标出来但它是硬的：分母必须恒为正。</b> <span class='w'>若某个动作 <code>j</code> 在所有策略下概率都是 0，那么 <code>P(a_t=j) = 0</code>，它根本不会被抽到，<code>0/0</code> 不出现</span>；<b>但若分母极小而非零，估计量会炸到极大</b>——<span class='k'>这正是下一步要用 <code>γλ_t</code> 去托住的东西</span>。", "<b>页末开始界 <code>−ηℓ̂</code>，第一步就很妙：把「实际抽到的那个动作」放大成「对所有动作求和」。</b> <code>π_i(a_t|c_t)/Σ_k q_{t,k}π_k(a_t|c_t) ≤ Σ_{j=1}^d π_i(j|c_t)/Σ_k q_{t,k}π_k(j|c_t)</code>。<span class='w'>⚠ 因为每一项都非负，所以「单项 ≤ 总和」</span>，<b>而这一放大把随机的 <code>a_t</code> 消掉了，剩下的量只依赖 <code>c_t</code> 与 <code>q_t</code>——于是可以对它做确定性的优化</b>。<span class='k'>那正是 p9 的 Proposition 要解的对象</span>。"], "eq": "E[ℓ̂_{t,i}]\n  = Σ_{j=1}^{d}  P(a_t = j) ·  π_i(j|c_t) ℓ(c_t,j) / ( Σ_k q_{t,k} π_k(j|c_t) )\n                 ╰────────╯                              ╰──────────────────╯\n                       └────────── 这两处逐字相同 ──────────┘\n\n  其中  P(a_t = j) = Σ_s P(a_t=j | I_t=s) P(I_t=s) = Σ_s π_s(j|c_t) q_{t,s}\n\n  ⇒ = Σ_j π_i(j|c_t) ℓ(c_t,j) = E_{a~π_i(c_t)}[ℓ(c_t,a)] = ℓ_{t,i}   ∀i  ✔\n\n接着界单边：\n  −ηℓ̂_{t,i} ≤ η · π_i(a_t|c_t)/Σ_k q_{t,k}π_k(a_t|c_t)\n              ≤ η · Σ_{j=1}^{d} π_i(j|c_t)/Σ_k q_{t,k}π_k(j|c_t)     ← 单项 ≤ 总和，把随机的 a_t 消掉", "say": "<b>补一处讲义默认你会的、但它其实是这个估计量能成立的根本原因：为什么「混合倾向」正好是对的那个分母？</b><br>把它放回重要性采样的标准形式看：<span class='k'>你想估的是在<b>目标分布</b> <code>π_i(·|c_t)</code> 下的期望，而样本是从<b>行为分布</b> <code>P(a_t = ·) = Σ_k q_{t,k}π_k(·|c_t)</code> 里抽的</span>。<b>重要性权重按定义就是「目标 / 行为」</b>，<span class='w'>于是分子 <code>π_i</code>、分母那个混合，一个字都不能改</span>。<b>⇒ 这里的「行为策略」不是某一个 <code>π_k</code>，而是算法这一轮诱导出的那个<b>边缘</b>分布</b>。<span class='k'>覆盖条件也随之而来：要让 <code>π_i</code> 可估，必须 <code>π_i(a|c) &gt; 0 ⇒ Σ_k q_{t,k}π_k(a|c) &gt; 0</code></span>——<b>而 <code>q_t</code> 里混了 <code>γλ_t</code>，正是为了把这件事变成恒真</b>。", "link": {"t": "你学过的对应：CS234 L15 批量离线强化学习与安全策略改进（那边讲的重要性采样与这一页是同一件事的两种写法：目标/行为之比。差别在于这一页的「行为」是算法自己诱导的混合分布，所以覆盖条件可以靠 γλ_t 人为保证；离线那边的行为策略是别人留下的，覆盖与否你说了不算）", "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L15-精读.html"}, "res": {"tag": "已核", "v": "<b>这一页把你简报 §4a 里那条结论的<b>充分条件</b>写出来了：重要性采样要成立，必须 <code>π_目标(a|c) &gt; 0 ⇒ P_行为(a|c) &gt; 0</code>，而这里的 <code>P_行为</code> 是<b>混合</b>后的边缘分布。</b> <span class='k'>好消息是：在<b>线上</b>你可以自己制造覆盖——<code>q_t = (1−γ)p_t + γλ_t</code> 里的 <code>γλ_t</code> 就是在买它，代价写在遗憾的 <code>2γT</code> 一项里，明码标价</span>。<span class='w'>⚠ 坏消息是：<b>离线做不到</b></span>——<b>你现有的 AFlow 日志是确定性执行的，<code>P_行为 ∈ {0,1}</code>，再多数据也补不出覆盖</b>。<b>⇒ 两个结论：① 要做 OPE 就必须<b>先</b>改执行器加随机化，这是前置条件不是优化项；② <code>γ</code> 的大小不是调参，它等价于「你愿意为可评估性付多少遗憾」，可以直接写进实验设计里当一个旋钮</b>。", "ref": "本讲 p7–p8（混合倾向与 γλ_t）· 简报 §4a（deficient support）· 简报 §4c（随机化 3–4 个节点）"}},
+{"r": [9, 9], "t": "策略版的 Kiefer–Wolfowitz：min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) 恰好等于动作数 d", "star": 3, "quote": "<em>≤ (η/γ) Σ<sub>j=1</sub><sup>d</sup> π<sub>i</sub>(j|c)/Σ<sub>k=1</sub><sup>n</sup> λ<sub>t,k</sub>π<sub>k</sub>(j|c) ≤ ηd/γ ≤ 1　if γ = ηd</em><br><em><b>Proposition.</b> For i = 1,…,n let p<sub>i</sub> ∈ Δ<sub>d</sub>. Then min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i=1,…,n</sub> Σ<sub>j=1</sub><sup>d</sup> p<sub>i,j</sub>/(Σ<sub>k</sub> λ<sub>k</sub>p<sub>k,j</sub>) = d.</em><br><em><b>Proof.</b> f(λ) := Σ<sub>j=1</sub><sup>d</sup> log(Σ<sub>k</sub> λ<sub>k</sub>p<sub>k,j</sub>),　λ* = argmax<sub>λ</sub> f(λ)</em><br><em>for any λ:　f(λ) ≤ f(λ*) + ∇f(λ*)<sup>T</sup>(λ − λ*)</em><br><em>⇒ 0 ≥ ∇f(λ*)<sup>T</sup>(λ − λ*) = Σ<sub>i</sub>Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>p<sub>k,j</sub>λ*<sub>k</sub>)·(λ<sub>i</sub> − λ*<sub>i</sub>) = Σ<sub>i</sub>Σ<sub>j</sub> p<sub>i,j</sub>λ<sub>i</sub>/(Σ<sub>k</sub>p<sub>k,j</sub>λ*<sub>k</sub>) − d</em>", "one": "<b>和 p3 一模一样的剧本：有一个「最坏情况下的放大倍数」要界住，而它的最小值恰好是一个你认识的整数。只不过这里的 <code>d</code> 是<span class='w'>动作数</span>，不是空间维数；而扮演 D-最优那个对数行列式的，是 <code>Σ_j log(Σ_k λ_k p_{k,j})</code>。</b>", "pts": ["<b>先认出这个命题就是 Kiefer–Wolfowitz 换了一身衣服。</b> <span class='k'>L07 那边：<code>min_λ max_x xᵀA(λ)⁻¹x = d</code>，<code>d</code> = 维数；这里：<code>min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = d</code>，<code>d</code> = 动作数</span>。<b>两边都是「一个关于 λ 的 min-max，最优值等于某个结构性的整数，与 <code>n</code> 无关」</b>。<span class='w'>⚠ 「与 n 无关」是这两条定理共同的要害——<code>n</code> 可以指数大</span>。", "<b>要界的量从哪来，上一页已经交代：</b><code>Σ_j π_i(j|c)/Σ_k q_{t,k}π_k(j|c)</code>，<span class='k'>再用 <code>q_t ⪰ γλ_t</code> 换成 <code>(1/γ)Σ_j π_i(j|c)/Σ_k λ_{t,k}π_k(j|c)</code></span>。<b>记 <code>p_{i,j} := π_i(j|c_t)</code>，它就是命题里那个量</b>。<span class='w'>⚠ <code>p_i ∈ Δ_d</code> 因为每个策略在动作上是一个分布，逐行和为 1</span>。", "<b>证明用的是「对数势函数 + 一阶最优性」，这套路值得单独记。</b> 定义 <code>f(λ) = Σ_j log(Σ_k λ_k p_{k,j})</code>，<span class='k'>它是凹的（log 凹 + 线性复合），所以 <code>λ* = argmax f</code> 存在且一阶条件可用</span>。<b>凹函数在最优点满足 <code>f(λ) ≤ f(λ*) + ∇f(λ*)ᵀ(λ−λ*)</code>，而最优性给 <code>∇f(λ*)ᵀ(λ−λ*) ≤ 0</code> 对单纯形里所有 λ 成立</b>。", "<b>把梯度算出来是关键一步：</b><code>∂f/∂λ_i = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})</code>。<span class='w'>⚠ 注意这<b>恰好</b>就是命题里要界的那个量（对第 i 个策略的）</span>——<b>这不是巧合，整个构造就是为了让「梯度的第 i 个分量」等于「第 i 个策略的放大倍数」</b>。<span class='k'>于是「min-max 一个放大倍数」被翻译成了「某个凹函数的梯度」，而梯度在最优点有结构</span>。", "<b>展开 <code>∇f(λ*)ᵀ(λ − λ*) ≤ 0</code> 里的第二项：</b><code>Σ_i λ*_i Σ_j p_{i,j}/(Σ_k p_{k,j}λ*_k) = Σ_j (Σ_i λ*_i p_{i,j})/(Σ_k p_{k,j}λ*_k) = Σ_j 1 = d</code>。<span class='k'>⭐ 分子分母在交换求和次序后<b>逐项相同</b>，每一项都等于 1，<code>d</code> 项加起来就是 <code>d</code></span>。<b>这是整个证明的支点，而它只是一次求和次序交换</b>。", "<b>于是不等式化成 <code>Σ_i λ_i·(第 i 个放大倍数) ≤ d</code> 对<b>所有</b> <code>λ ∈ Δ_n</code> 成立</b>。<span class='w'>下一页取 <code>λ = e_i</code>（全部质量压在第 i 个策略上）就得到「<b>每一个</b> <code>i</code> 的放大倍数 <code>≤ d</code>」</span>，<b>也就是 <code>max_i ≤ d</code>，上界到手</b>。"], "eq": "要界的量（记 p_{i,j} := π_i(j|c_t)）：\n  Σ_{j=1}^{d}  p_{i,j} / ( Σ_{k=1}^{n} λ_k p_{k,j} )\n\nProposition:  min_{λ∈Δ_n} max_{i∈[n]} Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})  =  d\n\n证明骨架：\n  f(λ) := Σ_{j=1}^{d} log( Σ_k λ_k p_{k,j} )        凹\n  ∂f/∂λ_i = Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})           ← 恰好是「第 i 个策略的放大倍数」\n  λ* = argmax f  ⇒  ∇f(λ*)ᵀ(λ − λ*) ≤ 0  ∀λ∈Δ_n\n  而 Σ_i λ*_i ∂f/∂λ_i|_{λ*} = Σ_j (Σ_i λ*_i p_{i,j})/(Σ_k λ*_k p_{k,j}) = Σ_j 1 = d\n  ⇒ Σ_i λ_i·(第 i 个放大倍数) ≤ d   ∀λ", "tbl": {"head": ["", "L07/L09 的 Kiefer–Wolfowitz", "本讲 p9 的 Proposition"], "rows": [["决策变量 λ 住在哪", "Δ_𝒳（臂上的分布）", "Δ_n（<b>策略</b>上的分布）"], ["要最小化的最坏量", "max_x xᵀA(λ)⁻¹x", "max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j})"], ["配套的凹势函数", "log|A(λ)|（D-最优）", "Σ_j log(Σ_k λ_k p_{k,j})"], ["最优值", "d = dim(span(𝒳))", "d = 动作数 |𝒜|"], ["与候选个数的关系", "与 |𝒳| 无关", "与 |Π| 无关"], ["⚠ 要重算的频率", "一次（只依赖 𝒳 的几何）", "每一轮（p_{i,j} 随 c_t 变）"]]}, "say": "<b>补一处讲义没说、但这两条定理摆在一起就该问的：为什么两次都是「对数势函数的最优点」？</b><br>因为两次要控的都是<b>一族线性泛函被同一个归一化除过之后的最大值</b>，<span class='k'>而 <code>log</code> 的梯度恰好产生「被自己的值除」这个结构</span>——<code>∂/∂λ log(Σ_k λ_k p_{k,j}) = p_{i,j}/(Σ_k λ_k p_{k,j})</code>。<b>于是「梯度」和「要界的量」自动是同一个东西，一阶最优性直接给出界</b>。<span class='w'>⚠ 另一半魔法在归一化：<code>Σ_i λ*_i p_{i,j}</code> 与分母逐字相同，于是加权平均恰好等于 1</span>。<b>这两件事合起来，就是「D-最优 ⇒ G-最优」等价定理在抽象层面的样子</b>——<span class='k'>L07 的 Lemma 10 第一条 <code>max_λ g_D(λ) = g_D(λ*)</code> 与 <code>min_λ f_G(λ) = f_G(λ*)</code> 同解，说的正是这件事</span>。", "res": {"tag": "推断", "v": "<b>这条命题告诉你一件对实现很实在的事：探索分布应该开在<b>策略</b>上，不是开在<b>动作</b>上。</b> <span class='k'>朴素做法是「以 γ 的概率均匀随机挑一个动作」；这里要的是「以 γ 的概率按 <code>λ_t</code> 挑一个<b>策略</b>，再由它挑动作」</span>。<b>两者在你的场景里差别巨大</b>：<span class='w'>均匀随机挑动作 = 在每个节点上独立乱选档位，产生的多半是没人会用的荒唐配置</span>；<b>按 <code>λ_t</code> 挑策略 = 只在你真正关心的那些配置之间分配探索预算</b>。<b>⇒ 放大倍数的上界因此是<b>动作数</b> <code>d</code>（节点档位数，很小），而不是配置数</b>。⚠ <b>代价是每轮要解一个 <code>n = |Π|</code> 变量的凸优化</b>，<span class='k'>而 <code>|Π|</code> 可能很大 —— 这正是这条 model-free 路线在实现上最贵的地方，也是 L20 换 model-based 的动机</span>。", "ref": "本讲 p9 Proposition · CSE541 L07 p5 Lemma 10 · 简报 §4c"}},
+{"r": [10, 10], "t": "把命题收口（取 λ = e_i），以及第二矩项又一次塌成 dT/(1−γ)", "star": 2, "quote": "<em>Take λ = e<sub>i</sub> ⇒ Σ<sub>j=1</sub><sup>d</sup> p<sub>i,j</sub>/(Σ<sub>k</sub> p<sub>k,j</sub>λ*<sub>k</sub>) ≤ d</em><br><em>min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i=1,…,n</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) ≤ max<sub>i=1,…,n</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ*<sub>k</sub>p<sub>k,j</sub>) ≤ d</em><br><em>min<sub>λ∈Δ<sub>n</sub></sub> max<sub>i</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) ≥ min<sub>λ</sub> Σ<sub>i</sub> λ<sub>i</sub> Σ<sub>j</sub> p<sub>i,j</sub>/(Σ<sub>k</sub>λ<sub>k</sub>p<sub>k,j</sub>) = d</em><br><em>E[Σ<sub>t=1</sub><sup>T</sup>Σ<sub>i=1</sub><sup>n</sup> p<sub>t,i</sub>ℓ̂<sup>2</sup><sub>t,i</sub>] ≤ dT/(1−γ)</em>", "one": "<b>上界取 <code>λ = e_i</code>，下界用「最大值 ≥ 加权平均」—— 两头夹住，等号成立。而第二矩项再一次塌成 <code>dT/(1−γ)</code>，与 p4 那次是同一个机制：求和凑出归一化，整块等于 1。</b>", "pts": ["<b>上界：在「<code>Σ_i λ_i·(第 i 个放大倍数) ≤ d</code> 对所有 λ 成立」里取 <code>λ = e_i</code>（单位向量）。</b> <span class='k'>左边只剩第 <code>i</code> 项，于是<b>每一个</b> <code>i</code> 的放大倍数都 <code>≤ d</code></span>，<b>所以 <code>max_i ≤ d</code>，而 <code>min_λ max_i ≤</code> 在 <code>λ*</code> 处的值 <code>≤ d</code></b>。", "<b>下界用的是一句几乎是废话但很好使的话：最大值不小于任何加权平均。</b> <code>max_i a_i ≥ Σ_i λ_i a_i</code> 对任何 <code>λ ∈ Δ_n</code> 成立；<span class='k'>取权重就用 <code>λ</code> 自己</span>，<b>于是 <code>Σ_i λ_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = Σ_j (Σ_i λ_i p_{i,j})/(Σ_k λ_k p_{k,j}) = Σ_j 1 = d</code></b>。", "<b>⚠ 下界这一步对<b>任何</b> <code>λ</code> 都成立，不只是 <code>λ*</code>。</b> <span class='w'>所以 <code>min_λ max_i ≥ d</code> 是无条件的</span>——<b>换句话说：<span class='k'>无论你的探索分布怎么设计，放大倍数的最坏值都不可能小于动作数 <code>d</code></span></b>。<b>这是一条<b>下界</b>，它说明 <code>d</code> 不是分析松不松的问题，是问题本身的硬度</b>。", "<b>两头合起来：<code>min_λ max_i = d</code>，取等的 <code>λ</code> 就是那个对数势函数的最大值点。</b> <span class='k'>于是回到 p9 开头：<code>−ηℓ̂_{t,i} ≤ ηd/γ</code>，取 <code>γ = ηd</code> 就有 <code>≤ 1</code>，Theorem 17 的第二条假设达成</b></span>。", "<b>剩下第二矩项。</b> <span class='w'>讲义直接写了结论 <code>≤ dT/(1−γ)</code></span>，<b>机制与 p4 完全相同</b>：<span class='k'>展开 <code>ℓ̂²</code>，用 <code>|ℓ| ≤ 1</code> 丢掉损失，对 <code>a_t</code> 取期望让分母的一个因子被约掉，再用 <code>p ≤ q/(1−γ)</code> 换概率，最后对 <code>j</code> 求和凑出 1，对 <code>i</code> 求和凑出 <code>d</code></span>。", "<b>于是最终的界与线性情形逐字相同：<code>3ηdT + log(n)/η ≤ √(12 d T log n)</code>。</b> <span class='k'>只是现在 <code>d = |𝒜|</code>、<code>n = |Π|</code></span>，<b>读作 <span class='w'><code>Regret ≤ √(12·|𝒜|·T·log|Π|)</code></span></b>。<b>⭐ 动作数一次方，策略类只进 log —— 这就是 p6 第三行那个 <code>√(nT log|Π|)</code> 的出处</b>。"], "eq": "上界：Σ_i λ_i·a_i(λ*) ≤ d  ∀λ，取 λ = e_i  ⇒  a_i(λ*) ≤ d  ∀i  ⇒  max_i a_i(λ*) ≤ d\n\n下界：max_i a_i(λ) ≥ Σ_i λ_i a_i(λ)\n              = Σ_j (Σ_i λ_i p_{i,j}) / (Σ_k λ_k p_{k,j}) = Σ_j 1 = d    ∀λ\n      ⇒ min_λ max_i a_i(λ) ≥ d        ← 无条件，与 λ 怎么选无关\n\n⇒ min_λ max_i a_i(λ) = d\n\n代回：−ηℓ̂ ≤ ηd/γ ≤ 1（取 γ = ηd）；E[ΣΣ p ℓ̂²] ≤ dT/(1−γ)\n     Regret ≤ 2ηdT + log(n)/η + ηdT = 3ηdT + log(n)/η ≤ √(12·d·T·log n)\n     读作：√( 12 · |𝒜| · T · log|Π| )", "tbl": {"head": ["夹逼的两边", "用的工具", "对 λ 的要求"], "rows": [["上界 ≤ d", "凹函数的一阶最优性 + 取 λ = e_i", "必须在 λ*（对数势函数的最大点）处"], ["下界 ≥ d", "max ≥ 加权平均，再交换求和次序", "⚠ 任何 λ 都成立 —— 所以 d 是问题的硬度，不是分析的松紧"]]}, "say": "<b>补一句这两页读完该带走的结构性结论，讲义没有总结但它值一整页：</b><br><span class='k'>EXP3 的三项里，<b>只有第三项（估计量的方差）是「算法设计」能动的</b></span>；<b>而两次具体化（线性、上下文）做的事情一模一样</b>：<span class='w'>① 造一个无偏估计量；② 找到一个凹势函数，让「最坏放大倍数」等于它的梯度；③ 一阶最优性给出那个倍数的最小值 = 某个结构性的整数 <code>d</code>；④ 取 <code>γ = ηd</code></span>。<b>⇒ 想把这套机器用到<b>第三种</b>问题上，你要回答的也就是这四问</b>。<span class='k'>而最值钱的是第 ③ 步那个整数——它决定了你的遗憾对「候选个数」是 log 依赖还是多项式依赖</b></span>。", "res": {"tag": "推断", "v": "<b>下界那一半对你更有用：<code>min_λ max_i ≥ d</code> <b>无条件</b>成立，意味着「探索开销正比于动作数」这件事没法靠设计绕开。</b> <span class='k'>落到课题上：如果你把「动作」定义成<b>整条配置</b>（<code>d = k^H</code>），那么任何 model-free 的上下文 bandit 路线都要为 <code>√(k^H·T)</code> 买单，直接不可行</span>。<b>⇒ 必须把动作定义在<b>节点级</b>（<code>d = k</code>，两三个档位），把组合结构推进策略类 <code>Π</code> 里去——因为 <code>Π</code> 只收 <code>log</code> 的费用</b>。<span class='w'>⚠ 这是一条「怎么形式化」的硬约束，不是调参建议</span>：<b>同一个问题，把组合性放在动作上就不可行，放在策略类上就可行</b>。<span class='k'>和 CSE541 L16 那条教训是一套：先想清楚承诺的是什么，再去选工具</span>。", "ref": "本讲 p10 的下界 · CSE541 L16 主线卡（下界模板的两个空）· 简报 §4b（H=5~10 把有效样本打光）"}},
+{"r": [11, 11], "t": "换成离线：日志里必须当场记下倾向 p_t，否则这一整段全都做不了", "star": 3, "quote": "<em>Input policy set Π, π ∈ Π, π: C → 𝒳. for t = 1,2,…,T: Nature reveals c<sub>t</sub> ~<sup>iid</sup> ν; Player chooses x<sub>t</sub> ∈ 𝒳, observes r(c<sub>t</sub>,x<sub>t</sub>) + η<sub>t</sub></em><br><em><b>Off-policy Estimation.</b> Suppose we play a logging policy μ(·|c) ∈ Δ<sub>𝒳</sub>. x<sub>t</sub> ~ μ(·|c<sub>t</sub>) ∀t, observe y<sub>t</sub> = r(c<sub>t</sub>,x<sub>t</sub>) + η<sub>t</sub></em><br><em>We get data set {(c<sub>t</sub>, x<sub>t</sub>, y<sub>t</sub>, p<sub>t</sub>)}<sub>t=1</sub><sup>T</sup>,　p<sub>t</sub> = μ(x<sub>t</sub>|c<sub>t</sub>)</em><br><em>V(π) = E<sub>c~ν</sub>[r(c, π(c))]</em><br><em>V̂(π) = ⅟T Σ<sub>t=1</sub><sup>T</sup> 1{x<sub>t</sub> = π(c<sub>t</sub>)}/p<sub>t</sub> · y<sub>t</sub>　　E[V̂(π)] = V(π)</em>", "one": "<b>问题换了：不再边学边做，而是拿一份别人跑出来的日志，去评估一整族<span class='k'>从没跑过</span>的策略。整段的入场券只有一个——日志里必须有 <code>p_t = μ(x_t|c_t)</code> 这一列。</b>", "pts": ["<b>先看清这一页与前十页的分界。</b> <span class='k'>前面是<b>在线</b>：你每一轮都能决定下一步往哪走，于是可以用 <code>γλ_t</code> 人为制造覆盖</span>；<b>这一页是<b>离线</b>：数据已经躺在那里，<code>μ</code> 是既成事实，你改不了</b>。<span class='w'>⚠ 所有「加一点强制探索」的办法在这里都不可用——该探索的时候已经过去了</span>。", "<b>数据集的四元组里，<code>p_t</code> 是唯一一个「不记下来就永远拿不到」的量。</b> <span class='k'><code>c_t, x_t, y_t</code> 都是客观发生的事实，事后还能从别处捞；<code>p_t = μ(x_t|c_t)</code> 是「当时那个策略给这个动作的概率」</span>，<b>日志策略一换、一重启、一改随机种子，它就再也重建不出来</b>。<span class='w'>讲义把它单独写成四元组的第四个分量，不是排版习惯，是在强调它是一等公民</span>。", "<b>估计量只有一行，而它在做一件听起来不可能的事：用「<code>μ</code> 跑出来的数据」去评估「<code>π</code> 会得到多少回报」。</b> <code>V̂(π) = (1/T)Σ_t 1{x_t = π(c_t)}·y_t/p_t</code>。<span class='k'>指示函数把「<code>μ</code> 碰巧走了 <code>π</code> 会走的那个动作」的轮次挑出来，再按 <code>1/p_t</code> 加权补偿「这种巧合有多难得」</span>。", "<b>无偏性是一行条件期望：</b>给定 <code>c_t</code>，<code>E[1{x_t=π(c_t)}/p_t · y_t] = Σ_x μ(x|c_t)·1{x=π(c_t)}/μ(x|c_t)·r(c_t,x) = r(c_t,π(c_t))</code>。<span class='w'>⚠ 注意 <code>μ(x|c_t)</code> 约掉的那一步</span>——<b><code>μ</code> 出现在「抽到 x 的概率」和「分母」两处，正好对消</b>。<span class='k'>这是全部逆倾向方法的同一个机制，和 p7 那个混合分母一模一样</span>。", "<b>⚠ 但对消要求 <code>μ(π(c)|c) &gt; 0</code>。</b> <span class='w'>如果 <code>μ</code> 在某个上下文下从不走 <code>π(c)</code>，那些轮次的指示函数恒为 0、被静默地丢掉</span>，<b>而你丢掉的恰恰是「<code>π</code> 会怎么做」的全部信息</b>。<span class='k'>这时 <code>V̂(π)</code> 不是方差大，是<b>系统性地</b>估成了别的东西</b></span>——<b>这正是简报 §4a 那条「不是高方差的 IS，是 IS 无定义」</b>。", "<b>还要注意策略的值域变了：<code>π: C → 𝒳</code>，而且是<b>确定性</b>的（<code>1{x_t = π(c_t)}</code> 里 <code>π(c_t)</code> 是一个动作，不是分布）。</b> <span class='w'>前十页允许 <code>π(c) ∈ Δ_n</code></span>，<b>这一段为了把式子写干净，退回到确定性策略</b>。<span class='k'>代价是：确定性目标策略下，重要性权重只有 0 和 <code>1/p_t</code> 两种取值，于是 WIS 退化成「拒绝采样」——正是简报 §4b 推出的那条</span>。"], "eq": "在线（p1–p10）                      离线（p11 起）\n  每轮可以决定下一步                  数据已经躺在那里\n  q_t = (1−γ)p_t + γλ_t 制造覆盖      μ 是既成事实，改不了\n  代价写在遗憾的 2γT 项里             没有覆盖就没有估计量\n\n数据集：{(c_t, x_t, y_t, p_t)},  p_t = μ(x_t|c_t)\n                        └── 不当场记就永远拿不到 ──┘\n\nV(π)  = E_{c~ν}[ r(c, π(c)) ]\nV̂(π) = ⅟T Σ_t 1{x_t = π(c_t)} / p_t · y_t\n\n无偏（给定 c_t）：\n  E[·] = Σ_x μ(x|c_t) · 1{x=π(c_t)}/μ(x|c_t) · r(c_t,x) = r(c_t, π(c_t))   ✔\n         ╰── 抽到 x 的概率 ──╯ ╰── 分母 ──╯     这两处对消", "tbl": {"head": ["四元组里的量", "是什么", "事后还能补吗"], "rows": [["c_t", "那一轮的上下文（query）", "✓ 能 —— 它是输入，一直都在"], ["x_t", "实际执行的动作（配置）", "✓ 能 —— 执行记录里有"], ["y_t", "观测到的回报", "✓ 能 —— 结果记录里有"], ["p_t = μ(x_t|c_t)", "⭐ 当时那个策略给这个动作的概率", "⚠ <b>不能</b> —— 策略一换 / 一重启就重建不出来"]]}, "tip": {"t": "记号", "v": "<b>这一段的 <code>p_t</code> 与前十页的 <code>p_t</code> 是两回事。</b> 前面 <code>p_t ∈ Δ_n</code> 是指数权重维护的<b>策略分布</b>；这里 <code>p_t</code> 是一个<b>标量</b>，是第 t 轮那个动作的倾向分数。同一份讲义里重用了同一个字母，读 p11 之后要换脑子。", "w": 1}, "res": {"tag": "已核", "v": "<b>这一页就是你那条「现有日志做不了 OPE」结论的教科书出处，而且它顺手给出了修法的最小清单。</b> <span class='k'>简报 §4a 的论证是：AFlow 的 fork 每次跑固定配置 ⇒ <code>π_b(a|h) ∈ {0,1}</code> ⇒ coverage 条件破掉 ⇒ 估计量不存在</span>。<b>本页的 <code>V̂(π)</code> 把这件事写成了一行：<code>1{x_t = π(c_t)}/p_t</code>，<span class='w'>确定性日志下这个指示函数只在「目标策略恰好等于日志策略」时非零</span></b>。<b>⇒ 要做任何离线评估，执行器必须改三件事：① <code>x_t</code> 按一个<b>随机</b>策略 <code>μ</code> 抽；② 把 <code>p_t = μ(x_t|c_t)</code> <b>当场</b>写进日志；③ <code>μ</code> 的定义本身要存档（否则 <code>p_t</code> 的含义事后无法解释）</b>。⚠ <b>第 ③ 条简报里没写，但它和前两条一样是硬的</b>——<span class='k'>没有 <code>μ</code> 的定义，你连「覆盖了哪些配置」都说不清，更谈不上算 <code>E[1/μ(π(c)|c)]</code></span>。", "ref": "本讲 p11 · 简报 §4a（deficient support）· 简报 §4c（随机化 3–4 个节点）"}},
+{"r": [12, 12], "t": "方差由 E[1/μ(π(c)|c)] 掌管，而重尾让「方差小」不等于「集中」——所以要 Bernstein", "star": 3, "quote": "<em>E[(V̂(π) − V(π))<sup>2</sup>] = E[E[(V̂(π)−V(π))<sup>2</sup> | {c<sub>t</sub>}]] ≤ E[⅟T<sup>2</sup> Σ<sub>t=1</sub><sup>T</sup> ⅟p<sub>t</sub>] ≤ ⅟T E<sub>c~ν</sub>[⅟μ(π(c)|c)]</em><br><em><b>Bernstein's Inequality.</b> Let X<sub>1</sub>,…,X<sub>m</sub> be iid RV w/ ⅟m Σ<sub>i</sub>E[(X<sub>i</sub> − E[X])<sup>2</sup>] ≤ σ<sup>2</sup> and |X<sub>i</sub>| ≤ B. Then |⅟m Σ<sub>i</sub>X<sub>i</sub> − E[X]| ≤ √(2σ<sup>2</sup>log(2/δ)/m) + 2B log(2/δ)/(3m) w.p. ≥ 1−δ</em>", "one": "<b>一行算出方差：<code>(1/T)·E_{c~ν}[1/μ(π(c)|c)]</code>——「沿着目标策略走，日志策略有多不愿意走那条路」。而这个量的分布是<span class='w'>重尾</span>的（讲义画了一根贴着 0 的尖峰），所以用 Hoeffding 会浪费，必须用 Bernstein。</b>", "pts": ["<b>方差的推导只有三步，第一步是条件化。</b> <span class='k'>先对上下文序列 <code>{c_t}</code> 取条件，这样每一轮的随机性只剩「<code>μ</code> 抽了哪个动作」和噪声</span>；<b>给定 <code>c_t</code> 之后各轮独立，方差可加</b>，<span class='w'>于是 <code>Var(V̂) = (1/T²)Σ_t Var_t</code></span>。", "<b>第二步把单轮方差界成 <code>1/p_t</code>。</b> <code>E[(1{x=π(c)}y/p)²] = Σ_x μ(x|c)·1{x=π(c)}y²/μ(x|c)² = y²/μ(π(c)|c)</code>，<span class='k'>再用 <code>|y| ≤ 1</code></span>。<b>⚠ 注意这里 <code>μ</code> 只对消了<b>一次</b>——分母是平方的，抽样概率只有一次方</b>，<span class='w'>所以剩下 <code>1/μ</code> 而不是 1</span>。<b>这一处「平方分母只被对消一半」正是所有逆倾向方法方差爆炸的来源</b>。", "<b>第三步对 <code>c ~ ν</code> 取期望，得 <code>(1/T)E_{c~ν}[1/μ(π(c)|c)]</code>。</b> <span class='k'>这个量有个很直白的读法：<b>「沿着目标策略 <code>π</code> 走一遍，平均而言日志策略有多不愿意走那条路」</b></span>。<b><code>μ</code> 和 <code>π</code> 越像，它越接近 1；<code>μ</code> 在 <code>π</code> 的路上概率越小，它越大</b>；<span class='w'>⚠ 一旦某个上下文上 <code>μ(π(c)|c) = 0</code>，它就是 <b>+∞</b></span>。", "<b>讲义接着抄了 Bernstein 不等式——为什么不用更常见的 Hoeffding？</b> <span class='k'>Hoeffding 只认<b>取值范围</b> <code>B</code>，给 <code>B√(log(1/δ)/m)</code>；Bernstein 认<b>方差</b> <code>σ²</code>，给 <code>√(σ²log(1/δ)/m) + B log(1/δ)/m</code></span>。<b>关键是第二项里 <code>B</code> 除的是 <code>m</code> 而不是 <code>√m</code></b>。", "<b>这个差别在这里是生死攸关的，因为 <code>B</code> 大得荒谬而 <code>σ²</code> 不一定。</b> <span class='w'>单项的取值可以高到 <code>1/min_{c,x}μ(x|c)</code>（某个很小的倾向被抽中那一轮）</span>，<b>而方差只认<b>平均</b>的 <code>1/μ</code></b>。<span class='k'>⇒ 用 Hoeffding 的话，那个荒谬的 <code>B</code> 会以 <code>B/√T</code> 的速度进界，几乎没用；Bernstein 把它降到 <code>B/T</code>，于是主项由 <code>σ</code> 掌管</span>。", "<b>页末那张图正是在画这件事：一根贴着 0 的尖峰加一条贴着底的长尾。</b> <span class='k'>绝大多数轮次的重要性权重接近 0（<code>μ</code> 没走 <code>π</code> 的路，指示函数为 0），极少数轮次权重巨大</span>。<b>⚠ 这种分布的样本均值收敛得很慢，而且<b>看起来</b>很稳</b>——<span class='w'>如果那条长尾在你的样本里一次都没出现，你会得到一个方差极小但系统性偏低的估计</span>。<b>这是离线评估里最常见的自欺方式</b>。"], "eq": "E[(V̂(π) − V(π))²]\n  = E[ E[ (V̂−V)² | {c_t} ] ]                    ← 条件化：给定上下文后各轮独立\n  ≤ E[ ⅟T² Σ_t ⅟p_t ]                            ← 单轮二阶矩：y²/μ(π(c)|c)，|y| ≤ 1\n  ≤ ⅟T · E_{c~ν}[ ⅟μ(π(c)|c) ]\n            ╰─ 沿 π 走一遍，μ 有多不愿意走那条路 ─╯\n\n为什么分母只被对消一半：\n  E[(1{x=π(c)}·y/μ(x|c))²] = Σ_x μ(x|c) · 1{x=π(c)} y² / μ(x|c)²  =  y²/μ(π(c)|c)\n                              └一次方┘              └平方┘        └ 剩一次方 ┘", "tbl": {"head": ["", "Hoeffding", "Bernstein"], "rows": [["认哪个量", "取值范围 B", "方差 σ²（外加 B）"], ["主项", "B·√(2log(2/δ)/m)", "√(2σ²log(2/δ)/m)"], ["尾项", "无", "2B log(2/δ)/(3m) —— ⚠ 除以 m，不是 √m"], ["在这里为什么要用它", "B ≈ 1/min μ 荒谬地大，以 B/√m 进界 ⇒ 界几乎没用", "⭐ 把那个荒谬的 B 降到 B/m，主项交给平均的 1/μ"]]}, "say": "<b>补一处讲义画了图但没写字的：那根尖峰为什么是「最常见的自欺方式」？</b><br>重要性权重 <code>1{x_t=π(c_t)}/p_t</code> 的分布是<b>极度偏斜</b>的：<span class='k'>大部分轮次等于 0，少部分等于一个很大的数</span>。<b>于是样本方差这个<b>估计量本身</b>也是偏斜的</b>——<span class='w'>若那条长尾在你手上的 T 个样本里一次都没抽到，你算出的样本方差会远小于真方差，置信区间跟着缩窄</span>。<b>⇒ 你会同时得到「一个偏低的点估计」和「一个偏窄的置信区间」，两个错误<b>同向</b>叠加，看起来是一个漂亮的结果</b>。<span class='k'>所以 Bernstein 里那个 <code>B</code>（<b>最坏</b>倾向的倒数）必须按 <code>μ</code> 的<b>定义</b>算，而不能用样本里见到的最大权重去估</span>——<b>这是本页唯一一个不能偷懒的地方</b>。", "res": {"tag": "推断", "v": "<b><code>E_{c~ν}[1/μ(π(c)|c)]</code> 这个量直接告诉你简报 §4c 那个敏感度扫描该扫到什么程度。</b> <span class='k'>如果你在 <code>k</code> 个节点上各均匀随机两档，那么对一个确定性目标策略，<code>μ(π(c)|c) = 2^{−k}</code>，于是 <code>E[1/μ] = 2^k</code></span>——<b>方差 <code>≈ 2^k/T</code>，这正是简报 §4b 那条「<code>ESS = n·2^{−k}</code>」的另一种写法，两边对得上</b>。<b>⇒ 于是「只随机化 top-3~4 个节点」有了一个定量依据：<code>k=4</code> 时 <code>E[1/μ] = 16</code>，要把宽度压到 0.02 需要 <code>T ≳ 16·2log(2|Π|/δ)/0.02² ≈ 10⁵·log项</code>；<code>k=10</code> 时同样的宽度要 <code>64</code> 倍的样本</b>。<span class='w'>⚠ 这个算法假设了均匀随机化；按简报 §4c 把概率往「可能更好的档位」倾斜会降低 <code>E[1/μ]</code>（如果倾斜方向对）或抬高它（如果倾斜错了）</span>——<b>所以 <code>μ</code> 该怎么倾斜是一个要先用扫描数据定下来的设计选择，不是随手设的</b>。", "ref": "本讲 p12 · 简报 §4b（ESS = n·2^{−k}）· 简报 §4c（只保留 top k=3~4）"}},
+{"r": [13, 13], "t": "C_T(π)：一个逐策略的置信宽度；以及「离线挑策略」原来是一个加权分类问题", "star": 3, "quote": "<em><b>Corollary.</b> |V̂(π) − V(π)| ≤ √(2log(2|Π|/δ)·E[⅟μ(π(c)|c)]/T) + 2V̄ log(2|Π|/δ)/(3T)　w.p. ≥ 1−δ,　where V̄ = max<sub>c,x</sub> ⅟μ(x|c).　=: C<sub>T</sub>(π)</em><br><em>Uniform exploration: μ(x|c) = ⅟|𝒳| ⇒ E[⅟μ(·|c)] = |𝒳|,　V̄ = |𝒳|</em><br><em>⇒ |V̂(π) − V(π)| ≤ √(2log(2|Π|/δ)|𝒳|/T) + 2|𝒳|log(2|Π|/δ)/T ≤ √(4|𝒳|log(2|Π|/δ)/T)</em><br><em>π̂<sub>MLE</sub> = argmax<sub>π∈Π</sub> V̂(π) = argmax<sub>π</sub> ⅟T Σ<sub>t</sub> 1{π(c<sub>t</sub>) = x<sub>t</sub>}/p<sub>t</sub> · y<sub>t</sub></em><br><em>= argmax<sub>π</sub> ⅟T Σ<sub>t</sub> (1 − 1{π(c<sub>t</sub>) ≠ x<sub>t</sub>}) y<sub>t</sub>/p<sub>t</sub> = <b>argmin<sub>π∈Π</sub> ⅟T Σ<sub>t</sub> 1{π(c<sub>t</sub>) ≠ x<sub>t</sub>} y<sub>t</sub>/p<sub>t</sub></b></em>", "one": "<b>两件事都很重：① <code>C_T(π)</code> 是<span class='k'>逐策略</span>的宽度，不是一个统一的数——这件事下一页会被用来做悲观；② 把 <code>argmax V̂</code> 的式子翻一翻，它变成了一个<span class='w'>加权 0/1 分类</span>问题，于是你手上任何分类器都能拿来用。</b>", "pts": ["<b>Corollary 只是把 Bernstein 套进去，再对 <code>|Π|</code> 个策略做一次并集界。</b> <span class='k'><code>δ → δ/|Π|</code>，于是 <code>log(2/δ)</code> 变 <code>log(2|Π|/δ)</code></span>——<b>这就是「策略类只进 log」在离线这一侧的出处</b>。<span class='w'>⚠ 并集界要求 <code>Π</code> 是<b>事先</b>固定的；用数据挑完 <code>Π</code> 再套这个界是无效的</b></span>。", "<b>⚠ 式子里有<b>两个</b>关于倾向的量，混起来会把界算错一个数量级。</b> <span class='k'><code>E[1/μ(π(c)|c)]</code> 是<b>沿着 π 走</b>的平均，进<b>根号</b>项；<code>V̄ = max_{c,x} 1/μ(x|c)</code> 是<b>全表最坏</b>，进<b>线性</b>项</span>。<b>后者通常大得多，但它除的是 <code>T</code> 而不是 <code>√T</code></b>，<span class='w'>所以 <code>T</code> 够大时根号项主导，<code>T</code> 小的时候是 <code>V̄</code> 说话</b></span>。", "<b>均匀探索那个特例值得记住，因为它给出了这一整套方法的<b>速率</b>。</b> <code>μ = 1/|𝒳|</code> ⇒ <code>E[1/μ] = V̄ = |𝒳|</code> ⇒ <span class='k'><code>|V̂−V| ≤ √(4|𝒳|log(2|Π|/δ)/T)</code></span>。<b>⭐ 动作数 <code>|𝒳|</code> 一次方，策略类 <code>|Π|</code> 只进 log——和在线那边 <code>√(|𝒜|T log|Π|)</code> 是同一个形状</b>。", "<b>把它反过来读成样本量：要让宽度 <code>≤ ε</code>，需要 <code>T ≳ 4|𝒳|log(2|Π|/δ)/ε²</code>。</b> <span class='w'>策略类大一万倍，只多 <code>log(10⁴) ≈ 9.2</code> 的因子；动作多一倍，样本量直接翻倍</span>。<b>⇒ 预算该花在「减少动作」上，不是「缩小策略类」上</b>——<span class='k'>这个结论和直觉常常相反，值得单独记一笔</span>。", "<b>页下半那三行代数是全讲最实用的一招。</b> <code>argmax_π (1/T)Σ 1{π(c_t)=x_t}y_t/p_t</code>，<span class='k'>把指示函数写成 <code>1 − 1{π(c_t) ≠ x_t}</code></span>，<b>常数项 <code>(1/T)Σ y_t/p_t</code> 与 <code>π</code> 无关可以丢掉</b>，<span class='w'>于是 <code>argmax</code> 变成 <code>argmin_π (1/T)Σ 1{π(c_t) ≠ x_t}·y_t/p_t</code></b>。", "<b>这个形式的意义：它是一个<b>加权的 0/1 分类损失</b>。</b> <span class='k'>样本是 <code>(c_t, x_t)</code>，「正确标签」是日志实际走的那个动作 <code>x_t</code>，权重是 <code>y_t/p_t</code></span>；<b>你要找一个「分类器」<code>π</code>，让它尽量在<b>回报高、倾向低</b>的那些样本上同意日志的选择</b>。<span class='w'>⚠ 权重可以是负的（<code>y_t &lt; 0</code>），那时它会<b>推开</b>而不是靠近</b></span>——<b>这是它与普通分类唯一的结构差别</b>。"], "eq": "C_T(π) := √( 2log(2|Π|/δ) · E_{c~ν}[1/μ(π(c)|c)] / T )  +  2V̄ log(2|Π|/δ)/(3T)\n          ╰─ 沿 π 走的平均，进根号 ─╯                        ╰ 全表最坏，进线性 ╯\n\n均匀探索 μ = 1/|𝒳|：\n  C_T(π) ≤ √( 4 |𝒳| log(2|Π|/δ) / T )\n  反过来：要宽度 ≤ ε  ⇒  T ≳ 4|𝒳|log(2|Π|/δ)/ε²\n     策略类 ×10⁴ ⇒ 只多 log(10⁴) ≈ 9.2 倍      动作数 ×2 ⇒ 样本量 ×2\n\n离线挑策略 = 加权分类：\n  argmax_π ⅟T Σ_t 1{π(c_t)=x_t}·y_t/p_t\n   = argmax_π ⅟T Σ_t (1 − 1{π(c_t)≠x_t})·y_t/p_t      ← 常数项与 π 无关，丢掉\n   = argmin_π ⅟T Σ_t 1{π(c_t)≠x_t} · y_t/p_t\n                 ╰ 0/1 损失 ╯  ╰ 样本权重 ╯", "tbl": {"head": ["界里的量", "含义", "进哪一项", "怎么变小"], "rows": [["E_{c~ν}[1/μ(π(c)|c)]", "沿目标策略走，日志有多不愿意走", "根号项（主项）", "让 μ 更像 π —— 但 π 是未知的，所以只能靠覆盖广"], ["V̄ = max_{c,x} 1/μ(x|c)", "全表最小倾向的倒数（最坏情形）", "线性项（T 小时主导）", "给 μ 设一个概率下限，别让任何动作的倾向过小"], ["log(2|Π|/δ)", "对 Π 做并集界的代价", "两项都有", "⚠ 几乎不必管 —— 它只进 log"], ["|𝒳|", "动作数（均匀探索时 E[1/μ] = V̄ = |𝒳|）", "两项都有", "⭐ 真正要压的就是这个 —— 一次方"]]}, "say": "<b>补一处讲义没点明、但不说会读漏的：为什么 <code>C_T(π)</code> 写成<b>逐策略</b>的函数，而不是一个统一的数？</b><br>因为根号项里的 <code>E[1/μ(π(c)|c)]</code> <b>依赖 <code>π</code></b>。<span class='k'>日志策略 <code>μ</code> 覆盖得好的那些策略，宽度小；覆盖得差的，宽度大，甚至无穷</span>。<b>⇒ 同一份数据，对不同策略的「可信程度」差别可以极大</b>。<span class='w'>⚠ 而这正是下一页「悲观」能赢的全部原因</span>：<b>如果你只拿一个统一的宽度 <code>max_π C_T(π)</code>，那么悲观与直接 argmax 的保证一模一样，一点好处也没有</b>。<span class='k'>悲观买到的东西，恰恰来自「宽度是逐策略不同的」这件事</span>——<b>它把「我对这个策略有多没把握」当成了一个可以权衡的代价，而不是一个统一的安全边际</b>。", "res": {"tag": "推断", "v": "<b>两条可以直接写进你实验设计的话。</b> <b>① 样本量公式给你一个可报的数</b>：<span class='k'>按简报 §4c 随机化 <code>k=4</code> 个节点、每节点两档 ⇒ 有效「动作数」<code>2⁴ = 16</code>，策略类取「按难度三档」<code>|Π| = 2^{30}</code>（<code>log|Π| ≈ 21</code>）⇒ 要 <code>ε = 0.02</code> 的宽度需 <code>T ≳ 4·16·(21+log(2/δ))/0.0004 ≈ 4×10⁶</code></span>——<b>⚠ 这个数说明<b>纯 IPS 在你的预算下不可行</b>，而这恰恰是简报 §4d「穷举 oracle 碾压任何估计量」的量化支撑</b>。<b>② 加权分类那个等价式，是你真正该实现的东西</b>：<span class='w'>不要去写一个「估计 V̂ 再 argmax」的循环（<code>|Π|</code> 太大）</span>，<b>而是把日志变成一个带权分类数据集 <code>(c_t, x_t, w_t = y_t/p_t)</code>，扔给现成的分类器</b>。<span class='k'>这同时解释了 p14 为什么突然去讲 softmax —— 它在交代「这一步用你已有的工具就行」</span>。", "ref": "本讲 p13 · 简报 §4c · 简报 §4d（穷举 oracle 当 ground truth）"}},
+{"r": [14, 14], "t": "归约到分类：用现成的 softmax 交叉熵去解它；再把 MLE 的保证推一遍", "star": 2, "quote": "<em>Consider generic machine learning problem {(x<sub>i</sub>,y<sub>i</sub>)}<sub>i=1</sub><sup>n</sup>, x<sub>i</sub> ∈ ℝ<sup>d</sup>, y<sub>i</sub> ∈ [k]. Find a classifier that predicts y<sub>i</sub> from x<sub>i</sub>. E.g., find a classifier that minimizes <b>⅟n Σ<sub>i</sub> 1{h(x<sub>i</sub>) ≠ y<sub>i</sub>}</b></em><br><em>≈ ⅟n Σ<sub>i=1</sub><sup>n</sup> −log( exp([f<sub>θ</sub>(x<sub>i</sub>)]<sub>y<sub>i</sub></sub>) / Σ<sub>k</sub> exp([f<sub>θ</sub>(x<sub>i</sub>)]<sub>k</sub>) )　f<sub>θ</sub>: ℝ<sup>d</sup> → ℝ<sup>k</sup></em><br><em>Prediction P(y=j|x) = exp([f<sub>θ</sub>(x)]<sub>j</sub>)/Σ<sub>k</sub>exp([f<sub>θ</sub>(x)]<sub>k</sub>)</em><br><em>V(π̂<sub>MLE</sub>) = V̂(π̂<sub>MLE</sub>) + V(π̂<sub>MLE</sub>) − V̂(π̂<sub>MLE</sub>) ≥ V̂(π̂<sub>MLE</sub>) − C<sub>T</sub>(π̂<sub>MLE</sub>) ≥ V̂(π̄<sub>*</sub>) − C<sub>T</sub>(π̂<sub>MLE</sub>)</em>", "one": "<b>上半页在说一句很朴素但很重要的话：上一页那个加权 0/1 损失，和你平时训分类器时最小化的东西<span class='k'>是同一个东西</span>，所以直接用交叉熵的替代损失去优化它。下半页开始走「加减同一项」的标准三步，给 <code>π̂_MLE</code> 一个保证。</b>", "pts": ["<b>上半页乍看像离题的机器学习复习，其实是在交代「这一步不需要新算法」。</b> <span class='k'>离线挑策略 = <code>argmin_π Σ_t 1{π(c_t)≠x_t}w_t</code>，而这正是<b>带权的多类分类</b></span>；<b>0/1 损失不可微，于是照老规矩换成 softmax 交叉熵这个替代损失</b>，<span class='w'><code>f_θ: ℝ^d → ℝ^k</code> 打分，softmax 归一</b></span>。", "<b>⚠ 这里有一个讲义没说、但实现时一定撞上的落差：替代损失优化的不是原目标。</b> <span class='k'>交叉熵是 0/1 的上界替代，两者的 <code>argmin</code> 一般<b>不相同</b></span>；<b>而前面那套保证（<code>C_T(π)</code>、并集界）是对<b>精确</b> <code>argmax V̂</code> 证的</b>。<span class='w'>⇒ 你用分类器求出来的 <code>π̂</code> 严格说不满足那个保证，中间差一个「优化误差」</b></span>。<b>这是理论与实现之间一道真实的缝，论文里该明说而不是含糊过去</b>。", "<b>下半页的三步是 CSE541 里反复出现的同一个套路：加减同一项。</b> <code>V(π̂) = V̂(π̂) + [V(π̂) − V̂(π̂)]</code>，<span class='k'>方括号里那一项用 <code>C_T</code> 界住</span>，<b>于是 <code>V(π̂) ≥ V̂(π̂) − C_T(π̂)</code></b>。<span class='w'>⚠ 这一步要求 <code>C_T</code> 对 <code>π̂</code> 也成立，而 <code>π̂</code> 是用数据挑出来的</b></span>——<b>所以上一页那个<b>并集界</b>是必需的，不是为了好看</b>。", "<b>第二步用 <code>π̂_MLE</code> 的定义：它最大化 <code>V̂</code>，所以 <code>V̂(π̂_MLE) ≥ V̂(π_*)</code>，其中 <code>π_*</code> 是真正最优的那个策略。</b> <span class='k'>这是唯一用到「<code>π̂</code> 是 argmax」的地方</span>，<b>而下一页的悲观原则改的正是这一步</b>。", "<b>第三步再对 <code>π_*</code> 用一次置信界：<code>V̂(π_*) ≥ V(π_*) − C_T(π_*)</code>。</b> <span class='w'>三步串起来：<code>V(π̂_MLE) ≥ V(π_*) − C_T(π_*) − C_T(π̂_MLE)</code></span>，<b>而 <code>π̂_MLE</code> 是谁你事先不知道，只能放成最坏的：<code>≥ V(π_*) − 2max_{π∈Π}C_T(π)</code></b>。", "<b>⭐ 盯住最后这个 <code>max_π</code>，它是全讲的转折点。</b> <span class='k'>你付的代价由<b>策略类里最难评估的那个策略</b>决定，而那个策略你可能根本不想要</b></span>。<b>只要 <code>Π</code> 里有<b>一个</b>策略被日志覆盖得极差（<code>E[1/μ]</code> 巨大），<code>max_π C_T(π)</code> 就爆掉，整个保证变成废话</b>——<span class='w'>哪怕 <code>π_*</code> 本身被覆盖得很好</span>。"], "eq": "归约：argmin_π ⅟T Σ_t 1{π(c_t) ≠ x_t} · (y_t/p_t)\n        = 带权多类分类，样本 (c_t, x_t)，权 w_t = y_t/p_t\n        ⇒ 0/1 不可微，换 softmax 交叉熵替代损失\n        ⚠ 替代损失的 argmin ≠ 原目标的 argmin，差一个「优化误差」\n\nMLE 的保证（加减同一项，三步）：\n  V(π̂)  = V̂(π̂) + [ V(π̂) − V̂(π̂) ]\n        ≥ V̂(π̂) − C_T(π̂)                      ① 置信界（需并集界，因为 π̂ 由数据挑）\n        ≥ V̂(π_*) − C_T(π̂)                     ② π̂ = argmax V̂ 的定义\n        ≥ V(π_*) − C_T(π_*) − C_T(π̂)          ③ 再用一次置信界\n        ≥ V(π_*) − 2·max_{π∈Π} C_T(π)         ④ π̂ 事先未知，只能放成最坏\n                      ╰── ⚠ 由「最难评估的那个策略」决定 ──╯", "tbl": {"head": ["这一步", "用掉了什么", "⚠ 代价 / 隐患"], "rows": [["① V(π̂) ≥ V̂(π̂) − C_T(π̂)", "对 Π 的并集界", "log|Π| 的因子 —— 便宜"], ["② V̂(π̂) ≥ V̂(π_*)", "π̂ 是 V̂ 的 argmax", "⭐ 下一页悲观原则改的就是这一步"], ["③ V̂(π_*) ≥ V(π_*) − C_T(π_*)", "再一次置信界", "无额外代价（π_* 是固定的）"], ["④ 放成 max_π C_T(π)", "π̂ 的身份事先未知", "⚠ 致命 —— Π 里有一个难评估的策略就爆掉"]]}, "say": "<b>补一处讲义只画了等号、但值得想清楚的：为什么要写成 <code>V = V̂ + (V − V̂)</code> 这种看起来多余的形式？</b><br>因为你有<b>两样</b>东西：一个<b>能算</b>的量 <code>V̂</code>，和一个<b>能界</b>的差 <code>V − V̂</code>。<span class='k'>目标 <code>V</code> 两者都不是，所以要把它拆成「能算的」加「能界的」</span>。<b>这套「加减同一项」在 CSE541 里出现过至少三次</b>：<span class='w'>L07 p3 的 simple regret 分解 <code>(x_*−x̂)ᵀθ_* = (x_*−x̂)ᵀθ̂ + (x_*−x̂)ᵀ(θ_*−θ̂)</code>（第一项 ≤ 0 因为 x̂ 是 argmax，第二项用置信界）</span>，<b>和这一页逐字同构</b>。<span class='k'>⇒ 值得当成一个固定招式记住：<b>凡是「我挑了一个最大化估计量的东西，想说它的真值也不差」，就是这三步</b></span>。", "link": {"t": "你学过的对应：CSE 541 L07 线性 bandit 与实验设计（p3 的 simple regret 分解与这一页逐字同构：都是「加减同一项」，一半靠 argmax 的定义给出 ≤ 0，另一半靠置信界。认出这个招式之后，这类证明就不必再推了）", "href": "L07-精读.html"}, "res": {"tag": "推断", "v": "<b>第 ④ 步那个 <code>max_π C_T(π)</code> 对你是一条硬警告：策略类里<b>不许</b>塞进日志覆盖不到的策略。</b> <span class='k'>按简报 §4c，你只在 top-3~4 个敏感节点上随机化，其余节点<b>钉死</b></span>；<b>那么任何「在被钉死的节点上换档位」的策略，<code>μ(π(c)|c) = 0</code>、<code>C_T(π) = ∞</code>，<span class='w'>只要它在 <code>Π</code> 里，MLE 的保证就直接失效</span></b>。<b>⇒ <code>Π</code> 的定义必须和 <code>μ</code> 的随机化范围<b>严格对齐</b>：只在随机化过的那几个节点上变化</b>。⚠ <b>这一条很容易在实现里违反</b>——<span class='k'>写策略类时自然会写成「所有 <code>2^H</code> 个配置」，而随机化只做了 4 个节点</span>，<b>于是理论保证在第一行就没了，而代码跑起来一点报错都不会有</b>。", "ref": "本讲 p14 第 ④ 步 · 简报 §4c（其余节点按扫描结果钉死）"}},
+{"r": [15, 15], "t": "悲观原则：把置信宽度减进目标里，代价就从「最坏策略」变成「最优策略」", "star": 3, "quote": "<em>≥ V(π̄<sub>*</sub>) − C<sub>T</sub>(π̄<sub>*</sub>) − C<sub>T</sub>(π̂<sub>MLE</sub>) ≥ V(π<sub>*</sub>) − max<sub>π∈Π</sub> 2C(π)</em><br><em><b>Principle of Pessimism</b></em><br><em>π̂<sub>pes</sub> = argmax<sub>π∈Π</sub> V̂(π) − C<sub>T</sub>(π)</em><br><em>V(π̂<sub>pes</sub>) = V̂(π̂<sub>pes</sub>) + V(π̂<sub>pes</sub>) − V̂(π̂<sub>pes</sub>) ≥ V̂(π̂<sub>pes</sub>) − C<sub>T</sub>(π̂<sub>pes</sub>) ≥ V̂(π<sub>*</sub>) − C<sub>T</sub>(π<sub>*</sub>) ≥ V(π<sub>*</sub>) − 2C<sub>T</sub>(π<sub>*</sub>)</em>", "one": "<b>改动只有一处：选的时候把宽度<span class='k'>减掉</span>。证明几乎逐行照抄，唯独第二步变了——<code>π̂_pes</code> 最大化的是 <code>V̂ − C_T</code>，于是那一步直接带出 <code>V̂(π_*) − C_T(π_*)</code>，<code>max_π</code> 再也不出现。代价从<span class='w'>最难评估的策略</span>变成<span class='k'>最优策略本身</span>。</b>", "pts": ["<b>算法的改动只有一处：<code>π̂_pes = argmax_π V̂(π) − C_T(π)</code>。</b> <span class='k'>不选「估计值最高的」，选「<b>保守估计</b>最高的」</span>。<b>一个被日志覆盖得差的策略，即使 <code>V̂</code> 很高，减掉它那个很宽的 <code>C_T</code> 之后也排不上去</b>。", "<b>证明的前三步与上一页逐字相同，变的只有第二步。</b> <span class='w'>上一页：<code>V̂(π̂) ≥ V̂(π_*)</code>（用 argmax <code>V̂</code>）</span>；<b>这一页：<code>V̂(π̂_pes) − C_T(π̂_pes) ≥ V̂(π_*) − C_T(π_*)</code>（用 argmax <code>V̂ − C_T</code>）</b>。<span class='k'>⇒ 右边自带一个 <code>−C_T(π_*)</code>，它<b>正好</b>是你想要的那一项，而不是一个需要放大的未知量</b></span>。", "<b>于是结论是 <code>V(π̂_pes) ≥ V(π_*) − 2C_T(π_*)</code>。</b> <span class='w'>与 MLE 的 <code>V(π_*) − 2max_π C_T(π)</code> 相比，<code>max_π</code> 消失了</span>。<b>⭐ 这是悲观买到的<b>全部</b>东西，但它够大：只要日志覆盖了 <code>π_*</code>，保证就成立，<span class='k'><code>Π</code> 里有多少个覆盖极差的策略都<b>无所谓</b></span></b>。", "<b>反过来说也要讲清楚，否则会把悲观当万灵药：它<b>不能</b>让你评估一个没覆盖的策略。</b> <span class='w'>如果 <code>π_*</code> 本身就没被 <code>μ</code> 覆盖，<code>C_T(π_*) = ∞</code>，两种办法一样完蛋</span>。<b>悲观解决的是「别被坏覆盖的策略骗走」，不是「从没有信息的地方榨出信息」</b>。", "<b>页末那张图把机制画得很清楚，值得逐笔看。</b> <span class='k'>黑线是真实的 <code>f(x)</code>；红线是估计 <code>f̂(x)</code>，在某些点上有尖锐的高峰（那些点样本少）；蓝虚线是上置信带 <code>f̂(x) + c(x)</code></span>。<b>直接取 <code>argmax f̂</code> 会跳到那根红色尖峰上（图里用黑点标出）</b>，<span class='w'>而取 <code>argmax (f̂ − c)</code> 会落在一个估计不那么高、但置信带窄的地方（紫点）</b></span>。", "<b>⚠ 和在线算法的直觉<b>正好相反</b>，这一点不说清楚会一直别扭。</b> <span class='k'>在线用<b>乐观</b>（UCB：<code>argmax f̂ + c</code>），因为猜错了下一轮还能纠正，而且「去没测过的地方」本身有信息价值</span>；<b>离线必须<b>悲观</b>，因为你只有一次输出机会、没有纠正的轮次，不确定性是纯风险不是机会</b>。<span class='w'>⇒ 同一个 <code>c(x)</code>，在线加、离线减</span>。"], "eq": "MLE：      π̂_MLE = argmax_π V̂(π)\n           V(π̂_MLE) ≥ V(π_*) − 2·max_{π∈Π} C_T(π)     ← 由最难评估的策略决定\n\n悲观：     π̂_pes = argmax_π [ V̂(π) − C_T(π) ]\n           V(π̂_pes) = V̂(π̂_pes) + [V(π̂_pes) − V̂(π̂_pes)]\n                    ≥ V̂(π̂_pes) − C_T(π̂_pes)\n                    ≥ V̂(π_*)  − C_T(π_*)                ← ⭐ 变的就是这一步\n                    ≥ V(π_*)  − 2 C_T(π_*)              ← 只看最优策略处的宽度\n\n在线 vs 离线，同一个 c(x)：\n  在线（UCB）  argmax f̂(x) + c(x)      不确定性是机会（下一轮能纠正）\n  离线（悲观） argmax f̂(x) − c(x)      不确定性是风险（只有一次输出）", "tbl": {"head": ["", "π̂_MLE = argmax V̂", "π̂_pes = argmax (V̂ − C_T)"], "rows": [["保证", "V(π_*) − 2·max_{π∈Π}C_T(π)", "V(π_*) − 2·C_T(π_*)"], ["谁决定代价", "Π 里最难评估的那个策略", "⭐ 只有最优策略 π_* 本身"], ["Π 里塞一个没覆盖的策略", "⚠ 保证直接失效", "✓ 毫无影响 —— 它会被自己的宽度压下去"], ["π_* 自己没被覆盖", "⚠ 完蛋", "⚠ 一样完蛋 —— 悲观不造信息"], ["要算什么额外的量", "只要 V̂", "还要逐策略的 C_T(π)，即 E[1/μ(π(c)|c)]"]]}, "tip": {"t": "⚠ 方向相反", "v": "<b>在线加置信宽度，离线减置信宽度。</b> UCB 之所以乐观，是因为「去没测过的地方」有信息价值、而且猜错下一轮能纠正；离线只有一次输出机会，不确定性是纯风险。<b>把这两件事记成「同一个 c(x)，符号不同」最省脑子</b>，也最不容易在写代码时搞反。", "w": 1}, "res": {"tag": "推断", "v": "<b>这一页给你的不是一个算法，是对 AFlow 选择规则的一条<b>有定理撑着</b>的批评，以及一个现成的替代。</b> <span class='k'>简报 §2【已核】：AFlow 的选择是「把已评估的 workflow 按分数排序取 top-k（k=3），再按 softmax 采样」—— 这是 <code>argmax V̂</code> 那一类，<b>没有任何宽度修正</b></span>；<b>而每个 workflow 的分数是在 <code>D_V</code> 上跑 5 次得来的【已核，§3】，<span class='w'>5 次的标准误差不小，且<b>各 workflow 的样本量相同但方差不同</b></span>（难 query 上的方差大得多）</b>。<b>⇒ 按本页的推理，AFlow 的 top-k 系统性地偏向「方差大、碰巧跑高」的那些 workflow</b>。<b>替代方案是现成的：把选择规则改成 <code>argmax (score − c·se)</code></b>，<span class='k'>而 <code>se</code> 它<b>已经在算了</b>（5 次重复），只是没用</span>。⚠ <b>这条要当作可检验的假设而不是结论来写</b>——<span class='w'>必须实测：按 <code>score − c·se</code> 重选，最终 workflow 的留出集表现是不是真的更好</span>。<b>这是一个成本很低、而且与 AFlow 原作者的代码改动量极小的实验</b>。", "ref": "本讲 p15 · 简报 §2（Algorithm 1 的 top-k + softmax 选择）· 简报 §3（Executor 在 D_V 上跑 5 次）"}},
+{"r": [16, 16], "t": "优化者的诅咒：argmax 一个有噪声的估计，估计值会系统性虚高", "star": 3, "quote": "<em>x̂ = argmax<sub>x</sub> f̂(x)</em><br><em>E[f(x̂)] ≤ max<sub>x</sub> f(x)</em><br><em>E[f̂(x̂)] ≫ max<sub>x</sub> f(x)</em><br><em>(图) 纵轴 V(π)，横轴 Π：一条上包络线与一片散点</em>", "one": "<b>三行式子说完一件事：你挑出来的那个东西，<span class='k'>真值不如你以为的好</span>（第二行），而<span class='w'>你报出的数比真正的最优还高</span>（第三行）。前者是难免的，后者是一个会让你把结论写错的偏差。</b>", "pts": ["<b>第二行 <code>E[f(x̂)] ≤ max_x f(x)</code> 是平凡的：<code>f(x̂)</code> 对任何 <code>x̂</code> 都不超过 <code>max f</code>。</b> <span class='k'>它的内容是「你挑出来的东西的<b>真值</b>，平均而言不如真正的最优」</span>——<b>这叫选择的代价，是你为「不知道 <code>f</code>」付的钱，无法消除</b>。", "<b>第三行才是要命的：<code>E[f̂(x̂)] ≫ max_x f(x)</code>。</b> <span class='w'>你<b>报出</b>的那个数，期望上不仅高于 <code>f(x̂)</code>，还高于<b>真正的最优值</b></span>。<b>机制很简单：<code>argmax</code> 会挑中那些「真值一般、但这次噪声往上偏」的点</b>，<span class='k'>候选越多，这种「幸运的噪声」越容易出现，虚高越严重</span>。", "<b>这就是优化者的诅咒（optimizer's curse），也叫胜者的诅咒。</b> <b>它和过拟合是同一件事的两种说法</b>：<span class='w'>在同一批数据上<b>选</b>模型，又在同一批数据上<b>报</b>它的分数</span>。<b>⚠ 注意它是一个<b>偏差</b>，不是方差——加大样本会减小它，但不会改变它的符号</b>。", "<b>页末那张图把「候选越多越严重」画了出来：横轴是策略类 <code>Π</code>，纵轴是 <code>V(π)</code>，一片散点加一条上包络。</b> <span class='k'>散点是各策略的真值，上包络是各策略的<b>估计</b>的最大值</span>；<b>包络线随 <code>|Π|</code> 增大而抬高，而真值的最大值不会</b>。<span class='w'>⇒ 两者的缝隙就是虚高的量</span>。", "<b>修法有两类，而它们不是一回事。</b> <span class='k'>① <b>换数据</b>：在留出集上重新评估选出的那一个 —— 这<b>完全</b>消除虚高（选与报用了独立的数据），代价是要留出样本；② <b>修正目标</b>：悲观（p15），在选择时就减掉宽度</span>。<b>⚠ ② 让<b>选择</b>更稳健，但它<b>不</b>自动给出一个无偏的报告值</b>——<span class='w'>要报数还是得靠 ①</span>。", "<b>所以这两页合起来是一条完整的操作规程，而不是两个技巧。</b> <b><span class='k'>用悲观去<b>选</b>，用独立的留出集去<b>报</b></span></b>；<span class='w'>⚠ 只做前者会得到一个虚高的数字，只做后者会在选择阶段就被坏覆盖的策略骗走</span>。<b>两件事缺一不可，而且顺序不能换</b>。"], "eq": "x̂ = argmax_x f̂(x)\n\n  E[ f(x̂) ]  ≤  max_x f(x)        ← 平凡：选择的代价，无法消除\n  E[ f̂(x̂) ]  ≫  max_x f(x)        ← ⚠ 优化者的诅咒：报出的数比真正的最优还高\n\n机制：argmax 偏爱「真值一般、这次噪声往上偏」的点；候选越多越严重\n     ⇒ 和过拟合是同一件事：在同一批数据上既「选」又「报」\n\n两类修法（不是一回事）：\n  ① 换数据：留出集上重评选出的那一个   → 完全消除虚高，能用来报数\n  ② 修正目标：悲观 argmax(V̂ − C_T)     → 让选择稳健，但不自动给无偏的报告值\n  ⇒ 用 ② 选，用 ① 报。顺序不能换，缺一不可。", "tbl": {"head": ["现象", "式子", "性质", "怎么办"], "rows": [["选出来的真值不如最优", "E[f(x̂)] ≤ max f", "选择的代价，无法消除", "扩大样本 / 缩小候选集"], ["报出的数虚高", "E[f̂(x̂)] ≫ max f", "⚠ 偏差，符号固定向上", "⭐ 在独立留出集上重评"], ["候选越多虚高越严重", "上包络随 |Π| 抬高", "与 log|Π| 同源", "悲观（选择端）+ 留出（报告端）"]]}, "say": "<b>补一个讲义没写、但一算就记牢的数值例子。</b><br>设 <code>m</code> 个候选的真值<b>完全相同</b>（都等于 0），估计误差 iid 标准正态。<span class='k'>那么 <code>max_i f̂_i</code> 的期望约为 <code>√(2 log m)</code></span>：<b><code>m = 10</code> 时约 1.5 个标准差，<code>m = 100</code> 时约 2.1，<code>m = 1000</code> 时约 2.6</b>。<span class='w'>⚠ 而真正的最优值是 0 —— 虚高的全部就是那 1.5~2.6 个标准差</span>。<b>⇒ 两条很实用的推论</b>：① <span class='k'>候选从 10 个加到 1000 个，虚高只从 1.5σ 涨到 2.6σ（<code>√log m</code> 很慢）</span>——<b>所以「候选太多」不是主要矛盾</b>；② <b><code>σ</code> 是线性进的</b>，<span class='w'>把每个候选的评估噪声减半，虚高就减半</span>。<b>⇒ 与其砍候选集，不如把每个候选评得准一点</b>——<span class='k'>而这正好也是 <code>√(|𝒳|log|Π|/T)</code> 那个速率在说的话：<code>|Π|</code> 进 log，样本量 <code>T</code> 进根号</span>。", "res": {"tag": "推断", "v": "<b>这一页给你一条几乎可以照抄的审稿人预案，而且它同时适用于<b>你自己</b>的实验。</b> <span class='k'>任何「搜了一大批 workflow，报告最好那个在验证集上的分数」的论文，报出来的数都带着 <code>≈σ√(2log m)</code> 的向上偏差</span>——<b>AFlow 的流程正是这样【已核，§3：Executor 在 <code>D_V</code> 上跑 5 次；§2：按分数排序取 top-k】</b>，<span class='w'>而 <code>m</code> 是它搜索过的 workflow 数</span>。<b>⇒ 两个动作</b>：① <b>对你自己的结果：选与报必须用<b>不同</b>的数据</b>，<span class='k'>这和简报 §4d 的穷举 oracle 配得很好 —— 用 200–300 条留出 query 建的那张精确表，天然就是独立的报告集</span>；② <b>对基线：复现 AFlow 时，把它选出的 workflow 在<b>新</b>留出集上重评一次</b>，<span class='w'>如果分数明显低于它论文里报的，那个差额就是这一页量化的偏差</span>——<b>这是一个很有说服力、成本又低的对照，而且它不需要质疑原作者的任何实现</b>。⚠ <b>务必把它写成「方法学差异」而不是「他们错了」</b>：<span class='k'>这个偏差是流程带来的，在当时的通行做法下不算疏漏</b>。", "ref": "本讲 p16 · 简报 §2（top-k 选择）· 简报 §3（D_V 上跑 5 次）· 简报 §4d（留出 query 的穷举 oracle）"}}
+];
+
+var TH = {"title": "L18 接上课题的哪一段：离线评估那一半，以及「选」与「报」必须分开", "arc": "<b>这一讲是全课里离你那条「拿现成日志评估没跑过的配置」最近的一讲，而且它同时给了三样东西：一个否决、一个速率、一条可以反打基线的批评。</b><br><br><span class='w'><b>一、否决（p11–p12）。</b></span> 你简报 §4a 的结论是「现有日志做不了 IS —— 不是方差大，是估计量不存在」。<b>这一讲把它写成了一行式子</b>：<code>V̂(π) = (1/T)Σ_t 1{x_t = π(c_t)}/p_t · y_t</code>，<span class='k'>确定性日志下那个指示函数只在「目标策略恰好等于日志策略」时非零</span>。<b>方差界 <code>(1/T)E_{c~ν}[1/μ(π(c)|c)]</code> 则给出同一件事的定量版本</b>：<span class='w'>某个上下文上 <code>μ(π(c)|c) = 0</code> ⇒ 这个量是 <b>+∞</b></span>。<b>⇒ 要做任何离线评估，执行器必须先改三处：① 动作按一个<b>随机</b>策略 <code>μ</code> 抽；② <code>p_t = μ(x_t|c_t)</code> <b>当场</b>写进日志；③ <code>μ</code> 的定义本身要存档。</b><span class='k'>第 ③ 条简报里没写但一样是硬的 —— 没有 <code>μ</code> 的定义，连「覆盖了哪些配置」都说不清，更算不出 <code>E[1/μ]</code>。</span><br><br><span class='k'><b>二、速率（p13）。</b></span> <b><code>|V̂(π) − V(π)| ≤ √(4|𝒳|log(2|Π|/δ)/T)</code></b>（均匀探索下）。<span class='w'>动作数 <code>|𝒳|</code> 一次方，策略类 <code>|Π|</code> 只进 log</span>。<b>反过来读成样本量：<code>T ≳ 4|𝒳|log(2|Π|/δ)/ε²</code></b>。<span class='k'>按简报 §4c 随机化 <code>k=4</code> 个节点、每节点两档 ⇒ 有效动作数 16；策略类取「按难度三档」<code>log|Π| ≈ 21</code> ⇒ 要 <code>ε = 0.02</code> 的宽度需 <code>T ≈ 4×10⁶</code></span>。<b>⚠ 这个数说明纯 IPS 在你的预算下不可行 —— 而这正是简报 §4d「穷举 oracle 碾压任何估计量」的量化支撑。</b><span class='w'>⇒ 这一讲最大的用处可能不是「教你做 OPE」，而是让你能在论文里<b>有根据地</b>说明为什么不做 OPE 而去穷举。</span><br><br><span class='k'><b>三、可以反打基线的批评（p15–p16）。</b></span> <b>优化者的诅咒</b>：<code>x̂ = argmax f̂(x)</code> ⇒ <code>E[f̂(x̂)] ≫ max_x f(x)</code>。<span class='w'>而简报 §2【已核】记着 AFlow 的选择规则就是「按分数排序取 top-k、再 softmax 采样」，§3【已核】记着每个 workflow 的分数是在 <code>D_V</code> 上跑 5 次得来的</span>——<b>5 次的标准误差不小，而且各 workflow 的样本量相同但<b>方差不同</b>（难 query 上方差大得多）</b>。<b>⇒ 它的 top-k 系统性地偏向「方差大、碰巧跑高」的那些 workflow。</b><span class='k'>替代是现成的：把选择规则改成 <code>argmax (score − c·se)</code>，而 <code>se</code> 它已经在算了（5 次重复），只是没用。</span><br><br><b>⭐ 而整讲最该带走的一条操作规程只有一句：<span class='k'>用悲观去「选」，用独立的留出集去「报」</span>。</b><span class='w'>只做前者会得到一个虚高的数字，只做后者会在选择阶段就被坏覆盖的策略骗走。两件事缺一不可，顺序不能换。</span><br><br><b>另外，前十页（在线那一半）给的是一个<b>形式化上的硬约束</b>，比它的算法更有用。</b><span class='k'>遗憾 <code>√(12·|𝒜|·T·log|Π|)</code> ——动作数一次方、策略类只进 log，而 p10 的下界 <code>min_λ max_i ≥ d</code> 是<b>无条件</b>的</span>。<b>⇒ 若把「动作」定义成<b>整条配置</b>（<code>d = k^H</code>），任何 model-free 路线都要为 <code>√(k^H·T)</code> 买单，直接不可行；必须把动作定义在<b>节点级</b>（<code>d = k</code>），把组合结构推进策略类 <code>Π</code> 里去</b>。<span class='w'>同一个问题，组合性放在动作上不可行、放在策略类上可行 —— 这是「怎么形式化」的硬约束，不是调参建议。</span>", "pitfalls": [{"v": "<b>⚠ 记号在这一讲里换了两次，<code>d</code> 和 <code>n</code> 都换了含义。</b> <span class='k'>p1–p4：<code>n</code> = 臂数 <code>|𝒳|</code>，<code>d</code> = 向量空间维数；p7–p10：<code>n</code> = 策略数 <code>|Π|</code>，<code>d</code> = 动作数 <code>|𝒜|</code></span>（讲义 p7 页边用一行小字写着 <code>d → actions, n → policies</code>）。<b>于是同一个结论 <code>√(12dT log n)</code> 在两段里读法完全不同</b>。<span class='w'>另外 p11 起 <code>p_t</code> 从「策略分布向量」变成了「倾向分数标量」</span>。<b>引用这一讲的任何公式前，先确认自己在哪一段。</b>", "tag": "已核", "ref": "本讲 p7 页边批注 · p1 与 p7 的两版 Theorem 17"}, {"v": "<b>⚠ 「倾向分数」不是被抽中那个策略给动作的概率，而是算法整体走出这个动作的<b>混合</b>概率。</b> <code>Σ_k q_{t,k}π_k(a_t|c_t)</code>，<span class='k'>而不是 <code>π_{I_t}(a_t|c_t)</code></span>。<b>p8 的无偏性证明之所以成立，全靠这个分母与 <code>P(a_t = j)</code> 逐字相同</b>。<span class='w'>两者在「多个策略会走同一动作」时差别巨大，而那在 workflow 场景里是常态</b></span>（<b>大多数配置在大多数节点上相同，只在少数节点分叉</b>）。<b>⇒ 日志里要存的不是一个数，而是「这一轮的 <code>q_t</code> 与各 <code>π_k(·|c_t)</code> 足以重算出那个混合概率」</b>。<span class='k'>副作用：倾向依赖于当时的<b>整个候选集合</b>，事后往 <code>Π</code> 里加策略，旧日志的倾向就不再对得上。</span>", "tag": "已核", "ref": "本讲 p7–p8（混合倾向与 P(a_t=j) = Σ_s π_s(j|c_t)q_{t,s}）"}, {"v": "<b>⚠ 策略类 <code>Π</code> 必须与随机化范围严格对齐，否则 MLE 的保证在第一行就没了。</b> <span class='k'>MLE 的代价是 <code>2·max_{π∈Π}C_T(π)</code> —— 由<b>最难评估的那个策略</b>决定</span>；<b>按简报 §4c 你只在 top-3~4 个节点上随机化、其余钉死，那么任何「在被钉死的节点上换档位」的策略都有 <code>C_T(π) = ∞</code></b>，<span class='w'>只要它在 <code>Π</code> 里，整个保证失效 —— 哪怕 <code>π_*</code> 本身覆盖得很好</span>。<b>⚠ 这一条极易在实现里违反</b>：<span class='k'>写策略类时自然会写成「所有 <code>k^H</code> 个配置」，而随机化只做了 4 个节点</span>，<b>于是保证没了，而代码一点报错都不会有</b>。<span class='w'>（用悲观可以免掉这个 <code>max_π</code>，这也是选悲观的第二个理由。）</span>", "tag": "推断", "ref": "本讲 p14 第 ④ 步 · p15 · 简报 §4c"}, {"v": "<b>⚠ 在线加置信宽度，离线减置信宽度 —— 符号相反，写代码时最容易搞反。</b> <span class='k'>UCB 乐观，是因为「去没测过的地方」有信息价值、而且猜错下一轮能纠正；离线只有一次输出机会，不确定性是<b>纯风险</b></span>。<b>把它记成「同一个 <code>c(x)</code>，在线 <code>+</code>、离线 <code>−</code>」最省脑子。</b><span class='w'>⚠ 而你的课题<b>两种都要用</b>：自适应淘汰阶段是在线的（该乐观 / 该用随时有效的界，见 CSE541 L12），最终输出配置是离线的一次性决定（该悲观）</span>——<b>同一个项目里两个阶段符号相反，这是一处真实的混淆风险</b>。", "tag": "推断", "ref": "本讲 p15 的 tip · CSE541 L12 主线卡（随时有效的界）"}, {"v": "<b>⚠ <code>C_T(π)</code> 里有<b>两个</b>关于倾向的量，混起来会把样本量算错一个数量级。</b> <span class='k'><code>E_{c~ν}[1/μ(π(c)|c)]</code> 是<b>沿目标策略走</b>的平均，进<b>根号</b>项、以 <code>1/√T</code> 收敛；<code>V̄ = max_{c,x}1/μ(x|c)</code> 是<b>全表最坏</b>，进<b>线性</b>项、以 <code>1/T</code> 收敛</span>。<b>均匀探索是个特例（两者都等于 <code>|𝒳|</code>），所以从那个式子看不出区别</b>——<span class='w'>而你的 <code>μ</code> 一旦不均匀（简报 §4c 建议按扫描结果倾斜），两者会差很远</span>。<b>⇒ 报样本量时必须分别算。</b>", "tag": "已核", "ref": "本讲 p13 Corollary"}, {"v": "<b>⚠ 替代损失那一步有一道理论与实现之间的真缝，讲义没说。</b> <span class='k'>p13 把离线挑策略归约成加权 0/1 分类，p14 接着说「换成 softmax 交叉熵」—— 但交叉熵的 <code>argmin</code> 与 0/1 的 <code>argmin</code> 一般<b>不相同</b></span>，<b>而 <code>C_T(π)</code>、并集界那一整套保证是对<b>精确</b> <code>argmax V̂</code> 证的</b>。<span class='w'>⇒ 你用分类器求出来的 <code>π̂</code> 严格说不满足那个保证，中间差一个「优化误差」</span>。<b>论文里该明说而不是含糊过去</b>——<span class='k'>审稿人若懂这一块，这是他会问的第一个问题</span>。", "tag": "推断", "ref": "本讲 p13–p14（归约与替代损失）"}, {"v": "<b>⚠ 重尾会让你同时拿到「偏低的点估计」和「偏窄的置信区间」，两个错误同向叠加。</b> <span class='k'>重要性权重的分布极度偏斜：大部分轮次为 0，少部分很大（p12 页末那根贴着 0 的尖峰）</span>；<b>于是<b>样本方差这个估计量本身</b>也偏斜 —— 若那条长尾在你的 T 个样本里一次都没抽到，算出的样本方差远小于真方差</b>。<span class='w'>⇒ 结果看起来又准又稳，其实两头都错</span>。<b>所以 Bernstein 里那个 <code>B</code>（最坏倾向的倒数）必须按 <code>μ</code> 的<b>定义</b>算，不能用样本里见到的最大权重去估。</b>", "tag": "推断", "ref": "本讲 p12（方差界与页末的尖峰图）"}], "ammo": [{"q": "你为什么不做 off-policy evaluation，而要去穷举？那不是很笨吗？", "a": "<b>因为算过，而且差了两个数量级。</b> <span class='k'>IPS 的置信宽度是 <code>√(4|𝒳|log(2|Π|/δ)/T)</code>（CSE541 L18 p13）。在我的设定里随机化 4 个节点、每节点两档，有效动作数 16；策略类「按难度三档」<code>log|Π| ≈ 21</code></span>。<b>要把宽度压到 0.02，需要约 <code>4×10⁶</code> 条 query —— 而穷举 oracle 用 200–300 条留出 query、跨分支共享前缀，约 9000 次节点调用就能把精确表 <code>R(x, a_1..a_k)</code> 建出来，估计量方差<b>为零</b></b>。<span class='w'>⇒ 在我付得起的规模上，全因子实验碾压任何估计量</span>。<b>我把 IPS 那条路算到底，正是为了能有根据地说这句话</b>；<span class='k'>而且那张精确表同时充当独立的报告集，顺手解决了优化者的诅咒</span>。", "tag": "推断", "ref": "本讲 p13 · 简报 §4d（穷举 oracle）· 简报 §4b（ESS = n·2^{−k}）"}, {"q": "你的配置空间是组合的（k^H 个），上下文 bandit 那套理论怎么可能用得上？", "a": "<b>用得上，但前提是把组合性放在<b>策略类</b>里而不是放在<b>动作</b>里 —— 而这不是技巧，是一条硬约束。</b> <span class='k'>CSE541 L18 的遗憾是 <code>√(12·|𝒜|·T·log|Π|)</code>：<b>动作数一次方，策略类只进 log</b></span>。<b>若把「动作」定义成整条配置，<code>|𝒜| = k^H</code>，任何 model-free 路线都要为 <code>√(k^H T)</code> 买单，直接不可行</b>；<span class='w'>而把动作定义在<b>节点级</b>（<code>|𝒜| = k</code>，两三个档位），组合性进 <code>Π</code>，只付 <code>log|Π| = O(H log k)</code></span>。<b><code>H=10, k=2</code> 时 <code>log|Π| ≈ 21</code> —— 相对于忽略上下文只多约 4.6 倍的根号因子</b>。<b>而且这不是我挑的最优写法：p10 证了 <code>min_λ max_i ≥ d</code> 是<b>无条件</b>的下界</b>，<span class='k'>也就是说「探索开销正比于动作数」没法靠设计绕开，所以动作必须定义在节点级</span>。", "tag": "推断", "ref": "本讲 p6 三行对照 · p7 页边（d→actions, n→policies）· p10 的无条件下界"}, {"q": "AFlow 报告的最佳 workflow 分数，你凭什么说它虚高？", "a": "<b>凭一个有定理撑着的机制，而且两边的事实都核过。</b> <span class='k'>AFlow 的选择规则是「把已评估的 workflow 按分数排序取 top-k（k=3），再按 softmax 采样」【已核，Algorithm 1】；每个 workflow 的分数是在 <code>D_V</code> 上跑 5 次得来的【已核，§4 + Appendix D】</span>。<b>CSE541 L18 p16：<code>x̂ = argmax f̂(x)</code> ⇒ <code>E[f̂(x̂)] ≫ max_x f(x)</code> —— <code>argmax</code> 偏爱「真值一般、这次噪声往上偏」的点，这是一个<b>方向固定向上</b>的偏差，不是方差</b>。<span class='w'>量级可以估：<code>m</code> 个候选、误差 iid 标准正态，虚高约 <code>σ√(2log m)</code></span>。<b>⇒ 我的对照实验很便宜：把它选出的 workflow 在<b>新</b>留出集上重评一次，差额就是这个偏差</b>。<span class='k'>⚠ 我会把它写成「方法学差异」而不是「他们错了」——这个偏差来自流程，在当时的通行做法下不算疏漏；而且修法对原作者的代码改动极小：<code>argmax(score − c·se)</code>，<code>se</code> 他们已经在算了。</span>", "tag": "推断", "ref": "本讲 p16 · 简报 §2（top-k + softmax）· 简报 §3（D_V 上跑 5 次）"}, {"q": "你既然要做自适应淘汰，为什么最后一步又要用悲观？这两个方向不是矛盾吗？", "a": "<b>不矛盾，因为两个阶段对「不确定性」的定价本来就不同，而这一讲把分界写得很清楚。</b> <span class='k'>在线阶段（淘汰）用乐观：不确定 = 还没探索 = 有信息价值，而且猜错了下一轮能纠正 —— 这是 UCB，<code>argmax f̂ + c</code></span>；<b>最终输出配置是一次性的离线决定：不确定 = 没有证据 = 纯风险，所以 <code>argmax f̂ − c</code></b>（CSE541 L18 p15）。<span class='w'>⚠ 同一个 <code>c(x)</code>，符号相反</span>。<b>而悲观买到的东西是具体的：保证从 <code>V(π_*) − 2max_{π∈Π}C_T(π)</code> 变成 <code>V(π_*) − 2C_T(π_*)</code>，<code>max_π</code> 消失</b>——<span class='k'>也就是说「策略类里有多少个覆盖极差的配置」不再影响我的保证，只要最优那个被覆盖了就行</span>。<b>这对我特别重要，因为我的策略类是组合的，里面必然有大量从没跑过的配置。</b>", "tag": "推断", "ref": "本讲 p15（悲观原则与两种保证的对比）· CSE541 L12 主线卡（随时有效的界）"}, {"q": "你的「按难度分档」策略类是拍脑袋定的吗？凭什么说它里面有好策略？", "a": "<b>遗憾界确实<b>不</b>保证这件事，我不会拿它来撑。</b> <span class='k'>CSE541 L18 p6 的界只认策略类的<b>大小</b>（<code>log|Π|</code>），对它的<b>内容</b>一无所知</span>；<b>「<code>Π</code> 里有没有好策略」是<b>近似误差</b>，界里看不见它，而在应用里它通常才是主要误差来源</b>。<span class='w'>⇒ 这一项必须靠实验挣，不能靠定理</span>。<b>我的做法是简报 §5 的 P2 vs P3 消融：策略只看 (query, 节点 id) vs 也看部分轨迹</b>，<span class='k'>若序贯信息带来的提升不到 2 个百分点，就不用 MDP 框架；同理若「按难度分档」相对单一配置的提升不到阈值，这个策略类就不成立，我会如实报告</span>。<b>界的作用只有一个：告诉我把 <code>Π</code> 做大几乎不要钱（只进 log），所以该把预算花在<b>设计</b> <code>Π</code> 上，而不是花在控制它的大小上。</b>", "tag": "推断", "ref": "本讲 p6 的 say（遗憾与最优的分家）· 简报 §5（P2 vs P3 消融与可加性检验）"}], "papers": [{"t": "Auer, Cesa-Bianchi, Freund &amp; Schapire — EXP3 与对抗式 bandit", "id": "1995 / 2002（讲义的 Theorem 17 就是它的那一族界）", "why": "<b>本讲两段内容共用的那个接口的出处。</b> <span class='k'>值得引用的不是算法而是<b>定理的形状</b>：遗憾 <code>≤ 2γT + log(n)/η + (1−γ)η E[ΣΣ pℓ̂²]</code>，三项各自对应「强制探索 / 在候选里定位 / 估计量的方差」</span>。<b>你要用它说明「候选个数只进 log」这件事的来源</b>。⚠ <b>引用常数或精确条件时查原文</b>，讲义这两页是板书形式、并且把 <code>γ</code> 与 <code>λ</code> 的角色做了简化。"}, {"t": "Kiefer &amp; Wolfowitz — 等价定理（G-最优设计）", "id": "1960（CSE541 L07 p5 的 Lemma 10 点名）", "why": "<b>本讲 p3 那一步 <code>max_j‖x_j‖²_{A(λ)⁻¹} = d</code> 的依据。</b> <span class='k'>而 p9 的 Proposition（<code>min_λ max_i Σ_j p_{i,j}/(Σ_k λ_k p_{k,j}) = d</code>）是它在<b>策略空间</b>上的同构版本，用的是同一套「对数势函数 + 一阶最优性」</span>。<b>两条摆在一起读，能看出这类结论的共同机制：log 的梯度恰好产生「被自己的值除」的结构，于是要界的量与梯度是同一个东西。</b>"}, {"t": "Sachdeva, Su &amp; Joachims — Off-policy Bandits with Deficient Support", "id": "KDD 2020（简报 §4a 点名）", "why": "<b>你那条「确定性日志下 IS 无定义」的正式引用来源。</b> <span class='k'>本讲 p11–p12 给出的是它的充分条件那一侧（<code>E[1/μ(π(c)|c)]</code> 有限才有方差界）；这篇讲的是<b>支撑不足时该怎么办</b></span>——<b>三类处理：限制策略类到被支撑的那部分、估计量做截断/重加权、或者承认不可识别</b>。<b>⇒ 与本讲 p14 那条「<code>Π</code> 必须与随机化范围对齐」说的是同一件事，而这篇给了它名字和正式处理</b>。⚠ <b>具体方法与条件要查原文</b>，这里只核过它存在且主题相符。"}, {"t": "Smith &amp; Winkler — The Optimizer's Curse", "id": "Management Science 2006（本讲 p16 讲的正是这件事，讲义未点名）", "why": "<b>p16 那三行式子的标准引用。</b> <span class='k'>它的贡献是把「在同一批数据上既选又报」造成的向上偏差讲成了一个决策分析问题，并给出贝叶斯修正</span>。<b>你用它来给「AFlow 的 top-k 选择导致报告值虚高」这条批评一个正式的名字和出处</b>——<span class='w'>有名字的批评和没名字的批评，在审稿人眼里分量不同</span>。⚠ <b>讲义没点名这篇，引用前自行核对作者、年份与它到底证了什么</b>（本条属<b>待核</b>的那一类，只是主题高度吻合）。"}, {"t": "Jin, Yang &amp; Wang — Is Pessimism Provably Efficient for Offline RL?", "id": "ICML 2021（本讲 p15 的「悲观原则」在离线 RL 里的代表作，讲义未点名）", "why": "<b>本讲 p15 只给了一个两行证明；这一篇把同一个想法做成了离线 RL 的完整理论。</b> <span class='k'>核心结论与 p15 同构：悲观的次优性由<b>最优策略处</b>的不确定性决定，而不是由整个策略类的最坏情况决定</span>。<b>⇒ 你若要在论文里主张「最终输出该用悲观」，这是比讲义更合适的引用</b>；<span class='w'>而且它处理的是序贯情形，万一简报 §5 的可加性检验把你推向 MDP 形式化，这一篇正好在那一侧</span>。⚠ <b>讲义未点名，引用前核对。</b>"}]};
+
+(function(){
+  var PDF="../corpus/slides/lecture_18.pdf", MAX=16;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l18quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l18p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l18quiz");
+      localStorage.removeItem("l18p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

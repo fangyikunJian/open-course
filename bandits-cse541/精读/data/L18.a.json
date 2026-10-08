@@ -1,0 +1,256 @@
+{
+  "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+  "_守住的数字": [
+    "讲义共 16 页。p1 上半、p7 上半是排版的算法框与定理，其余全是手写。",
+    "⚠ L17（非随机线性 bandit · 上下文 bandit 导论，5 页）**整讲包含在本讲里**，做了这一讲就不必再做 L17。",
+    "EXP3(γ)：I_t ~ q_t := (1−γ)p_t + γλ，w_{t+1,i} = w_{t,i}exp(−ηℓ̂_{t,i})。",
+    "Theorem 17：max_i E[Σ_t ℓ_{t,I_t} − ℓ_{t,i}] ≤ 2γT + log(n)/η + (1−γ)η E[Σ_t Σ_j p_{t,j} ℓ̂²_{t,j}]。",
+    "三个条件（p7 的一般形式）：ℓ_t ∈ [−1,1]^n；E[ℓ̂_{t,i}|F_{t−1}] = ℓ_{t,i}；−ηℓ̂_{t,i} ≤ 1。",
+    "线性情形：ℓ̂_{t,i} = x_iᵀA(q_t)⁻¹x_{I_t}ℓ_{t,I_t}，A(λ) = Σ_x λ_x x xᵀ。",
+    "−ηℓ̂_{t,i} ≤ (η/γ)·max_j‖x_j‖²_{A(λ)⁻¹} = (η/γ)·d（λ 取 G-最优时）。",
+    "⇒ 取 γ = ηd 使 −ηℓ̂ ≤ 1 成立；第二矩项 E[ΣΣ p_{t,i}ℓ̂²_{t,i}] ≤ dT/(1−γ)。",
+    "代回：2ηdT + log(n)/η + ηdT = 3ηdT + log(n)/η ≤ √(12 d T log n)（讲义 p1 右上角的紫色批注）。",
+    "⚠ 这里的 n 是臂数（p1）/ 策略数（p7），d 是维数（p1）/ 动作数（p7）—— 同一份定理换了两次记号。",
+    "上下文 bandit（p5）：Nature 给 c_t ~iid ν，玩家选 I_t ∈ [n]，拿 y_t ∈ [−1,1]，E[y_t|c_t] = r(c_t,I_t)。",
+    "每个上下文各跑一个 bandit：Σ_{c∈C}√(nT_c) ≤ √(n|C|T)（柯西—施瓦茨），|Π| = n^{|C|}。",
+    "完全忽略上下文：√(nT)，|Π| = n。",
+    "⚠ T_c = Σ_t 1{c_t = c}，Σ_c T_c = T —— 柯西—施瓦茨那一步用的就是这个约束。"
+  ],
+  "notes": [
+    {
+      "r": [1, 1],
+      "t": "把 EXP3 从「n 条臂」搬到「指数多个组合对象」，缺的只有一个损失估计量",
+      "star": 3,
+      "quote": "<em><b>EXP3(γ): Exponential Weights for Exploration Exploitation</b></em><br><em>Player draws I<sub>t</sub> ~ q<sub>t</sub> := (1−γ)p<sub>t</sub> + γλ and suffers (and observes) loss ℓ(I<sub>t</sub>,ℓ<sub>t</sub>) = ℓ<sub>t,I<sub>t</sub></sub></em><br><em>w<sub>t+1,i</sub> = w<sub>t,i</sub>exp(−ηℓ̂<sub>t,i</sub>)　　p<sub>t+1,i</sub> = w<sub>t+1,i</sub>/Σ<sub>j</sub>w<sub>t+1,j</sub></em><br><em><b>Theorem 17.</b> Fix any sequence ℓ<sub>t</sub> ∈ [−1,1] for all t and assume η,γ ≥ 0 satisfy −ηℓ̂<sub>t,i</sub> ≤ 1 for all i,t. Then we have max<sub>i=1,…,n</sub> E[Σ<sub>t=1</sub><sup>T</sup> ℓ<sub>t,I<sub>t</sub></sub> − ℓ<sub>t,i</sub>] ≤ 2γT + log(n)/η + (1−γ)η E[Σ<sub>t=1</sub><sup>T</sup>Σ<sub>j=1</sub><sup>n</sup> p<sub>t,j</sub>ℓ̂<sup>2</sup><sub>t,j</sub>]</em><br><em>Linear Bandits — Adversarial Setting. Input 𝒳 = {x<sub>1</sub>,…,x<sub>n</sub>} ⊂ ℝ<sup>d</sup>. Adversary chooses {θ<sub>t</sub>}<sub>t=1</sub><sup>T</sup> ⊂ ℝ<sup>d</sup>, max<sub>x∈𝒳</sub>|⟨x,θ<sub>t</sub>⟩| ≤ 1. Player chooses x<sub>t</sub> ∈ 𝒳. Adversary reveals ⟨θ<sub>t</sub>,x<sub>t</sub>⟩ (<b>not θ<sub>t</sub></b>!). Regret = max<sub>x∈𝒳</sub> Σ<sub>t=1</sub><sup>T</sup>⟨θ<sub>t</sub>, x<sub>t</sub> − x⟩</em>",
+      "one": "<b>Theorem 17 不是一条关于 EXP3 的定理，它是一个<span class='k'>接口</span>：只要你能造出一个满足两条性质的损失估计量，指数权重的遗憾界就自动成立。本讲剩下的 15 页，全部是在给三种不同的问题各造一个估计量。</b>",
+      "pts": [
+        "<b>先看清这一页为什么要重抄一遍 EXP3。</b> 它上一次出现是在 L14（对抗式 bandit），那里的 <code>ℓ̂</code> 是最朴素的那个：<code>ℓ̂_{t,i} = 1{I_t=i}ℓ_{t,i}/q_{t,i}</code>。<span class='k'>这一页把它抄回来，是要你盯住定理的<b>条件</b>而不是它的<b>证明</b></span>——<b>条件里根本没有出现「ℓ̂ 必须长成那个样子」</b>。",
+        "<b>定理真正要的只有两条</b>（p7 会把它们写成白纸黑字的假设）：<span class='k'>① <b>无偏</b>：<code>E[ℓ̂_{t,i} | F_{t−1}] = ℓ_{t,i}</code>，每一条臂都要，包括你这一轮根本没拉的那些；② <b>单边有界</b>：<code>−ηℓ̂_{t,i} ≤ 1</code></span>。<b>第二条只约束<span class='w'>负</span>的那一侧</b>——<span class='w'>因为 <code>exp(−ηℓ̂)</code> 在 <code>ℓ̂</code> 很负时会爆掉</span>，而 <code>ℓ̂</code> 很正只会让那条臂被压扁，不伤害分析。",
+        "<b>于是「换一个问题」= 「换一个估计量」。</b> 这一讲三块内容其实是同一个模板填三次：<span class='k'>线性 bandit（p1–p4）填 <code>ℓ̂ = x_iᵀA(q)⁻¹x_{I_t}ℓ_{t,I_t}</code>；上下文 bandit 的策略版（p6–p10）填 <code>ℓ̂ = π_i(a_t|c_t)/(Σ_k q_{t,k}π_k(a_t|c_t))·ℓ(c_t,a_t)</code></span>；<b>而两次都要再证一遍「这个 ℓ̂ 满足那两条」</b>。",
+        "<b>对抗式线性 bandit 的设定里有一处最容易看漏：对手只告诉你 <code>⟨θ_t, x_t⟩</code>，不告诉你 <code>θ_t</code>。</b> <span class='w'>讲义在那里专门写了 <code>(not θ_t!)</code> 并加了感叹号</span>。<b>这正是「bandit」与「全信息在线学习」的分界</b>——<span class='k'>若给你 <code>θ_t</code>，你就能算出每条臂这一轮的损失，那是 L01 的指数权重，<code>√(T log n)</code> 直接拿到</span>。",
+        "<b>这个设定值钱的地方在 <code>n</code> 与 <code>d</code> 的分离。</b> 讲义在页脚画了三样东西：<span class='k'>一棵带路径的树、一个井字棋盘、一张带 source/sink 的有向图并标了 <code>x ∈ {0,1}^{|E|}</code></span>。<b>意思是：臂可以是「一条路径」「一个走法」「一个子集」，于是 <code>n = |𝒳|</code> 可以是指数大的</b>；<span class='w'>而 <code>d</code> 只是边数</span>。",
+        "<b>最终结论（p1 右上角那串紫色批注）把这件事量化了</b>：<code>3ηdT + log(n)/η</code>，对 <code>η</code> 优化得 <span class='k'><b>遗憾 ≤ √(12 · d · T · log n)</b></span>。<b><code>d</code> 是一次方，而 <code>n</code> 只进 <code>log</code></b>——<span class='w'><code>n = 2^{|E|}</code> 时 <code>log n = |E| = d</code></span>，<b>于是界变成 <code>√(12 d²T)= O(d√T)</code>，指数多的臂被完全吸收掉了</b>。"
+      ],
+      "eq": "EXP3(γ)：\n  q_t = (1−γ)p_t + γλ,   I_t ~ q_t\n  w_{t+1,i} = w_{t,i}·exp(−η ℓ̂_{t,i}),   p_{t+1} = w_{t+1}/‖w_{t+1}‖₁\n\nTheorem 17（条件：ℓ_t ∈ [−1,1]^n，E[ℓ̂_{t,i}|F_{t−1}] = ℓ_{t,i}，−ηℓ̂_{t,i} ≤ 1）：\n  max_i E[Σ_t ℓ_{t,I_t} − ℓ_{t,i}]  ≤  2γT + log(n)/η + (1−γ)η·E[Σ_t Σ_j p_{t,j} ℓ̂²_{t,j}]\n                                      └探索代价┘ └学习代价┘ └────估计量的方差────┘\n\n对抗式线性 bandit：\n  对手出 θ_t，你出 x_t ∈ 𝒳 ⊂ ℝ^d，只看到 ⟨θ_t, x_t⟩\n  Regret = max_{x∈𝒳} Σ_t ⟨θ_t, x_t − x⟩",
+      "tbl": {
+        "head": ["定理里的那一项", "它在为什么买单", "谁能把它压小"],
+        "rows": [
+          ["2γT", "强制探索：有 γ 的概率不听指数权重的，按 λ 乱走", "把 γ 调小 —— 但 γ 太小会让 ℓ̂ 爆掉，第三项先失控"],
+          ["log(n)/η", "在 n 个候选里定位最优的那一个", "⚠ 只进 log，所以候选多到指数也不怕 —— 整讲的立身之本"],
+          ["(1−γ)η·E[ΣΣ p ℓ̂²]", "估计量的二阶矩，即「你猜那些没拉的臂猜得多准」", "⭐ 换一个更好的 ℓ̂ —— 这一项是三块内容唯一真正在改的东西"]
+        ]
+      },
+      "say": "<b>补一句讲义没写、但不说就接不上的：为什么 <code>−ηℓ̂ ≤ 1</code> 这条写成单边？</b><br>指数权重的标准分析要在 <code>exp(−ηℓ̂)</code> 上用 <code>e^{-z} ≤ 1 − z + z²</code>，<span class='w'>而这条不等式只在 <code>z ≥ −1</code> 时成立</span>。<code>z = ηℓ̂</code>，于是条件正是 <code>ηℓ̂ ≥ −1</code>，即 <code>−ηℓ̂ ≤ 1</code>。<b>一旦某条臂的 <code>ℓ̂</code> 负得过头，<code>exp</code> 会把它的权重抬成天文数字，算法在一轮之内塌给那条臂</b>——<span class='k'>所以后面 p3/p9 费那么大力气去界 <code>−ηℓ̂</code>，界的不是「精度」而是「别炸」</span>。",
+      "link": {
+        "t": "你学过的对应：CS234 L11 快速强化学习与多臂老虎机（那边是<b>随机</b> bandit，奖励有固定分布、遗憾比的是 μ*；这一讲的对手每轮都能换 θ_t，连「存在真值」都不假设，遗憾比的是事后最优的那一条固定臂。对你的课题反而是对抗式更贴——API 会降价、会换后端，同一配置上周和这周的 Acc 不一定一样）",
+        "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L11-精读.html"
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>把配置写成指示向量，你的 2^H 个配置就是这一页脚那张 DAG 图。</b> <span class='k'>workflow 的一个配置 = 每个节点挑一个档位 = 一个 <code>x ∈ {0,1}^{H×k}</code>，<code>d = H×k</code> 只有几十，而 <code>|𝒳| = k^H</code> 指数大</span>。<b>本讲给的界 <code>√(12 d T log|𝒳|) = √(12 d T · H log k)</code> 对 <code>|𝒳|</code> 只收 log 的费用</b>。⚠ <b>但这条只在「<code>G</code> 对配置线性」时成立</b>，而线性正是 L07 主线卡里标着<b>待检验</b>的那条前提 —— <span class='w'>成本那一半精确线性（可加 ⇒ <code>Cost(x) = xᵀc</code>），准确率那一半要靠简报 §5 的可加性检验才知道</span>。",
+        "ref": "本讲 p1 页脚的三张图 · CSE541 L07 主线卡 · 简报 §5（可加性检验）"
+      }
+    },
+    {
+      "r": [2, 2],
+      "t": "线性情形的损失估计量：用 A(q)⁻¹ 把一次观测摊回到所有臂上",
+      "star": 3,
+      "quote": "<em>For x<sub>i</sub> ∈ 𝒳 define ℓ<sub>t,i</sub> = ⟨x<sub>i</sub>, θ<sub>t</sub>⟩</em><br><em>ℓ̂<sub>t,i</sub> = x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>ℓ<sub>t,I<sub>t</sub></sub>,　A(λ) = Σ<sub>x∈𝒳</sub> λ<sub>x</sub>xx<sup>T</sup></em><br><em>E[A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>ℓ<sub>t,I<sub>t</sub></sub>] = Σ<sub>j</sub> q<sub>t,j</sub>A(q<sub>t</sub>)<sup>−1</sup>x<sub>j</sub>ℓ<sub>t,j</sub> = Σ<sub>j</sub> q<sub>t,j</sub>A(q<sub>t</sub>)<sup>−1</sup>x<sub>j</sub>x<sub>j</sub><sup>T</sup>θ<sub>t</sub> = I·θ<sub>t</sub> = θ<sub>t</sub></em><br><em>⇒ E[ℓ̂<sub>t,i</sub>] = ℓ<sub>t,i</sub> ∀i</em><br><em>Aside: x<sub>t</sub> ~ λ, y<sub>t</sub> = ⟨x<sub>t</sub>,θ*⟩ + ε<sub>t</sub>. θ̂<sub>LS</sub> = (⅟T Σ x<sub>t</sub>x<sub>t</sub><sup>T</sup>)<sup>−1</sup>⅟T Σ x<sub>t</sub>y<sub>t</sub>. θ̂<sub>IPS</sub> = (Σ<sub>x∈𝒳</sub> λ<sub>x</sub>xx<sup>T</sup>)<sup>−1</sup>⅟T Σ x<sub>t</sub>y<sub>t</sub></em>",
+      "one": "<b>一轮只看到一条臂的损失，却要给所有 n 条臂各报一个无偏估计。做法是乘上 <code>A(q)⁻¹</code>：那个矩阵的逆恰好把「我按 q 采样」这件事除掉，于是 <code>Σ_j q_j A⁻¹x_j x_jᵀ = A⁻¹A = I</code>。</b>",
+      "pts": [
+        "<b>先把要估的东西写清楚：</b><code>ℓ_{t,i} = ⟨x_i, θ_t⟩</code>，<span class='k'>这是「如果我这一轮拉的是第 i 条臂，会吃多少损失」</span>。<b>你只拉了 <code>I_t</code>，只看到 <code>ℓ_{t,I_t}</code> 这一个数</b>，<span class='w'>却要给全部 <code>n</code> 条臂各报一个无偏估计</span>——朴素 bandit 里这是不可能的，<b>线性结构正是在这里买了单</b>。",
+        "<b>估计量只有一行：</b><code>ℓ̂_{t,i} = x_iᵀ A(q_t)⁻¹ x_{I_t} ℓ_{t,I_t}</code>。<span class='k'>注意它对 <code>i</code> 的依赖全在最前面那个 <code>x_iᵀ</code> 上</span>——<b>后面那一截 <code>A(q_t)⁻¹x_{I_t}ℓ_{t,I_t}</code> 与 <code>i</code> 无关，是一个<b>共用</b>的 <code>ℝ^d</code> 向量</b>。<span class='w'>所以真正被估的是 <code>θ_t</code> 本身，不是 n 个标量</span>。",
+        "<b>无偏性的证明只有三步，每一步都该停一下。</b> ① 对 <code>I_t ~ q_t</code> 取期望：<code>Σ_j q_{t,j} A⁻¹ x_j ℓ_{t,j}</code>；② <span class='k'>把 <code>ℓ_{t,j}</code> 换回 <code>x_jᵀθ_t</code></span>，得 <code>A⁻¹(Σ_j q_{t,j} x_j x_jᵀ)θ_t</code>；③ <b>括号里恰好就是 <code>A(q_t)</code> 的定义</b>，于是 <code>A⁻¹A θ_t = θ_t</code>。",
+        "<b>第 ② 步是全讲最该记住的一招：把观测到的标量换回「向量 × 未知参数」。</b> <span class='w'>只有在线性假设下 <code>ℓ_{t,j} = x_jᵀθ_t</code> 才成立</span>，<b>而正是这一换，让求和凑出了 <code>A(q_t)</code> 这个你自己选的矩阵</b>——<span class='k'>于是「我按什么分布采样」和「我怎么去偏」在同一个对象上相遇，直接对消</span>。",
+        "<b>页下半的 Aside 看似离题，其实是整讲后半段的伏笔。</b> 它并排写了两个估计 <code>θ*</code> 的办法：<span class='k'><code>θ̂_LS</code> 用<b>实际</b>的二阶矩 <code>⅟T Σ_t x_t x_tᵀ</code> 做归一化；<code>θ̂_IPS</code> 用<b>期望</b>的二阶矩 <code>Σ_x λ_x x xᵀ</code></span>。<b>两者都无偏，协方差却不同</b>：<code>Cov(θ̂_LS) = (Σ_t x_t x_tᵀ)⁻¹</code>，<code>Cov(θ̂_IPS) = (T Σ_x λ_x x xᵀ)⁻¹</code>。",
+        "<b>为什么要提这个？因为 <code>A(q_t)⁻¹</code> 用的正是<span class='w'>期望</span>那一版</b>。<span class='k'>算法必须用期望版，否则 <code>ℓ̂</code> 会依赖于「这一轮碰巧抽到了谁」，无偏性当场断掉</span>——<b>而代价是方差比最小二乘大</b>。<span class='w'>这个「无偏但方差大 vs 有偏但方差小」的张力，会在 p11 之后变成整个离线评估那一段的主线</b>。"
+      ],
+      "eq": "ℓ̂_{t,i} = x_iᵀ · A(q_t)⁻¹ x_{I_t} ℓ_{t,I_t}        A(λ) := Σ_{x∈𝒳} λ_x x xᵀ\n           └i┘   └────与 i 无关的共用向量────┘\n\nE_{I_t~q_t}[A⁻¹x_{I_t}ℓ_{t,I_t}]\n  = Σ_j q_{t,j} A⁻¹ x_j ℓ_{t,j}\n  = Σ_j q_{t,j} A⁻¹ x_j x_jᵀ θ_t      ← 用了线性：ℓ_{t,j} = x_jᵀθ_t\n  = A⁻¹ (Σ_j q_{t,j} x_j x_jᵀ) θ_t\n  = A⁻¹ A(q_t) θ_t  =  θ_t           ← 括号里就是 A(q_t) 本身",
+      "tbl": {
+        "head": ["", "θ̂_LS（最小二乘）", "θ̂_IPS（逆倾向）"],
+        "rows": [
+          ["归一化用的矩阵", "⅟T Σ_t x_t x_tᵀ —— <b>实际</b>抽到了什么", "Σ_x λ_x x xᵀ —— <b>期望</b>会抽到什么"],
+          ["偏差", "E[θ̂] = θ*", "E[θ̂] = θ*（两者都无偏）"],
+          ["协方差", "(Σ_t x_t x_tᵀ)⁻¹", "(T Σ_x λ_x x xᵀ)⁻¹"],
+          ["算法能不能用", "⚠ 不能 —— 它依赖本轮抽样结果，代进去无偏性就断了", "✓ 能 —— 只依赖你事先定的 λ"]
+        ]
+      },
+      "say": "<b>补一处讲义跳过的：<code>A(q_t)</code> 凭什么可逆？</b><br>如果 <code>𝒳</code> 张不满 <code>ℝ^d</code>，<code>A</code> 必然奇异。<span class='k'>标准处理是把 <code>d</code> 重新定义成 <code>dim(span(𝒳))</code>，在那个子空间里做一切</span>——<b>L07 的 Kiefer–Wolfowitz 引理原文写的就是 <code>d = dim(span(𝒳))</code>，不是环境空间的维数</b>。<span class='w'>另外，<code>q_t = (1−γ)p_t + γλ</code> 里那个 <code>γλ</code> 也在帮忙</span>：<b>只要 <code>λ</code> 的支撑张满子空间，<code>A(q_t) ⪰ γ·A(λ) ≻ 0</code> 就恒成立，与 <code>p_t</code> 塌成什么样无关</b>。<span class='k'>这是强制探索的第二重作用，而且比「探索」本身更硬——没有它，矩阵求逆这一步会在算法塌陷时直接崩掉</span>。",
+      "res": {
+        "tag": "已核",
+        "v": "<b>这一页的 Aside 就是你简报 §4a 那条「IS 无定义」的正面版本。</b> <span class='k'>IPS 估计量的分母是<b>你事先选的</b> <code>λ</code>，不是数据里数出来的频率</span>——<b>于是「某个配置一次都没被抽到」时，<code>θ̂_LS</code> 的那一格分母是 0（估计量不存在），而 <code>θ̂_IPS</code> 的分母 <code>λ_x</code> 仍然是正的（估计量存在，只是方差大）</b>。<span class='w'>⚠ 但这要求 <code>λ_x > 0</code> 本来就成立，即日志必须是<b>随机化</b>产生的</span>；<b>你现在的日志是确定性的，<code>λ_x ∈ {0,1}</code>，连 IPS 这条路也一样走不通</b>。",
+        "ref": "本讲 p2 的 Aside · 简报 §4a（deficient support）"
+      }
+    },
+    {
+      "r": [3, 3],
+      "t": "两条臂的例子说清 LS 与 IPS 的差别；再用 G-最优设计把 −ηℓ̂ 压到 1 以下",
+      "star": 3,
+      "quote": "<em>𝒳 = {(1,0),(0,1)}　λ<sub>1</sub>, λ<sub>2</sub> = 1−λ<sub>1</sub>　T<sub>i</sub> = Σ<sub>t=1</sub><sup>T</sup>1{I<sub>t</sub>=i}</em><br><em>θ̂<sub>LS</sub> = [⅟T<sub>1</sub>Σ1{I<sub>t</sub>=1}y<sub>t</sub> ; ⅟(T−T<sub>1</sub>)Σ1{I<sub>t</sub>=2}y<sub>t</sub>]　θ̂<sub>IPS</sub> = [⅟(λ<sub>1</sub>T)Σ1{I<sub>t</sub>=1}y<sub>t</sub> ; ⅟((1−λ<sub>1</sub>)T)Σ1{I<sub>t</sub>=2}y<sub>t</sub>]</em><br><em>−ηℓ̂<sub>t,i</sub> ≤ η|x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>|　(|ℓ<sub>t,i</sub>| ≤ 1)</em><br><em>= η|⟨A(q<sub>t</sub>)<sup>−1/2</sup>x<sub>i</sub>, A(q<sub>t</sub>)<sup>−1/2</sup>x<sub>I<sub>t</sub></sub>⟩| ≤ η‖x<sub>i</sub>‖<sub>A(q)<sup>−1</sup></sub>·‖x<sub>I<sub>t</sub></sub>‖<sub>A(q)<sup>−1</sup></sub></em><br><em>≤ max<sub>j=1,…,n</sub> η‖x<sub>j</sub>‖<sup>2</sup><sub>A(q)<sup>−1</sup></sub> ≤ max<sub>j</sub> (η/γ)‖x<sub>j</sub>‖<sup>2</sup><sub>A(λ)<sup>−1</sup></sub> = (η/γ)·d　(if λ G-optimal)</em>",
+      "one": "<b>页上半用两条正交臂把 LS 与 IPS 的差别摊开成一眼能看懂的式子：分母一个是<span class='w'>数出来的</span> <code>T_1</code>，一个是<span class='k'>定下来的</span> <code>λ_1 T</code>。页下半则是全讲最关键的一次代入——<code>d</code> 从 Kiefer–Wolfowitz 那里被搬了进来。</b>",
+      "pts": [
+        "<b>两条臂取成标准基 <code>(1,0)</code> 与 <code>(0,1)</code>，于是线性 bandit 退化成最普通的两臂 bandit</b>，<span class='k'>所有矩阵都变成对角，可以逐格看</span>。<b><code>θ̂_LS</code> 的第一格是 <code>(1/T_1)Σ1{I_t=1}y_t</code>——就是「拉过第一条臂的那些轮的样本均值」</b>，<span class='w'>而 <code>T_1</code> 是个<b>随机变量</b></span>。",
+        "<b><code>θ̂_IPS</code> 的第一格把分母换成 <code>λ_1 T</code>，一个<span class='k'>常数</span>。</b> <b>后果是：如果这一次运气不好、<code>T_1</code> 比 <code>λ_1T</code> 小，IPS 会<b>低估</b>第一条臂；运气好就高估</b>。<span class='w'>单次看它比 LS 更抖</span>，<b>但它的期望精确等于 <code>θ*</code>，而 LS 因为分母是随机的，<span class='w'>严格说只是渐近无偏</span></b>。",
+        "<b>⚠ 还有一个更要命的差别：<code>T_1</code> 可能是 0。</b> <span class='w'>那时 <code>θ̂_LS</code> 的第一格<b>没有定义</b></span>，<b>而 <code>θ̂_IPS</code> 的第一格老老实实地等于 0</b>（分子为空和）。<span class='k'>「没定义」与「等于 0」在算法里是天壤之别——前者让你无法继续，后者只是一个有偏的猜测</span>。",
+        "<b>页下半进入全讲最关键的一次推导：把 <code>−ηℓ̂</code> 界住。</b> 第一步用 <code>|ℓ_{t,I_t}| ≤ 1</code> 把损失剥掉，剩下 <code>η|x_iᵀA(q_t)⁻¹x_{I_t}|</code>；<span class='k'>第二步把 <code>A⁻¹</code> 劈成两半 <code>A^{−1/2}·A^{−1/2}</code>，于是那个数变成一个内积</span>；<b>第三步柯西—施瓦茨</b>。",
+        "<b>劈成两半这一招值得单独记住。</b> <span class='w'><code>x_iᵀA⁻¹x_j</code> 既不是范数也不是内积，直接界不了</span>；<b>写成 <code>⟨A^{−1/2}x_i, A^{−1/2}x_j⟩</code> 之后，柯西—施瓦茨立刻给出 <code>≤ ‖x_i‖_{A⁻¹}·‖x_j‖_{A⁻¹}</code></b>，<span class='k'>而这两个因子是同一个函数在两个点的取值，于是能一起被 <code>max_j‖x_j‖²_{A⁻¹}</code> 盖住</span>。",
+        "<b>最后一步是整讲的支点：<code>A(q_t) ⪰ γA(λ)</code> ⇒ <code>A(q_t)⁻¹ ⪯ (1/γ)A(λ)⁻¹</code>。</b> <span class='w'>这里用的正是 <code>q_t = (1−γ)p_t + γλ</code> 里那个 <code>γλ</code></span>，<b>于是 <code>max_j‖x_j‖²_{A(q)⁻¹} ≤ (1/γ)max_j‖x_j‖²_{A(λ)⁻¹}</code></b>。<span class='k'>而 <code>max_j‖x_j‖²_{A(λ)⁻¹}</code> 正是 L07 里的 <code>f_G(λ)</code>，<b>Kiefer–Wolfowitz 说它的最小值恰好是 <code>d</code></b></span>——<b>所以你把 λ 取成 G-最优设计，这个 max 就变成 <code>d</code>，一个你认识的数</b>。"
+      ],
+      "eq": "−ηℓ̂_{t,i}\n  ≤ η|x_iᵀ A(q_t)⁻¹ x_{I_t}|                       （|ℓ| ≤ 1）\n  = η|⟨A(q_t)^{−1/2}x_i , A(q_t)^{−1/2}x_{I_t}⟩|    （把 A⁻¹ 劈成两半）\n  ≤ η‖x_i‖_{A(q)⁻¹} · ‖x_{I_t}‖_{A(q)⁻¹}           （柯西—施瓦茨）\n  ≤ η · max_j ‖x_j‖²_{A(q)⁻¹}\n  ≤ (η/γ) · max_j ‖x_j‖²_{A(λ)⁻¹}                  （A(q_t) ⪰ γA(λ)）\n  = (η/γ) · d                                       （λ 取 G-最优：f_G(λ*) = d）",
+      "tbl": {
+        "head": ["推导的那一步", "用掉了哪条假设", "⚠ 这条假设没了会怎样"],
+        "rows": [
+          ["剥掉 ℓ_{t,I_t}", "max_{x∈𝒳}|⟨x,θ_t⟩| ≤ 1（设定里对对手的约束）", "损失无界 ⇒ 整条链第一步就断"],
+          ["劈 A⁻¹ 成两半", "A(q_t) ≻ 0（正定才有 A^{−1/2}）", "𝒳 张不满 ⇒ 要把 d 改成 dim(span(𝒳))"],
+          ["A(q_t) ⪰ γA(λ)", "q_t 里混了 γλ 这一项", "γ = 0 ⇒ 没有下界，p_t 一塌 ℓ̂ 就爆"],
+          ["max_j‖x_j‖²_{A(λ)⁻¹} = d", "λ 是 G-最优设计（Kiefer–Wolfowitz）", "λ 随便取 ⇒ 这个 max 可以任意大，γ 得跟着放大"]
+        ]
+      },
+      "link": {
+        "t": "你学过的对应：CSE 541 L07 线性 bandit 与实验设计（max_x xᵀA(λ)⁻¹x 就是那边的 f_G(λ)，Kiefer–Wolfowitz 说它的最小值恰好是 d。L07 用它做纯探索「估得准」，这一页用它做「别让指数权重炸掉」——同一个 d，在那边是精度的分子，在这里是稳定性的阈值）",
+        "href": "L07-精读.html"
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>「分母用期望还是用实际」这一格，直接对应你在 fork 里要做的一个决定。</b> <span class='k'>如果你按简报 §4c 做随机化日志（只在 top-3~4 个节点上随机化），那么每个配置的抽中概率 <code>λ_x</code> 是你<b>自己写死</b>的，IPS 的分母就该用它，而不是事后数出来的频次</span>。<b>⚠ 但要当心：用实际频次做分母的那一版（叫 self-normalized IPS / Hájek 估计量）在实践里方差常常小得多，代价是引入 <code>O(1/T)</code> 的偏差</b>。<span class='w'>本讲在算法里<b>必须</b>用期望版，是因为无偏性进了定理的假设；而你做离线评估时没有这个约束，两版都能用</span>——<b>所以这是一处「课上必须这样、你不必这样」的地方，别照搬</b>。",
+        "ref": "本讲 p2–p3 的 Aside 与两臂例子 · 简报 §4c（敏感度扫描后只随机化 3–4 个节点）"
+      }
+    },
+    {
+      "r": [4, 4],
+      "t": "γ = ηd：一个让两条假设同时成立的取法，以及方差项为什么是 dT/(1−γ)",
+      "star": 2,
+      "quote": "<em>Suggests picking γ = ηd so −ηℓ̂<sub>t,i</sub> ≤ 1 true.</em><br><em>E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>ℓ̂<sup>2</sup><sub>t,i</sub>] = E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>x<sub>I<sub>t</sub></sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>ℓ<sup>2</sup><sub>t,I<sub>t</sub></sub>]</em><br><em>≤ E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>I<sub>t</sub></sub>x<sub>I<sub>t</sub></sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>] = E[Σ<sub>t</sub>Σ<sub>i</sub> p<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>]</em><br><em>≤ ⅟(1−γ) E[Σ<sub>t</sub>Σ<sub>i</sub> q<sub>t,i</sub>x<sub>i</sub><sup>T</sup>A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>] = ⅟(1−γ) E[Σ<sub>t</sub>Σ<sub>i</sub> q<sub>t,i</sub>Trace(A(q<sub>t</sub>)<sup>−1</sup>x<sub>i</sub>x<sub>i</sub><sup>T</sup>)] = dT/(1−γ)</em>",
+      "one": "<b><code>γ = ηd</code> 不是调出来的，是被<span class='k'>上一页那条链</span>逼出来的唯一自然取法：<code>(η/γ)d ≤ 1 ⟺ γ ≥ ηd</code>。而方差项的 <code>d</code> 来自一次迹的轮换，不是来自 G-最优设计——这两个 <code>d</code> 同名但出身不同。</b>",
+      "pts": [
+        "<b>上一页的结论是 <code>−ηℓ̂ ≤ (η/γ)d</code>，而定理要 <code>≤ 1</code>。</b> <span class='k'>于是 <code>γ ≥ ηd</code>，取等号就是讲义写的 <code>γ = ηd</code></span>。<b>⚠ 这一步看似平凡，但它决定了整个界的形状</b>：<span class='w'>代回定理的第一项 <code>2γT = 2ηdT</code></span>，<b>于是「强制探索的代价」和「估计量的方差」被绑成了同一个 <code>ηdT</code></b>。",
+        "<b>方差项的推导有四步，第二步是关键。</b> 展开 <code>ℓ̂²</code> 得到 <code>x_iᵀA⁻¹x_{I_t}x_{I_t}ᵀA⁻¹x_i·ℓ²_{t,I_t}</code>；<span class='k'>第一步用 <code>ℓ² ≤ 1</code> 把损失丢掉</span>；<b>第二步对 <code>I_t ~ q_t</code> 取期望，中间那块 <code>E[x_{I_t}x_{I_t}ᵀ] = A(q_t)</code></b>，<span class='w'>于是 <code>A⁻¹A A⁻¹ = A⁻¹</code>，整串塌成 <code>x_iᵀA(q_t)⁻¹x_i</code></span>。",
+        "<b>第三步换概率：<code>p_{t,i} ≤ q_{t,i}/(1−γ)</code>。</b> <span class='k'>这是因为 <code>q_t = (1−γ)p_t + γλ ≥ (1−γ)p_t</code> 逐格成立</span>。<b>外面求和用的是 <code>p</code>，而里面的矩阵是按 <code>q</code> 建的，不换这一下就凑不出迹</b>。",
+        "<b>第四步是迹的轮换：</b><code>Σ_i q_{t,i} x_iᵀA⁻¹x_i = Σ_i q_{t,i} Tr(A⁻¹x_i x_iᵀ) = Tr(A⁻¹ Σ_i q_{t,i}x_ix_iᵀ) = Tr(A⁻¹A) = Tr(I_d) = d</code>。<span class='w'>⚠ 这个 <code>d</code> 是单位矩阵的迹，和 Kiefer–Wolfowitz 那个 <code>f_G(λ*) = d</code> <b>不是同一回事</b></span>——<span class='k'>它对<b>任何</b> <code>q_t</code> 都成立，不需要 G-最优</span>。",
+        "<b>两个 <code>d</code> 的分工值得写下来，因为混起来会以为「只要 G-最优就什么都解决了」。</b> <span class='k'><b>方差项的 <code>d</code>：恒等式，白送的</b>；<b>−ηℓ̂ 那个 <code>d</code>：要你真的去解 G-最优设计才拿得到</b></span>。<b>所以算法里那个「解一个凸优化求 λ」的步骤，买的只是<span class='w'>稳定性</span>，不是方差</b>。",
+        "<b>把三项拼起来：</b><code>2ηdT + log(n)/η + (1−γ)η·dT/(1−γ) = 3ηdT + log(n)/η</code>。<span class='k'>对 <code>η</code> 求导取零得 <code>η = √(log n/(3dT))</code>，代回得 <code>2√(3dT log n) = √(12 dT log n)</code></span>——<b>正是 p1 右上角那串紫色批注的终点</b>。"
+      ],
+      "eq": "条件 ① −ηℓ̂ ≤ (η/γ)d ≤ 1  ⟺  γ ≥ ηd，取 γ = ηd\n\n方差项：\n  E[ΣΣ p_{t,i} ℓ̂²_{t,i}]\n    ≤ E[ΣΣ p_{t,i}·x_iᵀA⁻¹ x_{I_t}x_{I_t}ᵀ A⁻¹x_i]      （ℓ² ≤ 1）\n    = E[ΣΣ p_{t,i}·x_iᵀ A(q_t)⁻¹ x_i]                  （E[x_{I_t}x_{I_t}ᵀ] = A(q_t)）\n    ≤ ⅟(1−γ)·E[ΣΣ q_{t,i}·Tr(A(q_t)⁻¹x_i x_iᵀ)]        （p ≤ q/(1−γ)）\n    = ⅟(1−γ)·Σ_t Tr(A(q_t)⁻¹A(q_t)) = dT/(1−γ)\n\n代回：2ηdT + log(n)/η + ηdT = 3ηdT + log(n)/η\n  η = √(log n /(3dT))  ⇒  Regret ≤ √(12·d·T·log n)",
+      "say": "<b>补一处讲义只写了结果的：为什么最后能直接写 <code>= dT/(1−γ)</code>，而不是 <code>≤</code>？</b><br>因为 <code>Σ_i q_{t,i} x_i x_iᵀ</code> <b>按定义就等于</b> <code>A(q_t)</code>，<span class='k'>于是 <code>Tr(A(q_t)⁻¹A(q_t)) = Tr(I_d) = d</code> 是恒等式，对每一个 <code>t</code> 都精确成立</span>，<b>求和得 <code>dT</code></b>。<span class='w'>⚠ 唯一的不等号在前面两步（丢掉 <code>ℓ²</code>、换 <code>p → q</code>），后面全是等号</span>——<b>所以这个 <code>dT</code> 是紧的，想改进只能改估计量本身，调参数没用</b>。"
+    },
+    {
+      "r": [5, 5],
+      "t": "上下文 bandit 的两个极端：每个上下文各学各的，还是干脆不看上下文",
+      "star": 3,
+      "quote": "<em><b>Contextual Bandits</b></em><br><em>for t = 1,2,…,T:　Nature reveals context c<sub>t</sub> ~<sup>iid</sup> ν;　Player chooses I<sub>t</sub> ∈ [n];　and gets reward y<sub>t</sub> ∈ [−1,1], s.t. E[y<sub>t</sub>|c<sub>t</sub>] = r(c<sub>t</sub>,I<sub>t</sub>)</em><br><em>Suppose support(ν) = C and |C| &lt; ∞. Treat each context as indep. bandit.</em><br><em>Σ<sub>t</sub> max<sub>i</sub>(r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>)) = Σ<sub>c∈C</sub> max<sub>i</sub> Σ<sub>t</sub> 1{c<sub>t</sub>=c}(r(c,i) − r(c,I<sub>t</sub>)) ≤ Σ<sub>c∈C</sub>√(n T<sub>c</sub>)　← If playing MAB w/ √(nT) regret,　T<sub>c</sub> = Σ<sub>t</sub>1{c<sub>t</sub>=c}</em><br><em>≤ √((Σ<sub>c∈C</sub>√(T<sub>c</sub>))<sup>2</sup>·(Σ<sub>c∈C</sub>1<sup>2</sup>)) = √(n|C|T)</em><br><em>Alternatively, what if we ignore context? max<sub>i</sub> Σ<sub>t</sub> r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>) ≤ √(nT)</em>",
+      "one": "<b>两个极端各有各的毛病：「每个上下文各学各的」遗憾带 <code>√|C|</code>，上下文一多就废；「完全不看上下文」遗憾只有 <code>√(nT)</code>，但它比的那个基准弱到几乎没有意义。整讲后半段就是在这两极之间找一个能调的旋钮。</b>",
+      "pts": [
+        "<b>设定要先看清三件事。</b> ① <span class='k'>上下文是 <b>iid</b> 从 <code>ν</code> 抽的，不是对手挑的（p6 才放松到对抗）</span>；② <b>奖励只保证条件期望 <code>E[y_t|c_t] = r(c_t,I_t)</code></b>，<span class='w'>观测到的 <code>y_t</code> 带噪声</span>；③ <b>你只看到自己选的那条臂的奖励</b>，别的臂这一轮是什么你不知道。",
+        "<b>第一个办法朴素到可爱：把每个上下文当成一个独立的小 bandit。</b> <span class='k'>看到 <code>c</code> 就去查「<code>c</code> 的那本账」，在它上面跑一个普通 MAB</span>。<b>关键的一步是把遗憾按上下文重排</b>：<code>Σ_t max_i(…) = Σ_{c∈C} max_i Σ_t 1{c_t=c}(…)</code>，<span class='w'>⚠ 注意 <code>max</code> 被挪到了求和里面——这是允许的，因为最优臂本来就可以逐上下文不同</span>。",
+        "<b>每本账上吃 <code>√(nT_c)</code>，加起来是 <code>Σ_c√(T_c)</code>，再用一次柯西—施瓦茨：</b><code>Σ_c √(T_c)·1 ≤ √(Σ_c T_c)·√(Σ_c 1) = √(T·|C|)</code>。<span class='k'>于是总遗憾 <code>≤ √(n|C|T)</code></span>。<b>⚠ 这一步用的是 <code>Σ_c T_c = T</code>，而且<span class='w'>在 <code>T_c</code> 全相等时取等</span></b>——<b>也就是说上下文均匀出现时这个界最差，而那恰恰是常态</b>。",
+        "<b>这个界里 <code>|C|</code> 是<span class='w'>一次方开根</span>，不是 log。</b> <span class='k'>上下文一旦是「用户画像」「query 文本」这类东西，<code>|C|</code> 轻易上百万甚至无穷，<code>√(n|C|T)</code> 比 <code>T</code> 还大，界就变成了废话</span>。<b>讲义特意写了 <code>|Π| = n^{|C|}</code>（p6）——这个策略类大得离谱，而遗憾正是在为这个大小付钱</b>。",
+        "<b>另一个极端：干脆不看上下文，就当普通 <code>n</code> 臂 bandit 跑。</b> <span class='k'>遗憾 <code>√(nT)</code>，<code>|C|</code> 完全消失</span>。<b>看着赢麻了，但要盯住它比的是什么</b>：<span class='w'><code>max_i Σ_t r(c_t,i)</code>——<b>一条固定的臂</b>，对所有上下文都用同一个动作</b></span>。<b>如果不同上下文的最优动作不同，这个基准本身就远低于真正的最优</b>。",
+        "<b>所以这一页真正的内容是一个<span class='k'>取舍的坐标系</span>，不是两个算法。</b> <b>一端：基准强（逐上下文最优）、代价高（<code>√|C|</code>）；另一端：基准弱（单一固定臂）、代价低（无 <code>|C|</code>）</b>。<span class='w'>⚠ 而「基准」就是策略类 <code>Π</code></span>——<b>下一页会把它变成一个你可以自由挑的参数，遗憾里出现的是 <code>log|Π|</code>，于是两个极端变成同一个公式的两个端点</b>。"
+      ],
+      "eq": "每个上下文各跑一个 bandit：\n  Σ_t max_i (r(c_t,i) − r(c_t,I_t))\n    = Σ_{c∈C} max_i Σ_t 1{c_t=c}(r(c,i) − r(c,I_t))     ← 按上下文重排\n    ≤ Σ_{c∈C} √(n T_c)                                   ← 每本账上跑 MAB\n    ≤ √( (Σ_c T_c) · |C| ) · √n  =  √(n |C| T)           ← 柯西—施瓦茨，Σ_c T_c = T\n\n完全忽略上下文：\n  max_i Σ_t r(c_t,i) − r(c_t,I_t) ≤ √(nT)                ← 但基准只是「一条固定的臂」",
+      "tbl": {
+        "head": ["做法", "基准 Π 是什么", "|Π|", "遗憾", "什么时候废掉"],
+        "rows": [
+          ["每个上下文各学各的", "任意映射 C → [n]", "n^{|C|}", "√(n|C|T)", "|C| 大（画像 / 文本）⇒ 界超过 T，没有意义"],
+          ["完全忽略上下文", "常值映射（一条固定臂）", "n", "√(nT)", "不同上下文最优动作不同 ⇒ 基准本身就低"],
+          ["⭐ 挑一个策略类 Π（p6 起）", "你自己挑的 π: C → [n]", "|Π|", "√(nT log|Π|)", "Π 里没有好策略 ⇒ 近似误差，遗憾界管不着"]
+        ]
+      },
+      "say": "<b>补一处讲义没点破、但是整段设计的要害：第三行为什么能把 <code>|Π|</code> 放进 log？</b><br>因为一旦固定了策略类 <code>Π</code>，<b>你就不再是在 <code>n</code> 条臂里做 bandit，而是在 <code>|Π|</code> 个<b>专家</b>里做 bandit</b>——<span class='k'>而 Theorem 17 的第二项本来就是 <code>log(专家数)/η</code></span>。<span class='w'>⚠ 代价是：你只跟 <code>Π</code> 里最好的那个比</span>，<b><code>Π</code> 外面有多好的策略，遗憾界一个字都不保证</b>。<span class='k'>这是「遗憾」与「最优」的分家，在应用里几乎总是真正的误差来源</span>——<b>界里看不见的那一项（近似误差）通常比界里写着的那一项大</b>。",
+      "res": {
+        "tag": "推断",
+        "v": "<b>这张取舍表可以原样搬到你的路由器上，而且中间那一行正好是 AFlow 的做法。</b> <span class='k'>「上下文」= 一条 query（或它的难度特征）；「动作」= 给某节点挑哪个档位</span>。<b>AFlow 搜出来的是<b>一个</b>固定 workflow，对所有 query 一视同仁 —— 正是「完全忽略上下文」那一行</b>，<span class='w'>而它的天花板就是那个弱基准</span>。<b>你要做的 node-level fidelity assignment 要么是第一行（逐 query 决策，样本打不起）、要么是第三行（挑一个策略类，比如「按难度打分分三档」）</b>。⚠ <b>第三行的 <code>log|Π|</code> 便宜到几乎免费，真正的风险在表里看不见的那一项——<code>Π</code> 里有没有好策略</b>，<span class='k'>而这恰恰是简报 §5 的 P2 vs P3 消融要测的东西</span>。",
+        "ref": "本讲 p5–p6 · 简报 §1（AFlow 固定 M）· 简报 §5（P2 vs P3 消融）"
+      }
+    }
+  ],
+  "quiz": {
+    "1": [
+      {
+        "q": "Theorem 17 对损失估计量 ℓ̂ 提了两条要求。为什么第二条写成单边的 −ηℓ̂_{t,i} ≤ 1，而不是双边的 |ηℓ̂_{t,i}| ≤ 1？",
+        "o": [
+          "因为 γ 的强制探索已经保证了 ℓ̂ 的正半边有界，所以不必再写",
+          "因为单边条件更弱，作者只是想把定理写得尽量一般，没有别的原因",
+          "因为证明要在 exp(−ηℓ̂) 上用 e^{−z} ≤ 1 − z + z²，这条不等式只在 z ≥ −1 时成立；ℓ̂ 过正只会压扁那条臂，不伤分析",
+          "因为损失本身非负，ℓ̂ 不可能取到很大的正值，双边等价于单边"
+        ],
+        "a": 2,
+        "why": "单边性来自分析中那一步 e^{−z} ≤ 1 − z + z²，它要求 z ≥ −1。ℓ̂ 很负时 exp(−ηℓ̂) 会爆炸、权重一轮内塌给那条臂；ℓ̂ 很正只是把那条臂压扁，不会破坏界。所以 p3、p9 两处费力气界的都是 −ηℓ̂ 这一侧。"
+      }
+    ],
+    "2": [
+      {
+        "q": "线性情形的估计量 ℓ̂_{t,i} = x_iᵀA(q_t)⁻¹x_{I_t}ℓ_{t,I_t} 中，无偏性证明的第二步把 ℓ_{t,j} 换回 x_jᵀθ_t。这一步为什么是关键？",
+        "o": [
+          "因为这样可以把 ℓ 的取值范围从 [−1,1] 放大到整个实轴",
+          "因为 θ_t 是常数，换成它之后期望号可以直接拿掉",
+          "因为换完之后求和项凑出了 Σ_j q_{t,j}x_jx_jᵀ，而它按定义就是 A(q_t)，于是与前面的 A⁻¹ 直接对消",
+          "因为只有这样才能保证 A(q_t) 可逆"
+        ],
+        "a": 2,
+        "why": "这一步用掉的正是线性假设 ℓ_{t,j} = x_jᵀθ_t。换完之后 Σ_j q_{t,j}x_jx_jᵀ 恰好是 A(q_t) 的定义，于是 A⁻¹A = I，无偏性成立。换句话说：「按什么分布采样」与「怎么去偏」在同一个矩阵上相遇并对消——这是线性结构买到的东西。"
+      },
+      {
+        "q": "p2 的 Aside 并排写了 θ̂_LS 与 θ̂_IPS。算法里为什么必须用 IPS 那一版（分母是期望的 Σ_x λ_x x xᵀ）？",
+        "o": [
+          "因为 IPS 的方差更小",
+          "因为 LS 需要矩阵求逆而 IPS 不需要",
+          "因为 LS 的归一化矩阵依赖本轮实际抽到了哪条臂，代进去之后估计量不再无偏，而无偏性是 Theorem 17 的假设之一",
+          "因为 LS 只在噪声服从高斯分布时才有定义"
+        ],
+        "a": 2,
+        "why": "两者都（渐近）无偏，但 LS 用的是实际抽样的二阶矩，是随机的；把它代进 ℓ̂ 会让条件期望不再等于 ℓ_{t,i}，而无偏性正是定理的假设。IPS 的分母是事先定下的 λ，与本轮结果无关。代价是方差更大——这正是后半段离线评估那条主线的起点。"
+      }
+    ],
+    "3": [
+      {
+        "q": "p3 推导 −ηℓ̂ 的上界时，把 A(q_t)⁻¹ 劈成 A^{−1/2}·A^{−1/2}。这一招解决的是什么问题？",
+        "o": [
+          "保证 A(q_t) 正定",
+          "x_iᵀA⁻¹x_j 既不是范数也不是内积、无从下手；写成 ⟨A^{−1/2}x_i, A^{−1/2}x_j⟩ 之后柯西—施瓦茨立刻可用，两个因子还能被同一个 max_j‖x_j‖² 盖住",
+          "把矩阵求逆的数值误差降低一半",
+          "把 d 维的问题降到 1 维"
+        ],
+        "a": 1,
+        "why": "关键在于凑出内积的形状。x_iᵀA⁻¹x_j 是一个双线性型，直接界不住；劈成两半后它成了两个向量的内积，柯西—施瓦茨给出 ‖x_i‖_{A⁻¹}‖x_j‖_{A⁻¹}，而这两个因子是同一个函数在两点的取值，于是能一并被 max_j 盖住，最后接上 Kiefer–Wolfowitz 的 d。"
+      }
+    ],
+    "4": [
+      {
+        "q": "最终的界 3ηdT + log(n)/η 里出现了两个 d：一个来自 −ηℓ̂ 的界，一个来自方差项。它们的来历相同吗？",
+        "o": [
+          "不同：方差项的 d 来自 Tr(A⁻¹A) = Tr(I_d)，对任何 q_t 都成立；−ηℓ̂ 那个 d 要 λ 真的取成 G-最优设计才拿得到",
+          "不同：方差项的 d 是臂数，−ηℓ̂ 那个 d 是维数",
+          "相同，都是空间维数，所以可以合并成一个常数",
+          "相同，都是 Kiefer–Wolfowitz 的 f_G(λ*) = d"
+        ],
+        "a": 0,
+        "why": "方差项那个 d 是恒等式白送的（迹轮换后得到单位矩阵的迹），与 λ 怎么取无关；−ηℓ̂ 那个 d 则是 max_j‖x_j‖²_{A(λ)⁻¹} 的最小值，必须解 G-最优设计才达到。分清这一点才知道：算法里「解凸优化求 λ」买的是稳定性，不是方差。"
+      }
+    ],
+    "5": [
+      {
+        "q": "「每个上下文各跑一个 bandit」得到遗憾 √(n|C|T)。推导最后一步用柯西—施瓦茨把 Σ_c√(T_c) 放成 √(|C|T)，这一步在什么情况下取等？",
+        "o": [
+          "|C| = 1 时",
+          "只有一个上下文出现、其余 T_c = 0 时",
+          "T_c 服从几何分布时",
+          "T_c 全部相等时，也就是上下文均匀出现时 —— 而这恰恰是最常见的情形"
+        ],
+        "a": 3,
+        "why": "柯西—施瓦茨在两个向量成比例时取等，即所有 √(T_c) 相同、也就是 T_c 全相等。所以这个界在上下文均匀出现时最紧（最差），而那正是常态。这也解释了为什么 |C| 以一次方开根进入——它不是放大的产物，是真实的代价。"
+      },
+      {
+        "q": "「完全忽略上下文」拿到 √(nT)，比 √(n|C|T) 小得多。它的代价在哪里？",
+        "o": [
+          "它的常数因子大得多，实际中反而更差",
+          "它需要知道 ν 的分布",
+          "它只在 T 很大时才成立",
+          "它比较的基准是一条对所有上下文都相同的固定臂；若不同上下文的最优动作不同，这个基准本身就远低于真正的最优"
+        ],
+        "a": 3,
+        "why": "遗憾小不等于表现好——遗憾是相对基准说的。忽略上下文时基准塌成「单一固定臂」，策略类 |Π| = n。界里看不见的那一项（基准与真正最优之间的差，即近似误差）通常才是主要误差来源。p6 起引入策略类 Π 正是为了让这个基准可调。"
+      }
+    ]
+  }
+}
