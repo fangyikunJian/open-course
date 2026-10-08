@@ -1,0 +1,84 @@
+{
+  "title": "L20 接上课题的哪一段：别造那个「拟合模型 + 置信上界」的 router，以及 AFlow 离有保证只差一个函数形式",
+  "arc": "<b>这五页是一条完整的「别走那条路，走这条」，而那条被否掉的路恰好是你最可能先写出来的第一版设计。</b><br><br><span class='k'><b>一、先认清你在做哪一种承诺（p1）。</b></span> <b>model-free</b> 不假设奖励的任何形式，代价是<span class='w'>只跟你挑的策略类 <code>Π</code> 里最好的比</span>（这是 L18）；<b>model-based</b> 假设<b>可实现性</b>（<code>r = f_* ∈ 𝔉</code>），回报是<span class='k'>跟逐上下文的真正最优比</span>。<b>两个遗憾界形状一样（<code>√(nT log|·|)</code>），交易却是对称的：一个「保证是真的，但可能没用」，另一个「有用，但保证可能是假的」。</b><span class='w'>⚠ 落到课题上：你那条「拟合 <code>Acc</code> 与 <code>Cost</code> 的模型再优化」是 model-based，必须承担可实现性（简报 §5 的可加性检验正是在验它）；「挑一个策略类做无悔学习」是 model-free，不必验，但基准只是 <code>Π</code> 里最好的。<b>不许同时声称两边的好处。</b></span><br><br><span class='w'><b>二、被否掉的那条路（p2–p4）。</b></span> <b>线性情形 UCB 是对的</b>：岭回归 + 置信椭球 + 乐观，<code>d√T·polylog(T)</code>，连 <code>n</code> 和 <code>|C|</code> 都没有（p2）。<b>于是最自然的下一步是「把椭球换成任意函数类的置信集」—— p3 原封不动地照做了一遍，构造毫无障碍、乐观分解照样成立，可是页末一行写着：<span class='k'>存在 <code>𝔉</code> 使 UCB 的遗憾 ≥ <code>√(T|𝔉|)</code></span></b>。<span class='w'><code>|𝔉|</code> <b>一次方</b>，而目标是 <code>log|𝔉|</code> —— <code>|𝔉| = 2^20</code> 时差几百倍，且随规模指数拉大</span>。<b>p4 给了反例：动作分两段，前 <code>m</code> 格是「索引比特」（回报低、一次排除一半候选），后 <code>2^m</code> 格是「答案」（可能回报高、一次只排除一个）。</b><span class='k'>UCB 只按乐观值排序，于是不去读比特、逐个试 <code>2^m</code> 个答案格；而先读 <code>m</code> 个比特再查表直奔答案的算法只吃 <code>√(mT)</code>。</span><br><br><b>⭐ 这个反例的要害是一句对实践很不客气的话：<span class='k'>乐观原则按「可能的回报」排序，对「这个动作能排除多少候选」完全是盲的</span>。</b><span class='w'>⚠ 而这与 CSE541 L07（CS234 L16 p47）那条「该按信息价值花预算」是同一件事的第二次出现、而且更强</span>：<b>那边的前提是「离线筛选里做坏决策不疼」，这边说即使在真要承受损失的在线设定里，只要信息与回报错位，乐观也会付指数代价。</b><br><br><span class='k'><b>三、该走的那条（p5）。</b></span> <b>SquareCB 只有三行，而且<b>没有置信集、没有不确定度</b></b>：<code>P_{t,i} ∝ 1/(λ + γ·Δ_{t,i})</code>，<code>Δ</code> 是相对估计最优的差距。<b>它只要一个「平方损失的在线悔值 ≤ <code>Est_sq(T)</code>」的回归器，遗憾 <code>√(nT·Est_sq(T))</code></b>；<span class='w'>用指数权重做回归器 <code>Est_sq(T) ≤ log|𝔉|</code>，回到 p1 的 Claim，五页走完一个圆</span>。<b>⭐ 最值钱的是这个<b>解耦</b>：统计困难全被塞进 <code>Est_sq(T)</code> 这一个纯监督学习的量，换函数类只换回归器，bandit 那一侧一行不改</b>——<span class='k'>于是「怎么给一棵梯度提升树算置信区间」这个没人能干净回答的问题被整个绕开了</span>。<br><br><b>⇒ 两条落地动作。</b><b>① 你的 router 直接照 p5 写</b>：<span class='w'>简报 §4e 已经论证过该拟合的就是这个（成本那半直接回归、不用重要性权重；准确率那半 FQE + cross-fitting）</span>，<b>把 <code>f̂_t</code> 取成 <code>Ĝ = Âcc − λ·Ĉost</code> 的回归器，概率按 <code>1/(λ_0+γΔ)</code> 分配，就是一个带遗憾保证的配置选择器</b>。<b>② ⭐ AFlow 的选择规则离「有保证」只差一个函数形式</b>：<span class='k'>简报 §2【已核】它是 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，而 <code>s_i − s_max</code> 正是<b>负的差距</b></span>——<b>和 SquareCB 结构惊人地像（都是「均匀 + 随差距递减」），差别只在<b>衰减形状</b>：它用 <code>exp(−αΔ)</code>（指数尾），定理要的是 <code>1/(λ+γΔ)</code>（多项式尾）</b>。<span class='w'>⚠ 这条必须实测再写，而且它依赖可实现性、也依赖把 <code>s_i</code> 换成在线回归器的输出 —— 两处前提都要在论文里讲清楚，否则就是把定理硬套在不满足前提的算法上。</span>",
+  "pitfalls": [
+    {
+      "v": "<b>⚠ p3 末行那条下界是对<b>UCB 这个算法</b>的，不是对<b>问题</b>的。</b> <span class='k'>p1 的 Claim 说 <code>√(nT log|𝔉|)</code> 可达，p5 给出了算法</span>；<b>所以 <code>√(T|𝔉|)</code> 说的是「乐观这条思路达不到最优」，不是「这个问题就这么难」</b>。<span class='w'>⚠ 这与 CSE541 L16 那种「任何方法都不可能更好」的下界是两类完全不同的东西</span>——<b>引用时搞混会把结论写反，而且审稿人一眼能看出来</b>。",
+      "tag": "已核",
+      "ref": "本讲 p3 末行 · p1 的 Claim · p5 的定理 · CSE541 L16 主线卡"
+    },
+    {
+      "v": "<b>⚠ 别以为 SquareCB 全面优于 UCB —— 在<b>线性</b>类上 UCB 更好。</b> <span class='k'>p2 的 <code>d√T·polylog(T)</code> 利用了线性的<b>可迁移性</b>（一条臂上的观测能更新所有臂的估计），而 SquareCB 的通用界 <code>√(nT·Est_sq)</code> 拿不到那么紧</span>。<b>判据很简单：你的函数类有没有「一次观测能更新多个动作的估计」这种结构？有就用乐观，没有就用 SquareCB。</b><span class='w'>⇒ 落到课题上，这一条和 L07 的线性假设绑在一起：如果可加性检验（简报 §5）过了，线性成立，那么 L07+L10 那套乐观路线反而是更好的选择。</span>",
+      "tag": "已核",
+      "ref": "本讲 p2 与 p5 的遗憾对比 · p5 的 tip · 简报 §5"
+    },
+    {
+      "v": "<b>⚠ 可实现性破掉不是「界差一点」，是「界完全不成立」，而且有一个很具体的失效模式。</b> <span class='k'>p3 的 <code>f_* ∈ 𝔉^T</code> 是后续每一步的前提（尤其是乐观分解 <code>UCB_t(i) ≥ r(c_t,i)</code>）</span>；<b><code>f_*</code> 根本不在 <code>𝔉</code> 里的话，<code>𝔉^T</code> 随时可能把所有好函数都排除掉，算法会<b>自信地</b>指向一个错误的动作而且永不纠正</b>。<span class='w'>⇒ 实践里必须用<b>误配置</b>版本的分析：假设 <code>min_{f∈𝔉}‖f − r‖_∞ ≤ ε</code>，界里多一项 <code>εT</code></span>。<b>本讲没讲这一支，但你写论文时几乎一定要用它 —— 而且 <code>εT</code> 是<b>线性</b>增长的，这意味着函数类的近似误差在长时域下会主导一切。</b>",
+      "tag": "推断",
+      "ref": "本讲 p1、p3（f_* ∈ 𝔉^T 的用法）"
+    },
+    {
+      "v": "<b>⚠ 记号冲突，而且这一次撞在最要紧的字母上：<code>λ</code> 在这一讲里有<b>三个</b>意思。</b> <span class='k'>p2 的 <code>λ</code> 是<b>岭回归的正则系数</b>；p5 的 <code>λ</code> 是 <code>P ∝ 1/(λ+γΔ)</code> 里的<b>平移常数</b>；而你简报里的 <code>λ</code> 是 <code>G = Acc − λ·Cost</code> 的<b>权衡权重</b></span>。<b>⚠ 另外 L07 里的 <code>λ</code> 还是<b>测量分配</b>（住在单纯形上）</b>。<span class='w'>⇒ 四个毫无关系的东西共用一个字母。写论文时必须给其中至少两个改名，否则同一页里会打架</span>。<b>（本精读 p5 把算法里那个记成 <code>λ_0</code> 以示区别。）</b>",
+      "tag": "已核",
+      "ref": "本讲 p2、p5 · CSE541 L07 主线卡（同一条记号警告）· 简报 §2"
+    },
+    {
+      "v": "<b>⚠ 「在线回归 oracle」的要求比它看起来弱，但也比它看起来<b>严</b>，两头都别搞错。</b> <span class='k'><b>弱</b>的一侧：它只要求在算法<b>实际走过</b>的那些格子 <code>(c_t, I_t)</code> 上准，不要求在整个 <code>C × [n]</code> 上准</span>；<b><b>严</b>的一侧：它要的是<b>在线</b>悔值 —— <code>f̂_t</code> 只能用 <code>s &lt; t</code> 的数据，每一轮都要重新出一个预测</b>。<span class='w'>⚠ 你拿一批历史数据离线训一个模型、然后固定不动，<b>不满足</b>这个条件</span>；<b>要么真的做在线更新，要么改用别的分析（而那会把保证换成另一种形式）</b>。",
+      "tag": "已核",
+      "ref": "本讲 p5（oracle 的两种等价定义）"
+    },
+    {
+      "v": "<b>⚠ p4 那个反例有一个容易误读的地方：它<b>不是</b>在说「要先做探索再做利用」。</b> <span class='k'>SquareCB 的解法根本不分阶段，它每一轮都在所有动作上放正概率</span>；<b>它绕开反例的方式是<b>随机化</b>，不是「先诊断后搜索」</b>。<span class='w'>⇒ 两件事都对，但别混为一谈：<b>「先诊断后搜索」是你在简报 §4c/§5 里的实验顺序（人为安排的两阶段）；SquareCB 是一个单阶段算法</b></span>。<b>反例说明的只是「按回报排序的贪心会漏掉诊断性动作」，而修法可以是分阶段、也可以是随机化。</b>",
+      "tag": "推断",
+      "ref": "本讲 p4 与 p5 · 简报 §4c、§5"
+    }
+  ],
+  "ammo": [
+    {
+      "q": "你为什么不直接拟合一个 Acc 模型、给它配置信区间、挑上界最大的配置？这是最标准的做法。",
+      "a": "<b>因为对丰富的函数类这条路被证明不行，而且下界是显式的。</b> <span class='k'>CSE541 L20 p3：存在函数类使「拟合 + 置信集 + 乐观」这套做法的遗憾 ≥ <code>√(T|𝔉|)</code>，而最优是 <code>√(nT log|𝔉|)</code> —— <code>|𝔉|</code> 一次方 vs 进 log，<code>|𝔉| = 2^20</code> 时差几百倍</span>。<b>p4 的反例讲清了机制：乐观按「可能的回报」排序，对「这个动作能排除多少候选」是盲的</b>；<span class='w'>而我的场景正好有这种错位 —— 便宜的诊断性探测（<code>k=1</code> 全弱跑一遍、单节点降级扫描）信息量大但回报低，完整配置的试跑回报可能高但一次只告诉你一个点</span>。<b>⇒ 所以我用 SquareCB：<code>P ∝ 1/(λ_0 + γΔ)</code>，只需要一个平方损失的在线回归器，不需要任何置信集</b>。<span class='k'>这同时绕开了「怎么给一棵梯度提升树算置信区间」这个工程上没人能干净回答的问题。</span>⚠ <b>一个例外我会说清楚：如果可加性检验过了、<code>G</code> 确实对配置线性，那么 L07/L10 那套乐观路线的 <code>d√T</code> 反而更紧，我会改回去。</b>",
+      "tag": "推断",
+      "ref": "本讲 p3 末行 · p4 · p5 · 简报 §4c · 简报 §5"
+    },
+    {
+      "q": "你说你的方法有遗憾保证。那个保证依赖什么假设？",
+      "a": "<b>依赖一条，而且我会把它明写在定理旁边：<b>可实现性</b>。</b> <span class='k'>SquareCB 的界 <code>√(nT·Est_sq(T))</code> 要求存在 <code>f_* ∈ 𝔉</code> 使 <code>r(c,i) = f_*(c,i)</code> 对所有 <code>c,i</code> 成立</span>。<b>⚠ 这在现实里几乎总是假的，所以我用<b>误配置</b>版本：假设 <code>min_{f∈𝔉}‖f−r‖_∞ ≤ ε</code>，界里多一项 <code>εT</code></b>。<span class='w'><code>εT</code> 是<b>线性</b>增长的 —— 意味着函数类的近似误差在长时域下会主导一切</span>，<b>所以我会报告 <code>ε</code> 的经验估计（留出集上的拟合残差），而不是只报遗憾界</b>。<span class='k'>另外第二条是在线性：oracle 要求 <code>f̂_t</code> 只用 <code>s &lt; t</code> 的数据、每轮重出预测。我确实做在线更新；如果改成「离线训一个固定模型」，这个保证就不适用，我不会含糊这一点。</span>",
+      "tag": "推断",
+      "ref": "本讲 p1、p3、p5"
+    },
+    {
+      "q": "你这个「按差距的倒数分配概率」和 AFlow 已经在用的 softmax 采样有什么实质区别？听起来只是换了个公式。",
+      "a": "<b>确实只换了一个函数形式，而那正是我要说的事 —— 换了之后就有定理了。</b> <span class='k'>AFlow 的规则是 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>【已核，Algorithm 1】，而 <code>s_i − s_max</code> 正是负的差距；SquareCB 是 <code>P ∝ 1/(λ_0 + γΔ)</code></span>。<b>两者结构上惊人地像：都是「均匀 + 一个随差距递减的项」。差别只在<b>尾部衰减</b>——指数 vs 多项式，而 <code>√(nT·Est_sq)</code> 这个界要的是后者</b>。<span class='w'>机制也说得清：把「瞬时损失 <code>Σp_iΔ_i</code>」与「估计误差 <code>(1/γ)Σ(1/p_i)·误差</code>」的权衡对 <code>p_i</code> 求极值，解出来就是倒数形状；指数衰减把差距中等那些动作的 <code>1/p_i</code> 抬到天上，那一半代价失控</span>。<b>⇒ 可写进 contribution 的一句：把 softmax 换成 inverse-gap，在可实现性下得到遗憾保证，代码改动一行。</b>⚠ <b>但我会先实测再写，而且会讲清两处前提</b>：<span class='k'>AFlow 的 <code>s_i</code> 是 <code>D_V</code> 上 5 次的均值、不是在线回归器的输出；而定理要可实现性。</span>",
+      "tag": "推断",
+      "ref": "本讲 p5 · 简报 §2（λ=0.2, α=0.4）· 简报 §3（D_V 上跑 5 次）"
+    },
+    {
+      "q": "model-free 和 model-based 你到底用哪个？两边的结果能放在一张表里比吗？",
+      "a": "<b>能比，但必须标清基准不同，否则那张表是误导。</b> <span class='k'>CSE541 L18 是 model-free：不假设奖励形式，遗憾 <code>√(nT log|Π|)</code>，但<b>只跟 <code>Π</code> 里最好的策略比</b>；L20 是 model-based：假设可实现性，遗憾形状一样，但<b>跟逐上下文的真正最优比</b></span>。<b>⇒ 同样一个「遗憾 0.05」的数字，两边的含义差别很大</b>。<span class='w'>我的做法是两条都跑，而把<b>共同的、无歧义的</b>那个量当主指标：简报 §4d 那张穷举 oracle 的精确表给出的真正最优 —— 两种方法都对着它报差距</span>。<b>⚠ 而那张表只在留出的 200–300 条 query 上有，所以它是<b>报告</b>用的、不能进训练</b>（这一点和 L18 p16 那条「用悲观选、用独立留出报」是同一条纪律）。<b>这样两边才真的可比，而且顺带避开了优化者的诅咒。</b>",
+      "tag": "推断",
+      "ref": "本讲 p1 · CSE541 L18 p6、p16 · 简报 §4d"
+    }
+  ],
+  "papers": [
+    {
+      "t": "Foster &amp; Rakhlin — Beyond UCB: Optimal and Efficient Contextual Bandits with Regression Oracles（SquareCB）",
+      "id": "ICML 2020（本讲 p5 的算法，讲义写作 “Square CB” 但未给出处）",
+      "why": "<b>p5 那三行算法与 <code>√(nT·Est_sq(T))</code> 那条定理的出处。</b> <span class='k'>最该引用的是它的<b>结构主张</b>：上下文 bandit 可以被<b>归约</b>到在线平方损失回归，于是统计困难与探索逻辑彻底解耦</span>。<b>你用它来支撑「我的 router 只需要一个回归器」这句话</b>，<span class='w'>以及「inverse-gap 而不是 softmax」这个具体的函数形式</span>。⚠ <b>讲义未点名，引用前核对作者、年份与定理的确切形式</b>（<code>γ</code> 的取法与 <code>λ_0</code> 的常数讲义都简化了）。<b>另外它还有一个误配置版本的后续工作，正是你需要的那一支，值得一并查。</b>"
+    },
+    {
+      "t": "Agarwal, Hsu, Kale, Langford, Li &amp; Schapire — Taming the Monster（ILOVETOCONBANDITS）",
+      "id": "ICML 2014（model-free 那一侧的代表，本讲 p1 的 √(nT log|Π|) 属这一支）",
+      "why": "<b>L18 那条路线的高效实现版本。</b> <span class='k'>L18 的算法每轮要解一个 <code>|Π|</code> 变量的凸优化，<code>|Π|</code> 一大就不可行；这篇把每轮调用 oracle 的次数降到均摊 <code>O(√(nT/log|Π|))</code></span>。<b>⇒ 如果你最终走 model-free，这是实现时真正要读的那一篇</b>，<span class='w'>而本讲 p1 只是把它的界引用了一下</span>。⚠ <b>讲义未点名，引用前核对。</b>"
+    },
+    {
+      "t": "Chu, Li, Reyzin &amp; Schapire — Contextual Bandits with Linear Payoff Functions（LinUCB 的分析）",
+      "id": "AISTATS 2011（本讲 p2 的那套 θ̂ / ℰ_t / UCB_t 就是它）",
+      "why": "<b>p2 那四个部件的标准引用，以及 <code>d√T·polylog(T)</code> 的来源。</b> <span class='k'>你如果最终走线性路线（可加性检验通过），这是基线算法的出处</span>；<b>而它与 CSE541 L07 的关系值得在论文里点明：L07 给固定设计下的最优测量分配，LinUCB 给自适应情形，<code>polylog(T)</code> 就是自适应的代价</b>。⚠ <b>自归一化那一侧更标准的引用是 Abbasi-Yadkori, Pál &amp; Szepesvári (2011)</b>，<span class='w'>CSE541 L12 讲的正是那套机器</span>；<b>两篇要分清谁证了什么。</b>"
+    },
+    {
+      "t": "Russo &amp; Van Roy — Eluder dimension / Learning to Optimize via Posterior Sampling",
+      "id": "2013 / 2014（p3 那条「UCB 在一般 𝔉 上不行」的另一面）",
+      "why": "<b>p3 的下界说「<code>|𝔉|</code> 一次方」，而这一支给出的是「什么样的 <code>𝔉</code> 上乐观<b>仍然</b>可行」的刻画 —— eluder 维数。</b> <span class='k'>⇒ 它正好回答了 p5 那条 tip 里的判据：「你的函数类有没有可迁移结构」有一个定量版本</span>。<b>你若要论证自己的函数类属于哪一边，这是该查的工具</b>；<span class='w'>线性类的 eluder 维数是 <code>O(d)</code>，而 p4 那个 chain-code 类的是 <code>2^m</code> 量级</span>。⚠ <b>讲义完全没提这一支，这条属<b>待核</b>：主题高度相关，但具体定义与结论要查原文。</b>"
+    }
+  ]
+}

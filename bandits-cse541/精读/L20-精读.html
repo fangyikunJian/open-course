@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSE541 第 20 讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cse541-l20">
+
+<div id="bar">
+  <h1>CSE541 第 20 讲 · <span>一般函数类的上下文 bandit（model-based）</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 5</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_20.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L20-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "model-free 与 model-based 的遗憾界形状相同（都是 √(nT log|·|)）。它们真正的差别在哪里？", "o": ["model-based 的常数更小", "基准与假设成对地不同：model-free 不假设 r 的形式、只跟 Π 里最好的策略比；model-based 假设可实现性 r = f_* ∈ 𝔉、跟逐上下文的真正最优比", "model-free 只适用于有限上下文空间", "model-based 不需要随机化"], "a": 1, "why": "两边做的是对称的交易：model-free 把风险放在基准里（Π 里可能没有好策略，但界照样成立），model-based 把风险放在假设里（基准是真正最优，但可实现性一破界就作废）。「保证是真的但可能没用」vs「有用但保证可能是假的」。"}, {"q": "p1 提到 “proper learning”：算法输出的动作总能写成某个 π ∈ Π 在当前上下文下的取值。L18 的算法是 proper 的吗？", "o": ["这个概念只对 model-based 有意义", "不是 —— 它按 q_t 抽策略再由策略抽动作，两级抽样的结果一般不等于任何单个 π ∈ Π 的输出", "是 —— 只要 Π 包含所有确定性策略", "是 —— 它每轮都从 Π 里抽一个策略"], "a": 1, "why": "两级抽样诱导出的是一个混合策略，一般不在 Π 里。这件事有实践后果：non-proper 的算法没法「部署成一个策略」，必须把整套随机化带上线。"}],
+2: [{"q": "线性情形的遗憾是 d√T·polylog(T)，里面既没有 n 也没有 |C|。这是靠什么换来的？", "o": ["靠 UCB 的乐观性", "靠「特征映射 φ 事先已知」且「r(c,i) = φ(c,i)ᵀθ_* 精确线性」这两个假设 —— 线性结构让一条臂上的观测能更新所有臂的估计", "靠上下文是 iid 抽取的", "靠岭回归里的正则项 λ"], "a": 1, "why": "关键是可迁移性：线性结构下，在 (c_t,I_t) 上的一次观测会让 V_t 在那个方向上长大，于是所有相关方向的不确定度一起下降。一般函数类没有这种结构，所以 p1 的 Claim 里躲不掉 √n。"}, {"q": "V_t = Σ_t φ(c_t,I_t)φ(c_t,I_t)ᵀ + λI 与 L07 的 A(λ) 都是「设计矩阵」。最重要的差别是什么？", "o": ["V_t 只在线性情形有定义", "A(λ) 是对称的而 V_t 不一定", "V_t 是自适应的（I_s 由算法自己挑、依赖观测），A(λ) 是事先定的（只依赖配置集合的几何）—— 所以 V_t 的置信分析必须用自归一化的鞅不等式", "V_t 多了一个 λI"], "a": 2, "why": "L07 的 λ* 在第一个 API 调用之前就能算出来；V_t 依赖算法实际走过的路径。于是固定设计那一套分析不适用，必须用 L12 的自归一化鞅不等式，β_t 里的 polylog(T) 正是它的代价。"}],
+3: [{"q": "p3 末行「∃𝔉 s.t. UCB suffers regret ≥ √(T|𝔉|)」该怎么理解？", "o": ["这说明 β_T = 8log(|𝔉|/δ) 取得太大了", "这是对 UCB 这个特定算法的下界：它那条思路达不到最优，而别的算法（p5 的 SquareCB）能拿到 √(nT log|𝔉|)", "这说明可实现性假设不成立", "这是对问题本身的下界：任何算法在那个 𝔉 上都至少这么差"], "a": 1, "why": "必须与 CSE541 L16 那种「任何方法都不可能更好」的下界区分开。p1 的 Claim 说 √(nT log|𝔉|) 是可达的、p5 给出算法，所以 p3 末行说的是 UCB 这条思路本身不行，不是问题很难。引用时搞混会把结论写反。"}, {"q": "UCB 推广到一般 𝔉 时，f_* ∈ 𝔉^T 这一步用掉了哪条假设？它破掉会怎样？", "o": ["用了可实现性（f_* 就是条件期望、平方损失期望最小）；破掉之后 𝔉^T 可能把所有好函数都排除，UCB 会自信地指向错误动作且永不纠正", "用了上下文 iid；破掉只是常数变差", "用了 𝔉 有限；破掉需要换成覆盖数", "用了 β_T 足够大；破掉只需调大 β_T"], "a": 0, "why": "f_* ∈ 𝔉^T 是后续每一步（尤其是乐观分解 UCB_t(i) ≥ r(c_t,i)）的前提。可实现性一破，这个失效模式不是「界差一点」而是「界完全不成立」。实践里要用误配置版分析：假设 min_f‖f−r‖_∞ ≤ ε，界里多一项 εT。"}],
+4: [{"q": "p4 的反例里，UCB 为什么不去走「比特段」的那些格子？", "o": ["因为比特段的格子不在动作集合里", "因为 UCB 是确定性算法而比特段需要随机化", "因为比特段的格子回报低、乐观值不够高，而 UCB 的决策规则里只有乐观值这一个量 —— 它对「选这个动作能排除多少候选函数」完全是盲的", "因为 𝔉^T 把比特段的函数都排除了"], "a": 2, "why": "比特段提供信息不提供回报，答案段里没试过的格子乐观值都很高。UCB 按「可能的回报」排序，于是逐个试 2^m 个答案格，而先读 m 个比特、查表直奔答案的算法只吃 √(mT)。这是乐观原则的结构性盲点，不是实现疏漏。"}, {"q": "这个反例与 CSE541 L07（以及 CS234 L16 p47）那条「该按信息价值花预算」的直觉是什么关系？", "o": ["方向相反：L07 说要按信息价值，这一页说要按回报", "无关 —— L07 讲的是纯探索，这一页讲的是遗憾最小化", "这一页否定了 L07 的结论", "是同一件事，而且这一页说明「按信息价值探索」不是离线筛选专属的技巧 —— 即使在真要承受损失的在线设定里，只要信息与回报错位，乐观也会输"], "a": 3, "why": "L07/CS234 L16 p47 的论证前提是「离线筛选里做坏决策不疼」。这一页更强：在线设定里损失是真的，乐观原则照样会因为信息与回报错位而付出指数代价。所以「按信息价值探索」在这里是必要条件而非离线专属的优化。"}],
+5: [{"q": "SquareCB 的概率规则是 P ∝ 1/(λ + γΔ)，而不是 exp(−γΔ)。为什么这个形状要紧？", "o": ["指数形式会让概率出现负值", "两者等价，讲义只是选了一个写法", "倒数是多项式尾、衰减慢，差距中等的动作仍拿到不可忽略的概率而被持续采样；指数尾会很快把它们压到几乎不采样，于是「估计错了却再也不去纠正」", "倒数计算更快，不用算指数"], "a": 2, "why": "定理要的就是这个形状。把它代进「瞬时损失 Σp_iΔ_i」与「估计误差 (1/γ)Σ(1/p_i)·误差」的权衡里对 p_i 求极值，得到的正是 1/(λ+γΔ)。指数衰减会让 1/p_i 那一半代价失控。"}, {"q": "SquareCB 相比 UCB，在工程上最大的好处是什么？", "o": ["它是确定性的，便于复现", "它的遗憾在所有函数类上都更小", "它不需要置信集、不需要算不确定度 —— 只要一个平方损失的在线回归器；统计困难全被塞进 Est_sq(T) 这一个纯监督学习的量，换函数类只换回归器、bandit 那侧不动", "它不需要可实现性假设"], "a": 2, "why": "解耦是核心：遗憾 = √(nT) × √(Est_sq(T))。于是可以把任何现成回归器插进去（梯度提升、小网络），绕开「怎么给一棵树算置信区间」这个没人能干净回答的问题。注意它仍然需要可实现性；而在线性类上 UCB 的 d√T 反而更好。"}, {"q": "把 f̂_t 取成在 |𝔉| 个函数上跑指数权重的在线预测器，Est_sq(T) ≤ log|𝔉|。代回定理得到什么？", "o": ["√(nT log|𝔉|) —— 正是 p1 那条 Claim，五页走完一个圆", "√(T|𝔉|)", "d√T·polylog(T)", "√(T log|𝔉|)"], "a": 0, "why": "R_T ≤ √(nT·Est_sq(T)) ≤ √(nT log|𝔉|)。p1 说「给定在线学习 oracle，存在算法达到这个界」，p5 把 oracle 的确切要求（平方损失的在线悔值）和算法（SquareCB）都给了出来，于是 Claim 得证。"}]
+};
+
+var N = [
+{"r": [1, 1], "t": "两种范式的真正差别不在遗憾的形状，在「拿什么当基准」和「要不要假设可实现」", "star": 3, "quote": "<em><b>Contextual Bandits</b></em><br><em>for t = 1,2,…　Nature reveals context c<sub>t</sub> ∈ C;　Player chooses I<sub>t</sub> ∈ [n];　Player gets reward y<sub>t</sub> ∈ [0,1], E[y<sub>t</sub>|c<sub>t</sub>,I<sub>t</sub>] = r(c<sub>t</sub>,I<sub>t</sub>)</em><br><em><b>Model-free.</b> Makes no assumptions about r: C × [n] → [0,1]. Given Π collection of policies π ∈ Π, π: C → [n]</em><br><em>R<sub>T</sub><sup>Π</sup> = max<sub>π∈Π</sub> E[Σ<sub>t=1</sub><sup>T</sup> r(c<sub>t</sub>,π(c<sub>t</sub>)) − r(c<sub>t</sub>,I<sub>t</sub>)]　where is “proper learning” I<sub>t</sub> = π̂<sub>t</sub>(c<sub>t</sub>) for some π̂<sub>t</sub> ∈ Π. We showed R<sub>T</sub><sup>Π</sup> ≤ √(n T log(|Π|))</em><br><em><b>Model-based.</b> Given collection functions 𝔉, f ∈ 𝔉, f: C × [n] → [0,1], and assume ∃f<sub>*</sub> ∈ 𝔉: r(c,i) = f<sub>*</sub>(c,i) ∀c,i</em><br><em>R<sub>T</sub><sup>𝔉</sup> = E[Σ<sub>t=1</sub><sup>T</sup> max<sub>i</sub> r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>)]</em><br><em><b>Claim:</b> Given online learning oracle, ∃ alg R<sub>T</sub><sup>𝔉</sup> ≤ √(n T log|𝔉|)</em>", "one": "<b>两个遗憾界长得一模一样（<code>√(nT log|·|)</code>），所以很容易以为两条路等价。<span class='w'>完全不是</span>：model-free 不假设任何东西，代价是<span class='k'>只跟 Π 里最好的比</span>；model-based 假设真函数就在 𝔉 里（可实现性），回报是<span class='k'>跟逐上下文的真正最优比</span>。</b>", "pts": ["<b>先把两行遗憾的定义并排抄一遍，差别全在那个 <code>max</code> 的位置。</b> <span class='k'>model-free：<code>R_T^Π = max_{π∈Π} E[Σ_t r(c_t,π(c_t)) − r(c_t,I_t)]</code>——<code>max</code> 在<b>策略</b>上，而且在期望<b>外面</b></span>；<b>model-based：<code>R_T^𝔉 = E[Σ_t max_i r(c_t,i) − r(c_t,I_t)]</code>——<code>max</code> 在<b>动作</b>上，而且在求和<b>里面</b>、逐轮取</b>。", "<b>「逐轮取 max」是一个强得多的基准。</b> <span class='w'>它等于「每一轮都知道这个上下文下最好的动作是哪个」</span>，<b>相当于 L18 p6 那张表里的<b>第一行</b>（每上下文一个 bandit，<code>|Π| = n^{|C|}</code>）</b>。<span class='k'>而 model-free 的基准只是 <code>Π</code> 里最好的那一个，<code>Π</code> 多大由你挑</span>。", "<b>那么 model-based 凭什么能用一个带 <code>log|𝔉|</code> 的界去打一个 <code>n^{|C|}</code> 量级的基准？靠<b>可实现性</b>这个假设。</b> <span class='k'><code>∃f_* ∈ 𝔉: r(c,i) = f_*(c,i)</code> 对<b>所有</b> <code>c,i</code> 成立</span>——<b>也就是说你断言「真实的奖励函数就在我这个函数类里」</b>。<span class='w'>⚠ 这是一个关于<b>世界</b>的假设，不是关于<b>算法</b>的选择</span>；<b>它错了，整个保证就没了，而且不像近似误差那样「只是差一点」</b>。", "<b>所以两条路的交易是对称的，把它写清楚能省掉很多纠结：</b> <span class='k'>model-free 把风险放在<b>基准</b>里（<code>Π</code> 里可能没有好策略，但界照样成立，它只是在跟一个弱基准比）；model-based 把风险放在<b>假设</b>里（基准是真正最优，但假设一破界就作废）</span>。<b>⇒ 一个是「保证是真的，但可能没用」，另一个是「有用，但保证可能是假的」</b>。", "<b>页中那句 <code>where is “proper learning” I_t = π̂_t(c_t) for some π̂_t ∈ Π</code> 值得留意。</b> <span class='w'>它在问：算法输出的动作，是不是总能写成「<code>Π</code> 里某个策略在当前上下文下的取值」</span>。<b>L18 的算法<b>不是</b> proper 的</b>——<span class='k'>它按 <code>q_t</code> 抽一个策略再由它抽动作，两级抽样的结果一般不等于任何单个 <code>π ∈ Π</code> 的输出</span>。<b>⚠ 这件事在实践里有后果：non-proper 的算法你没法把它「部署成一个策略」，必须把整套随机化带上线</b>。", "<b>最后那条 Claim 是本讲要兑现的目标，而且它把门槛说得很具体：<span class='k'>「给定在线学习 oracle」</span>。</b> <b>不是「给定一个凸优化求解器」，也不是「给定一个置信界」，而是一个<b>在线回归</b>的子程序</b>——<span class='w'>p5 会把它的确切要求写出来</span>。<b>⇒ 整讲的叙事是：先看线性情形怎么做（p2），再试着把它推广（p3），发现推广<b>失败</b>（p3 末行的下界 + p4 的反例），最后给出真正可行的算法（p5）</b>。"], "eq": "model-free                                 model-based\n  不假设 r 的任何形式                        假设 ∃f_* ∈ 𝔉: r(c,i) = f_*(c,i) ∀c,i\n  R_T^Π = max_{π∈Π} E[Σ_t r(c_t,π(c_t)) − r(c_t,I_t)]\n                     ↑ max 在策略上、期望外面\n                                             R_T^𝔉 = E[Σ_t max_i r(c_t,i) − r(c_t,I_t)]\n                                                           ↑ max 在动作上、逐轮取\n  ≤ √(n T log|Π|)   （L18 已证）             ≤ √(n T log|𝔉|)   （本讲要兑现的 Claim）\n\n  风险在「基准」：Π 里可能没好策略           风险在「假设」：可实现性一破，界作废\n  「保证是真的，但可能没用」                 「有用，但保证可能是假的」", "tbl": {"head": ["", "model-free（L18）", "model-based（本讲）"], "rows": [["对 r 的假设", "无", "⚠ 可实现性：r = f_* ∈ 𝔉"], ["比较基准", "Π 里最好的那个策略", "⭐ 逐上下文的真正最优 max_i r(c_t,i)"], ["你挑的那个集合", "策略类 Π（映射 C → [n]）", "函数类 𝔉（映射 C×[n] → [0,1]）"], ["遗憾", "√(nT log|Π|)", "√(nT log|𝔉|)"], ["集合太小会怎样", "基准变弱，界照样成立", "⚠ 假设破掉，界作废"], ["需要什么子程序", "每轮解一个 |Π| 变量的凸优化（L18 p7）", "一个在线<b>回归</b> oracle（p5）"]]}, "say": "<b>补一处讲义没说、但这两页读完必然会问的：既然 model-based 的基准更强，为什么还要有 model-free？</b><br>因为<b>可实现性在现实里几乎总是假的</b>。<span class='k'>而它破掉的后果不是「界差一点」，是「界完全不成立」</span>——<span class='w'>⚠ 后面 p3 那套置信集 <code>𝔉^T</code> 的构造里，<code>f_* ∈ 𝔉^T</code> 是每一步都在用的前提</span>，<b><code>f_*</code> 根本不在 <code>𝔉</code> 里的话，那个集合随时可能把所有好函数都排除掉，UCB 会自信地指向一个错误的动作而且永不纠正</b>。<span class='k'>model-free 没有这个失效模式：它从不声称自己在估计真值，只声称「不比 <code>Π</code> 里最好的差太多」</span>。<b>⇒ 实践里的折中办法是「误配置版」（misspecified）的分析：假设 <code>min_{f∈𝔉} ‖f − r‖_∞ ≤ ε</code>，界里多一项 <code>εT</code>。本讲没讲这一支，但你写论文时几乎一定要用它。</b>", "link": {"t": "你学过的对应：CSE 541 L18 一般策略类的上下文 bandit（model-free）（那一讲把 EXP3 开在策略上，拿到 √(nT log|Π|)；本讲是同一问题的另一半——换成「假设真函数在 𝔉 里」，基准从「Π 里最好的」换成「逐上下文真正最优」。两讲合起来才是上下文 bandit 的完整图景）", "href": "L18-精读.html"}, "res": {"tag": "推断", "v": "<b>这张对照表正好对上你课题里两个已经存在的分叉，而且它说明那不是风格差异而是两种不同的承诺。</b> <span class='k'>你那条「拟合 <code>Acc</code> 与 <code>Cost</code> 的模型，再在配置空间上优化」的路线是 <b>model-based</b>：它<b>断言</b> <code>G</code> 对配置有某个函数形式（L07 假设线性、本讲允许任意 <code>𝔉</code>）</span>；<b>而「挑一个策略类，比如按难度三档，直接做无悔学习」是 <b>model-free</b>（L18）</b>。<b>⇒ 两条路对你的实验要求完全不同</b>：<span class='w'>model-based 必须先检验可实现性（简报 §5 的可加性检验正是在做这件事），而 model-free 不必，但它只能跟你挑的那个策略类比</span>。<b>⚠ 最要紧的一条：别在论文里同时声称两边的好处</b>——<span class='k'>用了 model-based 的强基准，就得承担可实现性；用了 model-free 的无假设，就得承认基准只是 <code>Π</code> 里最好的那个</span>。", "ref": "本讲 p1 · CSE541 L18 p6（三行对照）· CSE541 L07（线性假设）· 简报 §5（可加性检验）"}},
+{"r": [2, 2], "t": "线性情形：LinUCB，一个「置信椭球 + 乐观」的标准件，d√T 而不带 |𝔉|", "star": 2, "quote": "<em><b>Linear models.</b> Assume you know a feature map φ(c,i) → ℝ<sup>d</sup> and assume r(c,i) = φ(c,i)<sup>T</sup>θ<sub>*</sub> for some θ<sub>*</sub> ∈ ℝ<sup>d</sup>. If I collect dataset (c<sub>t</sub>, I<sub>t</sub>, y<sub>t</sub>)</em><br><em>θ̂ = argmin<sub>θ</sub> Σ<sub>t=1</sub><sup>T</sup>(φ(c<sub>t</sub>,I<sub>t</sub>)<sup>T</sup>θ − y<sub>t</sub>)<sup>2</sup> + λ‖θ‖<sup>2</sup></em><br><em>ℰ<sub>t</sub> = {θ : ‖θ − θ̂‖<sup>2</sup><sub>V<sub>t</sub></sub> ≤ β<sub>t</sub>}　　V<sub>t</sub> = Σ<sub>t</sub> φ(c<sub>t</sub>,I<sub>t</sub>)φ(c<sub>t</sub>,I<sub>t</sub>)<sup>T</sup> + λI</em><br><em>UCB<sub>t</sub>(i) = max<sub>θ∈ℰ<sub>t</sub></sub>⟨θ, φ(c<sub>t</sub>,i)⟩　　I<sub>t</sub> = argmax<sub>i</sub> UCB<sub>t</sub>(i)</em><br><em>R<sub>T</sub><sup>𝔉</sup> ≤ d√T polylog(T)　for an choice of β<sub>t</sub></em>", "one": "<b>把上下文塞进特征映射 <code>φ(c,i)</code>，上下文 bandit 就<span class='k'>退化成一个普通的线性 bandit</span>：每一轮臂集换成 <code>{φ(c_t,i)}_{i=1..n}</code>，别的一切照搬 L10。遗憾 <code>d√T</code> 里<span class='w'>既没有 n 也没有 |C|</span>。</b>", "pts": ["<b>这一页的全部魔法在第一行：<code>φ(c,i)</code> 同时吃上下文和动作。</b> <span class='k'>于是「在上下文 <code>c</code> 下选动作 <code>i</code>」被编码成「选向量 <code>φ(c,i)</code>」</span>，<b>而 <code>r(c,i) = φ(c,i)ᵀθ_*</b>` 就是一个标准的线性 bandit——<span class='w'>只不过可选的臂集每一轮都换（由 <code>c_t</code> 决定）</span>。<b>⇒ 上下文被「吸收」进了臂的几何里，不再是一个单独的维度</b>。", "<b>四个部件逐一对上 L10 的线性 UCB：</b> <span class='k'>① 岭回归 <code>θ̂</code>（<code>λ‖θ‖²</code> 保证 <code>V_t</code> 可逆，不必要求特征张满）；② 置信椭球 <code>ℰ_t = {θ: ‖θ−θ̂‖²_{V_t} ≤ β_t}</code>；③ 逐动作取乐观值 <code>UCB_t(i) = max_{θ∈ℰ_t}⟨θ, φ(c_t,i)⟩</code>；④ 贪心挑最大的</code></span>。", "<b>第 ③ 步有一个闭式解，讲义没写但实现时必须知道：</b><code>max_{θ∈ℰ_t}⟨θ,φ⟩ = ⟨θ̂,φ⟩ + √(β_t)·‖φ‖_{V_t^{-1}}</code>。<span class='k'>也就是「点估计 + 系数 × 椭球范数」</span>，<b>而 <code>‖φ‖_{V_t^{-1}}</code> 正是 L07/L09 里那个 <code>√(xᵀA⁻¹x)</code></b>。<span class='w'>⇒ 三讲里出现的是同一个量：L07 用它定设计、L09 用它定淘汰阈值、这里用它定乐观加成</span>。", "<b>遗憾 <code>d√T·polylog(T)</code> 里<b>没有 <code>n</code></b>，也没有 <code>|C|</code>。</b> <span class='k'>动作再多、上下文再多，只要都能塞进 <code>d</code> 维特征，代价就只按 <code>d</code> 算</span>。<b>⚠ 但这不是免费的</b>：<span class='w'>它是用「<code>φ</code> 你事先知道」和「关系精确线性」两个假设换来的</span>。", "<b>和 p1 的 Claim 对比一下就能看出线性情形有多特殊：</b> <span class='k'>Claim 给的是 <code>√(nT log|𝔉|)</code>，这里给的是 <code>d√T</code>——<b>连 <code>√n</code> 都没有</b></span>。<b>原因是线性结构允许「在一条臂上的观测去更新所有臂的估计」</b>，<span class='w'>而一般的 <code>𝔉</code> 没有这种可迁移性，所以 <code>√n</code> 躲不掉</span>。", "<b>⚠ 一处记号要当心：这一页把遗憾写成 <code>R_T^𝔉</code>，而不是 <code>R_T^{线性}</code>。</b> <span class='k'>意思是线性模型类就是 <code>𝔉</code> 的一个特例：<code>𝔉 = {(c,i) ↦ φ(c,i)ᵀθ : θ ∈ ℝ^d}</code></span>。<b>⚠ 但这个 <code>𝔉</code> 是<b>无限</b>的，<code>log|𝔉|</code> 没有意义</b>——<span class='w'>所以 p1 的 Claim 那个形式对它不直接适用，要换成覆盖数 / 维数类的复杂度量</span>。<b>⇒ 下一页讨论一般 <code>𝔉</code> 时都默认 <code>|𝔉| &lt; ∞</code>，这是为了把式子写干净</b>。"], "eq": "把上下文吸收进臂的几何：\n  φ(c,i) ∈ ℝ^d ，r(c,i) = φ(c,i)ᵀθ_*\n  ⇒ 每一轮的臂集是 {φ(c_t,1),…,φ(c_t,n)}，换成线性 bandit\n\n  θ̂ = argmin_θ Σ_t (φ(c_t,I_t)ᵀθ − y_t)² + λ‖θ‖²        岭回归\n  V_t = Σ_t φ(c_t,I_t)φ(c_t,I_t)ᵀ + λI                    设计矩阵（+λI 保可逆）\n  ℰ_t = {θ : ‖θ − θ̂‖²_{V_t} ≤ β_t}                        置信椭球\n  UCB_t(i) = max_{θ∈ℰ_t}⟨θ, φ(c_t,i)⟩\n           = ⟨θ̂, φ(c_t,i)⟩ + √(β_t)·‖φ(c_t,i)‖_{V_t^{-1}}   ← 闭式解（讲义未写）\n  I_t = argmax_i UCB_t(i)\n\n  R_T ≤ d√T · polylog(T)      ⚠ 没有 n，也没有 |C|", "tbl": {"head": ["这个量", "在 L07 里叫什么 / 干什么", "在这一页干什么"], "rows": [["A(λ) / V_t", "设计矩阵：你打算怎么分配测量", "实际已经测成什么样（加 λI）"], ["‖x‖_{A⁻¹} / ‖φ‖_{V_t^{-1}}", "G-最优设计要最小化的那个 max", "乐观加成的大小"], ["⭐ 用它来做什么", "事先定一个固定的测量分配", "逐轮给每个动作加一个乐观量"], ["要不要真实奖励", "不要 —— λ* 只依赖几何", "⚠ 要 —— V_t 依赖实际走过的路径"]]}, "say": "<b>补一句讲义没写、但它是这一页与 L07 之间最关键的差别：<code>V_t</code> 是<b>自适应</b>的，而 L07 的 <code>A(λ)</code> 是<b>事先定</b>的。</b><br><span class='k'>L07 的 <code>λ*</code> 只依赖配置集合的几何，<b>第一个 API 调用之前就能算出来</b>（那一讲主线卡里的第三个数）</span>；<b>而 <code>V_t = Σ_s φ(c_s,I_s)φ(c_s,I_s)ᵀ</code> 里的 <code>I_s</code> 是算法自己挑的，依赖观测</b>。<span class='w'>⚠ 后果：置信椭球的分析不能直接用固定设计那一套，必须用<b>自归一化</b>的鞅不等式</span>——<b>这正是 CSE541 L12 那一讲（鞅型置信界 · 混合法）在做的事</b>。<span class='k'>⇒ 三讲的分工：L07 给固定设计下的最优分配，L12 给自适应时仍然有效的界，这一页把两者装进一个算法</span>。<b>那个 <code>polylog(T)</code> 就是自归一化带来的代价。</b>", "link": {"t": "你学过的对应：CSE 541 L12 鞅型置信界 · 混合法（这一页的 ℰ_t 之所以在「臂是自己挑的」情况下还成立，靠的就是那一讲的自归一化鞅不等式；β_t 里的 polylog(T) 正是它的代价。那边还比较了三档边界的紧度）", "href": "L12-精读.html"}, "res": {"tag": "推断", "v": "<b><code>φ(c,i)</code> 这个「上下文与动作一起编码」的写法，正好是你那个 router 该有的输入形式。</b> <span class='k'>把 query 的难度特征与节点档位分配<b>拼成一个向量</b>：<code>φ(q, x) = [难度特征 ⊗ 档位指示]</code></span>，<b>于是「按难度自适应地选配置」自动变成一个线性 bandit，<code>d</code> = 特征数 × 档位数</b>。<span class='w'>⚠ 但要盯住 <code>d</code> 的增长：张量积会让 <code>d</code> 乘起来</span>——<b>3 档难度 × <code>H=10</code> 个节点 × <code>k=2</code> 档位 ⇒ <code>d = 60</code>，而遗憾是 <code>d√T</code>，<code>T</code> 只有几千条 query 时 <code>d</code> 已经不小了</b>。<b>⇒ 两条实际建议</b>：<span class='k'>① 先用 L07 的 <code>d(d+1)/2</code> 支撑点数算一下值不值（<code>d=60</code> ⇒ 1830 个支撑点，而你总共可能只跑得起几千次）；② 若算不过来，就别做张量积，改成「每个难度档一个独立的小 bandit」</span>——<b>那正是 L18 p5 那张表的第一行，代价是 <code>√(|C|)</code> 而 <code>|C| = 3</code>，很便宜</b>。", "ref": "本讲 p2 · CSE541 L07 主线卡（d(d+1)/2 支撑点）· CSE541 L18 p5（三行对照）"}},
+{"r": [3, 3], "t": "把 UCB 推广到一般函数类 —— 构造是自然的，但页末那一行说它被证明不行", "star": 3, "quote": "<em><b>Generalizing UCB</b></em><br><em>f̂<sub>T</sub> = argmin<sub>f∈𝔉</sub> Σ<sub>t=1</sub><sup>T</sup>(f(c<sub>t</sub>,I<sub>t</sub>) − y<sub>t</sub>)<sup>2</sup></em><br><em>𝔉<sup>T</sup> = {f ∈ 𝔉 : Σ<sub>t=1</sub><sup>T</sup>(f(c<sub>t</sub>,I<sub>t</sub>) − y<sub>t</sub>)<sup>2</sup> ≤ Σ<sub>t=1</sub><sup>T</sup>(f̂<sub>T</sub>(c<sub>t</sub>,I<sub>t</sub>) − y<sub>t</sub>)<sup>2</sup> + β<sub>T</sub>}</em><br><em>If β<sub>T</sub> = 8 log|𝔉|/δ then f<sub>*</sub> ∈ 𝔉<sup>T</sup> ∀T</em><br><em>UCB<sub>t</sub>(i) = max<sub>f∈𝔉<sup>T</sup></sub> f(c<sub>t</sub>,i)　　I<sub>t</sub> = argmax<sub>i∈[n]</sub> UCB<sub>t</sub>(i)</em><br><em>Σ<sub>t</sub> max<sub>i</sub> r(c<sub>t</sub>,i) − r(c<sub>t</sub>,I<sub>t</sub>) ≤ Σ<sub>t</sub> UCB<sub>t</sub>(I<sub>t</sub>) − r(c<sub>t</sub>,I<sub>t</sub>)</em><br><em>∃𝔉 s.t. UCB suffers regret ≥ √(T|𝔉|)</em>", "one": "<b>推广本身毫无障碍：把「椭球」换成「平方损失不比最好的差太多的那些函数」，一切照旧，连乐观分解都还成立。<span class='w'>可是页末那一行是一条下界</span>：存在函数类让 UCB 吃 <code>√(T|𝔉|)</code> —— <code>|𝔉|</code> <span class='k'>一次方</span>，不是 log。目标是 <code>√(nT log|𝔉|)</code>，差了指数。</b>", "pts": ["<b>构造顺着线性那一页逐项替换，自然得让人不设防。</b> <span class='k'>① 最小平方损失的 <code>f̂_T</code> 替代 <code>θ̂</code>；② 「损失不超过 <code>f̂_T</code> 加 <code>β_T</code>」的那些函数组成 <code>𝔉^T</code>，替代置信椭球；③ 逐动作取 <code>𝔉^T</code> 上的最大值当乐观值；④ 贪心</span>。<b>连那个常数都给了：<code>β_T = 8log(|𝔉|/δ)</code> 保证 <code>f_* ∈ 𝔉^T</code> 对所有 <code>T</code> 成立</b>。", "<b><code>f_* ∈ 𝔉^T</code> 这件事为什么成立，值得想一下：它是「真函数的经验损失不会比最优的经验损失差太多」。</b> <span class='w'>注意这里用的是<b>可实现性</b>——<code>f_*</code> 就是条件期望，所以它的平方损失在期望上最小</span>，<b>而 <code>β_T = 8log(|𝔉|/δ)</code> 是对 <code>|𝔉|</code> 个函数做并集界之后的偏差余量</b>。<span class='k'>⚠ 可实现性一破，这一步立刻没了，后面全部作废</span>。", "<b>乐观性的分解也照样成立，而且是一行：</b><code>max_i r(c_t,i) − r(c_t,I_t) ≤ UCB_t(I_t) − r(c_t,I_t)</code>。<span class='k'>理由：<code>f_* ∈ 𝔉^T</code> ⇒ <code>UCB_t(i) ≥ f_*(c_t,i) = r(c_t,i)</code> 对每个 <code>i</code> 成立 ⇒ <code>UCB_t(I_t) ≥ max_i UCB_t(i)·…</code></span>——<b>更准确地说 <code>I_t</code> 是 <code>UCB</code> 的 argmax，所以 <code>UCB_t(I_t) ≥ UCB_t(i*) ≥ r(c_t,i*) = max_i r(c_t,i)</code></b>。<span class='w'>⇒ 瞬时遗憾被「乐观值与真值的缝隙」盖住，这是所有 UCB 分析的共同第一步</span>。", "<b>到这里一切都很顺，所以页末那一行才格外重要：<span class='w'><code>∃𝔉 s.t. UCB suffers regret ≥ √(T|𝔉|)</code></span>。</b> <b>这是一条<b>下界</b>，而且是对<b>这个具体算法</b>的下界</b>——<span class='k'>不是「分析不够紧」，是「这个算法在那个函数类上真的会这么差」</span>。", "<b>差距有多大要算一下才有感觉。</b> <span class='k'>目标是 <code>√(nT log|𝔉|)</code>，UCB 给的是 <code>√(T|𝔉|)</code></span>；<b><code>|𝔉| = 2^m</code> 时，前者是 <code>√(nTm)</code>，后者是 <code>√(T·2^m)</code></b>。<span class='w'><code>m = 20</code> ⇒ 前者约 <code>√(20nT)</code>，后者约 <code>√(10⁶T)</code></span>——<b>差了几百倍，而且随 <code>m</code> 指数拉大</b>。", "<b>⇒ 结论是一句对实践很不客气的话：<span class='k'><b>「拟合一个模型、取置信上界、挑最优」这个几乎所有人都会先想到的做法，对丰富的函数类是被证明不行的</b></span>。</b> <b>而它<b>对线性类是行的</b>（p2 的 <code>d√T</code>）</b>——<span class='w'>所以从线性推广到一般，失效的不是分析技巧，是算法本身的思路</span>。<b>下一页给出具体反例，p5 给出替代。</b>"], "eq": "逐项替换 p2：\n  θ̂            →  f̂_T = argmin_{f∈𝔉} Σ_t (f(c_t,I_t) − y_t)²\n  置信椭球 ℰ_t  →  𝔉^T = {f ∈ 𝔉 : Σ_t(f(c_t,I_t)−y_t)² ≤ Σ_t(f̂_T(c_t,I_t)−y_t)² + β_T}\n  β_t           →  β_T = 8 log(|𝔉|/δ)      ⇒ f_* ∈ 𝔉^T ∀T（用了可实现性 + 并集界）\n  UCB_t(i)      →  max_{f∈𝔉^T} f(c_t,i)\n\n乐观分解（照样成立）：\n  max_i r(c_t,i) = f_*(c_t,i*) ≤ UCB_t(i*) ≤ UCB_t(I_t)\n  ⇒ Σ_t [max_i r(c_t,i) − r(c_t,I_t)] ≤ Σ_t [UCB_t(I_t) − r(c_t,I_t)]\n\n⚠ 可是：∃𝔉 s.t. UCB 的遗憾 ≥ √(T·|𝔉|)\n   目标 √(nT·log|𝔉|)　vs　UCB √(T·|𝔉|)\n   |𝔉| = 2^20：√(20nT)  vs  √(10⁶T)      ← 差几百倍，且随 m 指数拉大", "tbl": {"head": ["函数类", "UCB 行不行", "遗憾"], "rows": [["线性（p2，𝔉 = {φᵀθ}）", "✓ 行", "d√T·polylog(T)"], ["一般有限 𝔉（p3）", "⚠ <b>不行，有下界</b>", "≥ √(T|𝔉|) —— |𝔉| 一次方"], ["目标（p1 的 Claim）", "—— 要换算法", "√(nT log|𝔉|) —— |𝔉| 进 log"]]}, "tip": {"t": "⚠ 这是对算法的下界，不是对问题的", "v": "<b>别把 <code>√(T|𝔉|)</code> 读成「这个问题就这么难」。</b> p1 的 Claim 说目标 <code>√(nT log|𝔉|)</code> 是<b>可达</b>的（p5 给出算法）。所以 p3 末行说的是：<b>UCB 这个<b>特定思路</b>达不到最优，而别的思路能</b>。⚠ 这与 CSE541 L16 那种「任何方法都不可能更好」的下界是<b>两类不同的东西</b>，引用时务必分清。", "w": 1}, "say": "<b>补一处讲义没说、但它是理解为什么 UCB 会失败的关键：<code>𝔉^T</code> 这个置信集收缩得<b>太慢</b>，而且收缩的方向是算法自己选不了的。</b><br><span class='k'>线性情形里，拉一条臂会让 <code>V_t</code> 在那个方向上长大，于是<b>所有</b>与它相关的方向的不确定度一起下降——这是「可迁移性」</span>。<b>一般 <code>𝔉</code> 没有这种结构</b>：<span class='w'>你在 <code>(c_t, I_t)</code> 这一个格子上的观测，只能排除那些「在这个格子上预测错了」的函数</span>，<b>而一个大小为 <code>|𝔉|</code> 的类里，可能需要排除 <code>|𝔉|</code> 量级的函数才能定位 <code>f_*</code></b>。<span class='k'>⚠ 更糟的是：UCB 是<b>贪心</b>的，它只去那个乐观值最高的动作，而「最能区分剩下这些候选函数」的动作往往不是乐观值最高的那个</span>——<b>这正是 p4 反例的构造思路，也是 CSE541 L07 那条「该按信息价值花预算」在这里的回响</b>。", "res": {"tag": "推断", "v": "<b>这一页对你是一条很具体的警告：<span class='w'>「用一个 ML 模型拟合 Acc、给它配一个置信上界、挑上界最大的配置」是会出问题的</span>，而这恰恰是最自然的第一版设计。</b> <span class='k'>你的 <code>𝔉</code>（比如一个梯度提升树或小网络的假设空间）远比线性类丰富，<code>log|𝔉|</code> 与 <code>|𝔉|</code> 的差距正是本页的下界在说的事</span>。<b>⇒ 三条可操作的推论</b>：① <b>如果你要走乐观路线，就得把 <code>𝔉</code> 压回<b>线性</b>（或别的有可迁移结构的类），那样 <code>d√T</code> 才成立</b>——<span class='w'>而线性正是 L07 标着「待检验」的那条前提</span>；② <b>如果你要用丰富的回归器，就别用乐观，改用 p5 的 SquareCB</b>；③ <b>⚠ 不要把这条下界写成「这个问题很难」</b>——<span class='k'>它只是说 UCB 这条路不行，最优速率仍然是 <code>√(nT log|𝔉|)</code>，可达</span>。", "ref": "本讲 p3 末行 · 本讲 p5（SquareCB 达到目标）· CSE541 L07 主线卡（线性是待检验的前提）"}},
+{"r": [4, 4], "t": "反例：把答案藏在「索引的比特串」里，UCB 会去逐个试 2^m 个索引", "star": 3, "quote": "<em><b>Chain-code as index function.</b> for m, n = 3</em><br><em>000 → e<sub>1</sub>　001 → e<sub>2</sub>　010 → e<sub>3</sub>　011 → e<sub>4</sub>　<span style=\"border:1px solid\">100</span>　101　110　111 → e<sub>2<sup>m</sup></sub></em><br><em>[0;1;0;…;e<sub>j</sub>] ∈ {0,1}<sup>n+2<sup>m</sup></sup></em><br><em>i = 1,…,2<sup>m</sup>　　f<sub>i</sub> = [ —bit— ; e<sub>i</sub> ]　← bit string i</em><br><em>UCB explores 2<sup>m</sup> bits resulting regret √(2<sup>m</sup>T)</em><br><em>(红笔) Any alg that concentrates on last/first m bits, learns b(i) and hence e<sub>b(i)</sub> and hence f<sub>*</sub>. And suffers regret √(mT)</em>", "one": "<b>构造的核心是一个<span class='k'>间接层</span>：动作分成两段，前 <code>m</code> 个格子存「索引」，后 <code>2^m</code> 个格子存「答案」。先花 <code>m</code> 次读出索引、再直奔那一格，总共 <code>m+1</code> 步；而 UCB 只看乐观值，会把 <code>2^m</code> 个答案格逐个试过去。</b>", "pts": ["<b>先把那张表读懂。</b> <span class='k'>左边是 <code>m</code> 位比特串（<code>m=3</code> 时 000..111 共 8 个），右边是它<b>索引</b>到的那个单位向量 <code>e_j</code></span>：<code>000 → e_1</code>、<code>001 → e_2</code>、…、<code>111 → e_{2^m}</code>。<b>这张表就是讲义标题里的 “chain-code as index function”——一个从比特串到坐标的查表</b>。", "<b>再看动作长什么样：一个 <code>{0,1}^{n+2^m}</code> 里的向量，分成两段。</b> <span class='k'>前 <code>n</code>（<code>=m</code>）个格子是<b>比特段</b>，后 <code>2^m</code> 个格子是<b>答案段</b></span>；<b>真函数 <code>f_*</code> 由一个隐藏的比特串 <code>b</code> 决定：在比特段上它逐位告诉你 <code>b</code> 的某一位，在答案段上只有第 <code>b</code> 对应的那一格有高奖励</b>。", "<b>于是有两条截然不同的策略。</b> <span class='k'><b>聪明的那条</b>（讲义的红笔注）：先只在<b>比特段</b>上走 <code>m</code> 步，把 <code>b</code> 的每一位读出来 ⇒ 查表得到 <code>e_{b}</code> ⇒ 直接去答案段那一格。<b>总探索成本 <code>O(m)</code>，遗憾 <code>√(mT)</code></b></span>。", "<b><b>UCB 那条</b>：它<b>不会</b>先去读比特。</b> <span class='w'>比特段上的格子奖励低（它们只提供<b>信息</b>，不提供回报），所以它们的乐观值不会是最高的</span>；<b>而答案段上 <code>2^m</code> 个格子里，还没试过的那些置信上界全都很高</b>——<span class='k'>⇒ UCB 会逐个去试答案格，试到第 <code>b</code> 格才停。遗憾 <code>√(2^m T)</code></span>。", "<b>⭐ 这就是全讲最该记住的那句话的具体化：<span class='k'>UCB 的毛病是它<b>只按「可能的回报」排序，不按「能排除多少候选」排序</b></span>。</b> <b>比特段的格子回报低但<b>信息量极大</b>（一次排除一半候选）；答案段的格子回报可能高但<b>信息量极小</b>（一次只排除一个）</b>。<span class='w'>而乐观原则对「信息量」是盲的</span>。", "<b>⚠ 注意这和 CSE541 L07 那条直觉是同一件事的两次出现，但方向相反，别混。</b> <span class='k'>L07（也就是 CS234 L16 p47）说的是：在<b>离线筛选</b>里「做坏决策不疼」，所以该按信息价值花预算，而不是按「谁现在看起来最好」</span>；<b>这一页说的是：即使在<b>在线</b>、真的要承受损失的设定里，乐观<b>也会</b>输——只要信息和回报的分布足够错位</b>。<span class='w'>⇒ 「按信息价值探索」不是离线专属的技巧，它在这里是在线问题的必要条件</span>。"], "eq": "动作 ∈ {0,1}^{n + 2^m}，分两段：\n\n  [ b_1 b_2 … b_m |  0 0 … 1 … 0 ]\n    ╰─ 比特段 ─╯   ╰── 答案段（2^m 格）──╯\n     回报低          只有第 b 格高\n     信息量大        信息量小\n     （一次排除一半） （一次排除一个）\n\n  chain-code 查表： 000→e_1, 001→e_2, …, 111→e_{2^m}\n\n  聪明的算法：先走比特段 m 步读出 b → 查表 → 直奔 e_b     遗憾 √(mT)\n  UCB：       比特段乐观值不高、不去；答案段 2^m 格全都看着很好，逐个试\n                                                            遗憾 √(2^m T)\n\n⇒ 乐观原则按「可能的回报」排序，对「能排除多少候选」是盲的。", "tbl": {"head": ["", "比特段的格子", "答案段的格子"], "rows": [["个数", "m", "2^m"], ["立刻的回报", "低", "可能很高（只有一格真的高）"], ["一次观测排除多少候选函数", "⭐ 一半", "一个"], ["UCB 会不会去", "⚠ 不会 —— 乐观值不够高", "会 —— 而且会逐个试完"], ["聪明的算法", "先全走一遍（m 步）", "只走一格（查表得到的那个）"]]}, "say": "<b>补一处讲义用红笔写了结论、但没展开的：为什么「先读比特」这件事 UCB <b>原则上</b>做不到，而不是「碰巧没做」？</b><br>因为 UCB 的决策规则里<b>只有一个量</b>：乐观值 <code>max_{f∈𝔉^T} f(c_t,i)</code>。<span class='k'>它是对「这个动作可能有多好」的估计，而<b>完全不包含</b>「选这个动作会让 <code>𝔉^T</code> 缩小多少」这个信息</span>。<b>⇒ 要让算法愿意去走比特段，它的目标函数里必须出现「信息增益」这一项，而乐观原则的形式里根本没有放它的位置。</b><span class='w'>⚠ 这就解释了 p5 为什么不是「把 UCB 修一修」，而是换了一个完全不同的形状</span>：<b>SquareCB 的 <code>P ∝ 1/(λ + γ·gap)</code> 里，<b>每个</b>动作都拿到正概率，差距小的拿得多</b>——<span class='k'>它不去判断「哪个动作信息量大」，而是用<b>随机化</b>保证所有「还可能是最优」的动作都被持续采样，从而绕开了这个难题</span>。<b>这是一种很不一样的思路：不聪明地挑，而是聪明地分配概率。</b>", "res": {"tag": "推断", "v": "<b>这个反例的结构在你的 workflow 场景里有一个很像的影子，值得先想清楚再动手。</b> <span class='k'>「比特段」对应那些<b>便宜但信息量大</b>的探测：比如用 <code>k=1</code>（全弱）跑一遍看哪些 query 根本做不对、或者简报 §4c 那个每节点单独降级的敏感度扫描</span>；<b>「答案段」对应直接去试某个完整配置——贵，而且一次只告诉你那一个配置的好坏</b>。<b>⇒ 一个只按「预期 <code>G</code> 的上界」排序的搜索（AFlow 的 top-k 就是这一类），会倾向于反复去试看起来好的完整配置，而不会主动花预算做那些便宜的诊断性探测</b>。<span class='w'>⚠ 而简报 §4c/§5 把扫描和可加性检验排在最前面，这个顺序现在有了理论上的说法：它们是「比特段」</span>。<b>⇒ 可以写进论文动机的一句话：<b>把预算先花在诊断上、再花在搜索上，不是工程习惯，是因为按回报排序的搜索对诊断性动作是盲的</b></b>。", "ref": "本讲 p4 · 简报 §4c（敏感度扫描）· 简报 §5（可加性检验排在最前）· 简报 §2（AFlow 的 top-k 选择）"}},
+{"r": [5, 5], "t": "SquareCB：不要置信集，只要一个平方损失的在线回归器；概率与「差距」成反比", "star": 3, "quote": "<em><b>General Opt Alg : Square CB</b></em><br><em>Input γ &gt; 0.　for t = 1,2,…,T:　Obtain estimate f̂<sub>t</sub> given {(c<sub>s</sub>,I<sub>s</sub>,y<sub>s</sub>)}<sub>s&lt;t</sub>;　Nature reveals c<sub>t</sub></em><br><em>P<sub>t,i</sub> ∝ 1 / (λ + γ(max<sub>j</sub> f̂<sub>t</sub>(c<sub>t</sub>,j) − f̂<sub>t</sub>(c<sub>t</sub>,i)))</em><br><em>Play I<sub>t</sub> ~ P<sub>t</sub> and get y<sub>t</sub></em><br><em><b>Thm</b> R<sub>T</sub><sup>𝔉</sup> ≤ √(n T · Est<sub>sq</sub>(T))</em><br><em>We say f̂<sub>t</sub> is an <b>online regression oracle</b> if Σ<sub>t=1</sub><sup>T</sup>(f̂<sub>t</sub>(c<sub>t</sub>,I<sub>t</sub>) − f<sub>*</sub>(c<sub>t</sub>,I<sub>t</sub>))<sup>2</sup> ≤ Est<sub>sq</sub>(T)</em><br><em>If f̂<sub>t</sub> satisfies Σ<sub>t</sub>(f̂<sub>t</sub>(c<sub>t</sub>,I<sub>t</sub>) − y<sub>t</sub>)<sup>2</sup> ≤ Σ<sub>t</sub>(f<sub>*</sub>(c<sub>t</sub>,I<sub>t</sub>) − y<sub>t</sub>)<sup>2</sup> + Est<sub>sq</sub>(T) then …　w/ Exp Weights Est<sub>sq</sub>(T) ≤ log|𝔉|</em>", "one": "<b>算法只有三行，而且<span class='w'>没有置信集、没有乐观、没有不确定度</span>。它只要一个「平方损失上不比 <code>f_*</code> 差太多」的在线回归器，然后把概率按<span class='k'>估计差距的倒数</span>分配。遗憾 <code>√(nT·Est_sq(T))</code>，用指数权重做回归器就回到 <code>√(nT log|𝔉|)</code>。</b>", "pts": ["<b>先看概率规则，它是这一页的全部内容：</b><code>P_{t,i} ∝ 1/(λ + γ·Δ_{t,i})</code>，<span class='k'>其中 <code>Δ_{t,i} = max_j f̂_t(c_t,j) − f̂_t(c_t,i)</code> 是动作 <code>i</code> 相对估计最优的<b>差距</b></span>。<b>估计最优的那个动作 <code>Δ = 0</code>，拿到最大概率 <code>1/λ</code>；差距越大，概率越小，<b>但永远不为零</b></b>。", "<b>⭐ 关键是衰减的<b>形状</b>：<code>1/(λ+γΔ)</code> 是<b>倒数</b>（多项式尾），不是 <code>exp(−γΔ)</code>（指数尾）。</b> <span class='w'>这不是审美选择，定理要的就是这个形状</span>。<b>倒数衰减得慢 ⇒ 差距中等的那些动作仍然拿到不可忽略的概率 ⇒ 它们会被持续采样</b>；<span class='k'>而指数衰减会很快把它们压到几乎不采样，于是「估计错了却再也不去纠正」</span>。", "<b>再看它需要什么。定义写得很干净：<code>f̂_t</code> 是一个<b>在线回归 oracle</b>，如果 <code>Σ_t (f̂_t(c_t,I_t) − f_*(c_t,I_t))² ≤ Est_sq(T)</code>。</b> <span class='k'>⚠ 注意这个要求只管<b>算法实际走过的那些格子</b> <code>(c_t, I_t)</code>，不要求在整个 <code>C × [n]</code> 上都准</span>——<b>这是一个弱得多、也现实得多的要求</b>。", "<b>讲义接着给了一个更可操作的充分条件：<code>Σ_t(f̂_t(c_t,I_t) − y_t)² ≤ Σ_t(f_*(c_t,I_t) − y_t)² + Est_sq(T)</code>。</b> <span class='w'>也就是「你的在线预测的累积平方损失，不比真函数的累积平方损失差超过 <code>Est_sq(T)</code>」</span>——<b>这正是在线学习里标准的<b>悔值</b>（regret）条件，只不过损失函数取平方损失</b>。<span class='k'>⇒ 所以「online learning oracle」这个词在 p1 的 Claim 里不是泛指，指的就是这件事</span>。", "<b>最后一行把两头接上：<code>w/ Exp Weights Est_sq(T) ≤ log|𝔉|</code>。</b> <span class='k'>在 <code>|𝔉|</code> 个专家（每个函数一个专家）上跑指数权重，平方损失的悔值就是 <code>log|𝔉|</code></span>，<b>代回定理得 <code>R_T ≤ √(nT log|𝔉|)</code>——<span class='w'>正是 p1 的 Claim</span></b>。<b>⇒ 五页走完一个完整的圆</b>。", "<b>⭐ 而这个结构最值钱的地方在于<b>解耦</b>：遗憾被拆成「<code>√(nT)</code>」乘「回归器有多准」。</b> <span class='k'>统计上的困难全部被塞进 <code>Est_sq(T)</code> 这一个数里，而那是一个<b>纯监督学习</b>的量</b></span>。<b>⇒ 你可以把任何现成的回归器插进去</b>：<span class='w'>梯度提升、小网络、线性模型都行，换一个就换一个 <code>Est_sq(T)</code></span>，<b>而 bandit 那一侧的逻辑一行都不用改</b>。"], "eq": "SquareCB（全部）：\n  Input γ > 0\n  for t = 1..T:\n      f̂_t ← 在线回归器（吃 {(c_s,I_s,y_s)}_{s<t}）\n      看到 c_t\n      Δ_{t,i} = max_j f̂_t(c_t,j) − f̂_t(c_t,i)            ← 估计差距\n      P_{t,i} ∝ 1/(λ + γ·Δ_{t,i})                        ← ⭐ 倒数，不是 exp\n      I_t ~ P_t，观测 y_t\n\nThm:  R_T^𝔉 ≤ √( n · T · Est_sq(T) )\n              ╰ bandit 那一侧 ╯ ╰ 纯监督学习的量 ╯\n\n在线回归 oracle：Σ_t (f̂_t(c_t,I_t) − f_*(c_t,I_t))² ≤ Est_sq(T)\n  充分条件（标准的在线悔值）：\n     Σ_t (f̂_t(c_t,I_t) − y_t)² ≤ Σ_t (f_*(c_t,I_t) − y_t)² + Est_sq(T)\n  指数权重：Est_sq(T) ≤ log|𝔉|   ⇒   R_T ≤ √(nT log|𝔉|)   ← 回到 p1 的 Claim", "tbl": {"head": ["", "UCB（p2–p3）", "SquareCB（p5）"], "rows": [["要不要置信集", "要 —— 椭球 / 𝔉^T", "⭐ 不要"], ["要不要算不确定度", "要 —— ‖φ‖_{V⁻¹} 或 max_{f∈𝔉^T}", "⭐ 不要"], ["决策", "确定性：argmax 乐观值", "随机：P ∝ 1/(λ+γΔ)"], ["需要的子程序", "一个能在 𝔉^T 上取 max 的优化器", "⭐ 一个平方损失的在线回归器"], ["一般有限 𝔉 上的遗憾", "⚠ ≥ √(T|𝔉|)", "√(nT log|𝔉|)"], ["线性 𝔉 上的遗憾", "d√T·polylog(T)（更好）", "√(dT·…)（差一点）"], ["换一个函数类要改什么", "置信集的构造要重做", "⭐ 只换回归器，bandit 那侧不动"]]}, "tip": {"t": "⚠ 不要以为 SquareCB 全面优于 UCB", "v": "<b>在<b>线性</b>类上 UCB 更好</b>：<code>d√T·polylog(T)</code>（p2）利用了线性的可迁移性，而 SquareCB 的通用界拿不到那么紧。<b>SquareCB 赢的是<b>一般</b>函数类</b>——那里 UCB 有 <code>√(T|𝔉|)</code> 的下界。⇒ <b>判据很简单：你的函数类有没有「一次观测能更新多个动作的估计」这种结构？有就用乐观，没有就用 SquareCB。</b>", "w": 1}, "say": "<b>补一处讲义只用一行带过、但它是整个算法为什么成立的核心：那个倒数形状是在做什么交易？</b><br>把 <code>P_{t,i} ∝ 1/(λ+γΔ_{t,i})</code> 代进「瞬时遗憾」与「估计误差」的权衡里看：<span class='k'>选一个差距为 <code>Δ</code> 的动作，<b>当场</b>损失约 <code>Δ</code>；而给它 <code>p</code> 的概率，能让它那一格的估计误差以 <code>1/p</code> 的速度被压下去</span>。<b>于是总代价约 <code>Σ_i p_i Δ_i + (1/γ)Σ_i (1/p_i)·(估计误差)</code></b>，<span class='w'>对 <code>p_i</code> 求极值，得到的正是 <code>p_i ∝ 1/(λ+γΔ_i)</code> 这个形状</span>。<b>⇒ 它是「立刻的损失」与「把估计压准」之间逐动作求解出来的最优分配，而不是一个启发式</b>。<span class='k'>⚠ 这也解释了为什么 <code>exp(−γΔ)</code> 不行：指数衰减把差距中等的动作的 <code>1/p</code> 项抬到天上，那一半代价失控</span>。<b>同一个权衡在 L18 p1 的 Theorem 17 里也出现过（第一项是探索代价、第三项是估计量方差），只是那里用的是「混合一个均匀分布」这种粗办法，这里是逐动作精调。</b>", "res": {"tag": "推断", "v": "<b>这一页给你两样东西，第二样可能是整条 CSE 541 线上最锋利的一刀。</b><br><b>① 一个能直接实现的 router。</b> <span class='k'>SquareCB 只要一个平方损失的回归器，而简报 §4e 已经论证过你该拟合的正是这个：成本那一半「直接回归，预期 R² &gt; 0.95，完全不用重要性权重」，准确率那一半用 FQE + cross-fitting</span>。<b>⇒ 把 <code>f̂_t</code> 取成你那个 <code>Ĝ = Âcc − λ·Ĉost</code> 的回归器，概率按 <code>1/(λ_0 + γΔ)</code> 分配，就是一个带遗憾保证的配置选择器 —— 而它不需要任何置信集，也就绕开了「怎么给梯度提升树算置信区间」这个没人能干净回答的问题</b>。<br><b>② ⭐ AFlow 的选择规则离「有保证」只差一个函数形式。</b> <span class='w'>简报 §2【已核】记着它的规则是 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，λ=0.2，α=0.4</span>；<b>而 <code>s_i − s_max</code> 正是<b>负的差距</b></b>。<span class='k'>⇒ 两者结构惊人地像：都是「均匀 + 一个随差距递减的项」。差别只在<b>衰减的形状</b>——AFlow 用 <code>exp(−αΔ)</code>（指数尾），SquareCB 用 <code>1/(λ+γΔ)</code>（多项式尾），<b>而定理要的是后者</b></span>。<b>⇒ 一句可以写进 contribution 的话：<b>把 AFlow 的 softmax 换成 inverse-gap 加权，在可实现性假设下就得到 <code>√(nT·Est_sq)</code> 的遗憾保证，而代码改动是一行</b></b>。⚠ <b>务必实测再写</b>：<span class='w'>这条推断依赖可实现性，而且 AFlow 的 <code>s_i</code> 是 <code>D_V</code> 上 5 次的均值、不是在线回归器的输出</span>——<b>两处都要在论文里讲清楚，否则就是把一个定理硬套在一个不满足前提的算法上</b>。", "ref": "本讲 p5 · 简报 §2（AFlow 的 λ·uniform + softmax 规则，λ=0.2 α=0.4）· 简报 §4e（两半分别用什么估计量）"}}
+];
+
+var TH = {"title": "L20 接上课题的哪一段：别造那个「拟合模型 + 置信上界」的 router，以及 AFlow 离有保证只差一个函数形式", "arc": "<b>这五页是一条完整的「别走那条路，走这条」，而那条被否掉的路恰好是你最可能先写出来的第一版设计。</b><br><br><span class='k'><b>一、先认清你在做哪一种承诺（p1）。</b></span> <b>model-free</b> 不假设奖励的任何形式，代价是<span class='w'>只跟你挑的策略类 <code>Π</code> 里最好的比</span>（这是 L18）；<b>model-based</b> 假设<b>可实现性</b>（<code>r = f_* ∈ 𝔉</code>），回报是<span class='k'>跟逐上下文的真正最优比</span>。<b>两个遗憾界形状一样（<code>√(nT log|·|)</code>），交易却是对称的：一个「保证是真的，但可能没用」，另一个「有用，但保证可能是假的」。</b><span class='w'>⚠ 落到课题上：你那条「拟合 <code>Acc</code> 与 <code>Cost</code> 的模型再优化」是 model-based，必须承担可实现性（简报 §5 的可加性检验正是在验它）；「挑一个策略类做无悔学习」是 model-free，不必验，但基准只是 <code>Π</code> 里最好的。<b>不许同时声称两边的好处。</b></span><br><br><span class='w'><b>二、被否掉的那条路（p2–p4）。</b></span> <b>线性情形 UCB 是对的</b>：岭回归 + 置信椭球 + 乐观，<code>d√T·polylog(T)</code>，连 <code>n</code> 和 <code>|C|</code> 都没有（p2）。<b>于是最自然的下一步是「把椭球换成任意函数类的置信集」—— p3 原封不动地照做了一遍，构造毫无障碍、乐观分解照样成立，可是页末一行写着：<span class='k'>存在 <code>𝔉</code> 使 UCB 的遗憾 ≥ <code>√(T|𝔉|)</code></span></b>。<span class='w'><code>|𝔉|</code> <b>一次方</b>，而目标是 <code>log|𝔉|</code> —— <code>|𝔉| = 2^20</code> 时差几百倍，且随规模指数拉大</span>。<b>p4 给了反例：动作分两段，前 <code>m</code> 格是「索引比特」（回报低、一次排除一半候选），后 <code>2^m</code> 格是「答案」（可能回报高、一次只排除一个）。</b><span class='k'>UCB 只按乐观值排序，于是不去读比特、逐个试 <code>2^m</code> 个答案格；而先读 <code>m</code> 个比特再查表直奔答案的算法只吃 <code>√(mT)</code>。</span><br><br><b>⭐ 这个反例的要害是一句对实践很不客气的话：<span class='k'>乐观原则按「可能的回报」排序，对「这个动作能排除多少候选」完全是盲的</span>。</b><span class='w'>⚠ 而这与 CSE541 L07（CS234 L16 p47）那条「该按信息价值花预算」是同一件事的第二次出现、而且更强</span>：<b>那边的前提是「离线筛选里做坏决策不疼」，这边说即使在真要承受损失的在线设定里，只要信息与回报错位，乐观也会付指数代价。</b><br><br><span class='k'><b>三、该走的那条（p5）。</b></span> <b>SquareCB 只有三行，而且<b>没有置信集、没有不确定度</b></b>：<code>P_{t,i} ∝ 1/(λ + γ·Δ_{t,i})</code>，<code>Δ</code> 是相对估计最优的差距。<b>它只要一个「平方损失的在线悔值 ≤ <code>Est_sq(T)</code>」的回归器，遗憾 <code>√(nT·Est_sq(T))</code></b>；<span class='w'>用指数权重做回归器 <code>Est_sq(T) ≤ log|𝔉|</code>，回到 p1 的 Claim，五页走完一个圆</span>。<b>⭐ 最值钱的是这个<b>解耦</b>：统计困难全被塞进 <code>Est_sq(T)</code> 这一个纯监督学习的量，换函数类只换回归器，bandit 那一侧一行不改</b>——<span class='k'>于是「怎么给一棵梯度提升树算置信区间」这个没人能干净回答的问题被整个绕开了</span>。<br><br><b>⇒ 两条落地动作。</b><b>① 你的 router 直接照 p5 写</b>：<span class='w'>简报 §4e 已经论证过该拟合的就是这个（成本那半直接回归、不用重要性权重；准确率那半 FQE + cross-fitting）</span>，<b>把 <code>f̂_t</code> 取成 <code>Ĝ = Âcc − λ·Ĉost</code> 的回归器，概率按 <code>1/(λ_0+γΔ)</code> 分配，就是一个带遗憾保证的配置选择器</b>。<b>② ⭐ AFlow 的选择规则离「有保证」只差一个函数形式</b>：<span class='k'>简报 §2【已核】它是 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，而 <code>s_i − s_max</code> 正是<b>负的差距</b></span>——<b>和 SquareCB 结构惊人地像（都是「均匀 + 随差距递减」），差别只在<b>衰减形状</b>：它用 <code>exp(−αΔ)</code>（指数尾），定理要的是 <code>1/(λ+γΔ)</code>（多项式尾）</b>。<span class='w'>⚠ 这条必须实测再写，而且它依赖可实现性、也依赖把 <code>s_i</code> 换成在线回归器的输出 —— 两处前提都要在论文里讲清楚，否则就是把定理硬套在不满足前提的算法上。</span>", "pitfalls": [{"v": "<b>⚠ p3 末行那条下界是对<b>UCB 这个算法</b>的，不是对<b>问题</b>的。</b> <span class='k'>p1 的 Claim 说 <code>√(nT log|𝔉|)</code> 可达，p5 给出了算法</span>；<b>所以 <code>√(T|𝔉|)</code> 说的是「乐观这条思路达不到最优」，不是「这个问题就这么难」</b>。<span class='w'>⚠ 这与 CSE541 L16 那种「任何方法都不可能更好」的下界是两类完全不同的东西</span>——<b>引用时搞混会把结论写反，而且审稿人一眼能看出来</b>。", "tag": "已核", "ref": "本讲 p3 末行 · p1 的 Claim · p5 的定理 · CSE541 L16 主线卡"}, {"v": "<b>⚠ 别以为 SquareCB 全面优于 UCB —— 在<b>线性</b>类上 UCB 更好。</b> <span class='k'>p2 的 <code>d√T·polylog(T)</code> 利用了线性的<b>可迁移性</b>（一条臂上的观测能更新所有臂的估计），而 SquareCB 的通用界 <code>√(nT·Est_sq)</code> 拿不到那么紧</span>。<b>判据很简单：你的函数类有没有「一次观测能更新多个动作的估计」这种结构？有就用乐观，没有就用 SquareCB。</b><span class='w'>⇒ 落到课题上，这一条和 L07 的线性假设绑在一起：如果可加性检验（简报 §5）过了，线性成立，那么 L07+L10 那套乐观路线反而是更好的选择。</span>", "tag": "已核", "ref": "本讲 p2 与 p5 的遗憾对比 · p5 的 tip · 简报 §5"}, {"v": "<b>⚠ 可实现性破掉不是「界差一点」，是「界完全不成立」，而且有一个很具体的失效模式。</b> <span class='k'>p3 的 <code>f_* ∈ 𝔉^T</code> 是后续每一步的前提（尤其是乐观分解 <code>UCB_t(i) ≥ r(c_t,i)</code>）</span>；<b><code>f_*</code> 根本不在 <code>𝔉</code> 里的话，<code>𝔉^T</code> 随时可能把所有好函数都排除掉，算法会<b>自信地</b>指向一个错误的动作而且永不纠正</b>。<span class='w'>⇒ 实践里必须用<b>误配置</b>版本的分析：假设 <code>min_{f∈𝔉}‖f − r‖_∞ ≤ ε</code>，界里多一项 <code>εT</code></span>。<b>本讲没讲这一支，但你写论文时几乎一定要用它 —— 而且 <code>εT</code> 是<b>线性</b>增长的，这意味着函数类的近似误差在长时域下会主导一切。</b>", "tag": "推断", "ref": "本讲 p1、p3（f_* ∈ 𝔉^T 的用法）"}, {"v": "<b>⚠ 记号冲突，而且这一次撞在最要紧的字母上：<code>λ</code> 在这一讲里有<b>三个</b>意思。</b> <span class='k'>p2 的 <code>λ</code> 是<b>岭回归的正则系数</b>；p5 的 <code>λ</code> 是 <code>P ∝ 1/(λ+γΔ)</code> 里的<b>平移常数</b>；而你简报里的 <code>λ</code> 是 <code>G = Acc − λ·Cost</code> 的<b>权衡权重</b></span>。<b>⚠ 另外 L07 里的 <code>λ</code> 还是<b>测量分配</b>（住在单纯形上）</b>。<span class='w'>⇒ 四个毫无关系的东西共用一个字母。写论文时必须给其中至少两个改名，否则同一页里会打架</span>。<b>（本精读 p5 把算法里那个记成 <code>λ_0</code> 以示区别。）</b>", "tag": "已核", "ref": "本讲 p2、p5 · CSE541 L07 主线卡（同一条记号警告）· 简报 §2"}, {"v": "<b>⚠ 「在线回归 oracle」的要求比它看起来弱，但也比它看起来<b>严</b>，两头都别搞错。</b> <span class='k'><b>弱</b>的一侧：它只要求在算法<b>实际走过</b>的那些格子 <code>(c_t, I_t)</code> 上准，不要求在整个 <code>C × [n]</code> 上准</span>；<b><b>严</b>的一侧：它要的是<b>在线</b>悔值 —— <code>f̂_t</code> 只能用 <code>s &lt; t</code> 的数据，每一轮都要重新出一个预测</b>。<span class='w'>⚠ 你拿一批历史数据离线训一个模型、然后固定不动，<b>不满足</b>这个条件</span>；<b>要么真的做在线更新，要么改用别的分析（而那会把保证换成另一种形式）</b>。", "tag": "已核", "ref": "本讲 p5（oracle 的两种等价定义）"}, {"v": "<b>⚠ p4 那个反例有一个容易误读的地方：它<b>不是</b>在说「要先做探索再做利用」。</b> <span class='k'>SquareCB 的解法根本不分阶段，它每一轮都在所有动作上放正概率</span>；<b>它绕开反例的方式是<b>随机化</b>，不是「先诊断后搜索」</b>。<span class='w'>⇒ 两件事都对，但别混为一谈：<b>「先诊断后搜索」是你在简报 §4c/§5 里的实验顺序（人为安排的两阶段）；SquareCB 是一个单阶段算法</b></span>。<b>反例说明的只是「按回报排序的贪心会漏掉诊断性动作」，而修法可以是分阶段、也可以是随机化。</b>", "tag": "推断", "ref": "本讲 p4 与 p5 · 简报 §4c、§5"}], "ammo": [{"q": "你为什么不直接拟合一个 Acc 模型、给它配置信区间、挑上界最大的配置？这是最标准的做法。", "a": "<b>因为对丰富的函数类这条路被证明不行，而且下界是显式的。</b> <span class='k'>CSE541 L20 p3：存在函数类使「拟合 + 置信集 + 乐观」这套做法的遗憾 ≥ <code>√(T|𝔉|)</code>，而最优是 <code>√(nT log|𝔉|)</code> —— <code>|𝔉|</code> 一次方 vs 进 log，<code>|𝔉| = 2^20</code> 时差几百倍</span>。<b>p4 的反例讲清了机制：乐观按「可能的回报」排序，对「这个动作能排除多少候选」是盲的</b>；<span class='w'>而我的场景正好有这种错位 —— 便宜的诊断性探测（<code>k=1</code> 全弱跑一遍、单节点降级扫描）信息量大但回报低，完整配置的试跑回报可能高但一次只告诉你一个点</span>。<b>⇒ 所以我用 SquareCB：<code>P ∝ 1/(λ_0 + γΔ)</code>，只需要一个平方损失的在线回归器，不需要任何置信集</b>。<span class='k'>这同时绕开了「怎么给一棵梯度提升树算置信区间」这个工程上没人能干净回答的问题。</span>⚠ <b>一个例外我会说清楚：如果可加性检验过了、<code>G</code> 确实对配置线性，那么 L07/L10 那套乐观路线的 <code>d√T</code> 反而更紧，我会改回去。</b>", "tag": "推断", "ref": "本讲 p3 末行 · p4 · p5 · 简报 §4c · 简报 §5"}, {"q": "你说你的方法有遗憾保证。那个保证依赖什么假设？", "a": "<b>依赖一条，而且我会把它明写在定理旁边：<b>可实现性</b>。</b> <span class='k'>SquareCB 的界 <code>√(nT·Est_sq(T))</code> 要求存在 <code>f_* ∈ 𝔉</code> 使 <code>r(c,i) = f_*(c,i)</code> 对所有 <code>c,i</code> 成立</span>。<b>⚠ 这在现实里几乎总是假的，所以我用<b>误配置</b>版本：假设 <code>min_{f∈𝔉}‖f−r‖_∞ ≤ ε</code>，界里多一项 <code>εT</code></b>。<span class='w'><code>εT</code> 是<b>线性</b>增长的 —— 意味着函数类的近似误差在长时域下会主导一切</span>，<b>所以我会报告 <code>ε</code> 的经验估计（留出集上的拟合残差），而不是只报遗憾界</b>。<span class='k'>另外第二条是在线性：oracle 要求 <code>f̂_t</code> 只用 <code>s &lt; t</code> 的数据、每轮重出预测。我确实做在线更新；如果改成「离线训一个固定模型」，这个保证就不适用，我不会含糊这一点。</span>", "tag": "推断", "ref": "本讲 p1、p3、p5"}, {"q": "你这个「按差距的倒数分配概率」和 AFlow 已经在用的 softmax 采样有什么实质区别？听起来只是换了个公式。", "a": "<b>确实只换了一个函数形式，而那正是我要说的事 —— 换了之后就有定理了。</b> <span class='k'>AFlow 的规则是 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>【已核，Algorithm 1】，而 <code>s_i − s_max</code> 正是负的差距；SquareCB 是 <code>P ∝ 1/(λ_0 + γΔ)</code></span>。<b>两者结构上惊人地像：都是「均匀 + 一个随差距递减的项」。差别只在<b>尾部衰减</b>——指数 vs 多项式，而 <code>√(nT·Est_sq)</code> 这个界要的是后者</b>。<span class='w'>机制也说得清：把「瞬时损失 <code>Σp_iΔ_i</code>」与「估计误差 <code>(1/γ)Σ(1/p_i)·误差</code>」的权衡对 <code>p_i</code> 求极值，解出来就是倒数形状；指数衰减把差距中等那些动作的 <code>1/p_i</code> 抬到天上，那一半代价失控</span>。<b>⇒ 可写进 contribution 的一句：把 softmax 换成 inverse-gap，在可实现性下得到遗憾保证，代码改动一行。</b>⚠ <b>但我会先实测再写，而且会讲清两处前提</b>：<span class='k'>AFlow 的 <code>s_i</code> 是 <code>D_V</code> 上 5 次的均值、不是在线回归器的输出；而定理要可实现性。</span>", "tag": "推断", "ref": "本讲 p5 · 简报 §2（λ=0.2, α=0.4）· 简报 §3（D_V 上跑 5 次）"}, {"q": "model-free 和 model-based 你到底用哪个？两边的结果能放在一张表里比吗？", "a": "<b>能比，但必须标清基准不同，否则那张表是误导。</b> <span class='k'>CSE541 L18 是 model-free：不假设奖励形式，遗憾 <code>√(nT log|Π|)</code>，但<b>只跟 <code>Π</code> 里最好的策略比</b>；L20 是 model-based：假设可实现性，遗憾形状一样，但<b>跟逐上下文的真正最优比</b></span>。<b>⇒ 同样一个「遗憾 0.05」的数字，两边的含义差别很大</b>。<span class='w'>我的做法是两条都跑，而把<b>共同的、无歧义的</b>那个量当主指标：简报 §4d 那张穷举 oracle 的精确表给出的真正最优 —— 两种方法都对着它报差距</span>。<b>⚠ 而那张表只在留出的 200–300 条 query 上有，所以它是<b>报告</b>用的、不能进训练</b>（这一点和 L18 p16 那条「用悲观选、用独立留出报」是同一条纪律）。<b>这样两边才真的可比，而且顺带避开了优化者的诅咒。</b>", "tag": "推断", "ref": "本讲 p1 · CSE541 L18 p6、p16 · 简报 §4d"}], "papers": [{"t": "Foster &amp; Rakhlin — Beyond UCB: Optimal and Efficient Contextual Bandits with Regression Oracles（SquareCB）", "id": "ICML 2020（本讲 p5 的算法，讲义写作 “Square CB” 但未给出处）", "why": "<b>p5 那三行算法与 <code>√(nT·Est_sq(T))</code> 那条定理的出处。</b> <span class='k'>最该引用的是它的<b>结构主张</b>：上下文 bandit 可以被<b>归约</b>到在线平方损失回归，于是统计困难与探索逻辑彻底解耦</span>。<b>你用它来支撑「我的 router 只需要一个回归器」这句话</b>，<span class='w'>以及「inverse-gap 而不是 softmax」这个具体的函数形式</span>。⚠ <b>讲义未点名，引用前核对作者、年份与定理的确切形式</b>（<code>γ</code> 的取法与 <code>λ_0</code> 的常数讲义都简化了）。<b>另外它还有一个误配置版本的后续工作，正是你需要的那一支，值得一并查。</b>"}, {"t": "Agarwal, Hsu, Kale, Langford, Li &amp; Schapire — Taming the Monster（ILOVETOCONBANDITS）", "id": "ICML 2014（model-free 那一侧的代表，本讲 p1 的 √(nT log|Π|) 属这一支）", "why": "<b>L18 那条路线的高效实现版本。</b> <span class='k'>L18 的算法每轮要解一个 <code>|Π|</code> 变量的凸优化，<code>|Π|</code> 一大就不可行；这篇把每轮调用 oracle 的次数降到均摊 <code>O(√(nT/log|Π|))</code></span>。<b>⇒ 如果你最终走 model-free，这是实现时真正要读的那一篇</b>，<span class='w'>而本讲 p1 只是把它的界引用了一下</span>。⚠ <b>讲义未点名，引用前核对。</b>"}, {"t": "Chu, Li, Reyzin &amp; Schapire — Contextual Bandits with Linear Payoff Functions（LinUCB 的分析）", "id": "AISTATS 2011（本讲 p2 的那套 θ̂ / ℰ_t / UCB_t 就是它）", "why": "<b>p2 那四个部件的标准引用，以及 <code>d√T·polylog(T)</code> 的来源。</b> <span class='k'>你如果最终走线性路线（可加性检验通过），这是基线算法的出处</span>；<b>而它与 CSE541 L07 的关系值得在论文里点明：L07 给固定设计下的最优测量分配，LinUCB 给自适应情形，<code>polylog(T)</code> 就是自适应的代价</b>。⚠ <b>自归一化那一侧更标准的引用是 Abbasi-Yadkori, Pál &amp; Szepesvári (2011)</b>，<span class='w'>CSE541 L12 讲的正是那套机器</span>；<b>两篇要分清谁证了什么。</b>"}, {"t": "Russo &amp; Van Roy — Eluder dimension / Learning to Optimize via Posterior Sampling", "id": "2013 / 2014（p3 那条「UCB 在一般 𝔉 上不行」的另一面）", "why": "<b>p3 的下界说「<code>|𝔉|</code> 一次方」，而这一支给出的是「什么样的 <code>𝔉</code> 上乐观<b>仍然</b>可行」的刻画 —— eluder 维数。</b> <span class='k'>⇒ 它正好回答了 p5 那条 tip 里的判据：「你的函数类有没有可迁移结构」有一个定量版本</span>。<b>你若要论证自己的函数类属于哪一边，这是该查的工具</b>；<span class='w'>线性类的 eluder 维数是 <code>O(d)</code>，而 p4 那个 chain-code 类的是 <code>2^m</code> 量级</span>。⚠ <b>讲义完全没提这一支，这条属<b>待核</b>：主题高度相关，但具体定义与结论要查原文。</b>"}]};
+
+(function(){
+  var PDF="../corpus/slides/lecture_20.pdf", MAX=5;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l20quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l20p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l20quiz");
+      localStorage.removeItem("l20p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
