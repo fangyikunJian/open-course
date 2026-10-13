@@ -1,0 +1,68 @@
+{
+ "title": "L01 接上课题的哪一段：博弈论那三条的共同地基",
+ "arc": "这一讲是全课最长的一份（54 页），但对你的清单来说，<b>最该读的是 p41–53 那一段</b>：指数权重与在线梯度下降。<br><br>理由直接写在学习清单里：条目 7（MIT 6.S890）被列为「博弈论部分对你最重要的一门」，<span class='k'>第一条理由就是「它直接复用梯队 1 学到的 online learning 和 regret 工具」</span>。<b>那套工具就是这一节。</b>而条目 7 的验收标准是「在 Kuhn poker 上实现 vanilla CFR」—— CFR 的做法正是「在博弈树的每个决策点放一个 regret minimizer，再把它们组合成整棵树的 regret minimizer」，<span class='w'>那个 regret minimizer 通常就是指数权重（博弈论文献里叫 MWU）或 regret matching</span>。<br><br><b>所以这一节学扎实，条目 6/7/8 的前半可以直接跳过。</b>反过来，跳过它去读 6.S890，会在第 4–8 讲（Learning in Games: Foundations / Algorithms）卡住。<br><br>与前面各讲的关系：L05–L12 都假设奖励来自<b>固定分布</b>（随机设定）；这一讲不假设任何概率模型，对手可以<b>故意跟你作对</b>（对抗设定）。<span class='k'>同一个 bandit 问题，两套理论、两族算法</span>。本课 L14 的 EXP3 正是把这一节的指数权重装上 bandit 反馈（只看得到选中那条臂的损失）得来的。<br><br>⚠ <b>材料形态提醒</b>：这一讲是排版幻灯 + Beamer 叠加，54 页只有 36 张不同的幻灯。读的时候会发现连着好几页是同一张在逐步显现 —— 本精读按内容合并，<span class='w'>停在叠加区间任何一页看到的都是同一条讲解，这是对的，不是漏写</span>。",
+ "pitfalls": [
+  {
+   "v": "<b>把对抗设定的结论套到随机设定上，或反过来。</b> 这一讲的 √(T log d) 不假设任何分布；而 L06 的 Σ Δ_i⁻¹ log T 依赖差距、只在随机设定下成立。<span class='w'>两者的最优算法不同、下界也不同</span>。写论文时说「我的问题是对抗的还是随机的」是必须交代的一句。",
+   "tag": "已核",
+   "ref": "本讲 p24「Settings of interest: IID / Adversarial」；对照 L06"
+  },
+  {
+   "v": "<b>以为 follow-the-leader（永远押当前最好的）就够了。</b> 讲义 p34 专门有一页说明：对手可以构造序列让 ERM/FTL <span class='k'>每一步都错</span>。<b>随机化与适度的 η 不是优化技巧，是对抗设定下的必需品。</b>",
+   "tag": "已核",
+   "ref": "本讲 p34「When chosen adversarially empirical risk minimization can…」"
+  },
+  {
+   "v": "<b>把指数权重的 η 当成「只存在于分析里」的参数。</b> 与 L06 的 ν、L09 的 λ 不同，<span class='w'>η 是算法真要设的超参数</span>，而最优取法 √(8log d/T) <b>依赖 T</b>。不知道 T 就要用 doubling trick 或衰减步长 —— 本讲没讲，但这是实现时碰到的第一个问题。",
+   "tag": "推断",
+   "ref": "本讲 p45–48"
+  },
+  {
+   "v": "<b>忘了凸替代的代价。</b> p49–51 把 0/1 损失换成凸损失是为了可算，但<span class='k'>凸替代损失小 ⇏ 0/1 损失小</span>。你只能说「我在替代目标上没有 regret」。若你的论文里把某个代理指标优化好了就宣称真实目标也好了，这是同一类问题。",
+   "tag": "已核",
+   "ref": "本讲 p49–51"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你凭什么给 AFlow 那种搜索加一个理论保证？",
+   "a": "因为它在形式上<b>就是一个指数权重算法</b>。简报 §2 已核实：AFlow 的选择规则是对已评估 workflow 的分数做 <code>softmax(α(s_i − s_max))</code> 再与均匀分布混合 —— <span class='k'>这正是带探索项的乘性权重更新</span>。<br><br>而这一讲 p45–48 的势函数论证<span class='w'>不需要任何分布假设</span>，只要损失有界。所以可以直接给它套一个 no-regret 保证 —— <b>而 AFlow 原文 Appendix G 只有三条 bullet、没有任何定理</b>（简报 §2 已核）。这是成本极低、可信度很高的一个贡献点。",
+   "tag": "推断",
+   "ref": "本讲 p45–48；科研简报 §2"
+  },
+  {
+   "q": "你的搜索目标是对抗的还是随机的？",
+   "a": "用 p24 那一页的二分法正面答：<b>你的评估噪声来自 LLM 采样，是随机的</b>（同一配置重复跑，分数围绕一个均值波动），所以随机设定成立，L06/L09 那一套适用。<br><br><span class='w'>但要留一个口子</span>：若 benchmark 本身在换、或模型在更新，那分布会漂移，此时对抗设定的保证更稳妥（代价是界更松）。<span class='k'>说清楚你站在哪一侧、以及为什么，比默认不提要好。</span>",
+   "tag": "推断",
+   "ref": "本讲 p24；L06 的随机设定"
+  },
+  {
+   "q": "为什么你的 bound 里专家/配置的数量只进 log？",
+   "a": "可以引这一讲作为最干净的先例：指数权重的 <code>√(T log d/2)</code> 里 <span class='k'>d 只进对数</span> —— 乘性更新的本质就是让候选数以对数代价进入。<br><br>这与 L09 那条「<b>n 只进 log，d 在根号里</b>」是两个不同的机制（那边靠线性结构，这边靠乘性更新），<span class='w'>但对你的论文都适用，看你的算法长什么样</span>。两条都可以引，别混。",
+   "tag": "已核",
+   "ref": "本讲 p45–48；L09 p3"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Cesa-Bianchi & Lugosi, Prediction, Learning, and Games",
+   "id": "教材",
+   "why": "<b>专家预测与在线学习的标准参考</b>，这一讲 p41–48 基本是它第 2–4 章的浓缩。<span class='k'>书名里的 Games 不是装饰</span> —— 后半直接讲到博弈中的学习，正是条目 7 的前置。"
+  },
+  {
+   "t": "Hazan, Introduction to Online Convex Optimization",
+   "id": "免费电子书",
+   "why": "p49–53 那一段的系统版本。<b>online mirror descent 的统一视角</b>（指数权重与 OGD 都是它的特例）在那里讲得最清楚 —— 本讲没展开的正是这一点。"
+  },
+  {
+   "t": "Arora, Hazan & Kale, The Multiplicative Weights Update Method: a Meta-Algorithm and Applications",
+   "id": "Theory of Computing 2012",
+   "why": "把指数权重当作<b>元算法</b>来看：同一套更新在博弈求解、线性规划、Boosting 里各出现一次。<span class='w'>读完会明白为什么 6.S890 把它当地基。</span>"
+  },
+  {
+   "t": "本课 L14：对抗式 bandit · EXP3",
+   "id": "lecture_14.pdf（已有精读）",
+   "why": "这一节的直接下游：<b>把指数权重装上 bandit 反馈</b>（只看得到选中那条臂的损失）就是 EXP3。<span class='k'>先读这一讲再读 L14，会发现只多了一个重要性加权的损失估计。</span>"
+  }
+ ]
+}
