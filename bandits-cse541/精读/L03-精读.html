@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSE541 第 3 讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cse541-l03">
+
+<div id="bar">
+  <h1>CSE541 第 3 讲 · <span>在线梯度下降 · 通用投资组合</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 33</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_3.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L03-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "p6 右上角那笔手写 exp(β) ≥ 1+β，在指数权重的分析里是干什么用的？", "o": ["用来证明权重永远为正", "取对数移项后得到 log(1+x) ≤ x，是把「对数里的和」化开的工具", "用来说明 η 必须小于 1", "它是 Hoeffding 引理的另一种写法"], "a": 1, "why": "它是势函数论证里另一条更初等路线的入口。讲义正文走的是 Hoeffding 引理，得到 η²/8；走这条路得到 η²/2，常数差一点但同阶。"}, {"q": "定理 regret ≤ log(d)/η + Tη/8 里那个 8 是从哪来的？", "o": ["Hoeffding 引理中 exp(t²(b−a)²/8) 的 8，代入 [a,b]=[0,1] 后保留下来", "为了让最终界形如 √(T log d / 2) 而凑的", "来自 d 个专家的并集界", "来自 η 的最优取值"], "a": 0, "why": "不是凑出来的常数。Hoeffding 引理给出 exp(t²(b−a)²/8)，损失在 [0,1] 故 (b−a)²=1，t=−η，正好留下 η²/8。"}, {"q": "为什么讲者要在这一讲开头把 L01 的 8 页重放一遍？", "o": ["因为上一讲没讲完", "因为要修正上一讲的一个错误", "为了引出「|ℋ| 无穷时指数权重算不动」这个问题，从而转向凸性", "因为考试要考"], "a": 2, "why": "这一讲的主线是「上一讲那套算不动，怎么办」。p17 讲者把这条动机明写了出来：completely intractable in practice。"}],
+9: [{"q": "这一节（凸性）在这一讲里的位置最准确的描述是？", "o": ["一座桥：指数权重算不动，要换成梯度方法，而梯度方法需要凸性做地基", "一段独立的数学复习，跳过不影响后面", "对指数权重定理的另一种证明", "为了引出深度学习"], "a": 0, "why": "它夹在「指数权重（算不动）」与「在线梯度下降（算得动）」之间，是换路所必需的地基，不是插播。"}, {"q": "四条凸性刻画里，p22 的在线梯度下降证明实际用到的是哪一条？", "o": ["零阶（弦）定义", "上图定义", "集合定义", "一阶（切线）定义 f(y) ≥ f(x) + ∇f(x)ᵀ(y−x)"], "a": 3, "why": "而且只用一次：把 ∇ℓ(h)ᵀ(h−h_*) 换成 ℓ(h) − ℓ(h_*)。其余三条都是为了建立直觉与判定。"}],
+10: [{"q": "下面哪个集合一定是凸的？", "o": ["两个不相交圆盘的并", "五角星形区域", "有限多个半平面 {x : aᵀx ≤ b} 的交", "一条抛物线上的所有点"], "a": 2, "why": "半平面是凸集，凸集的交仍是凸集，所以多面体（含单纯形 Δ_d）都凸。并一般不凸；抛物线作为点集不凸（它的上图才凸）。"}, {"q": "要证明一个集合不是凸集，最少需要做什么？", "o": ["举出一对点，它们的连线上有一点跑到集合外", "对所有点对逐一验证", "证明它不连通", "算出它的凸包"], "a": 0, "why": "定义里的量词是「对所有 x,y」，所以否定它只要一个反例 —— 这正是讲者在 p11 上画一条弦就下结论的理由。"}, {"q": "「选算子 A 或者选算子 B」这类离散可行集，标准的凸化出路是？", "o": ["直接当成凸集用", "取凸包，即允许以概率混合两者，于是落到单纯形上", "改用非凸优化", "增加更多约束"], "a": 1, "why": "并集一般不凸。取凸包把离散点变成单纯形，代价是最后要舍入回一个真实配置，那一步的差距即 integrality gap。"}],
+12: [{"q": "下面哪条说法是对的？", "o": ["凸函数必定单调", "凸函数必定可微", "单调下降的函数不可能凸", "凸函数可以有尖角（不可微），例如 hinge loss"], "a": 3, "why": "p13 中下那条 V 形折线凸但在尖点无导数。单调性与凸性无关：e^{−x} 单调下降且凸。"}, {"q": "把弦不等式里的 λ 看成概率，它就变成了哪条熟悉的不等式？", "o": ["Jensen 不等式 f(E[X]) ≤ E[f(X)]", "Markov 不等式", "Cauchy-Schwarz 不等式", "三角不等式"], "a": 0, "why": "同一条性质的两个写法。Jensen 是集中不等式、变分推断、信息论里反复出现的那一条，L05 推 Hoeffding 用的也是它。"}, {"q": "「凸函数的逐点最大值仍凸」这条性质，在对抗设定下为什么特别重要？", "o": ["因为最大值更容易计算", "因为它能减小方差", "因为「最坏情形」天然是一个 max，有这条性质，稳健化不会把问题从凸变成非凸", "因为它保证了唯一最优解"], "a": 2, "why": "p20 目标里的 max_{h∈ℋ} 正是这一类。反过来 min 不保凸，而「cheapest-feasible」里那个 min 就在问题中心。"}],
+14: [{"q": "「抛物线本身不是凸集」为什么不与「抛物线是凸函数」矛盾？", "o": ["因为凸函数指的是上图 {(x,t) : f(x) ≤ t} 是凸集，不是图像是凸集", "因为抛物线其实是凸集", "因为抛物线不可微", "因为定义只在一维成立"], "a": 0, "why": "取 (−1,1) 与 (1,1)，中点 (0,1) 不在曲线上，故图像不凸；但 (0,1) 满足 t ≥ f(0)=0，落在上图里。"}, {"q": "用上图视角证明「凸函数的逐点最大值仍凸」，论证是？", "o": ["逐点比较函数值", "epi(max_i f_i) = ∩_i epi(f_i)，而凸集的交是凸集", "对 λ 求导", "用一阶定义代入"], "a": 1, "why": "一句话，不用碰任何不等式 —— 这正是把函数问题归约成集合问题的收益。"}],
+15: [{"q": "一阶定义 f(y) ≥ f(x) + ∇f(x)ᵀ(y−x) 对 hinge loss 失效，标准补丁是？", "o": ["改用二阶条件", "先光滑化再用", "把 ∇f 换成次梯度：任何满足该不等式的向量都算，定理一字不改", "放弃凸性"], "a": 2, "why": "凸函数在定义域内部处处存在次梯度。在线梯度下降用次梯度照跑，这也是一阶定义成为证明主力的原因。"}, {"q": "p22 的证明里，一阶定义被用成了哪个形式？", "o": ["∇f(h_t)ᵀ(h_t − h_*) ≥ f(h_t) − f(h_*)", "f(h_t) ≤ f(h_*)", "‖∇f(h_t)‖ ≤ G", "∇f(h_*) = 0"], "a": 0, "why": "左边是几何量（朝 h_* 走了多少），右边是遗憾量（比 h_* 多亏了多少）。凸性做的事就是把几何换成遗憾。"}, {"q": "验证一个具体函数（如 −log(aᵀx)）是否凸，实际最省力的工具是？", "o": ["逐点画弦", "画它的上图", "枚举所有切线", "二阶条件：算 Hessian 是否半正定"], "a": 3, "why": "−log(aᵀx) 的 Hessian 是 aaᵀ/(aᵀx)²，秩 1 半正定，三行就完。记住分工：二阶用来验，一阶用来证。"}],
+16: [{"q": "「凸函数的驻点即全局最小」怎么一行证出来？", "o": ["把 ∇f(x)=0 代入一阶定义，立刻得 f(y) ≥ f(x) 对所有 y 成立", "对 f 求二阶导", "用弦不等式取 λ=1/2", "用上图的凸性"], "a": 0, "why": "这是整个凸优化里性价比最高的一步推理。非凸时这个推理断在第一步：梯度为零给不出任何全局信息。"}, {"q": "非凸函数在 ∇f(x)=0 处可能是哪几种情况？", "o": ["只可能是局部最小", "局部最小、局部最大、或鞍点", "只可能是鞍点", "一定是全局最大"], "a": 1, "why": "讲义把三种都列了。高维下鞍点才是常态，这正是深度学习里「逃离鞍点」成为专门话题的根子。"}, {"q": "既然非凸问题（如深度学习）实际也能解得不错，这门课为什么非要凸性不可？", "o": ["因为凸问题收敛更快", "因为非凸问题无法实现", "因为对抗设定下对手会专挑你失效的序列，没有最坏情形保证基本等于没有结论", "因为凸性是必要条件"], "a": 2, "why": "凸是充分条件不是必要条件。区别在于有没有保证 —— 而在对抗设定里，保证就是全部。"}],
+17: [{"q": "讲义说两条已有的路都「intractable」，这两条路堵死的原因是？", "o": ["都是因为 |ℋ| 太大", "对抗侧堵在规模（|ℋ| 可以无穷，算法写不出来），随机侧堵在硬度（0/1 损失的 argmin 是 NP-hard）", "都是因为 0/1 损失不凸", "都是因为数据不够"], "a": 1, "why": "一个是「存不下」，一个是「算不出」。放松目标同时治两样 —— 这是讲者只用一招就解决两个问题的原因。"}, {"q": "必须换掉 0/1 损失的最根本理由是？", "o": ["它不连续", "它的值域太小", "它的梯度几乎处处为零，梯度方法在它上面完全没有信息可用", "它不对称"], "a": 2, "why": "它是阶梯函数：挪动 h 要么什么都没变，要么突然跳一格。不凸只是表象，没有可用梯度才是致命伤。"}, {"q": "「凸替代损失小」能推出「0/1 损失小」吗？", "o": ["不能。你只能说「我在替代目标上没有遗憾」，要搬回去需要额外的 calibration 假设", "能，因为替代损失是 0/1 的上界", "能，两者等价", "只在线性分类时能"], "a": 0, "why": "替代损失压在 0/1 上面只保证「0/1 不会更大」，不保证「会变小」。本讲完全没碰 calibration 那一套。"}, {"q": "「ℋ 要是凸集」这处改动，在下一页会以什么形式兑现？", "o": ["让损失函数可微", "让投影算子 Π_ℋ 良定义（凸集上最近点存在且唯一）", "让遗憾界里出现 log d", "让算法变成随机的"], "a": 1, "why": "非凸集上「最近点」可能不唯一（想想圆环的圆心）。凸集 + 欧氏距离保证唯一，Π_ℋ 才是一个真正的函数。"}],
+20: [{"q": "讲者为什么要手写补上 Π_K(x) = argmin_{y∈K} ‖y−x‖₂ 的定义？", "o": ["因为它是一个新概念", "因为讲义正文没写这个定义，而投影是算法能成立的前提", "为了说明 K 必须有界", "因为后面要求它的导数"], "a": 1, "why": "梯度一步很可能走出 ℋ，而玩家出的 h_t 必须是合法假设、定理里的 R 也是对 ℋ 内的点说的。讲者知道这一步在讲义里被省掉了。"}, {"q": "OGD 的遗憾界 RG√T 里为什么没有维度 d？", "o": ["因为假设了 d 很小", "因为 d 被吸收进了 T", "因为它只依赖几何量：可行域半径 R 与梯度上界 G，与候选数和维度无关", "因为用了随机化"], "a": 2, "why": "这正是换路的全部收益 —— 指数权重的 √(T log d) 需要显式维护 d 个权重，ℋ 无穷大时就跑不动了。"}, {"q": "定理里的 Σ_t ‖∇ℓ_t(h_t)‖² 被换成 G²T，这个替换在实践中往往怎样？", "o": ["往往很紧", "往往很松：梯度在后期常变小，真实的和远小于 G²T —— AdaGrad 那一族正是为吃掉这个松弛而发明的", "两者恒等", "换了之后界会变小"], "a": 1, "why": "原式是一个真实的、依赖轨迹的量；G²T 是最坏情形放大。自适应步长方法的全部动机就在这个缝隙里。"}, {"q": "OGD 是确定性算法，它在对抗设定下能成立，靠的是哪个前提？", "o": ["损失有界", "ℋ 是凸的", "η 足够小", "对手是「同时」出手的 —— 不能看着 h_t 再决定出什么题"], "a": 3, "why": "若对手能先看 h_t，任何确定性算法都会被打爆（L01 p34 那一页说的正是这件事）。指数权重则是靠随机化来对付这个问题的。"}],
+21: [{"q": "证明第一步「把 Π 从两边剥掉」用了哪个性质，还用了什么小技巧？", "o": ["投影非扩张；并利用 h_* ∈ ℋ 故 Π_ℋ(h_*) = h_*，把它硬塞进投影里", "三角不等式；并利用梯度有界", "Cauchy-Schwarz；并利用 η 小", "Jensen 不等式；并利用凸性"], "a": 0, "why": "投影永远不会把两点推得更远。这一步需要 ℋ 凸 —— 非凸集上投影可能是扩张的。"}, {"q": "凸性在这个证明里被用了几次，用在哪一步？", "o": ["每一步都用", "两次，第一步和最后一步", "一次，第三行：把交叉项 ∇ℓ(h_t)ᵀ(h_t−h_*) 换成 ℓ(h_t) − ℓ(h_*)", "零次，这个证明不需要凸性"], "a": 2, "why": "前面铺的八页凸性全部兑现在这一行：它把一个几何量换成了一个遗憾量。整个证明的魔术就在这里。"}, {"q": "望远镜求和后为什么可以丢掉 −‖h_{T+1} − h_*‖²？", "o": ["因为它趋于零", "因为它是非正的，丢掉只会让不等号更松、方向不变", "因为 T 很大", "因为它被 η 吸收了"], "a": 1, "why": "「扔掉一个对自己不利的项」是标准动作，本课后面还会反复看到（L10 椭圆势引理收尾也是这么干的）。"}, {"q": "a/η + bη 这类式子的最优步长有一个通用结论，是什么？", "o": ["最优时第一项为零", "最优时 η = a/b，最优值为 a + b", "最优时两项相等，最优值为 2√(ab)", "最优时 η = 1"], "a": 2, "why": "认出这个模式，以后所有「配平步长 / 配平置信半径」的地方都能直接写答案，不用再求导。本讲 η = R/(G√T) 就是它的一个实例。"}, {"q": "这个证明与 L06 逐次淘汰的证明，最本质的差别是？", "o": ["这个更长", "这个不用求和", "这个用了更强的集中不等式", "这个里面完全没有概率：纯确定性论证，对任何损失序列逐条成立"], "a": 3, "why": "这就是「对抗设定」的真正含义 —— 结论不依赖数据怎么生成。L06 则有一半篇幅在处理「好事件以多大概率成立」。"}],
+23: [{"q": "Markowitz 模型 min_{p∈Δ_d} pᵀΣp s.t. pᵀμ ≥ r̄ 是一个什么类型的问题？", "o": ["凸优化：Σ 半正定故目标凸，约束线性，Δ_d 凸", "非凸优化", "整数规划", "无约束优化"], "a": 0, "why": "三样都凸 —— 这正是本讲上半部分铺的凸性在这里的兑现（p10 的半平面交、p14 的上图全用上了）。"}, {"q": "讲义那句 \"What could possibly go wrong?\" 针对的是什么？", "o": ["优化算法不收敛", "单纯形不是凸集", "两个假设（IID）与一步估计（μ、Σ 从数据估）", "目标函数不可微"], "a": 2, "why": "p26 用真实价格图回答第一个；第二个的答案是 Σ 有 d(d+1)/2 个参数，d=500 时是 12 万个，而月度数据十年只有 120 个观测。"}, {"q": "p ∈ Δ_d 这个约束隐含了哪两条真实的投资限制？", "o": ["不许交易、不许持有现金", "不许卖空（p_i ≥ 0）、不许加杠杆（Σp_i = 1）", "不许分散、不许集中", "不许再平衡、不许止损"], "a": 1, "why": "这不是为数学方便而加的，是在刻画一类具体的投资者。允许卖空/杠杆的话可行域就不是单纯形了，整套分析要重做。"}],
+26: [{"q": "关税这个例子为什么特别适合用来否掉 IID 假设？", "o": ["因为跌幅特别大", "因为它发生在最近", "因为它影响了很多股票", "因为它不是「随机波动」而是一个人的决定 —— 你没法给一项政策指定概率分布"], "a": 3, "why": "这正是「对抗」在这里的含义：序列由某个不受你控制、也不服从你模型的东西决定。"}, {"q": "\"robust to even adversarial returns\" 里的 even 说明了什么？", "o": ["作者认为市场是恶意的", "对抗设定是一个安全边界而非世界观：保证连最坏情况都兜得住，市场温和时只会更好", "该算法只在对抗情形下有效", "需要额外假设"], "a": 1, "why": "不假设分布的代价通常是拿不到分布相关的快率，但这一节的奇特之处在于代价几乎为零 —— p31 的界连 T 都没有。"}],
+27: [{"q": "为什么必须对 Π_t ⟨p_t, r_t⟩ 取对数，而不是直接优化它？", "o": ["为了数值稳定", "为了让它变成凹函数", "因为在线学习的全部机器（遗憾定义、势函数、望远镜）都是为逐期相加的损失造的，连乘在这套语言里写不出来", "为了消去 v₁"], "a": 2, "why": "取对数不是技巧，是入场的门票。顺带它还有经济学身份：最大化 E[log v_T] 就是 Kelly 准则。"}, {"q": "regret 定义里的 max_{p∈Δ_d} 中 p 没有下标 t，这意味着基准是？", "o": ["一个从头到尾不变的比例（constant rebalanced portfolio）", "每期可以变化的最优路径", "最好的单只股票", "市场平均"], "a": 0, "why": "和会变的对手比是不可能赢的。三档要分清：最好的单只股 < 最好的固定组合 < 最好的变化路径（没人能比）。"}, {"q": "ℓ_t(p) = −log⟨p, r_t⟩ 为什么不能直接套用 p20 的 OGD 定理？", "o": ["因为它不凸", "因为 Δ_d 不是凸集", "因为它不可微", "因为它在 ⟨p,r⟩ → 0 时趋于 +∞，不是 Lipschitz 的，而 OGD 定理需要 ‖∇ℓ‖ ≤ G"], "a": 3, "why": "它是凸的（Hessian = r rᵀ/⟨p,r⟩² 半正定），Δ_d 也凸，问题出在梯度无界。这是改用指数权重的技术原因之一。"}],
+29: [{"q": "p29 配图里蓝线（水平刻度）与红线（对数刻度）画的是同一组数据，差别说明了什么？", "o": ["乘性增长在对数坐标下是加性的、是直线 —— 蓝线像是 1995 年后才开始增长，红线显示 60 年增长率其实相当稳定", "红线用了平滑", "两条线的数据来源不同", "对数刻度放大了噪声"], "a": 0, "why": "这是对数变换的可视化版本，和 p28 的数学是同一件事。线性刻度会让你高估近期、低估早期。"}, {"q": "d = 500 时 log(d) ≈ 6.2，换算成财富比是约 500 倍。为什么这个界仍然有意义？", "o": ["因为实际差距通常小得多", "因为可以调参数减小它", "因为它不随 T 增长，而被比较的财富是指数增长的，时间一长常数差距就被稀释", "因为 500 倍在金融里不算大"], "a": 2, "why": "这是 no-regret 保证的典型味道：最坏情况常数看着吓人，但不随时间恶化。而且你事先完全不知道哪只会赢。"}],
+30: [{"q": "把 η = 1 代入更新式 w_{t+1}(i) = w_t(i)exp(−ηℓ_t(e_i))，会得到什么？", "o": ["w_{t+1}(i) = w_t(i)", "w_{t+1}(i) = w_t(i)·r_t(i)，于是 w_T(i) 就是第 i 只股票至今的累计涨幅", "w_{t+1}(i) = w_t(i)/r_t(i)", "w_{t+1}(i) = exp(r_t(i))"], "a": 1, "why": "算法的真身是「把钱按各股票累计涨幅的比例分配」—— 也就是说，等分买入后再也不动，持仓比例会自动演化成这个样子。"}, {"q": "红字「Competes with the single best stock in hindsight!」其实是在说什么？", "o": ["在夸这个保证很强", "在自曝其短：定理比的是 max_{i∈[d]}（单纯形的顶点），而 p27 定义的 regret 是 max_{p∈Δ_d}（整个单纯形）", "在说明算法可以超过最好的股票", "在强调 hindsight 不可实现"], "a": 1, "why": "定理证的比定义的要弱。p33 会用一个两只股票的例子说明弱了多少 —— 缺口随 T 无限拉大。"}, {"q": "为什么这个定理里 η = 1 不需要配平，而 p6 和 p20 的 η 都要？", "o": ["因为 T 已知", "因为 d 很小", "因为损失有界", "因为 log 损失让证明中间那个近似变成了精确相等，没有需要配平的二阶代价项"], "a": 3, "why": "一个不需要调参的算法通常意味着问题结构特别好。更准确地说，−log⟨p,r⟩ 是 1-exp-concave 的。"}],
+32: [{"q": "p32 与 p8 的证明逐行相同，唯一的差别在哪一步？", "o": ["望远镜拆开那一步", "下界那一列", "把「指数的加权平均」化掉那一步：p8 要用 Hoeffding 付 η²/8，p32 靠 exp(log x)=x 精确相等，付 0", "代入更新式那一步"], "a": 2, "why": "T 就是在这一步消失的 —— p8 每期付一次 η²/8，T 期攒成 Tη/8；p32 每期付 0。"}, {"q": "两个定理里的 log(d) 这一项为什么是同源的？", "o": ["因为都用了 Hoeffding", "因为都取了 η=1", "因为都用了凸性", "因为都来自「总和 ≥ 其中一项」加上 W₁ = d，量的是「一开始对 d 个候选一无所知」的代价"], "a": 3, "why": "下界那一列两个证明一个字都不用改。这一项与损失函数是什么无关。"}, {"q": "把 η 换成 1 以外的值会怎样？", "o": ["界会更好", "exp(−η·(−log⟨e_i,r_t⟩)) = ⟨e_i,r_t⟩^η，那个精确抵消就没了", "算法不收敛", "没有影响"], "a": 1, "why": "Σ_i p_t(i)⟨e_i,r_t⟩^η ≠ ⟨p_t,r_t⟩^η（除非 η=1）。所以 η=1 是这个结构唯一的钥匙，不是一个方便的选择。"}, {"q": "看到一个遗憾界里有 T，按本页的视角该先问什么？", "o": ["T 有多大", "能不能换个算法", "这个 T 是从证明的哪一步来的 —— 在势函数论证里它几乎总是来自「每期都要付一次的近似代价」", "界是不是最优的"], "a": 2, "why": "常数项通常来自「初始的无知」（这里是 log d），随 T 增长的项通常来自「每期的近似」。知道这个，改进就有了下手的地方。"}],
+33: [{"q": "两只反相股票的例子里，五五开组合每期的收益率是多少？", "o": ["交替为 2 和 ½", "恒为 5/4，与这一期谁涨谁跌无关", "恒为 1", "恒为 5/8"], "a": 1, "why": "½·2 + ½·½ = 5/4，另一种排列也是 5/4。这个组合把波动剧烈的市场变成了稳定的复利机器 —— 业内叫 volatility pumping。"}, {"q": "五五开组合能跑赢两只成分股，机械原理是什么？", "o": ["分散降低了风险", "两只股票的期望收益不同", "固定比例意味着每期再平衡：卖掉涨的、补进跌的，下期角色互换时手上多的恰好是即将上涨的那只", "因为取了对数"], "a": 2, "why": "固定的是比例，不是持仓 —— 这正是 p27 那条说明在这里的兑现。股债平衡组合用的是同一个机制。"}, {"q": "讲者证完定理立刻给出这个反例，这个做法的意义是？", "o": ["说明定理是错的", "把 limitation 主动写在前面：你自己说出来是深刻，审稿人说出来是缺陷", "为了凑页数", "说明指数权重不适用"], "a": 1, "why": "他没有等读者去发现这个缺口，而是主动给出最锋利的反例，然后把它变成下一讲的问题。"}, {"q": "\"How do we compete with any p ∈ Δ_d?\" 的答案（L04 的内容）是什么？", "o": ["增大 η", "改用在线梯度下降", "增加股票数量", "把指数权重从 d 个顶点推广到整个单纯形上的连续分布（Cover 1991 的 universal portfolio），遗憾界 O(d log T)"], "a": 3, "why": "更新规则形式不变，求和换成积分。界比 log(d) 差（多了 log T），但基准强得多（整个单纯形）。"}]
+};
+
+var N = [
+{"r": [1, 8], "t": "前 8 页是上一讲的原样重放：这里只有两笔新的手写", "star": 2, "quote": "Theorem: If z_t ∈ [0,1]^d ∀t, and I_t, p_t are chosen by exponential weights then max_{i∈[d]} E[Σ_{t=1}^T ⟨I_t, z_t⟩ − ⟨e_i, z_t⟩] = max_{i∈[d]} Σ_{t=1}^T ⟨p_t, z_t⟩ − ⟨e_i, z_t⟩ ≤ log(d)/η + Tη/8.  Choosing η = √(8log(d)/T) gives regret bound of √(T log(d)/2).", "one": "<b>这 8 页与 L01 的 p41–p48 是同一批幻灯</b>，讲者为了接上一讲重新放了一遍。<span class='k'>内容已经在 L01 精读里讲透，这里不重复</span> —— 唯一值得停一下的，是 p6 右上角那两笔蓝色手写。", "eq": "指数权重（p6，与 L01 p45 同一张）：\n  输入：d 个专家，η > 0\n  初始：w₁ = (1, …, 1)ᵀ ∈ ℝ^d\n  for t = 1, 2, …\n      玩家按 p_t(i) = w_t(i) / Σ_{j=1}^d w_t(j) 抽 I_t ~ p_t\n      对手同时给出专家损失 z_t ∈ [0,1]^d\n      玩家付出损失 ⟨p_t, z_t⟩ = E[z_t(I_t)]\n      玩家更新权重 w_{t+1}(i) = w_t(i)·exp(−η z_t(i))\n\n定理：  regret ≤ log(d)/η + Tη/8\n取 η = √(8 log d / T)：  regret ≤ √(T log(d)/2)\n\n讲者手写补的（p6 右上角）：\n  exp(β) ≥ 1 + β        ← 等价于 log(1 + x) ≤ x\n  (1 ± β)                ← 写在「玩家付出损失」那一行旁边", "pts": ["<b>第一笔手写 <code>exp(β) ≥ 1+β</code> 不是随手写的。</b>把它取对数移项就是 <code>log(1+x) ≤ x</code> —— <span class='k'>这是势函数论证里唯一一个把「对数里的和」变成「和里的对数」的工具</span>。p8 的证明走的是 Hoeffding 引理那条路，而这个不等式是<b>另一条更初等的路的入口</b>。", "<b>第二笔 <code>(1 ± β)</code> 写在损失那一行旁边</b>，指的是把 <code>exp(−ηz)</code> 展开成 <code>1 − ηz + O(η²z²)</code> 的那一步。<span class='w'>η 小的时候指数更新 ≈ 乘性线性更新</span>，这正是「乘性权重」这个名字的来历 —— <b>指数只是为了让分析干净，直觉上就是「错一次打一次折」</b>。", "<b>p8 的证明骨架是「同一个量，两头夹」。</b>那个量是 <code>log(W_{T+1}/W₁)</code>，其中 <code>W_t = Σ_i w_t(i)</code>。<span class='k'>左边一列把它逐步展开，算出它 ≈ −η·(玩家的总损失)</span>；<span class='w'>右边一列只保留一个专家 i，算出它 ≥ −log d − η·(专家 i 的总损失)</span>。两头一夹，regret 就被挤出来了。", "<b>Hoeffding 引理在这里的角色非常具体</b>：证明走到 <code>log E[exp(−η(z_t(I_t) − E[z_t(I_t)]))]</code> 这一项时需要一个上界，引理给的是 <code>exp(t²(b−a)²/8)</code>，代入 <code>[a,b] = [0,1]</code>、<code>t = −η</code> 就得到 <code>η²/8</code>。<span class='k'>定理里那个 Tη/8 的 8 就是从这儿来的</span>，不是凑出来的常数。", "<b>两个参数的拉锯要看清</b>：<code>log(d)/η</code> 随 η 增大而<span class='k'>减小</span>（学得快，初始的无知消化得快），<code>Tη/8</code> 随 η 增大而<span class='w'>增大</span>（每步跳得猛，累积的抖动大）。<b>令两者相等就解出最优 η</b> —— 这是本课后面反复出现的配平手法（L06 的 ε_ℓ、L09 的轮数都是同一招）。", "<b>最优 η 依赖 T，这是个真问题不是小瑕疵。</b>你得事先知道要玩多少轮才能设对步长。<span class='w'>讲义没有展开</span>，实现时的标准补丁是 doubling trick（T 翻倍就重启一次）或衰减步长 <code>η_t ∝ 1/√t</code>。"], "tbl": {"cap": "势函数论证的两条路（讲义走第一条，手写批注指向第二条）", "head": ["", "Hoeffding 引理（p8 走的）", "<b>1 + β 展开（手写批注那条）</b>"], "rows": [["核心不等式", "E[e^{t(X−μ)}] ≤ exp(t²(b−a)²/8)", "<b>exp(β) ≥ 1+β，即 log(1+x) ≤ x</b>"], ["得到的二阶项", "η²/8", "<b>η²/2（常数更差）</b>"], ["最终常数", "√(T log(d)/2)", "<b>√(2T log d)</b>"], ["需要的前提", "损失有界 z ∈ [0,1]", "同左，另需 e^{−ηz} 的二阶展开"], ["为什么还提它", "—", "<b>换成非负损失或 log 损失时更好推广</b>（p32 就靠它）"]]}, "say": "<b>讲者为什么要把上一讲的 8 页重放一遍？</b>因为这一讲的主线是「<span class='k'>上一讲那套东西算不动，怎么办</span>」。p1–p8 是「算得动的理想情形」：专家只有 d 个，权重向量就 d 维，每步 O(d) 更新。<br><br>可是真实的假设类 ℋ 动不动就是无穷大（所有线性分类器），d = |ℋ| = ∞，<span class='w'>指数权重连初始化都做不到</span>。<b>所以这一讲要换一条路：不再对「假设」做乘性权重，而是让假设本身住在一个凸集里，用梯度走。</b><br><br>这就是为什么下一节（p9 开始）突然讲起凸集凸函数 —— <span class='k'>它不是插播的数学复习，而是换路所必需的地基</span>。读到 p17 你会看到讲者把这条动机明写出来：「completely intractable in practice」。", "link": {"t": "你学过的对应：本课 L01 p41–48（同一批幻灯的完整讲解，含势函数论证六行）", "href": "L01-精读.html"}, "tip": {"t": "读法建议：这 8 页该花多少时间", "v": "<b>如果你 L01 的那一片已经读完了，这 8 页十分钟翻过去就行</b>，只停在 p6 看那两笔手写、停在 p8 把「两头夹」的结构再认一遍。<br><br><b>如果你是直接从这一讲进来的</b>，<span class='w'>不要在这里硬读</span> —— 去 L01 精读的 p43–48 那一条，那边有完整的六行推导和每一步的来由。<span class='k'>这一讲真正的新内容从 p9 开始</span>。<br><br><b>一个自检：</b>合上讲义，你能说出 <code>log(W_{T+1}/W₁)</code> 的上界与下界分别是怎么来的吗？上界靠逐步展开加 Hoeffding，下界靠「只留一个专家」。说得出来就可以往下走了。"}, "res": {"tag": "推断", "v": "<b>这 8 页是你给 AFlow 补理论保证时要引的那一段。</b>简报 §2 已核实 AFlow 的选择规则是对已评估 workflow 的分数做 <code>softmax(α(s_i − s_max))</code> 再与均匀分布混合 —— <span class='k'>形式上就是带探索项的乘性权重更新</span>。<br><br>要把这一节的定理套上去，<b>你需要显式核对三个前提</b>：① 损失有界（分数归一化到 [0,1]）；② 候选集固定（AFlow 边搜边扩展候选，这一条<span class='w'>不满足</span>，要改成 sleeping experts 或分阶段重启）；③ η 的取法（AFlow 的 α 是固定常数，不随 T 调）。<br><br><b>第 ② 条是真正的缺口，也是可写的贡献点</b> —— 不是「套一个已有定理」，而是「把定理搬到候选集会增长的情形」。", "ref": "本讲 p6、p8；L01 p45–48；科研简报 §2"}},
+{"r": [9, 9], "t": "一个把后半门课撑起来的问题：什么时候优化是容易的？", "star": 3, "quote": "Convexity — When is an optimization (or learning) easy/fast to solve?", "one": "整张幻灯只有一个标题和一个破折号问句。<span class='k'>但这个问句是这一讲的转轴</span>：前半讲证明了「如果候选只有 d 个，我们有最优算法」；<b>这半讲要回答「候选有无穷多个时，什么结构能救我们」</b>。答案是凸性。", "eq": "这一节要建立的四个等价刻画（后面逐页出现）：\n\n  ① 凸集：     (1−λ)x + λy ∈ K                                  ← p10–11\n  ② 零阶/弦：   f((1−λ)x + λy) ≤ (1−λ)f(x) + λf(y)               ← p12–13\n  ③ 上图：     {(x,t) : f(x) ≤ t} 是凸集                         ← p14\n  ④ 一阶/切线： f(y) ≥ f(x) + ∇f(x)ᵀ(y − x)                      ← p15\n\n用途分工：\n  ② 最好画（弦在函数上方）\n  ③ 最好用来把「函数的凸性」归约成「集合的凸性」\n  ④ 最好用来**做证明** —— p22 的在线梯度下降证明只用到它", "pts": ["<b>「容易/快」这两个词在这里有精确含义，别当成修辞。</b>「容易」= <span class='k'>局部最优即全局最优</span>（找到一个驻点就收工，不必担心自己卡在半山腰）；「快」= <span class='w'>梯度下降这类一阶方法有收敛率保证</span>。p16 会把这两条明写出来。", "<b>为什么偏偏是凸性，而不是别的结构？</b>因为凸性恰好是「<span class='k'>局部信息足以推出全局结论</span>」的最弱假设之一。一阶定义 <code>f(y) ≥ f(x) + ∇f(x)ᵀ(y−x)</code> 说的就是：<b>站在 x 点只看一个梯度，你就对所有的 y 有了一个下界</b>。在线学习每一步只拿到一个梯度，这个性质是刚需。", "<b>注意这一节在课程里的位置。</b>它夹在「指数权重（算不动）」和「在线梯度下降（算得动）」中间，<span class='w'>是一座桥而不是一个岛</span>。读的时候始终带着一个问题：<b>这四条定义里，哪一条会在 p22 的证明里被用到？</b>（答案：只有 ④，而且只用一次。）", "<b>这一节也是你读 Hazan 那本书的入场券。</b>本课后面的 L04（连续指数权重）、以及条目 7 的 MIT 6.S890（博弈中的学习），默认读者已经有这套语言。<span class='k'>它是本课唯一一次系统铺凸分析的地方，跳过它后面会处处卡壳。</span>", "<b>先说清这一讲最后会走到哪，读起来会顺很多。</b>凸性铺完之后出现<span class='k'>两个</span>算法而不是一个：p20 的在线梯度下降（通吃任何凸损失，代价是界里带 √T），p30 的指数权重（只对 log 损失，但界里<span class='w'>完全没有 T</span>）。<b>同一节地基，长出两套东西 —— 而且后者更强。</b>读到 p32 你会看到为什么：log 损失让证明中间那个不等式退化成了等式。"], "tbl": {"cap": "这一讲的三段式结构（为什么凸性夹在中间）", "head": ["段落", "页", "解决什么", "遗留什么"], "rows": [["指数权重", "p1–8", "d 个专家的对抗学习，√(T log d)", "<b>|ℋ| 无穷时算不动</b>"], ["<b>凸性</b>", "<b>p9–16</b>", "<b>给出「可高效优化」的结构条件</b>", "<b>—</b>"], ["在线梯度下降", "p17–22", "凸假设类上的 O(RG√T) 遗憾", "只对凸替代损失成立"], ["通用投资组合", "p23–33", "log 损失下 log(d) 遗憾（与 T 无关）", "只跟单只最优股比，基准偏弱"]]}, "say": "<b>讲者在这里没有说的一句话，值得自己补上：凸性是「可解」的充分条件，不是必要条件。</b>很多非凸问题照样能解（深度网络的训练就是），只是<span class='w'>没有保证</span>。<br><br>而在线学习这个设定里，<span class='k'>我们面对的是一个有意跟我们作对的对手</span> —— 没有保证基本上就等于没有结论，因为对手会专门挑你的算法失效的那个序列。<b>所以这门课里凸性不是「为了方便」，而是「为了还能证点什么」。</b><br><br>这也解释了 p17–19 那个看起来很妥协的做法：<b>宁可换一个目标函数（凸替代损失），也要把凸性拿到手。</b>", "tip": {"t": "带着这个问题读接下来的 7 页", "v": "<b>四条定义会一条一条出现，但它们不是并列的四个知识点 —— 它们是同一件事的四张脸，而且各有各的岗位。</b><br><br>读的时候每看到一条，就问自己两个问题：<br>① <span class='k'>它要求被定义的函数满足什么前提？</span>（可微？连续？什么都不要？）<br>② <span class='w'>它适合拿来干什么？</span>（画图判断？做归约？写证明？）<br><br><b>到 p15 你会发现答案出奇地干净</b>：要求最多的那一条（一阶定义，要可微），恰好是唯一一条能拿来做证明的。<span class='k'>这不是巧合 —— 信息更强的刻画才推得动东西。</span>"}, "res": {"tag": "推断", "v": "<b>你的配置搜索空间大概率不是凸的</b> —— workflow 的结构是组合的（选哪个算子、怎么接），不是 ℝ^d 里的一个凸体。<span class='k'>这意味着这一讲的 OGD 不能直接搬</span>。<br><br><b>但有两条可用的路</b>：① <span class='w'>松弛到分布上</span> —— 在「配置的概率分布」这个单纯形上做优化，单纯形是凸的，这正是 p23 之后通用投资组合干的事（Δ_d 是凸集）；② <span class='w'>只在评估函数上要凸性</span> —— 若你的代理模型是线性/核的，那在参数空间上是凸的。<br><br><b>第 ① 条与你的课题形式最贴</b>：把「选哪个配置」放宽成「以什么概率选」，组合结构进了单纯形的顶点，优化在凸包上做。<span class='k'>这正是组合 bandit 文献的标准入口。</span>", "ref": "本讲 p9 的设问；p23–33 的 Δ_d；对照 L07 的实验设计（也是在单纯形上优化）"}},
+{"r": [10, 11], "t": "凸集：一句话定义，和讲者当场画弦的那六个例子", "star": 3, "quote": "A set K ⊂ ℝ^d is convex if (1−λ)x + λy ∈ K for all x, y ∈ K and λ ∈ [0,1]", "one": "<b>两点连线整段都在集合里面</b>，就是凸集。p11 给了六个图形让你当场判断，<span class='k'>讲者在非凸的那几个上用蓝笔画了一条跑到外面去的弦</span> —— 那条弦就是反例本身。", "eq": "定义：\n  K ⊂ ℝ^d 是凸集 ⟺ 对任意 x, y ∈ K 与任意 λ ∈ [0,1]，都有\n      (1 − λ)x + λy ∈ K\n\n读法：\n  λ = 0  →  得到 x\n  λ = 1  →  得到 y\n  λ ∈ (0,1) → 线段上的一点，离 y 越近 λ 越大\n\np11 六个图形的判定：\n  左上 胶囊形      凸 ✔\n  中上 五角星      非凸 ✘（讲者画的弦穿过凹口）\n  右上 对话气泡    非凸 ✘（那个小尾巴）\n  左下 带缺口的箭头 非凸 ✘（缺口上方的弦掉进洞里）\n  中下 五边形      凸 ✔\n  右下 半平面      凸 ✔（被一条直线切出来的那一半）", "pts": ["<b>「对所有 x,y」这个量词是定义的全部重量。</b>只要能找到<span class='k'>一对</span>点，它们的连线跑出去过，这个集合就不是凸的。<span class='w'>所以证明非凸只要举一个反例（画一条弦），证明凸则要对所有点对成立</span> —— 这是两种完全不同的工作量。", "<b>右下那个半平面值得单独记住。</b>它是 <code>{x : aᵀx ≤ b}</code>，是所有线性约束的形状。<span class='k'>而凸集的交还是凸集</span>，所以<b>任意多个线性不等式围出来的区域（多面体）都是凸的</b> —— 线性规划的可行域、单纯形 Δ_d，全都是这么来的。", "<b>五角星是最好的反直觉例子。</b>它看起来「挺规整的」，但凹口让它出局。<span class='w'>凸性管的是形状的「有没有凹进去」，不管对称性、不管光滑性、不管连通之外的任何审美</span>。", "<b>后面要用到的两个具体凸集，现在先认个脸</b>：① <span class='k'>单纯形 Δ_d = {p ≥ 0, Σp_i = 1}</span>（p23 之后的投资组合住在这里）；② <span class='k'>欧氏球 {h : ‖h‖₂ ≤ R}</span>（p20 的 OGD 定理里那个 R 就是它的半径）。两个都是「线性约束 + 范数约束」的交。", "<b>凸集之所以第一个讲，是因为 p14 要把函数的凸性归约到它。</b>先把集合这一层立住，函数那一层就只是「看它的上图是不是这种形状」。<span class='w'>这个归约是本节最省力气的一步棋。</span>"], "tbl": {"cap": "p11 六个图形逐一过筛（讲者当场画弦的那三个是反例）", "head": ["图形", "凸？", "判据 / 讲者画的那条弦"], "rows": [["胶囊形（圆角矩形）", "<b>凸 ✔</b>", "任意两点连线都在内部；它是矩形与两个半圆的凸包"], ["五角星", "✘", "<b>取相邻两个尖角，连线穿过中间的凹口</b>"], ["对话气泡", "✘", "<b>取气泡主体一点与尾巴尖，连线跑到外面</b>"], ["带缺口的箭头", "✘", "<b>跨过那个方缺口的弦掉进洞里</b>"], ["五边形", "<b>凸 ✔</b>", "任何凸多边形都是半平面的交"], ["半平面（对角线切开）", "<b>凸 ✔</b>", "{x : aᵀx ≤ b}，所有线性约束的原型"]]}, "say": "<b>讲者在课上让大家当场判断，这个做法本身是有道理的 —— 凸性是少数几个「看图就能判」的数学性质。</b>养成看到一个可行域先问「它凸吗」的习惯，比记住定义有用得多。<br><br><b>三条立刻能用的封闭性（讲义没列，但处处在用）</b>：<br>① <span class='k'>凸集的交是凸集</span>（所以多个约束叠加没问题）；<br>② <span class='k'>凸集的仿射像是凸集</span>（线性变换、平移都保凸）；<br>③ <span class='w'>凸集的并一般不凸</span>（两个分开的圆盘，连线在中间断掉）。<br><br>第 ③ 条正是你的课题会碰到的那堵墙：<b>「选算子 A 或者选算子 B」天然是一个并集，不是凸的</b>。标准出路是取<span class='k'>凸包</span> —— 允许以概率混合两者 —— 于是又回到单纯形。", "tip": {"t": "单纯形 Δ_d：本课出现频率最高的那个凸集", "v": "<b>后面每一讲几乎都会碰到它，现在把它看熟。</b><br><br><code>Δ_d = { p ∈ ℝ^d : p_i ≥ 0, Σ_i p_i = 1 }</code><br><br>它为什么凸：<span class='k'>d 个半空间 <code>p_i ≥ 0</code> 的交，再交上一个超平面 <code>Σp_i = 1</code></span> —— 全是线性约束，所以是多面体。<br><br><b>它的几何形状</b>：d=2 是一条线段，d=3 是一个三角形，d 维是一个有 <code>d</code> 个顶点的单纯形。<span class='w'>顶点就是标准基向量 e_i</span>，也就是「百分之百押第 i 个」。<br><br><b>为什么它在本课无处不在</b>：① 指数权重的 p_t 住在里面；② L07 的实验设计在 Δ_𝒳 上找最优设计；③ p23 之后的投资组合权重也是它。<b>一句话：凡是「把预算/概率分到 d 个选项上」的问题，可行域都是 Δ_d。</b>"}, "res": {"tag": "推断", "v": "<b>「可行配置的集合」在你的问题里是离散的，所以逐点看不可能是凸集。</b>但这不等于凸工具用不上 —— <span class='k'>标准做法是把离散集合换成它的凸包</span>（允许以概率混合配置），在凸包上优化，最后再舍入回一个真实配置。<br><br><b>你要盯住的是舍入那一步的代价</b>：凸松弛给的保证是对凸包上的最优点说的，而你交付的是一个顶点。<span class='w'>组合 bandit 文献把这个差距叫 integrality gap</span>，有些结构（拟阵、匹配）gap 为零，一般情形不为零。<br><br><b>若你的 nogood（不可行组合）约束恰好能写成线性不等式，那可行域的凸包就是一个多面体</b> —— 这是最好的情形，也是值得先去核的一件事。", "ref": "本讲 p10–11 的定义与半平面例子；对照 L07 的实验设计在 Δ_𝒳 上做优化"}},
+{"r": [12, 13], "t": "凸函数：弦永远在函数上方，和六条曲线的当场判定", "star": 4, "quote": "A function f : ℝ^d → ℝ is convex if f((1−λ)x + λy) ≤ (1−λ)f(x) + λf(y) for all x, y ∈ ℝ^d and λ ∈ [0,1]", "one": "<b>把两点用一条直线连起来，函数不许钻到这条线上面去</b>。p12 那张图把不等式的两边都标在了图上：<span class='k'>红色是弦（右边），紫色是函数值（左边）</span>，红色永远不低于紫色。", "eq": "定义（零阶 / 弦）：\n  f 凸 ⟺ f((1−λ)x + λy) ≤ (1−λ)f(x) + λf(y)，∀ x,y ∈ ℝ^d, λ ∈ [0,1]\n\n左右两边分别是什么（对照 p12 的图）：\n  左边 f((1−λ)x + λy)        = 函数在「插值点」的值      ← 紫色曲线上的点\n  右边 (1−λ)f(x) + λf(y)      = 两个函数值的同比例插值    ← 红色弦上的点\n\n凹函数：把 ≤ 换成 ≥（弦在下方）。f 凹 ⟺ −f 凸。\n\np13 六条曲线的判定：\n  左上 抛物线          凸 ✔\n  中上 折线（先降后升再降） 非凸 ✘（讲者画的弦穿到曲线下方）\n  右上 指数衰减 e^{−x}  凸 ✔\n  左下 波浪形          非凸 ✘\n  中下 折线（V 形带一折） 凸 ✔\n  右下 对数状上凸曲线   非凸 ✘（这是凹函数）", "pts": ["<b>「不可微也可以凸」是这个定义最该记住的好处。</b>中下那条折线有一个尖角，<span class='k'>在尖点上没有导数</span>，但它完全满足弦不等式，是凸的。<b>hinge loss、绝对值、max 函数全是这一类</b> —— 它们在机器学习里到处都是，而一阶定义（p15）对它们失效。", "<b>右下那条是陷阱。</b>它单调上升、形状「漂亮」，但弦在曲线<span class='w'>下方</span> —— 它是<span class='k'>凹</span>函数不是凸函数。<b>单调性与凸性完全无关</b>：右上那条 e^{−x} 单调下降，照样是凸的。", "<b>把 λ 当成概率，不等式就变成 Jensen 不等式</b>：<code>f(E[X]) ≤ E[f(X)]</code>。<span class='k'>这是同一条性质的两个写法</span>，而 Jensen 是你在集中不等式、变分推断、信息论里反复会用到的那一条。<b>L05 推 Hoeffding 时用的也是它。</b>", "<b>两条立刻能用的封闭性</b>：① <span class='k'>凸函数的非负线性组合还是凸的</span>（所以「损失 + 正则项」仍凸）；② <span class='k'>凸函数的逐点最大值还是凸的</span>（所以 hinge <code>max(0, 1−yh ᵀx)</code> 凸，所以 p20 那个 <code>max_{h∈ℋ}</code> 的目标仍是凸的）。<b>第 ② 条在对抗设定里尤其关键，因为「最坏情形」天然是一个 max。</b>", "<b>注意定义里写的是 ℝ^d 上的 f，但实际总是在某个凸集上谈。</b><span class='w'>插值点必须落在定义域内，否则左边无意义</span> —— 所以「凸函数」默认定义域是凸集。p15 的一阶定义里讲义明写了 <code>x, y ∈ dom(f)</code>，正是在补这个前提。"], "tbl": {"cap": "p13 六条曲线逐一过筛", "head": ["曲线", "凸？", "为什么 / 讲者画的弦"], "rows": [["抛物线", "<b>凸 ✔</b>", "二阶导恒正，最标准的例子"], ["折线：降-升-降", "✘", "<b>跨过中间那个局部高点的弦落到曲线下方</b>"], ["e^{−x} 指数衰减", "<b>凸 ✔</b>", "单调下降但凸 —— <b>单调性与凸性无关</b>"], ["波浪形（有局部极小又有拐）", "✘", "两个谷之间的弦穿到曲线下方"], ["V 形折线（带一个尖角）", "<b>凸 ✔</b>", "<b>不可微也能凸</b>；hinge loss 就是这一类"], ["对数状上凸曲线", "✘", "<b>这是凹函数</b>（弦在下方），−f 才凸"]]}, "say": "<b>讲者在 p13 中上那条折线下面画了一个向上的箭头 ↑，指着他刚画的那条弦。</b>那个箭头是在强调「<span class='k'>看，弦跑到曲线下面去了</span>」—— 这就是违反定义的全部证据。<br><br><b>一个很值得自己做一遍的小练习</b>：拿 p13 右下那条凹曲线，验证 <code>−f</code> 满足弦不等式。做完你会发现<span class='w'>「凸」和「凹」不是两套理论，是同一套理论的一个符号翻转</span>。<br><br>这一点在后面有直接用处：<b>p28 把「最大化收益」写成「最小化 −log⟨p, r⟩」</b>，正是靠这个翻转 —— 收益的对数是凹的，加个负号就进了凸的框架，整套 OGD / 指数权重的机器就能开动。", "link": {"t": "你学过的对应：本课 L05（Hoeffding 的推导里用的 Jensen，正是这条弦不等式）", "href": "L05-精读.html"}, "res": {"tag": "推断", "v": "<b>「逐点最大值仍凸」这一条，对你的论文可能比定义本身更有用。</b>你的目标若写成<span class='k'>最坏情形下的代价</span>（例如「在所有可能的评估噪声实现里最差的那个」），它天然是一个 max，<b>而 max 保凸</b> —— 所以稳健化不会把问题从凸变成非凸。<br><br><span class='w'>反过来要小心的是 min</span>：「最便宜的可行配置」里那个 min 不保凸。<b>你的课题名字里就有「cheapest-feasible」，这个 min 正在问题的中心位置</b> —— 所以凸性在你这儿不是自动的，得逐项核。", "ref": "本讲 p12–13；对照 p20 目标里的 max_{h∈ℋ}"}},
+{"r": [14, 14], "t": "上图：把「函数凸不凸」整个翻译成「集合凸不凸」", "star": 4, "quote": "A function f : ℝ^d → ℝ is convex if the set {(x,t) ∈ ℝ^{d+1} : f(x) ≤ t} is convex.  Graph of f id defined as {(x,t) : f(x) = t}.  Epigraph of f is defined as {(x,t) : f(x) ≤ t}", "one": "<b>把函数图像上方那一整片区域涂黑，看它是不是凸集。</b>是，函数就凸。<span class='k'>这一步把函数的凸性完全归约成了集合的凸性</span> —— 两层概念并成一层，p10 建立的全部直觉立刻可以复用。", "eq": "三个定义并排（讲义这一页把它们叠在一起给）：\n\n  ① 集合：  K ⊂ ℝ^d 凸 ⟺ (1−λ)x + λy ∈ K\n  ③ 上图：  f : ℝ^d → ℝ 凸 ⟺ {(x,t) ∈ ℝ^{d+1} : f(x) ≤ t} 是凸集\n\n两个相关概念（讲义明确区分）：\n  图像 (graph)     = {(x,t) : f(x) = t}     ← 只有那条曲线本身\n  上图 (epigraph)  = {(x,t) : f(x) ≤ t}     ← 曲线连同它上方的全部区域\n\n维度要数清：\n  f 定义在 ℝ^d 上  →  上图住在 ℝ^{d+1} 里（多出来的那一维是 t）\n\np14 两张配图（讲者用蓝笔涂了阴影）：\n  左：抛物线，上方阴影区是凸的       ⇒ f 凸 ✔\n  右：波浪形，上方阴影区在中间凹进去 ⇒ f 非凸 ✘", "pts": ["<b>为什么是「上」图而不是「下」图？</b>因为我们要刻画的是<span class='k'>凸</span>（往下弯）函数。f 的上图凸 ⟺ f 凸；而 f 的<span class='w'>下</span>图（hypograph，<code>{(x,t) : f(x) ≥ t}</code>）凸 ⟺ f <span class='w'>凹</span>。<b>记混了就会把结论反过来用。</b>", "<b>这一页的价值在于「少一套工具」。</b>有了它，<span class='k'>凸函数的所有性质都可以从凸集的性质推出来</span>。例如「凸函数的逐点最大值仍凸」，用上图看就是一句话：<b><code>epi(max_i f_i) = ∩_i epi(f_i)</code>，而凸集的交是凸集</b> —— 不用碰任何不等式。", "<b>讲义这里有个小笔误</b>：「Graph of f <span class='w'>id</span> defined as」应是 <code>is</code>。<span class='k'>无伤大雅，但说明这页是手打的</span>，读讲义时碰到不通顺的地方先考虑笔误，别硬解。", "<b>上图视角还解释了「为什么凸函数不许取 −∞ 但可以取 +∞」。</b>允许 <code>f(x) = +∞</code> 相当于在那个 x 上<span class='k'>上图是空的</span>，这正是「x 不在定义域里」的编码方式。<b>凸优化的标准写法就是把约束吸收进目标函数的 +∞</b>（示性函数），这样「有约束」和「无约束」合成一套理论。", "<b>把这一页和 p10 的半平面连起来，就能看出线性函数的地位。</b>线性函数 <code>f(x) = aᵀx</code> 的上图是 <code>{(x,t) : aᵀx ≤ t}</code>，正是 ℝ^{d+1} 里的一个<span class='k'>半平面</span> —— 最简单的凸集。<b>而任何凸函数都是它所有切线（仿射函数）的逐点上确界</b>，这正是 p15 要讲的那条性质的几何版本。"], "tbl": {"cap": "图像 vs 上图：一字之差，用途完全不同", "head": ["", "图像 graph", "<b>上图 epigraph</b>"], "rows": [["定义", "{(x,t) : f(x) = t}", "<b>{(x,t) : f(x) ≤ t}</b>"], ["几何", "一条曲线（薄的）", "<b>曲线连同上方的整片区域（厚的）</b>"], ["凸函数时它是", "一般<b>不是</b>凸集（抛物线本身不凸）", "<b>凸集</b>"], ["能刻画凸性吗", "不能", "<b>能，而且是充要的</b>"], ["住在哪", "ℝ^{d+1}", "ℝ^{d+1}"]]}, "say": "<b>「抛物线本身不是凸集」这句话值得停三秒</b>，因为它最容易把人绊倒。<br><br>取抛物线上两点 <code>(−1,1)</code> 与 <code>(1,1)</code>，它们的中点是 <code>(0,1)</code>；而抛物线在 x=0 处的值是 0，<span class='k'>所以 (0,1) 不在曲线上</span> —— 曲线作为一个点集不满足凸集定义。<b>但它上方那片区域满足</b>，因为 (0,1) 确实落在「<code>t ≥ f(0) = 0</code>」里面。<br><br><span class='w'>凸函数 ≠ 图像是凸集；凸函数 = 上图是凸集。</span>这个区分是本页的全部内容，也是「epigraph」这个词在凸分析里被造出来的理由。", "res": {"tag": "推断", "v": "<b>上图这个技巧在你的问题里有一个具体用法：把「代价 ≤ 预算」这类约束变成几何对象。</b>你的课题是 cheapest-feasible —— 本质上是 <code>min cost(x) s.t. quality(x) ≥ q₀</code>。<span class='k'>若 cost 凸、quality 凹，则可行域是两个凸集的交，整个问题就是一个凸规划</span>。<br><br><b>所以值得先核的是「我的 cost 和 quality 在松弛后凸吗」</b>。若 cost 是各算子调用价格的线性和（很可能是），<span class='w'>它在混合分布上就是线性的 —— 既凸又凹</span>，这是最好的情形。真正的难点在 quality 那一侧：它是黑盒评估的期望，凹不凹没有先验理由。", "ref": "本讲 p14 的上图定义；对照 p10 的凸集交性质"}},
+{"r": [15, 15], "t": "一阶定义：站在一点只看一个梯度，就得到对全空间的下界", "star": 5, "quote": "A function f : ℝ^d → ℝ that is differentiable everywhere is convex if f(y) ≥ f(x) + ∇f(x)^⊤(y − x) for all x, y ∈ dom(f)", "one": "<b>切线永远在函数下方。</b>这是四条定义里最不好画、却<span class='k'>唯一会在 p22 的证明里被真正用到</span>的一条 —— 整个在线梯度下降的分析，凸性只在这一处进场，而且只进场一次。", "eq": "定义（一阶 / 切线）：\n  f 处处可微。则\n     f 凸 ⟺ f(y) ≥ f(x) + ∇f(x)ᵀ(y − x)，∀ x, y ∈ dom(f)\n\n右边是什么：\n  f(x) + ∇f(x)ᵀ(y − x)  = 在 x 处对 f 做一阶泰勒展开后，在 y 点的取值\n                        = 过点 (x, f(x))、斜率为 ∇f(x) 的那张超平面\n\n所以这条定义的意思是：\n  **一阶泰勒展开永远是一个下界**（对凸函数而言，不只是局部近似）\n\n证明里真正用的那个变形（把 y 换成 h_*、x 换成 h_t 并移项）：\n\n  ∇f(h_t)ᵀ(h_t − h_*) ≥ f(h_t) − f(h_*)\n\n  ← 左边是「梯度与位移的内积」，右边是「函数值的差」\n  ← p22 正是用它把一个几何量换成了一个损失量", "pts": ["<b>「处处可微」这个前提是讲义明写的，不能省。</b>p13 中下那条 V 形折线是凸的，但在尖点没有梯度 —— <span class='w'>一阶定义对它失效</span>。<span class='k'>标准补丁是把 ∇f 换成次梯度（subgradient）</span>：任何满足该不等式的向量 g 都叫 f 在 x 的次梯度，<b>在线梯度下降用次梯度一样跑，定理一字不改</b>。", "<b>这条定义是「局部 ⇒ 全局」的精确表述，也是凸优化全部威力的来源。</b>非凸函数在 x 点的梯度只告诉你 x 附近的事；<span class='k'>凸函数在 x 点的梯度给了你对全空间每一点的一个下界</span>。<b>在线学习每步只拿到一个梯度，这正是它唯一能依靠的东西。</b>", "<b>立刻能推出「驻点即全局最小」。</b>若 <code>∇f(x) = 0</code>，代入定义得 <code>f(y) ≥ f(x)</code> 对所有 y 成立 —— <span class='k'>一行就证完了 p16 要说的第一条</span>。<b>反过来，非凸时这个推理断在第一步</b>：梯度为零给不出任何全局信息。", "<b>把上面那个移项后的形式背下来，因为 p22 只用它。</b><code>∇ℓ_t(h_t)ᵀ(h_t − h_*) ≥ ℓ_t(h_t) − ℓ_t(h_*)</code>：<span class='w'>左边是「我这一步朝 h_* 走了多少」的几何量，右边是「我这一步比 h_* 多亏了多少」的遗憾量</span>。<b>凸性做的事就是把几何换成遗憾</b> —— 整个证明的转轴就在这一个符号上。", "<b>p15 右边那张图是故意留白的。</b>左边画了抛物线和它在 x 点的红色切线（明显在函数下方），<span class='k'>右边那条波浪形曲线没有画切线</span> —— 讲者让你自己找一个点，在那儿的切线会穿到函数上方去。<b>找得到的那个点，就是非凸性的证据。</b>"], "tbl": {"cap": "四条定义的分工：各自最适合干什么", "head": ["定义", "形式", "要求", "<b>最适合的用途</b>"], "rows": [["① 集合", "(1−λ)x + λy ∈ K", "无", "判定可行域"], ["② 零阶/弦", "f(λ 插值) ≤ λ 插值的 f", "无（不需可微）", "<b>画图直观判定、Jensen</b>"], ["③ 上图", "{(x,t) : f(x) ≤ t} 凸", "无", "<b>把函数问题归约成集合问题</b>"], ["④ 一阶/切线", "f(y) ≥ f(x) + ∇f(x)ᵀ(y−x)", "<b>处处可微（或用次梯度）</b>", "<b>做证明 —— p22 只用它</b>"], ["（二阶，讲义未列）", "∇²f ⪰ 0", "二阶可微", "验证具体函数是否凸"]]}, "say": "<b>讲义没列二阶条件，但你多半见过它：<code>∇²f(x) ⪰ 0</code>（Hessian 半正定）。</b>它和这四条等价（在二阶可微的前提下），<span class='k'>实际验证一个具体函数凸不凸时它最好用</span> —— 例如要验 <code>−log(aᵀx)</code> 凸（p28 会用到），算一下 Hessian 是 <code>aaᵀ/(aᵀx)²</code>，<b>它是一个秩 1 的半正定矩阵，所以凸</b>，三行就完。<br><br><b>但做理论时二阶条件几乎不用</b>，因为在线学习里损失函数由对手给，你根本不知道它二阶可不可微。<span class='w'>一阶定义只要求一个次梯度存在，而凸函数在定义域内部处处有次梯度 —— 这是它成为证明主力的原因。</span><br><br>记住这个分工：<b>二阶用来「验」，一阶用来「证」。</b>", "res": {"tag": "推断", "v": "<b>一阶定义给你的不是一个算法，而是一种「用局部观测说全局话」的许可证 —— 这正是你论文需要的那种东西。</b>你的评估是昂贵的黑盒：每跑一个配置得到一个（带噪的）分数。<span class='k'>如果代价/质量函数在松弛空间上凸，那每一次评估都给了你对全空间的一个下界</span>，而不只是一个点的信息。<br><br><b>这是「剪枝」能被证明正确的根基</b>：你的 dominance-pruning 想说「这一整片区域不必再看了」，<span class='w'>而凸性（或某种结构假设）正是让「一个点的观测」能排除「一整片区域」的那个桥</span>。没有结构假设，剪枝就只能是启发式。<br><br><b>建议核的一件事</b>：你的 nogood 剪枝目前靠什么论证正确性？若靠的是单调性（加算子只会更贵），那本质上是<span class='k'>偏序上的支配</span>而不是凸性 —— 两条路都能走通，但要说清是哪一条。", "ref": "本讲 p15；p22 的证明里这条不等式被用了一次"}},
+{"r": [16, 16], "t": "为什么关心凸性：两条理由，和非凸时那三种可能", "star": 3, "quote": "Why do we care about convexity?  Convex functions — All local minima are global minima — Efficient to optimize (e.g., gradient descent).  We only need to find a point with ∇f(x) = 0, which for convex functions implies that it is a local minima and a global minima.  For non-convex functions, a stationary point with ∇f(x) = 0 could be a local minima, a local maxima, or a saddle point.", "one": "<b>两条理由，底下用两张图对照。</b>凸的那张只有一个谷；非凸那张有谷、有峰、有平台。<span class='k'>讲义把非凸时 ∇f = 0 的三种可能全列了出来</span>：局部最小、局部最大、鞍点 —— 梯度为零这件事本身什么也不保证。", "eq": "讲义给的两条理由：\n  ① 所有局部最小都是全局最小\n  ② 可高效优化（例如梯度下降）\n\n理由 ① 的一行证明（用 p15 的一阶定义）：\n  设 ∇f(x) = 0。代入 f(y) ≥ f(x) + ∇f(x)ᵀ(y − x)\n  得  f(y) ≥ f(x) + 0 = f(x)，∀ y\n  即 x 是全局最小。∎\n\n非凸时同一个条件 ∇f(x) = 0 可能是：\n  · 局部最小（local minima）\n  · 局部最大（local maxima）\n  · 鞍点（saddle point）\n\n讲义原话：\n  凸： \"We only need to find a point with ∇f(x) = 0\"\n  非凸：\"could be a local minima, a local maxima, or a saddle point\"", "pts": ["<b>理由 ① 的证明就是把 p15 的定义代一次，连一行都不到。</b><span class='k'>这是整个凸优化里性价比最高的一步推理</span>：一个不等式 + 一个 ∇f(x) = 0，立刻得到全局结论。<b>把它自己推一遍，比记住结论有用。</b>", "<b>理由 ② 里的「高效」要配一句前提才完整。</b>梯度下降在凸 + Lipschitz 下有 <code>O(1/√T)</code>，加上光滑是 <code>O(1/T)</code>，再加强凸是 <code>O(e^{−cT})</code>。<span class='w'>讲义只说「efficient」没分档</span>，但<b>这一讲的 OGD 定理（p20）给的恰好是最弱那一档：只假设凸 + 有界梯度，得到 <code>RG√T</code></b> —— 对抗设定下这已经是最优的。", "<b>「鞍点」是三种里最该记住的那个，因为高维下它才是常态。</b>随机非凸函数的驻点里<span class='k'>绝大多数是鞍点而非局部最小</span>（维度越高比例越悬殊）。<b>深度学习实践里「逃离鞍点」之所以成为一个专门话题，根子就在这一页的那三个词。</b>", "<b>这一页也是在给下一节做铺垫，而且是一个「坏消息」的铺垫。</b>我们想优化的真目标是 0/1 损失 <code>1{h(x) ≠ y}</code> —— <span class='w'>它既不凸也不连续，梯度几乎处处为零</span>。<b>所以 p17 的结论是不可避免的：要么放弃算法，要么换目标。讲者选了换目标。</b>", "<b>要留一个口子：凸是充分条件，不是必要条件。</b>非凸问题也经常能解得很好（整个深度学习），<span class='k'>只是没有最坏情形保证</span>。<b>在对抗设定下，「没有保证」基本等于「没有结论」</b>，因为对手会专挑你失效的序列 —— 这就是为什么这门课非要凸性不可。"], "tbl": {"cap": "∇f(x) = 0 意味着什么：凸与非凸的全部差别", "head": ["", "凸函数", "<b>非凸函数</b>"], "rows": [["∇f(x) = 0 ⇒", "<b>全局最小</b>", "<b>局部最小 / 局部最大 / 鞍点，三选一不知哪个</b>"], ["找到驻点后", "可以收工", "<b>什么也不知道，要继续查二阶信息</b>"], ["局部最小与全局最小", "<b>重合</b>", "可能差任意远"], ["梯度下降的保证", "<b>有收敛率</b>", "一般只保证收敛到驻点"], ["本课为什么必须要它", "对抗对手会专挑失效序列，没保证 = 没结论", "—"]]}, "say": "<b>讲义底下那两段小字其实写得比标题更准确</b>，值得逐句读：<br><br>凸的那一侧：「<span class='k'>We only need to find a point with ∇f(x) = 0</span>」—— 注意 <b>only</b> 这个词。它说的是「寻找全局最优」这件看上去很难的事，被降格成了「解一个方程」。<br><br>非凸那一侧：「<span class='w'>could be a local minima, a local maxima, or a saddle point</span>」—— 三种可能并列，<b>而且没有便宜的办法区分</b>。要区分得看 Hessian 的特征值，那在高维下本身就是一个大计算。<br><br><b>这两段小字放在一起，就是这一整节的论点</b>：凸性不是让问题「变简单一点」，而是让一类问题从「不知道怎么办」变成「有标准做法」。", "link": {"t": "你学过的对应：本课 L01 p49–51（凸替代损失那一段的完整讲解）", "href": "L01-精读.html"}, "tip": {"t": "凸性这一节到此结束：合上讲义自测四条", "v": "<b>往下翻之前，先确认这四件事你都能不看书说出来：</b><br><br>① <span class='k'>凸集的定义</span>（一句话，含量词「对所有 x,y」）<br>② <span class='k'>凸函数的弦定义</span>，以及它为什么就是 Jensen<br>③ <span class='k'>上图</span>把函数的凸性归约成了什么，以及为什么归约有用<br>④ <span class='w'>一阶定义移项后的那个形式</span> <code>∇f(x)ᵀ(x−y) ≥ f(x) − f(y)</code><br><br><b>第 ④ 条是唯一一条接下来会被真正用到的</b>。p22 的证明全长四行，凸性只在第三行进场一次，用的就是它。<span class='k'>如果只能记住一条，记这条。</span>"}, "res": {"tag": "推断", "v": "<b>这一页对你最直接的用处，是提供一句可以写进论文 limitation 的话。</b>你的搜索空间是组合的、目标是黑盒评估的期望 —— <span class='k'>既没有凸性也没有梯度</span>。那你凭什么说你的剪枝不会剪掉最优解？<br><br><b>诚实的答法有两种</b>：① <span class='w'>换一个结构假设</span>（单调性 / 子模性 / 偏序支配），把「凸性 ⇒ 局部即全局」换成「单调性 ⇒ 支配可传递」—— <b>这是组合优化里的对应物，而且对你的问题更自然</b>；② 承认是启发式，但给出 <span class='k'>剪枝错误的概率上界</span>（用 L05/L06 的集中不等式），即「以 1−δ 的概率不剪掉最优解」。<br><br><b>第 ② 条是和本课工具箱最合拍的一条</b>：它把「剪枝正确性」变成了一个好事件 + 并集界的问题，正是 L06 那套论证的直接搬运。", "ref": "本讲 p16 的两条理由；对照 L06 的好事件 ℰ 与并集界"}},
+{"r": [17, 19], "t": "两条路都堵死了：不改算法，改目标", "star": 4, "quote": "Previous section for the adversarial case suggested using multiplicative weights over the |H| hypotheses, which is completely intractable in practice.  And in the stochastic case we used h_t ∈ arg min_{h∈ℋ} Σ_{s=1}^{t−1} 1{h(x_s) ≠ y_s} which is also intractable to compute!  So it seems we have no practical algorithm!  Solution: relax the objective.  Instead of max_{h∈ℋ} Σ_{t=1}^T 1{h_t(x_t) ≠ y_t} − 1{h(x_t) ≠ y_t}.  We use max_{h∈ℋ} Σ_{t=1}^T ℓ(h_t,(x_t,y_t)) − ℓ(h,(x_t,y_t)) with ℋ convex.  Example: Linear classification takes ℋ ⊂ ℝ^d and ℓ(h,(x_t,y_t)) = log(1 + exp(−y_t h^⊤x_t))", "one": "<b>讲者先把两条已有的路同时宣判死刑</b>：对抗那条（对 |ℋ| 个假设做乘性权重）<span class='w'>完全不可行</span>，随机那条（对 0/1 损失做 ERM）<span class='w'>同样算不动</span>。<b>然后给出唯一的出路：不换算法，换目标函数。</b>", "eq": "两条死路（讲义原话的直译）：\n  对抗侧：对 |ℋ| 个假设做乘性权重  →  |ℋ| 可以是无穷，连初始化都做不到\n  随机侧：h_t ∈ argmin_{h∈ℋ} Σ_{s<t} 1{h(x_s) ≠ y_s}  →  0/1 损失的 argmin 是组合问题\n\n解法：relax the objective（放松目标）\n\n  原目标：  max_{h∈ℋ} Σ_{t=1}^T  1{h_t(x_t) ≠ y_t} − 1{h(x_t) ≠ y_t}\n  新目标：  max_{h∈ℋ} Σ_{t=1}^T  ℓ(h_t,(x_t,y_t)) − ℓ(h,(x_t,y_t))，  且 **ℋ 是凸集**\n\n两处改动，缺一不可：\n  ① 损失 1{·} → 凸的 ℓ(·)        （让每一步可微、可走梯度）\n  ② 假设类 ℋ → 凸集              （让走出去之后还能投影回来）\n\n讲义给的例子（logistic 损失）：\n  ℋ ⊂ ℝ^d，  ℓ(h,(x_t,y_t)) = log(1 + exp(−y_t hᵀx_t))\n\n讲者手写补的（p18 紫色）：\n  \"Hinge loss\" —— 标在那条折线上\n  ℓ(h(x_s), y_s) —— 标在 ERM 那一行旁边，提醒这里的 1{·} 可以换成任意 ℓ", "pts": ["<b>两条路堵死的原因是不同的，别合并。</b>对抗侧堵在<span class='k'>规模</span>（|ℋ| 太大，算法本身写不出来）；随机侧堵在<span class='k'>硬度</span>（即使 ℋ 只是线性分类器，最小化 0/1 训练错误也是 NP-hard）。<b>一个是「存不下」，一个是「算不出」</b> —— 而放松目标同时治两样。", "<b>0/1 损失的致命伤是「梯度几乎处处为零」。</b>它是阶梯函数：<span class='w'>挪动 h 一点点，要么什么都没变（梯度 0），要么突然跳一格（不可微）</span>。<b>梯度方法在它上面完全没有信息可用</b>，这才是必须换掉它的根本理由，不只是「不凸」这么简单。", "<b>讲者在 p18 手写的 \"Hinge loss\" 指着那条紫色折线</b>，而红色那条是 0/1、蓝色是坐标轴。<span class='k'>hinge 是 0/1 的一个凸上界</span>：<code>max(0, 1 − y·hᵀx) ≥ 1{sign(hᵀx) ≠ y}</code>。<b>所有常用替代损失都有这个性质 —— 它们都压在 0/1 上面，所以把替代损失压小，0/1 至少不会更大。</b>", "<b>但「不会更大」和「会变小」是两回事，这是必须守住的那条界线。</b><span class='w'>凸替代损失小 ⇏ 0/1 损失小</span>。你能说的只有一句：<b>「我在替代目标上没有遗憾」</b>。<span class='k'>想从替代损失的界推回 0/1 损失的界，需要额外的 calibration 假设</span>（Bartlett-Jordan-McAuliffe 那一套），本讲完全没碰。", "<b>第 ② 处改动「ℋ 要是凸集」很容易被忽略，但它和第 ① 处同等重要。</b>线性分类器的参数空间 ℝ^d 本身是凸的，所以这个要求看起来是白送的；<span class='w'>可一旦你的假设类是「深度不超过 3 的决策树」或者「某个离散结构」，它就不凸</span>。<b>p20 的投影算子 Π_ℋ 需要 ℋ 凸才良定义（最近点唯一）</b>，这是下一页才会看到的后果。"], "tbl": {"cap": "四种损失函数并排（讲义只给了 logistic，其余是补的对照）", "head": ["损失", "表达式", "凸？", "可微？", "备注"], "rows": [["0/1（真目标）", "1{sign(hᵀx) ≠ y}", "<b>✘</b>", "<b>✘（阶梯）</b>", "<b>梯度几乎处处为 0，最小化 NP-hard</b>"], ["hinge（p18 手写标的）", "max(0, 1 − y·hᵀx)", "✔", "<b>✘（有尖角）</b>", "<b>要用次梯度；SVM 用的就是它</b>"], ["<b>logistic（讲义的例子）</b>", "<b>log(1 + exp(−y·hᵀx))</b>", "<b>✔</b>", "<b>✔（处处光滑）</b>", "<b>一阶定义直接可用</b>"], ["平方损失", "(y − hᵀx)²", "✔", "✔", "回归用；分类上对离群点敏感"], ["log 损失（p28 会用）", "−log⟨p, r⟩", "✔", "✔", "<b>p32 证明里会退化成等式，界里没有 T</b>"]]}, "say": "<b>「So it seems we have no practical algorithm!」这句感叹号是讲者写的，不是我加的。</b>它标的是这门课的一个真正转折点 —— <span class='k'>前面所有漂亮的定理，到这里全部撞上了「跑不动」这堵墙</span>。<br><br><b>注意讲者选的是哪种妥协。</b>面对「目标算不动」，可以有三种做法：<br>① <span class='w'>换一个更弱的保证</span>（近似算法、启发式）；<br>② <span class='w'>加更强的假设</span>（数据可分、噪声温和）；<br>③ <span class='k'>换一个目标函数，但对新目标仍给出最强的保证</span>。<br><br><b>这一讲走的是第 ③ 条，而且要说清楚代价。</b>代价就是：你的 regret 保证是对 ℓ 说的，不是对 0/1 说的。<span class='k'>论文里把这一句写明白，比把它藏起来可信得多</span> —— 审稿人一定会问。", "link": {"t": "你学过的对应：本课 L01 p49–51（同一批幻灯，含凸替代的完整讲解）", "href": "L01-精读.html"}, "res": {"tag": "推断", "v": "<b>「换目标」这件事，你的课题里已经在做了，而且很可能没有明说。</b>你真正关心的是「<span class='k'>最便宜的可行配置</span>」—— 一个组合优化问题，目标是离散的、约束是硬的。而你实际在优化的是什么？多半是某个<span class='w'>连续的代理</span>：期望分数、加权和、或者一个学来的评分模型。<br><br><b>这就是一次凸替代，和这一页讲的是同一件事。</b>所以这一页给了你一个现成的句式可用：<br>「我们的保证是对代理目标 ℓ 说的；要把它搬回真实目标，需要 ___ 这个条件，本文不假设它成立，这是一个 limitation。」<br><br><b>比起不提，这样写反而更强</b>：它说明你知道边界在哪。<span class='k'>而 AFlow 那一侧连代理和真实目标的区分都没有做</span>（简报 §2 已核：它直接对 benchmark 分数做爬山），这是一个可以正面写的对比。", "ref": "本讲 p19 的 relax the objective；科研简报 §2"}},
+{"r": [20, 20], "t": "在线梯度下降：一行更新，一个定理，和讲者补写的投影定义", "star": 5, "quote": "Online gradient descent — Input: ℋ ⊂ ℝ^d, convex loss function ℓ, step size η > 0.  Initialize: Choose any h₁ ∈ ℋ.  for t = 1,2,…: Player plays h_t ∈ ℋ; Adversary simultaneously reveals (x_t,y_t); Player pays loss ℓ_t(h_t) := ℓ(h,(x_t,y_t)); Player updates h_{t+1} = Π_ℋ(h_t − η∇_h ℓ_t(h_t)).  Theorem: Online gradient descent satisfies for any h_* ∈ ℋ: Σ_{t=1}^T ℓ(h_t,(x_t,y_t)) − ℓ(h_*,(x_t,y_t)) ≤ ‖h_*‖²₂/(2η) + (η/2) Σ_{t=1}^T ‖∇_h ℓ_t(h_t)‖²₂.  if max_{h∈ℋ} ‖h_*‖₂ ≤ R and ℓ(·) is G-Lipschitz then regret ≤ RG√T", "one": "<b>整个算法只有一行：朝梯度反方向走一步，然后投影回 ℋ。</b>没有权重、没有抽样、没有历史 —— <span class='k'>只记住当前这一个点</span>。<b>和指数权重（要维护 d 个权重）相比，这是一次彻底的减法。</b>", "eq": "算法：\n  输入：ℋ ⊂ ℝ^d（凸），凸损失 ℓ，步长 η > 0\n  初始：任取 h₁ ∈ ℋ\n  for t = 1, 2, …\n      玩家出 h_t ∈ ℋ\n      对手同时给出 (x_t, y_t)\n      玩家付出损失 ℓ_t(h_t) := ℓ(h_t, (x_t, y_t))\n      玩家更新   h_{t+1} = Π_ℋ( h_t − η ∇_h ℓ_t(h_t) )\n\n投影算子（讲者手写补在左上角，讲义正文没写）：\n  Π_K(x) = argmin_{y ∈ K} ‖y − x‖₂\n  （配图：K 是一个椭圆，x 在外面，y 是 K 里离 x 最近的那个点）\n\n定理：对任意 h_* ∈ ℋ\n  Σ_{t=1}^T ℓ(h_t) − ℓ(h_*)  ≤  ‖h_*‖²₂/(2η)  +  (η/2)·Σ_{t=1}^T ‖∇_h ℓ_t(h_t)‖²₂\n                                 └── 起点有多远 ──┘   └──── 路有多颠 ────┘\n\n推论（红字）：若 max_{h∈ℋ}‖h‖₂ ≤ R 且 ℓ 是 G-Lipschitz（即 ‖∇ℓ‖ ≤ G），则\n  regret ≤ R²/(2η) + ηG²T/2      ← p21 顶上那笔手写\n  取 η = R/(G√T) 使两项相等：\n  regret ≤ RG√T/2 + RG√T/2 = **RG√T**", "pts": ["<b>投影这一步不是技术细节，它是算法能成立的前提。</b>梯度一步走出去很可能落到 ℋ 外面，而<span class='k'>定理里的 R 是对 ℋ 内的点说的</span>，玩家出的 h_t 也必须是合法假设。<b>讲者专门手写补上 Π_K 的定义，说明他知道这一步在讲义里被省掉了。</b>", "<b>投影要良定义，ℋ 必须是凸的 —— 这正是上一页第 ② 处改动的用处。</b><span class='w'>非凸集上「最近点」可能不唯一</span>（想想一个圆环，圆心到边界等距的点有无穷多个）。<span class='k'>凸集 + 欧氏距离保证最近点存在且唯一</span>，所以 Π_ℋ 是一个真正的函数。", "<b>定理两项的拉锯，和 p6 的 <code>log(d)/η + Tη/8</code> 是同一个结构。</b>第一项随 η 增大而<span class='k'>减小</span>（步子大，从起点的误差消化得快），第二项随 η 增大而<span class='w'>增大</span>（步子大，每步的抖动累积得多）。<b>令两项相等解 η，是本课第三次用这一招了</b>（L06 的 ε_ℓ、p6 的 η、这里的 η）。", "<b>「G-Lipschitz」在这里的精确含义是 <code>‖∇ℓ‖₂ ≤ G</code>。</b>定理原式里是 <code>Σ_t ‖∇ℓ_t(h_t)‖²</code> —— <span class='k'>一个真实的、依赖轨迹的量</span>；换成 <code>G²T</code> 是最坏情形的放大。<b>实践里这个替换往往很松</b>：如果梯度在后期变小（接近最优时常如此），真实的那个和远小于 G²T，<span class='w'>而自适应步长（AdaGrad 那一族）正是为了吃掉这个松弛而发明的</span>。", "<b>和指数权重对比，两者的「维度代价」完全不同。</b>指数权重：<code>√(T log d)</code>，候选数 d 只进 <span class='k'>log</span>，但要显式维护 d 个权重。OGD：<code>RG√T</code>，<span class='k'>界里根本没有维度 d</span>，只有几何量 R 与 G，而存储只要一个 d 维向量。<b>所以 ℋ 无穷大时只有 OGD 还能跑 —— 这就是换路的全部收益。</b>", "<b>一个容易看漏的前提：对手是「同时」出手的（simultaneously）。</b>玩家先定 h_t，对手才给 (x_t,y_t)，<span class='w'>但对手不能看着 h_t 再决定</span>。<b>若对手能看见 h_t 再出题，任何确定性算法都会被打爆</b> —— 这正是 L01 p34 那一页说的事。<span class='k'>OGD 是确定性算法，它能成立全靠这个「同时」。</span>"], "tbl": {"cap": "指数权重 vs 在线梯度下降：换路换掉了什么", "head": ["", "指数权重（p6）", "<b>在线梯度下降（p20）</b>"], "rows": [["候选集", "d 个离散专家", "<b>一个凸集 ℋ ⊂ ℝ^d（可以无穷）</b>"], ["每步要存", "d 个权重", "<b>一个点 h_t</b>"], ["遗憾界", "√(T log(d)/2)", "<b>RG√T</b>"], ["界里出现什么", "<b>候选数 d（进 log）</b>", "<b>几何量 R 与 G（没有 d）</b>"], ["需要损失凸吗", "不需要（只要有界）", "<b>需要</b>"], ["需要可行域凸吗", "不需要", "<b>需要（否则投影不唯一）</b>"], ["是否随机化", "是（抽 I_t ~ p_t）", "<b>否，完全确定性</b>"]]}, "say": "<b>讲义底下那行红字被讲者用黑笔圈了起来，还在旁边重写了一遍 \"regret ≤ RG√T\"。</b>圈出来是有理由的：<span class='k'>这是整个在线凸优化领域最常被引用的那一个界</span>。<br><br><b>它为什么重要，看它不依赖什么就知道了</b>：不依赖候选数、不依赖维度、不依赖数据分布、不假设对手善意。<span class='w'>你只需要两个几何常数：可行域有多大（R），梯度有多陡（G）</span>。<br><br><b>而且 √T 是对抗设定下的最优阶</b> —— 有匹配的下界，不可能再改进（本课 L04 的极小极大分析就在说这件事）。<b>所以 RG√T 不是「目前最好的结果」，而是「这件事的最终答案」。</b><br><br>顺带一提：<span class='k'>把 regret 除以 T 得到 RG/√T → 0</span>，这就是「no-regret」这个名字的来历 —— <b>平均每步的遗憾趋于零，长期看你和事后最优的那个 h_* 一样好。</b>", "tip": {"t": "定理里的 ‖h_*‖² 与证明里的 ‖h₁ − h_*‖²：差在哪", "v": "<b>讲义定理框里写的是 <code>‖h_*‖²₂/(2η)</code>，而 p22 的证明实际给出的是 <code>‖h₁ − h_*‖²₂/(2η)</code>。</b><br><br><span class='k'>两者在 h₁ = 0 时一致</span> —— 讲义是默认了从原点出发。<b>算法里写的却是「任取 h₁ ∈ ℋ」</b>，所以严格说定理框那个写法只在 h₁ = 0 时成立。<br><br><span class='w'>这不是错，是省略</span>，但自己推的时候要用证明里的那一个。<b>用 R 来兜底的话更安全</b>：若 ℋ 内所有点范数都 ≤ R，则 <code>‖h₁ − h_*‖ ≤ 2R</code>，常数会差一个 4。<span class='k'>讲者手写的 R²/(2η) 取的是 h₁ = 0 这一支。</span>"}, "res": {"tag": "推断", "v": "<b>这个定理对你最有价值的地方，是它告诉你「什么时候 √T 是不可避免的」。</b>你的搜索若被建模成在线凸优化（每轮出一个松弛配置、拿到一个带噪评估），<span class='k'>那 √T 就是你能指望的最好的量级</span> —— 除非你能加强假设。<br><br><b>三条可加的假设，各自能把 √T 改善到什么</b>：<br>① <span class='w'>强凸</span>（目标有二次下界）→ <code>log T</code>，改善巨大；<br>② <span class='w'>随机而非对抗</span>（噪声独立同分布）→ 回到 L06/L09 那一套，<code>Σ Δ_i⁻¹ log T</code>；<br>③ <span class='w'>log 损失那类特殊结构</span> → p32 会给出完全没有 T 的界。<br><br><b>第 ② 条最贴你的问题</b>（LLM 采样噪声是随机的，不是对手选的），所以 <span class='k'>你的主线应该是 L06/L09 那一侧，而不是这一讲</span>。<b>这一讲的价值在于给你一个「若设定更恶劣会怎样」的参照系</b> —— 审稿人问「你的方法在分布漂移下还成立吗」时，RG√T 就是你的退守答案。", "ref": "本讲 p20 定理与红字推论；对照 L06 的随机设定、本讲 p32 的 log 损失"}},
+{"r": [21, 22], "t": "证明：四行，三件工具，凸性只进场一次", "star": 5, "quote": "【p21–22 为手写页，以下为逐字转写】 Theorem: Online gradient descent satisfies for any h_* ∈ ℋ: Σ_{t=1}^T ℓ(h_t,(x_t,y_t)) − ℓ(h_*,(x_t,y_t)) ≤ ‖h_*‖²₂/(2η) + (η/2) Σ_{t=1}^T ‖∇_h ℓ_t(h_t)‖²₂.  【p21 顶部手写】 ≤ R²/(2η) + ηG²T/2", "one": "<b>L01 的 p53 是一张只有定理框、正文全空的 Proof 页</b> —— 那一讲没有证。<span class='k'>这两页是这一讲真正新增的硬内容</span>：讲者把整个证明手写了出来，而它<b>只有四行</b>。", "eq": "从「到 h_* 的距离」出发，四行：\n\n  ‖h_{t+1} − h_*‖²  =  ‖ Π_ℋ(h_t − η∇ℓ_t(h_t)) − Π_ℋ(h_*) ‖²\n                    ≤  ‖ h_t − η∇ℓ_t(h_t) − h_* ‖²                    ← ① 投影非扩张\n                    =  ‖h_t − h_*‖² − 2η ∇ℓ_t(h_t)ᵀ(h_t − h_*) + η²‖∇ℓ_t(h_t)‖²\n                                                                       ← ② 展开平方\n                    ≤  ‖h_t − h_*‖² − 2η ( ℓ_t(h_t) − ℓ_t(h_*) ) + η²‖∇ℓ_t(h_t)‖²\n                                                                       ← ③ **凸性**\n\n移项，把遗憾解出来：\n\n  ℓ_t(h_t) − ℓ_t(h_*)  ≤  [ ‖h_t − h_*‖² − ‖h_{t+1} − h_*‖² ] / (2η)  +  (η/2)‖∇ℓ_t(h_t)‖²\n\n对 t = 1…T 求和，第一项**望远镜**：\n\n  Σ_t ( ℓ_t(h_t) − ℓ_t(h_*) )  ≤  [ ‖h₁ − h_*‖² − ‖h_{T+1} − h_*‖² ] / (2η)  +  (η/2) Σ_t ‖∇ℓ_t(h_t)‖²\n                                ≤  ‖h₁ − h_*‖²/(2η)  +  (η/2) Σ_t ‖∇ℓ_t(h_t)‖²      ∎\n\n代入 ‖h₁ − h_*‖ ≤ R（h₁ = 0 时）与 ‖∇ℓ‖ ≤ G：\n\n  ≤  R²/(2η) + ηG²T/2      ← p21 顶上那笔手写\n  取 η = R/(G√T)：  **≤ RG√T**", "pts": ["<b>第 ① 步「投影非扩张」是全证明最容易被跳过、却最该停一下的。</b>它说的是 <code>‖Π_K(a) − Π_K(b)‖ ≤ ‖a − b‖</code>：<span class='k'>投影永远不会把两个点推得更远</span>。<b>这里还用了一个小技巧：因为 h_* ∈ ℋ，所以 Π_ℋ(h_*) = h_*</b>，可以把它硬塞进投影里，两边才对齐。<span class='w'>这一步需要 ℋ 凸（非凸集上投影可能是扩张的）。</span>", "<b>第 ② 步只是把平方展开，没有任何数学内容</b> —— <code>‖a − b‖² = ‖a‖² − 2aᵀb + ‖b‖²</code>。<span class='k'>但它是整个证明的枢纽</span>：展开之后，中间那个交叉项 <code>∇ℓ_t(h_t)ᵀ(h_t − h_*)</code> 冒了出来，<b>而那正好是 p15 一阶定义的左边</b>。", "<b>第 ③ 步是凸性唯一一次进场，而且只用了一次。</b>用的就是 p15 那条移项后的形式：<code>∇ℓ(h)ᵀ(h − h_*) ≥ ℓ(h) − ℓ(h_*)</code>。<span class='k'>它把一个几何量（朝 h_* 走了多少）换成了一个遗憾量（比 h_* 多亏了多少）</span>。<b>整个证明的全部魔术就在这一行 —— 前面铺的八页凸性，兑现在这里。</b>", "<b>望远镜那一步为什么能丢掉 <code>−‖h_{T+1} − h_*‖²</code>？</b>因为它是<span class='w'>非正的</span>，丢掉只会让不等号更松、方向不变。<span class='k'>这是「扔掉一个对自己不利的项」的标准动作</span>，本课后面还会反复看到（L10 的椭圆势引理收尾也是这么干的）。", "<b>注意这个证明里没有出现任何概率。</b>没有期望、没有集中不等式、没有好事件 —— <span class='k'>它是一个纯确定性的论证，对任何损失序列逐条成立</span>。<b>这就是「对抗设定」的真正含义</b>：结论不依赖数据怎么生成。<span class='w'>对比 L06 的逐次淘汰，那边一半的篇幅在处理「好事件以多大概率成立」</span>。", "<b>把四行的结构记成一句话：「距离的减少量 ≥ 遗憾 × 2η − 步长的平方项」。</b>然后求和，距离项望远镜掉，只剩首尾；平方项攒成 <code>ηG²T/2</code>。<b>所有一阶方法的收敛性证明几乎都是这个骨架</b> —— 换个范数、换个投影、换个步长规则，骨架不变。<span class='k'>认出这个骨架，以后读 mirror descent、FTRL、AdaGrad 都会快很多。</span>"], "tbl": {"cap": "四行逐行对照：每一行用了什么，需要什么前提", "head": ["行", "做了什么", "用的工具", "<b>需要的前提</b>"], "rows": [["①", "把 Π 从两边剥掉", "投影非扩张 + Π(h_*) = h_*", "<b>ℋ 凸；h_* ∈ ℋ</b>"], ["②", "展开 ‖a − b‖²", "代数恒等式", "无"], ["③", "<b>交叉项换成损失差</b>", "<b>凸性（p15 一阶定义）</b>", "<b>ℓ_t 凸（或有次梯度）</b>"], ["求和", "距离项首尾相消", "望远镜 + 丢掉非正项", "无"], ["代入", "R 与 G 兜底", "‖h₁−h_*‖ ≤ R，‖∇ℓ‖ ≤ G", "<b>ℋ 有界；ℓ 是 G-Lipschitz</b>"]]}, "say": "<b>讲者在 p21 的顶上先写出了配平后的结果 <code>≤ R²/(2η) + ηG²T/2</code>，然后才在 p22 写证明。</b>这个顺序值得学：<span class='k'>先把要去的地方写出来，再推</span>，读的人一路都知道自己在往哪走。<br><br><b>关于那个 η 的配平，自己算一遍只要三行</b>：<br><code>d/dη [ R²/(2η) + ηG²T/2 ] = −R²/(2η²) + G²T/2 = 0</code><br><code>⟹ η² = R²/(G²T) ⟹ η = R/(G√T)</code><br>代回去：<code>RG√T/2 + RG√T/2 = RG√T</code>。<br><br><span class='w'>两项在最优点恰好相等</span> —— 这不是巧合。<b>任何形如 <code>a/η + bη</code> 的式子，最优点都让两项相等，最优值都是 <code>2√(ab)</code></b>。<span class='k'>认出这个模式，以后所有「配平步长 / 配平置信半径」的地方都能直接写答案，不用再求导。</span>", "link": {"t": "你学过的对应：本片 p15（一阶定义，第 ③ 行用的就是它的移项形式）", "href": "L03-精读.html"}, "res": {"tag": "推断", "v": "<b>这个证明骨架是可以直接搬到你论文里的 —— 但要先确认你有没有「距离」这个量。</b>四行的核心是：<span class='k'>找一个势函数（这里是 ‖h_t − h_*‖²），证明它每步的减少量能支付这一步的遗憾</span>。<br><br><b>搬到你的问题上，候选的势函数有几个</b>：① <span class='w'>剩余候选集的大小</span>（剪枝每剪一次就减少，像 L06 的逐次淘汰）；② <span class='w'>信息矩阵的对数行列式</span>（像 L10 的椭圆势）；③ <span class='w'>到最优配置的某种组合距离</span>（汉明距离、编辑距离）。<br><br><b>第 ① 条与 dominance-pruning 最贴</b>：每次支配剪枝都确定性地删掉一批候选，<span class='k'>「剩余候选数」就是一个天然的递减势函数</span>。<b>要证的不是遗憾界，而是「剪掉的那些确实都不是最优」</b> —— 结构不同，但「找势函数 + 逐步支付」这个套路是一样的。<br><br>⚠ 这是方法上的类比，不是现成的定理，<span class='w'>搬过去需要自己把每一步重证一遍</span>。", "ref": "本讲 p22 的证明结构；对照 L06 的逐次淘汰、L10 的椭圆势引理"}},
+{"r": [23, 25], "t": "把钱分到 d 只股票上：一个内积，和 Markowitz 那个 1952 年的答案", "star": 3, "quote": "Given a collection of stocks, let the ith stock have price S_t(i) over time t.  You start with v₁ dollars and fractionally invest it into d stocks according to p₁ ∈ Δ_d.  Your portfolio at time 2 is worth v₂ := Σ_{i=1}^d v₁ p₁(i) r₁(i) = v₁⟨p₁, r₁⟩ dollars, where r_t(i) = S_{t+1}(i)/S_t(i) = price of GOOG at time t+1 / price of GOOG at time t.  Classical Portfolio Theory (Markowitz 1952): Assume returns r_t ∈ ℝ₊ⁿ are IID with mean μ = E[r_t] and covariance Σ = E[(r_t−μ)(r_t−μ)^⊤].  The[n] for a return target r̄ ≥ 0 solve min_{p∈Δ_d} p^⊤Σp subject to p^⊤μ ≥ r̄.  In practice, estimate μ, Σ from data.  What could possibly go wrong?", "one": "<b>投资组合就是单纯形上的一个点</b>：<code>p ∈ Δ_d</code> 告诉你每只股票分多少比例。<span class='k'>一期之后的财富是一个内积 <code>v₁⟨p₁, r₁⟩</code></span> —— 这个形式一出来，整套在线学习的语言就能接上了。", "eq": "设定：\n  S_t(i)  = 第 i 只股票在时刻 t 的价格\n  r_t(i)  = S_{t+1}(i) / S_t(i)          ← 收益率（讲义用 GOOG 举例）\n  v₁      = 初始资金\n  p₁ ∈ Δ_d = 投资比例（住在单纯形上，非负且和为 1）\n\n一期之后：\n  v₂ := Σ_{i=1}^d v₁·p₁(i)·r₁(i) = v₁·⟨p₁, r₁⟩\n\n注意 r_t(i) 的取值范围：\n  r_t(i) > 1  涨    r_t(i) = 1  平    r_t(i) < 1  跌\n  r_t(i) ∈ ℝ₊ —— 恒为正（价格为正），这一条后面取 log 时是刚需\n\n────────────────────────────────────────\nMarkowitz 1952（经典组合理论，p25）：\n  **假设** r_t ∈ ℝ₊ⁿ 独立同分布，\n          μ = E[r_t]，  Σ = E[(r_t − μ)(r_t − μ)ᵀ]\n  对收益目标 r̄ ≥ 0，解\n\n      min_{p ∈ Δ_d}  pᵀΣp        （最小化方差）\n      s.t.           pᵀμ ≥ r̄      （收益不低于目标）\n\n  实践中 μ 和 Σ 要从数据估计。讲义的问号：\n      \"What could possibly go wrong?\"", "pts": ["<b>第一件要认出来的事：这是一个凸优化问题。</b><code>pᵀΣp</code> 是二次型且 <span class='k'>Σ 是协方差矩阵（半正定）</span>，所以目标凸；<code>pᵀμ ≥ r̄</code> 是线性约束；<code>Δ_d</code> 是凸集。<b>三样都凸 —— 这正是上半讲铺的那一节在这里兑现</b>（p10 的半平面交、p14 的上图，全用上了）。", "<b>Markowitz 这个模型为什么是 1952 年的里程碑</b>：它第一次把「风险」写成了一个可算的量（方差），把「要收益还是要稳」变成了<span class='k'>一条可解的优化</span>而不是一句经验之谈。<b>它拿了诺贝尔经济学奖，至今仍是业界基准。</b>", "<b>讲义那句 \"What could possibly go wrong?\" 是全节的转轴</b>，它问的不是模型本身，而是<span class='w'>那两个假设 + 那一步估计</span>：① r_t 真的独立同分布吗？② μ 和 Σ 用历史数据估得准吗？<b>p26 用一张真实的价格图回答第 ①，而第 ② 的答案是「Σ 是 d×d 的，d=500 时要估 12 万个参数」</b>。", "<b>收益率是「比值」不是「差值」，这个选择后面会变得至关重要。</b>因为是比值，<span class='k'>多期的财富是连乘而不是连加</span>（p27 会写出来），而连乘取对数就变成连加 —— <b>整节的技术核心就是这一次换元</b>。<span class='w'>如果用差值定义收益，就没有这个结构，也就没有 log(d) 那个定理。</span>", "<b>注意 p ∈ Δ_d 隐含了两条真实的约束</b>：<code>p_i ≥ 0</code> 表示<span class='k'>不许卖空</span>，<code>Σp_i = 1</code> 表示<span class='k'>不许加杠杆</span>（钱全投出去，也不借钱）。<b>这不是为了数学方便而加的，是在刻画一类具体的投资者。</b>允许卖空/杠杆的话可行域就不是单纯形了，整套分析要重做。"], "tbl": {"cap": "两套框架并排：这一节要把左边换成右边", "head": ["", "Markowitz 1952（p25）", "<b>在线学习（p27 之后）</b>"], "rows": [["对收益的假设", "<b>独立同分布，有 μ 和 Σ</b>", "<b>什么都不假设，可以是对手选的</b>"], ["要估计的量", "μ（d 个）与 Σ（d² 个）", "<b>不估计任何分布参数</b>"], ["目标", "给定收益下最小化方差", "<b>最大化对数财富</b>"], ["保证的形式", "在模型成立时最优", "<b>对任意序列，与事后最优只差 log(d)</b>"], ["模型错了会怎样", "<b>保证全失效</b>", "<b>保证照旧成立</b>"]]}, "say": "<b>「估计 Σ」这件事的难度值得单独说一句，因为讲义只用一个问号带过了。</b><br><br>协方差矩阵是 <code>d×d</code> 的，有 <code>d(d+1)/2</code> 个自由参数。<span class='k'>d = 500（标普 500）时是 125,250 个参数</span>。<b>而你有多少数据？</b>按月度收益算，十年只有 120 个观测。<span class='w'>参数比样本多三个数量级 —— 估出来的 Σ 必定是奇异的、噪声主导的。</span><br><br><b>更糟的是优化会放大这个噪声</b>：<code>min pᵀΣp</code> 会专门去找 Σ 里那些「看起来方差特别小」的方向，<span class='k'>而那些方向恰恰最可能是估计误差造出来的假象</span>。业界管这叫 <b>error maximization</b> —— 优化器在优化噪声。<br><br>这是「换成在线学习」的真正动机：<b>不是嫌 Markowitz 不够优雅，是它在真实数据上跑不通</b>。而在线学习那一侧<span class='k'>一个分布参数都不用估</span>。", "link": {"t": "你学过的对应：本片 p10–11（单纯形 Δ_d 为什么是凸集）", "href": "L03-精读.html"}, "res": {"tag": "推断", "v": "<b>「参数比样本多，优化器会去优化噪声」这件事，在你的课题里有一个一模一样的版本。</b>你要在组合配置空间上搜索，<span class='k'>配置数远超你的评估预算</span> —— 每个配置的真实分数都只有少量（甚至一次）带噪观测。<br><br><b>如果你直接取 argmax 的经验分数，你选中的就是「运气最好的那个」而不是「真的最好的那个」</b>。<span class='w'>这正是 winner's curse / error maximization 的同一个机制</span>。<br><br><b>本课给的解药正是 L06 那一套</b>：不要用经验均值直接排序，要用<span class='k'>带置信区间的淘汰</span> —— 只有当一条臂的上界低于另一条的下界时才淘汰。<b>这是你论文里「为什么不能简单地取 top-k」的标准答法</b>，而且 Markowitz 这个例子是一个很好的类比开场（审稿人多半知道它）。", "ref": "本讲 p25 的 \"What could possibly go wrong?\"；对照 L06 的逐次淘汰与好事件"}},
+{"r": [26, 26], "t": "一张真实的价格图，和图上那支指着关税的红箭头", "star": 4, "quote": "Returns are not an IID stochastic random walk!  Can we model the stock market as an online learning problem and develop an algorithm that is robust to even adversarial returns?  【图上标注】Trump administration announces Tariffs", "one": "<b>讲者直接把 VOO 从 2022 到 2025 的真实日线图贴了上来</b>，右上角一支红箭头指着 2025 年初那一道垂直暴跌，旁边写着「<span class='w'>Trump administration announces Tariffs</span>」。<span class='k'>这一页不讲数学，它讲的是上一页那个假设为什么是假的。</span>", "eq": "讲义这一页的两句话（原文）：\n\n  \"Returns are not an IID stochastic random walk!\"\n\n  \"Can we model the stock market as an online learning problem\n   and develop an algorithm that is robust to even adversarial returns?\"\n\n图上能读出来的几件事：\n  · 纵轴 320 – 580 美元，横轴 2022 年 4 月 – 2025 年\n  · 2022 年一路下跌到 10 月见底（约 340）\n  · 其后两年多震荡上行，2025 年初到顶（约 565）\n  · **最右端一道近乎垂直的下跌**，红箭头标注：关税宣布\n\n为什么这张图否掉了独立同分布：\n  独立 → 今天的大跌不应该让明天的大跌更可能（现实里波动成簇）\n  同分布 → 2022 的波动率与 2025 的应当一样（现实里差好几倍）\n  随机游走 → 跌幅应服从某个固定的分布（现实里这种跳跃的概率小到\n             在高斯模型下「宇宙年龄里不会发生一次」，却几年就来一回）", "pts": ["<b>这一页在论证结构里的位置是「反驳」，不是「插图」。</b>上一页刚给出 Markowitz 的漂亮答案，<span class='k'>这一页用一个无法反驳的证据把它的前提打掉</span>。<b>讲课时先立再破，是为了让后面那个「换一套框架」的动作显得必要而不是炫技。</b>", "<b>关税这个例子选得很准，因为它不是「随机波动」而是「一个决定」。</b>独立同分布模型默认价格由某种稳定的随机机制生成；<span class='w'>而这一跌是某个人在某天签了一份文件造成的</span>。<b>你没法给「一项政策」指定一个概率分布</b> —— 这正是「对抗」这个词在这里的含义：<span class='k'>序列由某个不受你控制、也不服从你模型的东西决定</span>。", "<b>「robust to even adversarial returns」这句里的 even 值得停一下。</b>它说的不是「我们认为市场是恶意的」，<span class='k'>而是「我们的保证连最坏情况都兜得住」</span>。<b>对抗设定是一个安全边界，不是一个世界观</b> —— 如果市场其实很温和，你的算法只会表现得更好。", "<b>要留一个口子：对抗保证是有代价的。</b>不假设分布，你就拿不到<span class='w'>分布相关的快率</span>。<b>这一节的奇特之处在于代价几乎为零</b> —— p31 的界是 <code>log(d)</code>，<span class='k'>连 T 都没有</span>，比随机设定下的典型界还好。<b>原因全在 log 损失的特殊结构上，p32 会看到。</b>", "<b>这一页也给了你一个可直接复用的讲故事模板。</b>「<span class='k'>先给出领域里的经典模型 → 指出它的关键假设 → 拿一个真实数据的反例打掉它 → 提出不需要那个假设的新框架</span>」。<b>这是四段式，讲者用了四页（p25 到 p28）走完</b>。写论文 introduction 时这个骨架非常好用。"], "tbl": {"cap": "独立同分布的三条含义，逐条对照真实市场", "head": ["假设的哪一部分", "它要求什么", "<b>真实市场</b>"], "rows": [["独立", "今天的跌不影响明天跌的概率", "<b>波动成簇：大跌之后几天继续大波动</b>"], ["同分布", "2022 与 2025 的分布一样", "<b>波动率随时间差好几倍</b>"], ["固定分布（如高斯）", "极端跌幅极其罕见", "<b>几年就来一次，远超高斯预测</b>"], ["由随机机制生成", "没有「决策者」", "<b>关税是某人某天签的一份文件</b>"], ["<b>结论</b>", "—", "<b>Markowitz 的前提不成立 ⇒ 它的保证全失效</b>"]]}, "say": "<b>这张图还藏着一个更安静的论点，讲者没说但值得自己看出来：图的绝大部分时间里，市场都「挺像」随机游走的。</b><br><br><span class='k'>问题不在于模型平时不准，而在于它在最该准的那一刻最不准</span>。<b>你需要风险模型的时候，正是出事的时候</b>；而那恰恰是独立同分布假设崩掉的时候。<br><br>这个观察对你做研究有直接的迁移价值：<span class='w'>评估一个假设好不好，不要只看它在典型情形下的拟合优度，要看它在尾部、在你真正依赖它的那些情形下成不成立</span>。<br><br><b>一个「平均误差很小但在关键区域系统性失效」的模型，比一个「处处略差但没有盲区」的模型危险得多。</b>", "res": {"tag": "推断", "v": "<b>这一页给你的是一个可直接套用的论证模板，而不是一个工具。</b>你的论文大概率要论证「为什么不能用现成的 X」，<span class='k'>而最有说服力的方式就是这一页的做法：找出 X 的那个关键假设，再给一个真实数据的反例</span>。<br><br><b>对你的课题，候选的那个「关键假设」很可能是「评估分数的分布是平稳的」。</b>而它在你这儿<span class='w'>有具体的理由不成立</span>：模型在更新、benchmark 在换、prompt 的措辞会漂。<b>如果你能画出一张「同一配置在不同时期的分数」的图，显示出一道类似的跳跃</b>，那就是你自己的那支红箭头。<br><br>⚠ 这是建议的论证路径，<span class='k'>不是已核的事实</span> —— 你的数据里到底有没有这种跳跃，要自己去量。", "ref": "本讲 p26 的两句设问；对照 p25 的 IID 假设"}},
+{"r": [27, 28], "t": "连乘变连加：取一次对数，整套在线学习的机器就能开动", "star": 5, "quote": "After T times your portfolio is worth v_T = v₁ Π_{t=1}^{T−1} ⟨p_t, r_t⟩.  Goal: Maximize your return v_T/v₁, equivalent to log(v_T/v₁) = Σ_{t=1}^{T−1} log⟨p_t, r_t⟩.  Regret = max_{p∈Δ_d} Σ_{t=1}^{T−1} log⟨p, r_t⟩ − Σ_{t=1}^{T−1} log⟨p_t, r_t⟩", "one": "<b>多期财富是一串内积的连乘</b>；<span class='k'>取对数，连乘塌成连加</span> —— 而「每一期付出一个损失、把 T 期的损失加起来」正是前面所有算法的标准形状。<b>这一步换元就是整节的全部技术内容。</b>", "eq": "财富的递推与闭式：\n  v_{t+1} = v_t·⟨p_t, r_t⟩\n  ⟹  v_T = v₁ · Π_{t=1}^{T−1} ⟨p_t, r_t⟩\n\n目标：最大化总回报 v_T/v₁。取对数（log 单调递增，最大化点不变）：\n\n  log( v_T / v₁ ) = Σ_{t=1}^{T−1} log⟨p_t, r_t⟩\n       └ 连乘 ┘        └──── 连加 ────┘\n\n于是 regret 的定义就写得出来了：\n\n  Regret = max_{p∈Δ_d} Σ_{t=1}^{T−1} log⟨p, r_t⟩  −  Σ_{t=1}^{T−1} log⟨p_t, r_t⟩\n           └── 事后最优的**固定**组合 ──┘      └── 你实际走的路径 ──┘\n\n对应到在线学习的标准形状（p20 的 ℓ_t）：\n\n  ℓ_t(p) = −log⟨p, r_t⟩          ← 加负号，把「最大化」翻成「最小化」\n\n  ℓ_t 是凸的吗？ 是。 −log(aᵀp) 的 Hessian = aaᵀ/(aᵀp)²，秩 1 半正定 ✔\n  （a = r_t ≥ 0，且 ⟨p, r_t⟩ > 0，所以良定义）", "pts": ["<b>为什么必须取对数，而不是直接对 <code>Π⟨p_t,r_t⟩</code> 做优化？</b>因为在线学习的全部机器 —— 遗憾的定义、势函数论证、望远镜求和 —— <span class='k'>都是为「逐期相加的损失」造的</span>。<b>连乘的目标函数在这套语言里根本写不出来。</b><span class='w'>取对数不是技巧，是入场的门票。</span>", "<b>对数还有一个经济学上的身份，叫对数效用。</b>最大化 <code>E[log v_T]</code> 的策略就是著名的 <span class='k'>Kelly 准则</span>，它最大化财富的<b>长期增长率</b>。<span class='w'>这与最大化 E[v_T] 不同</span> —— 后者会让你押上全部身家赌一个高期望的机会，然后在第一次失败时归零。<b>对数自带了「不许破产」这条约束</b>，这是它在这里出现的更深的理由。", "<b>基准是「事后最优的固定组合 p」，不是「事后最优的路径」。</b>注意 <code>max_{p∈Δ_d}</code> 里的 p 没有下标 t —— <span class='k'>它是一个从头到尾不变的比例</span>（业内叫 constant rebalanced portfolio，CRP）。<b>和一个会变的对手比是不可能赢的</b>；和最好的固定比例比，才是一个有意义、也确实做得到的目标。", "<b>「固定比例」其实不等于「不操作」。</b>保持 <code>p = (½, ½)</code> 意味着<span class='w'>每一期都要再平衡</span>：涨的那只卖掉一些、跌的那只补进一些。<span class='k'>这个「高抛低吸」的动作正是 CRP 能跑赢两只成分股的机械原因</span> —— p33 的反例会把这件事演示得淋漓尽致。", "<b>一个必须守住的前提：<code>⟨p_t, r_t⟩ > 0</code>。</b>否则 log 没定义，财富也归零了。<span class='k'>讲义靠 r_t ∈ ℝ₊^d（价格恒正）保证这一点</span>。<b>但要注意 ℓ_t = −log⟨p,r⟩ 在 ⟨p,r⟩ → 0 时趋于 +∞ —— 它不是 Lipschitz 的</b>，<span class='w'>所以 p20 的 OGD 定理（需要 ‖∇ℓ‖ ≤ G）在这里不能直接用</span>。这正是下面要换成指数权重的技术原因之一。"], "tbl": {"cap": "同一个问题的两种写法：取对数前后", "head": ["", "取对数之前", "<b>取对数之后</b>"], "rows": [["目标", "max Π_t ⟨p_t, r_t⟩", "<b>max Σ_t log⟨p_t, r_t⟩</b>"], ["形状", "连乘", "<b>连加 —— 在线学习的标准形状</b>"], ["损失函数", "写不出来", "<b>ℓ_t(p) = −log⟨p, r_t⟩</b>"], ["凸吗", "不是（乘积一般不凸）", "<b>凸（Hessian = r rᵀ/⟨p,r⟩² ⪰ 0）</b>"], ["能用遗憾框架吗", "不能", "<b>能</b>"], ["经济学身份", "期望财富", "<b>对数效用 / Kelly 准则</b>"]]}, "say": "<b>关于基准的选择，这里有一句值得记住的话：在线学习里「跟谁比」和「怎么比」同样重要，有时候更重要。</b><br><br>这一页选的基准是<span class='k'>最好的固定组合（CRP）</span>。它比「最好的单只股票」强（p33 会证明强很多），但比「最好的变化路径」弱得多（后者根本不可比）。<b>基准选得太强，定理不成立；选得太弱，定理成立但没意思。</b><br><br><span class='w'>而 p31 的定理其实只跟「最好的单只股票」比了</span>（<code>max_{i∈[d]}</code> 而不是 <code>max_{p∈Δ_d}</code>）—— <b>比这一页刚定义的那个 regret 要弱</b>。<span class='k'>讲者在 p33 会自己把这个缺口指出来并提问「How do we compete with any p ∈ Δ_d?」</span><br><br><b>读的时候要把这三档分清</b>：最好的单只股（定理给的）＜ 最好的固定组合（这一页定义的）＜ 最好的变化路径（没人能比）。", "link": {"t": "你学过的对应：本片 p15（用二阶条件验 −log(aᵀp) 凸，正是那三行）", "href": "L03-精读.html"}, "res": {"tag": "推断", "v": "<b>「连乘取对数变连加」这一招，在你的课题里有一个很可能用得上的对应。</b>如果你的 workflow 是多级串联的，<span class='k'>整体成功率往往是各级成功率的乘积</span>（每一级都得过）。<b>那么「最大化端到端成功率」就是一个连乘目标</b>，和这一页的财富一模一样。<br><br><b>取对数之后它变成各级 log 成功率的和</b> —— 于是：① <span class='w'>可以用可加的遗憾框架</span>；② <span class='w'>各级的贡献变得可分解、可归因</span>（哪一级拖后腿一眼看出）；③ 若各级的 log 成功率对参数凸，整个问题就凸。<br><br>⚠ <b>要核的前提是「各级独立」</b>，否则乘积分解不成立。<span class='k'>这个前提在真实 workflow 里多半只是近似成立</span>（前一级的输出质量会影响后一级），所以若要用，得说明是近似并讨论偏差方向。", "ref": "本讲 p27–28 的对数变换；对照 p20 的可加损失框架"}},
+{"r": [29, 29], "t": "VOO 与 RSP：同样 500 只股票，两种权重，基准不是抽象的", "star": 3, "quote": "The SP500 (VOO) is an index that weights 500 stocks by their market capitalization.  An alternative index (RSP) weights these 500 stocks uniformly p = (1/500, …, 1/500).", "one": "<b>讲者用一个具体的例子说明「<code>p ∈ Δ_d</code> 不是抽象符号」</b>：VOO 按市值加权，RSP 把同样 500 只股票<span class='k'>均匀加权</span>。<b>两个都是 Δ_500 里的一个点</b>，而 regret 的定义说的是「你跟这个集合里最好的那个比，差多少」。", "eq": "两个真实存在、可以买的指数基金：\n\n  VOO（Vanguard S&P 500）：p(i) ∝ 第 i 只股票的市值\n                           → 少数巨头占了很大比重\n\n  RSP（等权 S&P 500）：     p = (1/500, …, 1/500)\n                           → 每只股票一样重，需要定期再平衡\n\n两者都是 Δ_500 中的一个点：\n  p ≥ 0，Σ_i p(i) = 1  ✔\n\n所以 p27 定义的 regret\n  max_{p∈Δ_d} Σ log⟨p, r_t⟩ − Σ log⟨p_t, r_t⟩\n说的是：\n  **你的算法 vs 包括 VOO、RSP 以及所有其他固定配比在内的、事后最优的那一个**\n\n讲义配图（econbrowser.com）：\n  S&P 500 月均值，1957–2015\n  蓝线 = 水平（左轴），红线 = 对数水平（右轴）\n  → 蓝线看着是爆炸增长，红线接近一条直线", "pts": ["<b>配图里那两条线是同一组数据的两种画法，值得盯三秒。</b><span class='k'>蓝线（水平刻度）看起来像在 1995 年之后才「开始增长」</span>，红线（对数刻度）则显示<span class='w'>整整 60 年的增长率其实相当稳定</span>。<b>这是对数变换的可视化版本，和 p28 的数学是同一件事</b>：乘性增长在对数坐标下是加性的、是直线。", "<b>为什么这张图放在这里：它在为「对数财富」这个目标背书。</b>如果增长是乘性的（每年 ×1.07 而不是每年 +100 点），<span class='k'>那么「总回报」这个量天然该用对数来度量</span>。<b>线性刻度会让你高估近期、低估早期</b>，而对数刻度下每一段的斜率就是那段时间的增长率，可以直接比较。", "<b>VOO 与 RSP 的差别是一个真实的、有人在争论的问题。</b>等权意味着<span class='w'>给小公司更大的相对权重</span>，历史上长期略微跑赢，但波动更大、再平衡成本更高。<span class='k'>这一节的定理不预判谁更好</span> —— 它说的是「<b>不管事后哪个赢，我都只比它差 log(d)</b>」。", "<b>注意 d = 500 时 log(d) ≈ 6.2。</b>这是对数财富上的差距，换算成财富比值是 <code>e^{6.2} ≈ 500</code> 倍 —— <span class='w'>听起来很大</span>。<b>但关键在于它<span class='k'>不随 T 增长</span></b>：玩 10 年和玩 100 年，这个差距是同一个常数。<span class='k'>而财富本身是指数增长的，所以时间一长，一个固定的常数差距就被稀释掉了</span>。", "<b>再平衡这件事在这一页是隐含的。</b>RSP 要维持等权，<span class='w'>必须定期卖出涨得多的、买入跌得多的</span>。<b>这正是 CRP（固定比例组合）的操作含义</b> —— <span class='k'>「固定的是比例，不是持仓」</span>。p33 的反例全靠这个机制。"], "tbl": {"cap": "VOO 与 RSP：同样的股票池，不同的 p", "head": ["", "VOO（市值加权）", "<b>RSP（等权）</b>"], "rows": [["p(i)", "∝ 第 i 只股票市值", "<b>1/500，每只一样</b>"], ["谁占主导", "<b>少数巨头</b>", "全部 500 只平均"], ["需要再平衡吗", "<b>基本不用</b>（市值自动调整）", "<b>要，定期高抛低吸</b>"], ["在 Δ_500 里的位置", "靠近某几个顶点", "<b>正中心（重心）</b>"], ["这一节怎么看它们", "<b>都只是 Δ_d 里的一个点，都在 max 的比较范围内</b>", "—"]]}, "say": "<b>把 d = 500 代进去算一遍，是理解这个定理分量的最快方式。</b><br><br><code>log(500) ≈ 6.21</code>。定理说：<span class='k'>你的对数财富，比事后最优的那只股票的对数财富，最多少 6.21</span>。<br><br><b>换成财富比：<code>e^{6.21} ≈ 500</code></b>。也就是说最坏情况下你的最终财富可能只有事后最优那只股的 1/500。<span class='w'>听上去糟透了</span>。<br><br><b>但要看它的另一面：这个 500 倍是一个固定的常数，与 T 无关。</b>假设最优那只股在 30 年里涨了 10⁶ 倍（年化约 55%，极端但不是不可能），<span class='k'>你至少也能拿到 10⁶/500 = 2000 倍</span>。<b>而且你事先完全不知道哪只会赢。</b><br><br>这就是 no-regret 保证的典型味道：<span class='k'>最坏情况的常数看着吓人，但它不随时间恶化，而你要对比的那个量是指数增长的</span>。", "res": {"tag": "推断", "v": "<b>「常数差距 vs 指数增长量」这个对比，对你写论文的 bound 讨论很有用。</b>审稿人看到一个界里有 <code>log(d)</code> 或 <code>√(d)</code> 这样的因子，第一反应常是「这个常数太大了，实际没意义」。<span class='k'>而正确的反驳不是说它小，而是说它相对于什么不增长</span>。<br><br><b>对你的问题：配置数 n 可能上千，但如果你的界是 <code>log n</code> 而评估预算是 T</b>，那要说清的是 ① <span class='w'>这个因子不随 T 增长</span>；② <span class='w'>它在 T 中等规模时是否已经被摊薄</span>。<b>给一张「界的各项随 T 的变化」的图，比争论常数大小有效得多。</b>", "ref": "本讲 p29 的 d=500；p31 的 log(d) 界"}},
+{"r": [30, 31], "t": "算法原样搬来，定理里却没有 T：log(d)，与玩多久无关", "star": 5, "quote": "for t = 1,2,…: Player picks p_t ∈ Δ_d; Adversary simultaneously reveals r_t ∈ ℝ₊^d; Player pays loss ℓ_t(p_t) = −log⟨p_t, r_t⟩.  Exponential weights algorithm — Initialize: w₁ = (1,…,1) ∈ ℝ^d; for t = 1,2,…: Player plays p_t(i) = w_t(i)/Σ_{j=1}^d w_t(j); Adversary simultaneously reveals convex loss ℓ_t(·); Player pays loss ℓ_t(p_t); Player updates weights w_{t+1}(i) = w_t(i) exp(−η ℓ_t(e_i)).  Theorem: With η = 1 and l_t(p) = −log⟨p, r_t⟩, max_{i∈[d]} Σ_{t=1}^{T−1} log⟨e_i, r_t⟩ − log⟨p_t, r_t⟩ ≤ log(d).  【红字】Competes with the single best stock in hindsight!", "one": "<b>算法一个字没改 —— 还是那个指数权重。</b>可是定理变了：<span class='k'>regret ≤ log(d)</span>，<b>右边没有 T，也没有 η 要调（直接取 η = 1）</b>。<span class='w'>对比 p6 的 √(T log d/2)，这是一个量级上的飞跃。</span>", "eq": "交互协议（p30）：\n  for t = 1, 2, …\n      玩家挑 p_t ∈ Δ_d\n      对手同时给出 r_t ∈ ℝ₊^d\n      玩家付出损失 ℓ_t(p_t) = −log⟨p_t, r_t⟩\n\n算法（与 p6 逐字相同，只有一处差别）：\n  初始：w₁ = (1, …, 1) ∈ ℝ^d\n  for t = 1, 2, …\n      p_t(i) = w_t(i) / Σ_{j=1}^d w_t(j)\n      对手给出凸损失 ℓ_t(·)\n      玩家付出 ℓ_t(p_t)\n      w_{t+1}(i) = w_t(i)·exp( −η·ℓ_t(**e_i**) )\n                                      ↑\n            注意：用的是**第 i 个顶点**上的损失，不是 p_t 上的\n\n定理（p31，红框）：\n  取 η = 1 且 ℓ_t(p) = −log⟨p, r_t⟩，则\n\n      max_{i∈[d]} Σ_{t=1}^{T−1} log⟨e_i, r_t⟩ − log⟨p_t, r_t⟩  ≤  log(d)\n\n  红字批注：Competes with the single best stock in hindsight!\n\n三个定理并排看（这是本讲最该记住的一张对照）：\n  p6  指数权重（一般有界损失）：  √( T·log(d)/2 )     ← 随 T 增长\n  p20 在线梯度下降（凸+Lipschitz）： R·G·√T          ← 随 T 增长\n  p31 指数权重（**log 损失**）：     **log(d)**        ← **与 T 无关**", "pts": ["<b>先看清楚算法里那个 <code>ℓ_t(e_i)</code>：更新用的是第 i 个<span class='k'>顶点</span>上的损失，不是玩家实际组合 p_t 上的损失。</b><span class='w'>e_i 就是「百分之百押第 i 只股票」</span>，<code>ℓ_t(e_i) = −log⟨e_i, r_t⟩ = −log r_t(i)</code>。<b>所以每只股票的权重按它自己这一期的收益率被乘性地放大或缩小</b> —— 更新规则其实朴素得可爱。", "<b>η = 1 这件事本身就是一个信号。</b>前面每一个定理都要配平 η（p6 配 √(8log d/T)，p20 配 R/(G√T)），<span class='k'>而这里直接取 1，不依赖 T、不依赖任何量</span>。<b>一个不需要调参的算法，通常意味着问题结构特别好</b> —— 而不是作者偷懒。<span class='w'>p32 会揭晓这个结构是什么。</span>", "<b>把 η = 1 代进更新式，会看到一个惊人的简化</b>：<code>exp(−1·ℓ_t(e_i)) = exp(log⟨e_i, r_t⟩) = ⟨e_i, r_t⟩ = r_t(i)</code>。<b>所以 <code>w_{t+1}(i) = w_t(i)·r_t(i)</code></b> —— <span class='k'>权重就是「这只股票从头到现在涨了多少倍」</span>！<b>算法的真身是：把钱按「各股票累计涨幅」的比例分配。</b>这就是 Cover 1991 的 universal portfolio（的离散版本）。", "<b>红字那句「Competes with the single best stock」是在<span class='w'>自曝其短</span>，不是在夸。</b>注意定理里是 <code>max_{i∈[d]}</code>（最好的<b>单只股票</b>，即 Δ_d 的<span class='k'>顶点</span>），而 p27 定义的 regret 是 <code>max_{p∈Δ_d}</code>（最好的<b>固定组合</b>，整个<span class='k'>单纯形</span>）。<b>定理证的比定义的要弱 —— p33 会说明弱了多少。</b>", "<b>为什么这里能摆脱 T，一句话的直觉</b>：前面的界里那个 <code>Tη/8</code> 来自 Hoeffding —— <span class='w'>它是在为「指数的平均 ≈ 平均的指数」这个近似付的代价，每一期都要付一次，所以攒成了 T</span>。<b>而 log 损失让这个近似变成了精确相等，代价归零，于是 T 消失。</b><span class='k'>p32 把这一步明明白白写了出来。</span>"], "tbl": {"cap": "本讲三个定理并排（最该记住的一张表）", "head": ["", "p6 指数权重", "p20 在线梯度下降", "<b>p31 指数权重 + log 损失</b>"], "rows": [["损失要求", "有界 z ∈ [0,1]^d", "凸 + G-Lipschitz", "<b>ℓ_t(p) = −log⟨p, r_t⟩</b>"], ["可行域", "d 个离散专家", "凸集 ℋ ⊂ ℝ^d", "<b>单纯形 Δ_d</b>"], ["遗憾界", "√(T log(d)/2)", "R·G·√T", "<b>log(d)</b>"], ["随 T 增长吗", "<b>是（√T）</b>", "<b>是（√T）</b>", "<b>否 —— 完全无关</b>"], ["η 怎么取", "√(8log d/T)，要知道 T", "R/(G√T)，要知道 T", "<b>η = 1，什么都不用知道</b>"], ["证明里的关键一步", "Hoeffding 引理（付 η²/8）", "凸性 + 望远镜", "<b>指数与对数抵消（代价为 0）</b>"], ["基准", "最好的单个专家", "最好的 h_* ∈ ℋ", "<b>最好的单只股票（比定义的弱）</b>"]]}, "say": "<b>「权重 = 累计涨幅」这个发现值得自己验一遍，因为它把一个看起来很理论的算法变成了一句人话。</b><br><br>取 η = 1，<code>w_{t+1}(i) = w_t(i)·exp(−ℓ_t(e_i)) = w_t(i)·exp(log r_t(i)) = w_t(i)·r_t(i)</code>。<br>从 <code>w₁ = (1,…,1)</code> 开始递推：<br><code>w_{T}(i) = Π_{t<T} r_t(i) = S_T(i)/S₁(i)</code><br><br><span class='k'>所以 w_T(i) 就是「第 i 只股票从开始到现在翻了几倍」</span>，而 <code>p_T(i) = w_T(i)/Σ_j w_T(j)</code>。<br><br><b>一句话：这个算法把钱按「各股票至今的累计表现」成比例地分配。</b><span class='w'>涨得好的自动占比更大，跌的自动缩水</span> —— 而且<b>你什么都不用做</b>：如果你一开始就把钱等分买入然后再也不动，<span class='k'>持仓比例会自动按涨幅演化成这个样子</span>。<br><br><b>所以 p31 定理的真正含义是：买入持有、不操作，就已经保证了「比事后最优的单只股票最多差 log(d)」。</b>这个结论朴素得有点震撼。", "link": {"t": "你学过的对应：本片 p1–8（同一个指数权重算法，一般有界损失下的 √(T log d) 版本）", "href": "L03-精读.html"}, "res": {"tag": "推断", "v": "<b>这个定理给你的最重要一课，是「界的形状由损失函数的结构决定，而不是由算法决定」。</b>同一个算法，换一个损失，界从 <code>√(T log d)</code> 变成 <code>log d</code>。<span class='k'>算法一个字没改。</span><br><br><b>对你的课题，这意味着一个值得花时间的问题：你的评估指标能不能换成一个结构更好的等价物？</b>你现在多半用的是「平均分数」这类有界损失，<span class='w'>而它只能给你 √T 的界</span>。<br><br><b>两个值得核的方向</b>：① 若你的目标是<span class='k'>端到端成功率这类乘性量</span>，那 log 损失是天然的（见 p27 的科研格），<b>有机会拿到不随 T 增长的界</b>；② 若你的损失是<span class='k'>强凸</span>的（例如带二次正则），则 <code>√T</code> 可以改善到 <code>log T</code>。<br><br>⚠ <b>这是方向性的建议</b>，能不能落地取决于你的指标能否诚实地写成那种形式 —— <span class='w'>为了拿好看的界而换一个不是你真正关心的指标，是本末倒置</span>。", "ref": "本讲 p31 定理；对照 p6、p20 的两个 √T 界"}},
+{"r": [32, 32], "t": "证明：和 p8 逐行对照，差别只有中间那一步——而那一步从不等式变成了等式", "star": 5, "quote": "Proof.  log(W_{T+1}/W₁) = Σ_{t=1}^T log(W_{t+1}/W_t) = Σ_t log( Σ_{i=1}^d w_{t+1}(i)/W_t ) = Σ_t log( Σ_i w_t(i)exp(−ηℓ_t(e_i))/W_t ) = Σ_t log( Σ_i p_t(i)exp(−ηℓ_t(e_i)) ) = Σ_t log( Σ_i p_t(i)exp(log⟨e_i,r_t⟩) ) = Σ_t log⟨p_t, r_t⟩.   log(W_{T+1}/W₁) ≥ log(w_{T+1}(i)/W₁) = −log(d) + log(Π_{t=1}^T exp(−ηℓ_t(e_i))) = −log(d) − Σ_t η ℓ_t(e_i) = −log(d) + Σ_t log⟨e_i, r_t⟩.  ⟹ max_{i∈[d]} Σ_{t=1}^T log⟨e_i,r_t⟩ − log⟨p_t,r_t⟩ ≤ log(d)", "one": "<b>把这一页和 p8 并排放，你会发现它们逐行相同</b>，一直到第五行。<span class='k'>在 p8 那里，第五行之后要请出 Hoeffding 引理，并付出 η²/8 的代价</span>；<b>而这里，指数和对数直接抵消了，代价是零。</b><span class='w'>T 就是在这一步消失的。</span>", "eq": "左列（把那个量算出来）：\n\n  log(W_{T+1}/W₁) = Σ_{t=1}^T log(W_{t+1}/W_t)                    ← 望远镜\n                  = Σ_t log( Σ_{i=1}^d w_{t+1}(i)/W_t )\n                  = Σ_t log( Σ_i w_t(i)·exp(−η ℓ_t(e_i)) / W_t )   ← 代入更新式\n                  = Σ_t log( Σ_i p_t(i)·exp(−η ℓ_t(e_i)) )        ← w_t(i)/W_t = p_t(i)\n\n  ─── 到这里为止，与 p8 **逐字相同** ───\n\n  现在代入 η = 1 与 ℓ_t(e_i) = −log⟨e_i, r_t⟩：\n\n      exp( −1·( −log⟨e_i, r_t⟩ ) ) = exp( log⟨e_i, r_t⟩ ) = ⟨e_i, r_t⟩\n\n                  = Σ_t log( Σ_i p_t(i)·⟨e_i, r_t⟩ )\n                  = Σ_t log⟨p_t, r_t⟩          ← **等式**，一步到位\n\n右列（给同一个量一个下界）：\n\n  log(W_{T+1}/W₁) ≥ log( w_{T+1}(i)/W₁ )                ← 只留第 i 项\n                  = −log(d) + log( Π_{t=1}^T exp(−η ℓ_t(e_i)) )   ← W₁ = d\n                  = −log(d) − Σ_t η·ℓ_t(e_i)\n                  = −log(d) + Σ_t log⟨e_i, r_t⟩          ← 代入 η=1 与 ℓ 的定义\n\n两头一夹（对任意 i 成立，故可取 max）：\n\n  Σ_t log⟨p_t, r_t⟩  ≥  −log(d) + Σ_t log⟨e_i, r_t⟩\n  ⟹  max_{i∈[d]}  Σ_t log⟨e_i, r_t⟩ − log⟨p_t, r_t⟩  ≤  log(d)   ∎", "pts": ["<b>整个证明的全部魔术在一个恒等式上：<code>exp(log x) = x</code>。</b>因为损失恰好是对数、步长恰好是 1，<span class='k'>指数把对数原样抵消掉</span>，于是 <code>Σ_i p_t(i)·exp(−ℓ_t(e_i))</code> <b>精确地</b>等于 <code>Σ_i p_t(i)·r_t(i) = ⟨p_t, r_t⟩</code>。<span class='w'>没有近似，没有不等号。</span>", "<b>对比 p8 就能看出代价在哪。</b>在 p8，<code>Σ_i p_t(i)·exp(−η z_t(i))</code> 里的 <code>z_t(i)</code> 是任意的有界损失，<span class='k'>「指数的加权平均」与「加权平均的指数」不相等</span>，差多少要用 Hoeffding 引理去界，每期付 <code>η²/8</code>，<b>T 期就攒成 <code>Tη/8</code></b>。<span class='w'>这就是 T 的来源，也是 T 在这里消失的原因。</span>", "<b>右列（下界那一侧）两边完全一样，一个字都不用改。</b>它用的只是「<span class='k'>总和 ≥ 其中一项</span>」加上 <code>W₁ = d</code>（d 个初始权重都是 1）。<b>所以 log(d) 这一项在两个定理里是同源的</b> —— <span class='w'>它量的始终是「一开始对 d 个候选一无所知」的代价</span>，与损失是什么无关。", "<b>要留一个口子：η = 1 不是可以随便换的。</b>把 η 换成别的值，<code>exp(−η·(−log⟨e_i,r_t⟩)) = ⟨e_i,r_t⟩^η</code>，<span class='k'>那个漂亮的抵消就没了</span>，<code>Σ_i p_t(i)·⟨e_i,r_t⟩^η ≠ ⟨p_t,r_t⟩^η</code>（除非 η=1）。<b>所以 η=1 是这个结构唯一的「钥匙」，不是一个方便的选择。</b>", "<b>更深的理由（讲义没说）：log 损失是「指数凹」的（exp-concave）。</b>一个损失 ℓ 若使 <code>e^{−ηℓ}</code> 是凹函数，就叫 η-exp-concave。<span class='k'>这类损失的指数权重遗憾界是 <code>log(d)/η</code>，不含 T</span>。<b>−log⟨p,r⟩ 恰好是 1-exp-concave</b>（<code>e^{−ℓ} = ⟨p,r⟩</code> 对 p 是线性的，线性当然凹），<span class='w'>所以 η=1、界 log(d) —— 一切都对上了</span>。", "<b>这个性质把本讲三个定理排成了一个梯子</b>：一般有界损失 → <code>√(T log d)</code>；凸 + Lipschitz → <code>RG√T</code>；<span class='k'>exp-concave → <code>log(d)</code></span>；再往上还有强凸 → <code>log T</code>。<b>损失函数的结构越强，界越好</b> —— 这是在线学习的一条主线，<span class='w'>而本讲一次给了你梯子上的三格</span>。"], "tbl": {"cap": "p8 与 p32 逐行对照：只有一行不一样", "head": ["步骤", "p8（一般有界损失）", "<b>p32（log 损失，η=1）</b>"], "rows": [["望远镜拆开", "✔ 相同", "<b>✔ 相同</b>"], ["代入更新式", "✔ 相同", "<b>✔ 相同</b>"], ["w_t(i)/W_t → p_t(i)", "✔ 相同", "<b>✔ 相同</b>"], ["<b>把指数的加权平均化掉</b>", "<b>Hoeffding 引理，付 η²/8</b>", "<b>exp(log x) = x，精确相等，付 0</b>"], ["T 期累计的代价", "<b>Tη/8</b>", "<b>0</b>"], ["下界那一列", "✔ 相同（总和 ≥ 单项，W₁ = d）", "<b>✔ 相同</b>"], ["最终界", "log(d)/η + Tη/8", "<b>log(d)</b>"]]}, "say": "<b>这一页最该带走的不是那个定理，而是一个判断力：看到一个界里有 T，就该问「这个 T 是从哪一步来的」。</b><br><br>在势函数论证里，<span class='k'>T 几乎总是来自「每一期都要付一次的近似代价」</span>。本讲给了两个例子：p8 付的是 Hoeffding 的 <code>η²/8</code>，p20 付的是梯度平方项 <code>η‖∇ℓ‖²/2</code>。<b>两者都是「每期一次」，所以都攒成了 T。</b><br><br><span class='w'>反过来，如果某一步的近似是精确的，那一期就不用付钱，T 也就不会出现。</span><br><br><b>这个视角可以直接用来读别人的论文</b>：拿到一个遗憾界，先定位界里每一项对应证明的哪一步。<span class='k'>常数项通常来自「初始的无知」（这里是 log d），而随 T 增长的项通常来自「每期的近似」</span>。<b>知道这个之后，「这个界还能不能改进」这个问题就有了下手的地方 —— 去看那个每期付钱的步骤能不能变精确。</b>", "res": {"tag": "推断", "v": "<b>「定位界里每一项来自证明的哪一步」这个习惯，对你写论文的理论部分价值很大。</b>你最终要给出的那个界，<span class='k'>每一项都应该能对应到你证明里的一个具体步骤</span>，而且你应该能说出「哪一项是可以改进的、要改进需要什么额外假设」。<br><br><b>对你的 dominance-pruning MCTS，可能的分解是</b>：① <span class='w'>一个与候选数有关的项</span>（来自对所有候选取并集界 —— 像这里的 log d，通常不随预算增长）；② <span class='w'>一个与评估次数有关的项</span>（来自每次评估的置信半径 —— 像这里的 T 项）；③ <span class='w'>一个与剪枝正确性有关的项</span>（剪错的概率）。<br><br><b>第 ③ 项是你独有的，也是最该写清楚的</b>：<span class='k'>它应该随置信水平 δ 下降，而不随预算增长</span>。若你发现它随预算增长，那说明剪枝判据每次都在「重新冒一次险」，需要改成一次性的好事件 + 并集界（L06 那套）。", "ref": "本讲 p32 与 p8 的逐行对照；对照 L06 的好事件构造"}},
+{"r": [33, 33], "t": "自曝其短：两只股票就能说明「最好的单只股」是个弱基准", "star": 4, "quote": "Is competing against single best stock a good benchmark?  Consider just 2 stocks: r_t(1) = (2, ½, 2, ½, 2, ½, …), r_t(2) = (½, 2, ½, 2, ½, 2…).  Π_{t=1}^T ⟨e_i, r_t⟩ = 1.  Π_{t=1}^T ⟨[1/2; 1/2], r_t⟩ = ((1/2)² + 1)^{T/2}.  How do we compete with any p ∈ Δ_d?  【脚注】Example due to Elad Hazan's Introduction to Online Convex Optimization", "one": "<b>讲者刚证完定理，立刻自己把它拆台。</b>两只股票轮流翻倍、腰斩，<span class='k'>单独持有哪一只，T 期之后财富都原封不动等于 1</span>；<b>而五五开的固定组合是指数增长的。</b><span class='w'>所以「比最好的单只股票只差 log d」这个保证，在这个例子上几乎等于什么都没保证。</span>", "eq": "两只股票的收益率序列：\n  r_t(1) = ( 2, ½, 2, ½, 2, ½, … )\n  r_t(2) = ( ½, 2, ½, 2, ½, 2, … )     ← 完全反相\n\n单独持有第 i 只（即 p = e_i）：\n  Π_{t=1}^T ⟨e_i, r_t⟩ = (2 × ½)^{T/2} = 1^{T/2} = **1**\n  → T 期之后财富一分没变。两只都是如此。\n\n五五开的固定组合 p = (½, ½)：\n  每一期：  ⟨(½,½), (2, ½)⟩ = ½·2 + ½·½ = 1 + ¼ = **5/4**\n            ⟨(½,½), (½, 2)⟩ = ½·½ + ½·2 = ¼ + 1 = **5/4**\n  → 每一期都乘 5/4，与这一期谁涨谁跌无关\n\n  所以 T 期之后：  Π_{t=1}^T ⟨(½,½), r_t⟩ = **(5/4)^T**   ← 指数增长\n\n  ⚠ 讲义这一行写的是 ((1/2)² + 1)^{T/2}。底数 (1/2)²+1 = 5/4 与上面一致，\n     但指数写成了 T/2；按逐期相乘自己算，T 期应是 (5/4)^T。\n     **指数上差一个 2 —— 不影响结论**（都是指数增长 vs 恒等于 1），\n     但自己推一遍，别照抄。\n\n讲者的收尾设问：\n  \"How do we compete with any p ∈ Δ_d?\"\n脚注：\n  Example due to Elad Hazan's *Introduction to Online Convex Optimization*", "pts": ["<b>这个例子的机械原理就是「高抛低吸」，而且是自动发生的。</b>保持 50/50 意味着<span class='k'>每一期结束后都要把涨的那只卖掉一部分、补进跌的那只</span>。<b>下一期角色互换时，你手上多的恰好是即将上涨的那只。</b><span class='w'>固定的是比例，不是持仓 —— 这正是 p27 那条说明在这里的兑现。</span>", "<b>注意 5/4 这个数与「谁涨谁跌」无关。</b>不管这一期是 (2, ½) 还是 (½, 2)，<span class='k'>五五开的组合收益率都是 5/4</span>。<b>这个组合把一个波动剧烈的市场变成了一台稳定的复利机器</b> —— 波动本身成了收益来源，业内叫 <span class='w'>volatility pumping</span>（波动率收割）。", "<b>这个例子的杀伤力在于它不是边缘情形。</b>两只负相关的资产定期再平衡，<span class='k'>在真实市场里是一个标准策略</span>（股债平衡组合就是）。<b>所以「最好的单只股」这个基准不只是理论上弱，是在实践中会错过真正该比的东西。</b>", "<b>讲者的做法值得单独学：定理证完，立刻自己攻击它。</b><span class='w'>没有等读者去发现这个缺口</span>，而是主动给出最锋利的反例，然后把它变成下一讲的问题。<b>写论文时这叫把 limitation 写在前面</b> —— <span class='k'>你自己说出来，它是深刻；审稿人说出来，它是缺陷。</span>", "<b>「How do we compete with any p ∈ Δ_d?」这个问号是 L04 的开头。</b>答案是 <span class='k'>Cover 1991 的 universal portfolio</span>：把指数权重从 <b>d 个顶点</b>推广到<b>整个单纯形上的连续分布</b> —— <span class='w'>对 Δ_d 上所有的 p 做「连续的指数权重」</span>。<b>那正是 L04 标题里「连续指数权重」的来历</b>，遗憾界是 <code>O(d log T)</code>。"], "tbl": {"cap": "两只反相股票：三种策略的 T 期财富", "head": ["策略", "p", "每期收益率", "<b>T 期后财富</b>"], "rows": [["全押第 1 只", "e₁ = (1, 0)", "交替 2 与 ½", "<b>1（一分没赚）</b>"], ["全押第 2 只", "e₂ = (0, 1)", "交替 ½ 与 2", "<b>1（一分没赚）</b>"], ["<b>五五开并再平衡</b>", "<b>(½, ½)</b>", "<b>恒为 5/4</b>", "<b>(5/4)^T —— 指数增长</b>"], ["定理保证你不差于", "最好的单只股", "—", "<b>1 / d = 1/2</b>"], ["<b>缺口</b>", "—", "—", "<b>(5/4)^T 对 1/2：随 T 无限拉大</b>"]]}, "say": "<b>把这个例子的数字摊开，缺口有多大就一目了然了。</b><br><br>取 T = 100：<br>· 最好的单只股票：财富 = <b>1</b><br>· 定理保证你至少拿到：<code>1/d = 1/2</code><br>· 而最好的固定组合：<code>(5/4)^100 ≈ 4.9 × 10⁹</code><br><br><span class='k'>定理说你「只差 log 2 ≈ 0.69」，听起来很好</span>；<b>可它比的那个对象本身就是零增长的</b>。<span class='w'>你和一个什么都没赚的基准比赢了，而旁边有一个赚了 49 亿倍的基准你根本没去比。</span><br><br><b>这就是「基准选得太弱」的具体代价</b>，也是为什么 regret 这个概念必须连着「跟谁比」一起报。<span class='k'>一个 regret 界如果不说清基准类，它可以漂亮得毫无意义。</span><br><br><b>读别人论文时这是一个该养成的条件反射</b>：看到 regret bound，先找 <code>max</code> 底下那个集合是什么。", "tip": {"t": "这一讲到此结束：往下是 L04", "v": "<b>讲者留下的那个问号 <code>How do we compete with any p ∈ Δ_d?</code>，就是下一讲的全部内容。</b><br><br><b>答案的思路</b>：既然对 d 个顶点做指数权重能比过最好的顶点，<span class='k'>那就对整个 Δ_d 上的点做指数权重</span> —— 把离散的 d 个权重换成单纯形上的一个<b>连续分布</b>，更新规则形式不变，求和换成积分。<br><br><code>p_t = ∫_{Δ_d} p · dμ_t(p)，  dμ_{t+1}(p) ∝ dμ_t(p)·exp(−ℓ_t(p))</code><br><br><b>这就是 Cover 1991 的 universal portfolio</b>，遗憾界 <code>O(d log T)</code> —— <span class='w'>比 log(d) 差（多了 log T），但基准强得多（整个单纯形）</span>。<b>L04 的标题「连续指数权重」说的就是它</b>，而那一讲的后半（极小极大分析）会说明这个界已经没法再改进了。"}, "res": {"tag": "推断", "v": "<b>这一页对你的课题有一个很直接的警示：你的 baseline 选得够强吗？</b>你要论证 dominance-pruning 的搜索有效，<span class='k'>比的对象是什么</span>？如果比的是随机搜索或朴素网格，<b>那和这里「比最好的单只股票」是同一类问题 —— 赢了也说明不了什么。</b><br><br><b>强基准应该包括</b>：① <span class='w'>不剪枝的同款搜索</span>（直接量出剪枝的净贡献）；② <span class='w'>给了同等预算的 BO / UCB 类方法</span>；③ <span class='w'>AFlow 本身</span>（简报 §2 已核它用的是 Boltzmann 爬山）。<br><br><b>还有一条更尖的</b>：<span class='k'>事后最优的固定策略</span> —— 即「如果一开始就知道哪类配置好，一直只搜那一类」会怎样。<b>这正是本讲 regret 定义里那个 max_{p∈Δ_d} 的对应物</b>，而且它是可以在你已有的日志上离线算出来的，<span class='w'>不用重跑实验</span>。", "ref": "本讲 p33 的反例与设问；科研简报 §2"}}
+];
+
+var TH = {"title": "L03 接上课题的哪一段：一节凸性地基，长出两个方向完全不同的定理", "arc": "这一讲的骨架是「<b>同一套地基，长出三个定理</b>」，而三个定理并排放在一起时，<span class='k'>你会看到在线学习这个领域真正的主线：界的形状由损失函数的结构决定，而不是由算法决定</span>。<br><br><b>三个定理的梯子</b>：<br>· p6 指数权重（一般有界损失）→ <code>√(T log d / 2)</code><br>· p20 在线梯度下降（凸 + Lipschitz）→ <code>R·G·√T</code><br>· p31 指数权重（<b>log 损失，η=1</b>）→ <code>log(d)</code>，<span class='w'>界里连 T 都没有</span><br><br><span class='k'>第三个用的算法和第一个一字不差</span>。差别全在损失函数：log 损失让证明中间那个「每期都要付一次」的近似变成了精确相等，代价归零，T 随之消失。<b>这是本讲最该带走的一件东西</b> —— 它给了你一个读任何遗憾界的方法：<span class='w'>先定位界里的每一项来自证明的哪一步</span>，常数项通常来自「初始的无知」，随 T 增长的项通常来自「每期的近似」。<br><br><b>对你清单的位置</b>：条目 7（MIT 6.S890）被列为「博弈论部分对你最重要的一门」，理由是它直接复用梯队 1 的 online learning 工具。<span class='k'>L01 给了指数权重，这一讲补上凸性与 OGD —— 两讲合起来才是那套工具的完整形态</span>。Hazan 的书（6.S890 与条目 8 都会用）前四章基本就是这一讲的展开版。<br><br>⚠ <b>材料形态提醒</b>：这 33 页里<span class='w'>只有 21 页是新内容</span>。p1–p8 与 L01 p41–48 是同一批幻灯（p6、p8 多了手写批注），p17–p19 与 L01 p49–51 文字相同。<b>真正新的是三块</b>：<span class='k'>凸性 p9–16</span>、<span class='k'>OGD 的证明 p21–22</span>（L01 p53 是一张正文全空的 Proof 页）、<span class='k'>通用投资组合 p23–33</span>。本精读的 p1–8 那一条写的是「去 L01 读 + 两笔手写补了什么」，不是重复讲解。", "pitfalls": [{"v": "<b>把凸替代损失上的保证，当成真目标上的保证。</b>p19 把 0/1 损失换成凸的 ℓ，是为了算得动；<span class='k'>但「替代损失没有遗憾」推不出「0/1 损失没有遗憾」</span>。替代损失压在 0/1 上面只保证「0/1 不会更大」，<span class='w'>不保证会变小</span>。要搬回去需要 calibration 假设，本讲完全没碰。<b>你论文里若把某个代理指标优化好了就宣称真实目标也好了，是同一类问题。</b>", "tag": "已核", "ref": "本讲 p19「Solution: relax the objective」；对照 L01 p49–51"}, {"v": "<b>把 p31 的 log(d) 当成「比得过最好的固定组合」。</b>定理里是 <code>max_{i∈[d]}</code>（单纯形的<span class='k'>顶点</span>，即单只股票），而 p27 定义的 regret 是 <code>max_{p∈Δ_d}</code>（<span class='k'>整个单纯形</span>）。<b>讲者自己在 p33 用两只反相股票把这个缺口捅破了</b>：单只股票 T 期后财富恒为 1，五五开组合是 (5/4)^T。<span class='w'>引用这个定理时必须连基准类一起报</span>。", "tag": "已核", "ref": "本讲 p31 的 max_{i∈[d]} 与 p27 的 max_{p∈Δ_d}；p33 的反例"}, {"v": "<b>把 p20 的 OGD 定理套到梯度无界的损失上。</b>定理的推论要求 <code>ℓ 是 G-Lipschitz</code>（即 ‖∇ℓ‖ ≤ G）。<span class='k'>而这一讲自己用的 log 损失 −log⟨p,r⟩ 在 ⟨p,r⟩ → 0 时梯度炸掉，不是 Lipschitz 的</span> —— <b>这正是后半讲改用指数权重而不是 OGD 的技术原因之一</b>。<span class='w'>同一讲里的两个工具不能互换，前提不一样。</span>", "tag": "已核", "ref": "本讲 p20 红字推论的前提；p28 的 ℓ_t(p) = −log⟨p,r_t⟩"}, {"v": "<b>以为 p31 里的 η = 1 是个方便的选择。</b>它是这个结构唯一的钥匙：<span class='k'>只有 η=1 时 <code>exp(−η·(−log⟨e_i,r_t⟩)) = ⟨e_i,r_t⟩</code>，那个精确抵消才成立</span>。换成任何别的 η，<code>Σ_i p_t(i)⟨e_i,r_t⟩^η ≠ ⟨p_t,r_t⟩^η</code>，<b>证明立刻断掉，log(d) 的界也就没了</b>。<span class='w'>更准确的说法是 −log⟨p,r⟩ 恰好是 1-exp-concave 的。</span>", "tag": "推断", "ref": "本讲 p32 的第五行；exp-concave 的说法是补的，讲义未用这个词"}, {"v": "<b>把定理框里的 ‖h_*‖²/(2η) 当成证明给出的那一项。</b>p22 的证明实际给出的是 <code>‖h₁ − h_*‖²/(2η)</code>，<span class='k'>两者只在 h₁ = 0 时一致</span>；而算法里写的是「任取 h₁ ∈ ℋ」。<b>这不是错，是省略</b>，<span class='w'>但自己推的时候要用证明里那一个</span>，用 R 兜底的话常数会差一个 4。", "tag": "已核", "ref": "本讲 p20 定理框与 p22 手写证明的末行对照"}], "ammo": [{"q": "你的搜索空间不是凸的，那这一套凸优化的东西对你有什么用？", "a": "<b>正面承认，然后给出两条替代路径，别含糊过去。</b>组合配置空间确实不凸（「选算子 A 或 B」是一个并集，而并集一般不凸）。<br><br><b>① 松弛到分布上</b>：允许以概率混合配置，可行域就变成<span class='k'>单纯形 Δ_d</span> —— 一个凸多面体。<b>这正是本讲后半（p23–33）干的事</b>，也是组合 bandit 文献的标准入口。代价是最后要舍入回一个真实配置，那一步的差距叫 integrality gap。<br><br><b>② 换一个结构假设</b>：把「凸性 ⇒ 局部即全局」换成「<span class='k'>单调性/子模性 ⇒ 支配可传递</span>」。<span class='w'>这对你的 dominance-pruning 更自然</span> —— 剪枝的正确性本来就不是靠凸性，是靠偏序上的支配关系。<br><br><b>关键是说清你走哪一条，而不是假装问题是凸的。</b>", "tag": "推断", "ref": "本讲 p9–16 的凸性；p23–33 的 Δ_d 松弛"}, {"q": "为什么你的遗憾界里有 √T？能不能更好？", "a": "<b>用这一讲的梯子正面回答：√T 是「只假设凸 + Lipschitz」这一档的最优结果，要更好必须加结构。</b>本讲一次给了你梯子上的三格：<br>· 一般有界损失 → <code>√(T log d)</code><br>· 凸 + Lipschitz → <code>RG√T</code>（对抗设定下有匹配下界，不可改进）<br>· <span class='k'>exp-concave（如 log 损失）→ <code>log(d)</code>，完全没有 T</span><br>再往上还有强凸 → <code>log T</code>。<br><br><b>所以「能不能更好」等价于「你的损失有没有更强的结构」。</b>对你的问题，<span class='w'>两个值得去核的方向</span>：① 若目标是端到端成功率这类<b>乘性量</b>，取对数后 log 损失是天然的；② 若加了二次正则，可能够得上强凸。<br><br>⚠ <b>但不要为了拿好看的界去换一个你并不真正关心的指标</b> —— 那是本末倒置，而且审稿人看得出来。", "tag": "推断", "ref": "本讲 p6、p20、p31 三个定理；L04 的极小极大分析"}, {"q": "你拿什么跟你的方法比？这些 baseline 够强吗？", "a": "<b>p33 那一页就是为这个问题准备的最好弹药。</b>讲者刚证完「比最好的单只股票只差 log d」，立刻给出两只反相股票的例子：<span class='k'>单只股票 T 期后财富恒为 1，而五五开的固定组合是 (5/4)^T</span>。<b>赢了一个零增长的基准，什么也说明不了。</b><br><br><b>所以你的 baseline 至少要包括</b>：① <span class='w'>不剪枝的同款搜索</span>（量出剪枝的净贡献，这一条最关键）；② 同等预算的 BO / UCB 类方法；③ AFlow 本身（简报 §2 已核它用的是 Boltzmann 爬山，不是 UCT）。<br><br><b>还有一条更尖、而且便宜</b>：<span class='k'>事后最优的固定策略</span> —— 「如果一开始就知道哪类配置好、只搜那一类」会怎样。这正是 regret 定义里 <code>max_{p∈Δ_d}</code> 的对应物，<b>可以在你已有的日志上离线算出来，不用重跑实验</b>。", "tag": "推断", "ref": "本讲 p33 的反例与设问；科研简报 §2"}, {"q": "你怎么保证剪枝不会把最优解剪掉？", "a": "<b>这个问题的标准答法，结构上和 p22 的证明是一样的：找一个势函数，证明它每一步的减少量能支付这一步的代价。</b><br><br>OGD 用的势函数是 <code>‖h_t − h_*‖²</code>，<span class='k'>你的对应物最自然的是「剩余候选集的大小」</span> —— 每次支配剪枝都确定性地删掉一批。<b>要证的不是遗憾界，而是「剪掉的那些确实都不是最优」。</b><br><br><b>两条可用的论证</b>：① <span class='w'>确定性</span>：若支配关系是硬的（加算子只会更贵），剪枝零错误，直接写偏序论证；② <span class='w'>高概率</span>：若支配判据用的是带噪的评估，那就套 L06 那一套 —— <span class='k'>构造一个好事件，用并集界让它对所有轮同时成立</span>，得到「以 1−δ 的概率不剪掉最优解」。<br><br><b>⚠ 要盯住的是：这个错误概率应该随 δ 下降而不随预算增长。</b>若它随预算增长，说明剪枝判据每次都在重新冒一次险，得改成一次性的好事件。", "tag": "推断", "ref": "本讲 p22 的势函数结构；对照 L06 的好事件 ℰ 与并集界"}], "papers": [{"t": "Hazan, Introduction to Online Convex Optimization", "id": "免费电子书", "why": "<b>这一讲基本就是它前四章的浓缩</b>，而且 p33 那个两只股票的反例<span class='k'>讲义脚注明写了出处就是这本书</span>。本讲没展开的 online mirror descent 统一视角（指数权重与 OGD 都是它的特例）在那里讲得最清楚。<span class='w'>条目 7 的 6.S890 默认你有这本书的语言。</span>"}, {"t": "Cover, Universal Portfolios", "id": "Mathematical Finance 1991", "why": "p33 结尾那个问号「How do we compete with any p ∈ Δ_d?」的答案。<b>把指数权重从 d 个顶点推广到整个单纯形上的连续分布</b>，遗憾界 <code>O(d log T)</code>。<span class='k'>本课 L04 的「连续指数权重」讲的就是它</span>。"}, {"t": "Zinkevich, Online Convex Programming and Generalized Infinitesimal Gradient Ascent", "id": "ICML 2003", "why": "<b>在线梯度下降的原始论文</b>，p20–22 那个 <code>RG√T</code> 就出自这里。<span class='w'>它也是把「在线凸优化」立成一个领域的那一篇</span> —— 读它能看到当年是怎么把批量优化的工具搬进对抗序列设定的。"}, {"t": "Boyd & Vandenberghe, Convex Optimization", "id": "官方免费全书", "why": "p9–16 那一节的系统版本。<b>第 2–3 章正是凸集与凸函数</b>，本讲的四条等价定义在那里都有完整证明与大量例子。<span class='k'>不必通读，当字典用</span> —— 碰到「某个函数凸不凸」时去查它的保凸运算那一节。"}, {"t": "本课 L04：通用投资组合 · 连续指数权重 · 极小极大分析", "id": "lecture_4.pdf", "why": "这一讲的直接下游，<b>回答 p33 留下的那个问号</b>。后半的极小极大分析会说明 <code>RG√T</code> 与 <code>O(d log T)</code> 都已经没法再改进 —— <span class='k'>看完才知道本讲那三个界哪些是「目前最好」，哪些是「最终答案」</span>。"}]};
+
+(function(){
+  var PDF="../corpus/slides/lecture_3.pdf", MAX=33;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l03quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l03p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l03quiz");
+      localStorage.removeItem("l03p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
