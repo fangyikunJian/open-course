@@ -1,0 +1,854 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "本片覆盖 p32–p45，是整讲 45 页里唯一的技术部分（13 页正文 + 回顾）。用项目标准 600 词/页。",
+  "五个基本量（p32）：状态 s_t · 动作 a_t · 观测 o_t（**only used when missing information**）· 轨迹 τ = (s₁,a₁,s₂,a₂,…,s_T,a_T)（**could be length T=1!**）· 奖励函数 r(s,a)",
+  "马尔可夫性（p33）：下一个状态只是当前状态与动作（以及随机性）的函数；动力学 p(s_{t+1}|s_t,a_t) **未知**；与 s_{t−1} 无关",
+  "机器人例子（p34）：s = RGB 图像 + 关节位置 + 关节速度；a = 下一个关节位置指令；τ = 20 Hz 下 10 秒序列，**T = 200**；r = 毛巾挂上钩子得 1，否则 0",
+  "聊天机器人例子（p34）：o = 用户最近一条消息；a = 机器人下一条消息；τ = 变长对话记录；r = **点赞 +1 / 点踩 −10 / 无反馈 0**",
+  "轨迹分布（p37）：p(s₁,a₁,…,s_T,a_T) = p(s₁)·Π_{t=1}^T π_θ(a_t|s_t)·p(s_{t+1}|s_t,a_t)，记作 p_θ(τ)",
+  "两个随机性来源（p37）：① the world is stochastic ② the car may not make the same decision every time",
+  "RL 的目标（p38）：max_θ E_{τ∼p_θ(τ)}[ Σ_t^T r(s_t,a_t) ]",
+  "随机策略的两个理由（p39）：① 探索 —— 要从自己的经验里学，就必须试不同的东西 ② 建模随机行为 —— 已有数据会表现出多样行为",
+  "值函数 V^π(s)：从 s 出发、之后一直按 π 走，未来的期望回报；Q 函数 Q^π(s,a)：从 s 出发、**先走 a**、之后按 π 走",
+  "五族算法（p41）：① 模仿学习 ② 策略梯度 ③ Actor-Critic ④ 基于值 ⑤ 基于模型",
+  "为什么这么多（p42）：数据采集成本 · 监督形式的成本 · 稳定性与易用性 · 动作空间维度与连续/离散 · 动力学模型好不好学"
+ ],
+ "notes": [
+  {
+   "r": [
+    32,
+    33
+   ],
+   "t": "五个名词定完，RL 的世界就搭好了——其中两个带着容易漏掉的小括号",
+   "star": 5,
+   "quote": "How to represent experience as data?  s_t  state - the state of the \"world\" at time t.  a_t  action - the decision taken at time t.  o_t  observation - what the agent observes at time t (only used when missing information).  τ  trajectory - sequence of states/observations and actions (s_1, a_1, s_2, a_2, . . . , s_T, a_T)  (could be length T=1!).  r(s, a)  reward function - how good is s, a?  States vs. observations — Next state is purely a function of the current state and action (and randomness): unknown dynamics p(s_{t+1}|s_t, a_t).  \"Markov property\": independent of s_{t−1}.",
+   "one": "<b>整个强化学习只需要五个名词：状态、动作、观测、轨迹、奖励。</b><span class='k'>而两个最该注意的信息藏在小括号里</span>：观测这个概念「<b>只在信息缺失时才用</b>」，轨迹「<b>长度可以是 1</b>」—— 后一条直接说明了 bandit 是 RL 的一个特例。",
+   "eq": "五个基本量（p32）：\n\n  s_t   状态     时刻 t 这个「世界」的状态\n  a_t   动作     时刻 t 做出的决策\n  o_t   观测     时刻 t agent 看到的东西\n                 （讲义小字：**only used when missing information**\n                   —— 只有在看不全状态时才需要这个概念）\n  τ     轨迹     (s₁, a₁, s₂, a₂, …, s_T, a_T)\n                 （讲义小字：**could be length T=1!**）\n  r(s,a) 奖励函数  (s,a) 这一步有多好\n\n────────────────────────────────────────\n马尔可夫性（p33）：\n\n  下一个状态**纯粹**是当前状态与动作（加上随机性）的函数：\n\n      s_{t+1}  ∼  p( · | s_t, a_t )          ← **动力学，而且是未知的**\n\n  关键是它**不**出现 s_{t−1}：\n      p(s_{t+1} | s_t, a_t, s_{t−1}, a_{t−1}, …)  =  p(s_{t+1} | s_t, a_t)\n\n  这条独立性就叫**马尔可夫性**。\n\n  ⚠ 它是对「状态」的定义性要求，不是对世界的假设：\n     **如果当前变量不足以预测未来，那它就还不配叫「状态」** —— 这时候\n     你手上的是「观测」o_t，要靠记忆（p36）把历史拼回去。",
+   "pts": [
+    "<b>「could be length T=1!」这个小括号对你尤其重要：它说的是 bandit 是 RL 的退化情形。</b><span class='k'>轨迹长度为 1 时没有状态转移、没有信用分配，只剩「选一个动作、拿一个奖励」</span> —— <b>那正是多臂老虎机</b>。<span class='w'>所以 CSE 541 整门课，在这个框架里是 T=1 的那一格。</span>",
+    "<b>「observation — only used when missing information」这句话把观测的地位说清楚了：它是一个不得已的概念。</b><span class='k'>理想情况下你直接拿到状态 s，马尔可夫性成立，一切都干净</span>；<b>现实中你只拿到观测 o（摄像头的一帧、用户的一句话），而它不足以决定未来</b>。<span class='w'>于是 MDP 退化成 POMDP（p43 会给这个名字）</span>。",
+    "<b>马尔可夫性最容易被误解成「对世界的假设」，其实它是「对状态的要求」。</b><span class='k'>任何过程都可以是马尔可夫的 —— 只要你把状态定义得足够大</span>（极端情形：把全部历史塞进状态）。<b>所以真正的问题从来不是「这个世界马尔可夫吗」，而是「我能不能找到一个足够小、又足够用的状态表示」。</b>",
+    "<b>注意动力学 <code>p(s_{t+1}|s_t,a_t)</code> 上面明写着 unknown。</b><span class='w'>这是 RL 与经典控制/规划的分界</span>：<b>知道动力学就是规划问题（可以直接算最优解），不知道才需要学</b>。<span class='k'>第 5 族算法「基于模型」做的就是先把它学出来（L11）</span>。",
+    "<b>奖励写成 <code>r(s,a)</code> 而不是 <code>r(s)</code> 也是一个选择。</b><span class='k'>动作本身可以有代价</span> —— <b>而这对你的课题是刚需</b>：<span class='w'>你的「cheapest-feasible」里那个 cost，正是一个只依赖动作（调用了哪个算子）的奖励项</span>。"
+   ],
+   "tbl": {
+    "cap": "五个名词，以及各自最容易出错的地方",
+    "head": [
+     "记号",
+     "是什么",
+     "<b>容易出错的地方</b>"
+    ],
+    "rows": [
+     [
+      "s_t",
+      "世界在 t 时刻的状态",
+      "<b>「状态」是你定义的，不是世界给的 —— 定得不够就不马尔可夫</b>"
+     ],
+     [
+      "a_t",
+      "t 时刻做的决策",
+      "动作空间连续还是离散，决定了能用哪族算法（p42）"
+     ],
+     [
+      "o_t",
+      "agent 看到的东西",
+      "<b>只在信息缺失时才需要它；有 o 没 s ⇒ POMDP，策略要带记忆</b>"
+     ],
+     [
+      "τ",
+      "(s₁,a₁,…,s_T,a_T)",
+      "<b>T 可以是 1 —— 那就退化成 bandit</b>"
+     ],
+     [
+      "r(s,a)",
+      "这一步有多好",
+      "<b>依赖 a 而不只是 s，所以「动作本身的代价」可以写进去</b>"
+     ],
+     [
+      "p(s_{t+1}|s_t,a_t)",
+      "动力学",
+      "<b>未知 —— 知道它就是规划问题，不是 RL</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里讲者对马尔可夫性的说明，比幻灯那一行更能说明它为什么有用：</b><br><br>「<span class='k'>the crucial thing to notice here is that S3 only depends on S2 and A2 and it doesn't depend on [S]1. … And this sort of independence property is called the Markov property. Uh, and it's, uh, one of the things that actually ends up being very useful in reinforcement learning. So, it allows you to break up the problem into these scenarios where you don't have to worry about all the dependencies that come before it.</span>」<br><br><b>「break up the problem」是关键词</b>：<span class='w'>马尔可夫性让你可以把一个 T 步的联合问题拆成 T 个一步的问题</span>。<b>动态规划、贝尔曼方程、值迭代，全部建立在这一条上。</b><br><br><b>课堂上还有一个很实际的提问值得记下来</b>：有学生问「<span class='k'>in practice, how many past observations do we need to infer the state?</span>」讲者的回答是「<span class='w'>it is heavily domain dependent … In a lot of robotics examples, you can often get away with just using the current [observation]</span>」。<b>也就是说这个窗口长度 m（p36 会出现）是一个要调的超参，没有理论答案。</b>",
+   "link": {
+    "t": "你学过的对应：Sutton & Barto 第 5 章（MDP 与蒙特卡洛方法，同一套记号的系统版本）",
+    "href": "../../sutton-barto/精读/C05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「轨迹长度可以是 1」这个小括号，正好标出了你的课题在这张图里的位置。</b><br><br>你的配置搜索，<span class='k'>如果建模成「选一个完整配置 → 拿一个分数」，那 T=1，是纯 bandit</span>；<b>如果建模成「逐个算子地构造 workflow，走完才给分」，那 T&gt;1，是 RL（而且是稀疏奖励的 RL）</b>。<br><br><b>两种建模的代价很不一样，值得先想清楚再动手</b>：<br>· <span class='w'>T=1</span>：动作空间 = 全部配置（巨大，但可以靠结构/支配关系剪枝）；<b>理论工具最成熟（CSE 541 L09）</b>。<br>· <span class='w'>T&gt;1</span>：动作空间小（每步只选一个算子），但<span class='k'>要处理信用分配与稀疏奖励</span>；<b>好处是中间状态可以共享信息</b>。<br><br><b>你的 dominance-pruning MCTS 听起来是第二种</b>，<span class='k'>而你的「最终选哪个配置」是第一种</span>。<b>两层都在，所以论文里要明确说清哪一层用哪套理论</b> —— ⚠ 这是我按你课题名字的推断，<span class='w'>实际怎么建模要你自己确认</span>。",
+    "ref": "本讲 p32 的「could be length T=1!」；对照 CSE 541 L09 的纯探索"
+   }
+  },
+  {
+   "r": [
+    34,
+    35
+   ],
+   "t": "同一套记号套两个完全不同的场景，其中聊天机器人那个奖励值得停一下",
+   "star": 4,
+   "quote": "Examples — s state: RGB images, joint positions, joint velocities.  a action: commanded next joint position.  τ trajectory: 10-sec sequence of camera, joint readings, controls at 20 Hz, T = 200.  r(s, a) reward = 1 if the towel is on the hook in state s, 0 otherwise.  —  o observation: the user's most recent message.  a action: chatbot's next message.  τ trajectory: variable length conversation trace (o_1, a_1, o_2, a_2, . . . , o_T, a_T).  r(s, a) reward = 1 if the user gives upvote, -10 if the user downvotes, 0 if no user feedback.  Think-pair-share: how to represent another example?  Define autonomous driving / web agent / poker player / choose your own!",
+   "one": "<b>一个机器人、一个聊天机器人，同一套记号全部套上。</b><span class='k'>最该注意的是聊天机器人那一行：机器人用 s（状态），聊天机器人用 o（观测）</span> —— <b>因为你永远看不到用户心里在想什么</b>。还有那个 <b>+1 / −10 / 0</b> 的奖励，不对称得很刻意。",
+   "eq": "例子一：机器人把毛巾挂上钩子\n  s   = RGB 图像 + 关节位置 + 关节速度\n  a   = 下一个关节位置的指令\n  τ   = 20 Hz 下 10 秒的相机/关节读数与控制序列  ⇒  **T = 200**\n  r   = 状态 s 里毛巾挂在钩子上则 1，否则 0\n\n例子二：聊天机器人\n  **o** = 用户最近的一条消息          ← 注意用的是 o 不是 s\n  a   = 机器人的下一条消息\n  τ   = 变长的对话记录 (o₁, a₁, o₂, a₂, …, o_T, a_T)\n  r   = 用户点赞 **+1** / 点踩 **−10** / 没有反馈 **0**\n\n────────────────────────────────────────\np35 的练习（think-pair-share）：\n  自己挑一个场景，把 s 或 o、a、τ、r 都定义出来：\n    自动驾驶 · 网页 agent · 扑克玩家 · 或者自己选一个\n\n  **这个练习值得真做一遍** —— 定义这四样东西本身就是\n  把一个现实问题变成 RL 问题的全部工作量。",
+   "pts": [
+    "<b>机器人用 s、聊天机器人用 o，这个区别是刻意的。</b>机器人可以认为相机加关节读数基本就是状态；<span class='k'>而用户的意图、心情、上下文记忆，你一概看不见</span>。<b>所以聊天是一个 POMDP</b>，<span class='w'>策略必须带记忆（p36 的 π_θ(a_t|o_{t−m},…,o_t)），否则每一轮都像第一次见面</span>。",
+    "<b>那个 <code>−10</code> 是整页最值得停的地方：点踩的代价是点赞收益的十倍。</b><span class='k'>这不是数学上的必要，是一个产品决策被编码进了奖励函数</span> —— <b>「宁可少讨好一次，也别惹恼一次」</b>。<span class='w'>奖励函数是你把价值观写进系统的地方</span>，<b>而它一旦写错，算法会非常忠实地把错的东西优化到极致。</b>",
+    "<b>「没有反馈 = 0」这个设定也埋着一个陷阱。</b><span class='k'>绝大多数对话是没有反馈的</span>，<b>所以奖励信号极其稀疏</b>；<span class='w'>而且「没点赞」和「没看到」被混成了同一个 0</span>。<b>这是真实 RLHF 系统里的一个核心难题</b>，L08（奖励学习）与 L09（RLHF）会正面处理。",
+    "<b>机器人那个 <code>T = 200</code> 是算出来的，不是给出来的</b>：<span class='k'>20 Hz × 10 秒 = 200 步</span>。<b>值得自己验一遍，因为「一条轨迹有多长」直接决定了信用分配有多难</b> —— <span class='w'>200 步里只有最后才知道毛巾挂没挂上，中间 199 步的奖励全是 0</span>。",
+    "<b>p35 的练习真的值得做一遍，而且最好拿你自己的问题去做。</b><span class='k'>把 s / a / τ / r 定义出来，就是把一个现实问题变成 RL 问题的全部工作量</span> —— <b>后面所有算法都只是在这四样东西上操作</b>。<span class='w'>定不出来，说明这个问题还不是（或者不该是）一个 RL 问题。</span>"
+   ],
+   "tbl": {
+    "cap": "两个例子逐行对照：差别全在「看得见多少」和「奖励多稀疏」",
+    "head": [
+     "",
+     "机器人挂毛巾",
+     "<b>聊天机器人</b>"
+    ],
+    "rows": [
+     [
+      "用 s 还是 o",
+      "<b>s（相机+关节基本就是状态）</b>",
+      "<b>o（看不见用户心里想什么）⇒ POMDP</b>"
+     ],
+     [
+      "动作空间",
+      "连续（关节位置）",
+      "<b>离散但巨大（整条消息）</b>"
+     ],
+     [
+      "轨迹长度",
+      "<b>T = 200（20 Hz × 10 秒）</b>",
+      "<b>变长</b>"
+     ],
+     [
+      "奖励",
+      "0/1，只在最后判定",
+      "<b>+1 / −10 / 0，**不对称**</b>"
+     ],
+     [
+      "奖励稀疏吗",
+      "<b>很稀疏（199 步都是 0）</b>",
+      "<b>更稀疏（多数对话根本没反馈）</b>"
+     ],
+     [
+      "最大的难点",
+      "信用分配",
+      "<b>「没反馈」与「没看到」混成同一个 0</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿在这一段之后有一个学生提问，答案值得记下来，因为它涉及一个常见的实现选择：</b><br><br>学生问的大意是：观测该用「当前的全部信息」还是「与上一帧的差分」？讲者答：<br><br>「<span class='k'>it would come out down to different trade-offs often times. If you are going to be including a lot of history, then kind of compressing it by using deltas could potentially make a lot of sense</span>…」<br><br><b>这是一个真实的工程取舍</b>：<span class='w'>要塞进很多历史时，用差分来压缩往往划算</span>；<b>但差分会丢掉绝对位置信息</b>，所以不是无脑更好。<br><br><b>更一般地看，这个问题问的是「状态该怎么表示」</b> —— <span class='k'>而这正是前一页说的那件事：马尔可夫性是对状态表示的要求</span>。<b>表示设计得好，一帧就够；设计得差，塞一百帧也不马尔可夫。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>那个 <code>−10</code> 对你的课题有一个很直接的类比：你的目标也是不对称的。</b><br><br>「cheapest-feasible」里，<span class='k'>「不可行」和「贵一点」的代价根本不是一个量级</span> —— <b>一个配置如果产出的结果不可用，那它多便宜都没意义</b>。<span class='w'>这在数学上就是一个硬约束，或者一个极大的负奖励</span>。<br><br><b>两种写法的后果不同，要选一个并说明理由</b>：<br>· <span class='w'>写成硬约束</span>（可行域里只留可行配置）：干净，但要求你<b>事先知道哪些可行</b> —— 而可行性往往要跑了才知道。<br>· <span class='w'>写成大负奖励</span>：允许「跑了才发现不可行」，但<span class='k'>常数取多大会直接影响搜索行为</span>，而且理论分析里那个常数会进界。<br><br><b>你的 nogood 机制听起来是第一种的增量版</b>：边搜边把发现的不可行组合加进约束。<span class='k'>那在形式上是一个「可行域在收缩的约束优化」</span> —— <b>这个提法本身就值得在论文里写清楚，因为标准的 bandit 理论都假设臂集固定</b>。",
+    "ref": "本讲 p34 的 −10；对照 CSE 541 L04 的「可行域收缩」那条待核事项"
+   }
+  },
+  {
+   "r": [
+    36,
+    36
+   ],
+   "t": "把行为变成一个可以求导的东西：策略，以及 rollout 这个词",
+   "star": 5,
+   "quote": "How to represent behavior with a neural network?  Observe state s_t → Take action a_t (e.g. by sampling from policy π_θ(·|s_t)) → Observe next state s_{t+1}, sampled from unknown world dynamics p(·|s_t, a_t).  Result: a trajectory s_1, a_1, . . . , s_T, a_T — also called a policy roll-out or an episode.  π_θ(a|s) also called a policy, θ.  If you only have observations o, give the policy memory: π_θ(a_t|o_{t−m}, …, o_t).",
+   "one": "<b>这一页回答了 p4 那三个学习目标里的第二条：怎么表示行为。</b>答案只有一个记号：<span class='k'><code>π_θ(a|s)</code> —— 一个由参数 θ 决定的、从状态到动作的条件分布</span>。<b>写成这个样子，「改进行为」就变成了「调 θ」，于是可以求导、可以用梯度下降。</b>",
+   "eq": "一次交互循环（p36）：\n\n  观察状态 s_t\n      ↓\n  采取动作 a_t      （例如从策略里**采样**：a_t ∼ π_θ( · | s_t)）\n      ↓\n  观察下一个状态 s_{t+1}  ∼  p( · | s_t, a_t)      ← **未知的世界动力学**\n      ↓\n  （回到第一步）\n\n  结果：一条轨迹 s₁, a₁, …, s_T, a_T\n  **这条轨迹也叫 policy roll-out，或者一个 episode。**\n\n────────────────────────────────────────\n策略本身：\n\n      π_θ(a | s)        θ 是神经网络的参数\n\n  · 它是一个**分布**，不是一个函数 —— 同一个 s 可以给出不同的 a\n  · 「学习行为」 = 「调 θ」，于是可以求导\n\n只有观测、没有状态时（p36 小字）：\n\n      π_θ( a_t | o_{t−m}, …, o_t )      ← **给策略一段记忆**\n\n  窗口长度 m 是超参。讲稿里学生问过「要多少历史」，\n  答案是 **heavily domain dependent**，机器人里常常当前一帧就够。",
+   "pts": [
+    "<b>把行为写成分布而不是函数，是这一页最关键的一步，而它有两个独立的理由（p39 会展开）。</b><span class='k'>一是探索</span>：确定性策略永远走同一条路，学不到别的；<span class='k'>二是建模</span>：真实数据里同一个状态下人们会做不同的事。<b>两条都要求 π 是一个分布。</b>",
+    "<b>「roll-out」这个词要和「episode」区分开，虽然这一页把它们并列了。</b><span class='w'>episode 强调的是「一次完整的尝试，从头到尾」</span>；<span class='w'>roll-out 强调的是「按某个策略把它展开出来」</span>。<b>在 MCTS 的语境里 rollout 还有更窄的含义（从某个节点往下随机走到底）</b> —— <span class='k'>你做 MCTS，读文献时要留意是哪一种</span>。",
+    "<b>注意采样发生在两个地方，而且这两处的随机性来源完全不同。</b>① <span class='k'>a_t ∼ π_θ(·|s_t)</span> —— 你自己的随机（可控）；② <span class='k'>s_{t+1} ∼ p(·|s_t,a_t)</span> —— 世界的随机（不可控，而且 p 未知）。<b>下一页 p37 要问的「随机性来源」，答案就是这两处。</b>",
+    "<b>「给策略记忆」那一行是 POMDP 的标准补丁，但它也是一个妥协。</b><span class='w'>理论上你需要的是对整个历史的充分统计量（信念状态）</span>；<b>实践里就塞最近 m 帧了事</b>。<span class='k'>m 太小不马尔可夫，m 太大网络难训</span> —— 而且讲稿明说<b>没有一般答案，heavily domain dependent</b>。",
+    "<b>θ 这个下标值得单独认一下：它是整门课唯一要优化的东西。</b><span class='k'>p38 的目标 <code>max_θ E_{τ∼p_θ(τ)}[·]</code> 里，max 下面写的就是 θ</span>。<b>后面五族算法的差别，说到底都是「怎么估这个期望对 θ 的梯度」或者「要不要绕开它」。</b>"
+   ],
+   "tbl": {
+    "cap": "两处采样：同样是随机，来源与可控性完全不同",
+    "head": [
+     "",
+     "a_t ∼ π_θ(·|s_t)",
+     "<b>s_{t+1} ∼ p(·|s_t,a_t)</b>"
+    ],
+    "rows": [
+     [
+      "随机来自",
+      "<b>你自己的策略</b>",
+      "<b>世界</b>"
+     ],
+     [
+      "你能控制吗",
+      "<b>能（调 θ）</b>",
+      "<b>不能</b>"
+     ],
+     [
+      "分布知道吗",
+      "<b>知道（你定义的）</b>",
+      "<b>不知道（unknown dynamics）</b>"
+     ],
+     [
+      "为什么要它随机",
+      "探索 + 建模多样行为（p39）",
+      "世界本来就随机"
+     ],
+     [
+      "在 p37 里的身份",
+      "<b>第 2 个变异来源</b>",
+      "<b>第 1 个变异来源</b>"
+     ],
+     [
+      "哪族算法会去学它",
+      "策略梯度 / AC（直接调 θ）",
+      "<b>基于模型（L11 要把 p 学出来）</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿在进入这一页时有一句很好的过渡，它点出了这一页在整讲里的位置：</b><br><br>「<span class='k'>Okay, so now that we've talked about formulating the reinforcement learning problem, let's talk about actually representing behavior. So, we want to map typically from states or observations to action.</span>」<br><br><b>注意她说的是 map from states or observations to action</b> —— <span class='w'>一个映射</span>。<b>但幻灯上写的是 <code>π_θ(a|s)</code>，一个条件分布。</b><br><br><span class='k'>这个口语与记号之间的小差距，正是下一页 p39 要补的那一课</span>：<b>为什么不能只用一个映射（确定性策略），非要用分布</b>。<br><br>读的时候可以带着这个问题往下走 —— <span class='w'>如果策略只是一个 s → a 的函数，哪里会出问题？</span>（答案：你永远不会尝试别的动作，也就永远不知道别的动作好不好。）",
+   "link": {
+    "t": "你学过的对应：CS234 L08 策略梯度（π_θ 的梯度怎么求：似然比技巧）",
+    "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"
+   }
+  },
+  {
+   "r": [
+    37,
+    38
+   ],
+   "t": "目标写不出来的那一刻：回报不是一个确定的数，所以要套一个期望",
+   "star": 5,
+   "quote": "What is the goal of reinforcement learning?  maximize sum of rewards: max Σ_t^T r(s_t, a_t) — but this is not a deterministic quantity!  Question: what are the sources of variability?  p(s_1, a_1, . . . , s_T, a_T) = p(s_1) Π_{t=1}^T π_θ(a_t|s_t) p(s_{t+1}|s_t, a_t)  ≜ p_θ(τ).  1. the world is stochastic.  2. the car may not make the same decision every time.  maximize expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t^T r(s_t, a_t) ].",
+   "one": "<b>这两页只做了一件事：在目标函数外面套了一个期望。</b><span class='k'>但这一步是整门课的转折点</span> —— <b>因为「最大化回报」这句话本身是没定义的：同一个策略跑两次，回报就不一样。</b>",
+   "eq": "先写下想要的（p37 上半）：\n\n      max  Σ_{t}^{T} r(s_t, a_t)\n\n  **但这不是一个确定的量！**  讲者当场提问：变异来自哪里？\n\n────────────────────────────────────────\n轨迹的分布（p37，这一行是全讲最该背的）：\n\n  p(s₁, a₁, …, s_T, a_T)\n      =  p(s₁) · Π_{t=1}^{T}  π_θ(a_t | s_t) · p(s_{t+1} | s_t, a_t)\n         └初始态┘   └── 你的策略 ──┘   └── 世界的动力学 ──┘\n      ≜  p_θ(τ)\n\n  注意下标 θ：**整条轨迹的分布依赖于你的参数** —— 这正是难点所在。\n\n  两个变异来源（p37 答案）：\n    1. **the world is stochastic**              ← p(s_{t+1}|s_t,a_t) 是分布\n    2. **the car may not make the same decision every time**  ← π_θ 是分布\n\n────────────────────────────────────────\n于是目标改写成（p38）：\n\n      max_θ   𝔼_{τ ∼ p_θ(τ)} [ Σ_{t}^{T} r(s_t, a_t) ]\n\n  **这就是整门课要优化的那个式子。**后面所有算法都在打它的主意。",
+   "pts": [
+    "<b><code>p_θ(τ)</code> 这个下标是全讲最该盯住的一个细节：期望里的分布本身依赖于你要优化的参数。</b><span class='k'>普通的监督学习是 <code>min_θ E_{x∼D}[ℓ(f_θ(x))]</code>，分布 D 与 θ 无关</span>；<b>这里是 <code>max_θ E_{τ∼p_θ(τ)}[R(τ)]</code>，改 θ 会同时改被积函数和积分测度</b>。<span class='w'>所以你不能直接把梯度塞进期望里 —— 这正是策略梯度要用似然比技巧的原因。</span>",
+    "<b>那一行乘积分解值得逐项认：它说明轨迹的概率由三样东西决定。</b>① <span class='k'>p(s₁)</span> 初始状态分布（你不能控）；② <span class='k'>π_θ(a_t|s_t)</span> 你的策略（唯一能控的）；③ <span class='k'>p(s_{t+1}|s_t,a_t)</span> 世界（不能控，还未知）。<b>整个 RL 就是在只能动第 ② 项的情况下，去影响整条轨迹的分布。</b>",
+    "<b>讲者在这里用提问的方式推进，而学生的答案正好覆盖了两条。</b><span class='w'>第一个学生说「状态不只取决于动作和状态，还有随机性影响下一个状态」</span>（= 世界随机）；<span class='w'>第二个说「你的策略也可能不是确定性的」</span>（= 策略随机）。<b>这两条是 p37 给的标准答案。</b>",
+    "<b>还有第三个可能的来源，讲稿里有，幻灯上没有：奖励本身也可能是随机的。</b><span class='k'>讲者的处理是「generally without losing generality, you can push that into the state if you need it」</span> —— <b>把随机性推进状态里，奖励函数就可以保持确定性</b>。<span class='w'>这是一个标准技巧，但它要求状态能装下那个隐藏变量。</span>",
+    "<b>套上期望之后，目标才终于是一个关于 θ 的确定函数，可以谈「最大化」了。</b><span class='k'>但代价是：这个期望算不出来</span>（τ 的空间是指数大的，而且 p 未知）。<b>所以所有算法都在解决同一个问题：怎么在不知道 p、也算不了期望的情况下，估出它对 θ 的梯度（或者绕开梯度）。</b>"
+   ],
+   "tbl": {
+    "cap": "p_θ(τ) 的三个因子：哪些你能动，哪些你连看都看不到",
+    "head": [
+     "因子",
+     "是什么",
+     "你能控吗",
+     "你知道吗",
+     "<b>哪族算法会动它</b>"
+    ],
+    "rows": [
+     [
+      "p(s₁)",
+      "初始状态分布",
+      "<b>不能</b>",
+      "一般不知道",
+      "—"
+     ],
+     [
+      "<b>π_θ(a_t|s_t)</b>",
+      "<b>你的策略</b>",
+      "<b>能（调 θ）</b>",
+      "<b>知道（你定义的）</b>",
+      "<b>策略梯度 / AC</b>"
+     ],
+     [
+      "p(s_{t+1}|s_t,a_t)",
+      "世界动力学",
+      "<b>不能</b>",
+      "<b>不知道</b>",
+      "<b>基于模型（L11 学它）</b>"
+     ],
+     [
+      "<b>合起来</b>",
+      "<b>p_θ(τ)</b>",
+      "<b>只能通过第二项间接影响</b>",
+      "—",
+      "—"
+     ],
+     [
+      "由此带来的技术难点",
+      "<b>期望里的分布依赖 θ</b>",
+      "—",
+      "—",
+      "<b>似然比技巧 / 重要性采样</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里这一段是课堂互动，而且问答把三个变异来源都问出来了，值得完整看一遍：</b><br><br>讲者先问：「<span class='k'>why is this not a deterministic quantity and what are the sources of variability that might cause the sum of rewards to differ from one trajectory to another trajectory?</span>」<br><br>学生甲：「<span class='w'>one source of variability is that the state doesn't just depend on the action and the state, but there's also kind of randomness that can affect the next state.</span>」<br>学生乙：「<span class='w'>Your policy may not be deterministic either.</span>」<br><br>讲者确认这两条是「<span class='k'>two really key sources</span>」，然后补了第三条：「<span class='w'>You might have a stochastic reward…</span>」并给出处理办法：「<span class='k'>generally without losing generality, you can push that into the state if you need it.</span>」<br><br><b>最后她用开车作例子把两条收束了</b>：「<span class='w'>in driving, for example, other cars are going to behave in ways that are random. And your car might not make the same decision every time.</span>」<br><br><b>这一段是本讲最值得看录像的地方</b> —— 幻灯上只有两行结论，<span class='k'>而推出结论的过程全在问答里</span>。",
+   "link": {
+    "t": "你学过的对应：CS234 L08 策略梯度（p_θ(τ) 依赖 θ 怎么办：∇log p_θ(τ) 的那一招）",
+    "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「期望里的分布依赖于你要优化的参数」这件事，在你的课题里有一个对应，而且是你必须处理的。</b><br><br>你的搜索策略决定了<span class='k'>你会去评估哪些配置</span>，而那些评估又用来更新搜索策略。<b>于是你收集到的数据分布依赖于你的算法</b> —— <span class='w'>这正是「自适应收集的数据」，而标准的集中不等式（CSE 541 L05）假设 n 事先固定，在这里不成立</span>。<br><br><b>这是你论文里一个必须显式处理的技术点</b>：<span class='k'>用固定 n 的 Hoeffding 界去给自适应收集的数据做置信区间，是错的</span>。<b>正确的工具是鞅型置信界 / anytime 界（CSE 541 L12）</b>。<br><br><b>好消息是这个洞有标准补丁</b>，而且你已经读过那一讲。<span class='w'>坏消息是很多实证论文根本没意识到这个问题</span> —— <b>所以把它处理对，本身就是一个可以写出来的严谨性加分项</b>。",
+    "ref": "本讲 p37 的 p_θ(τ)；对照 CSE 541 L05 的固定 n 假设与 L12 的鞅型界"
+   }
+  },
+  {
+   "r": [
+    39,
+    39
+   ],
+   "t": "为什么策略非得是随机的：一个为了学，一个为了学得像",
+   "star": 4,
+   "quote": "Aside: why stochastic policies?  1. Exploration: to learn from your own experience, must try different things.  We can leverage tools from generative modeling!  2. Modeling stochastic behavior: existing data will exhibit varying behaviors —> generative model over actions given states/observations.",
+   "one": "<b>两个理由，而且它们服务于两种完全不同的场景。</b><span class='k'>第一个是为了「学」（在线：不试别的就不知道别的好不好）</span>，<span class='k'>第二个是为了「学得像」（离线：数据里本来就有多种做法）</span>。<b>讲义把这一页标成 Aside，但它其实解释了整门课为什么长成现在这样。</b>",
+   "eq": "理由一：**探索**\n  要从自己的经验里学，就必须去试不同的东西。\n  · 确定性策略 a = f(s)：同一个状态永远做同一件事\n    ⇒ 其他动作的回报**永远不会被观测到**\n    ⇒ 你无法知道自己是不是停在一个次优解上\n  · 讲义补了一句：**We can leverage tools from generative modeling!**\n    （策略就是一个条件生成模型 —— 扩散策略、自回归策略都是这么来的）\n\n理由二：**建模随机行为**\n  已有的数据会表现出多样的行为：\n  · 不同的人开车方式不同；同一个人不同时候也不同\n  · 若你用确定性策略去拟合，它会收敛到**平均**那个动作\n    ⇒ 而「平均的动作」常常是**所有做法里最差的那个**\n      （例：绕开障碍物，左绕和右绕都对，平均就是直接撞上去）\n  ⇒ 所以要在「给定状态的动作」上建一个**生成模型**\n\n────────────────────────────────────────\n两个理由的分工：\n  理由一 → **在线**场景（L03–L06、L14 探索）\n  理由二 → **离线/模仿**场景（L02 模仿学习、L07 离线 RL）",
+   "pts": [
+    "<b>理由二比理由一更容易被忽略，但它造成的失败更隐蔽。</b><span class='k'>用确定性策略去拟合多模态的数据，结果是落在各个模态的平均值上</span> —— <b>而平均值常常不在任何一个模态里</b>。<span class='w'>讲义没举例，但最经典的是绕障碍：左绕右绕都对，平均一下就是直直撞上去</span>。",
+    "<b>「We can leverage tools from generative modeling!」这一句是一个方向性的提示。</b><span class='k'>既然策略是「给定 s 的 a 的分布」，那它就是一个条件生成模型</span> —— <b>于是整个生成模型工具箱都能搬过来</b>：<span class='w'>高斯混合、自回归、扩散模型</span>。<b>近年机器人领域的 diffusion policy 正是这条路。</b>",
+    "<b>理由一与「探索-利用权衡」是同一件事的两个说法，而这正是 bandit 的核心话题。</b><span class='k'>随机策略是最朴素的探索手段（ε-贪心、softmax）</span>；<b>而 CSE 541 整门课在讲更聪明的做法</b>：<span class='w'>用置信上界、用实验设计，而不是靠随机碰</span>。<b>两者的差别在样本效率上是数量级的。</b>",
+    "<b>注意这一页被标成 Aside（插叙），但它的位置不是随便放的。</b><span class='k'>它夹在「目标是最大化期望回报」（p38）与「值函数」（p40）之间</span> —— <b>因为前一页刚说策略是随机性的来源之一，自然要解释「那为什么不干脆让它确定」。</b>",
+    "<b>随机策略也有代价，讲义没提但该知道：它引入了方差。</b><span class='w'>策略越随机，同一个 θ 下的回报波动越大，梯度估计就越不准</span>。<b>所以实践中常让随机性随训练衰减</b> —— <span class='k'>前期多探索，后期趋于确定。这个调度本身是一个超参。</span>"
+   ],
+   "tbl": {
+    "cap": "两个理由的分工，以及各自失败时的样子",
+    "head": [
+     "",
+     "理由一：探索",
+     "<b>理由二：建模随机行为</b>"
+    ],
+    "rows": [
+     [
+      "场景",
+      "<b>在线</b>（自己去试）",
+      "<b>离线 / 模仿</b>（学已有数据）"
+     ],
+     [
+      "不随机会怎样",
+      "<b>永远观测不到别的动作的回报</b>",
+      "<b>收敛到各模态的平均 —— 可能哪个模态都不是</b>"
+     ],
+     [
+      "典型失败",
+      "卡在次优解上还不自知",
+      "<b>绕障碍时直直撞上去</b>"
+     ],
+     [
+      "对应的讲",
+      "L03–L06 · <b>L14 探索</b>",
+      "<b>L02 模仿学习</b> · L07 离线 RL"
+     ],
+     [
+      "更聪明的做法",
+      "<b>UCB / 实验设计（CSE 541）</b>",
+      "<b>条件生成模型（扩散策略）</b>"
+     ],
+     [
+      "代价",
+      "<b>方差变大，梯度估计变差</b>",
+      "模型更复杂"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里讲者用打网球作例子解释探索，这个比喻比幻灯上那行字好记得多：</b><br><br>「<span class='k'>if you want to learn, you probably have to try different things. Like if you're learning how to play tennis, you probably shouldn't try the same exact technique over and over again. You need actually explore and try different strategies in order to do it. And so, that can be represented as a stochastic policy that's trying a few different strategies and trying to figure out which strategy is best.</span>」<br><br>接着是理由二：<br><br>「<span class='w'>there's scenarios where you collect data from people or from different systems and those people are taking different strategies. And if you want to model the way that they're ap[proaching it]…</span>」<br><br><b>两个比喻的对象不一样，值得注意</b>：<span class='k'>理由一讲的是「你自己在学」，理由二讲的是「你在学别人」</span>。<b>这也正好对应在线与离线两种场景</b> —— <span class='w'>而这门课后面会把它们拆成完全不同的两章</span>（HW2 在线 vs HW3 离线）。",
+   "link": {
+    "t": "你学过的对应：CSE 541 L06 逐次淘汰（比随机探索聪明得多的做法：用置信区间决定该试谁）",
+    "href": "../../bandits-cse541/精读/L06-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你一个可以正面写进论文的对比点：你的搜索用的是哪一种探索？</b><br><br>· <span class='w'>随机策略（ε-贪心、Boltzmann）</span>：最朴素的一档。<b>简报 §2 已核实 AFlow 用的正是 Boltzmann 爬山</b> —— <span class='k'>softmax(α(s_i − s_max)) 再与均匀分布混合</span>。<br>· <span class='w'>基于置信的探索（UCB、逐次淘汰）</span>：用不确定性决定试谁，<b>而不是靠掷骰子</b>。<br>· <span class='w'>实验设计（G-最优、XY-最优）</span>：<b>一次性规划好要测哪些</b>，最省样本的一档。<br><br><b>三档之间的差距在样本效率上是数量级的</b>，<span class='k'>而这正是一个干净的、可以实验验证的贡献点</span>：在同样的评估预算下，把 Boltzmann 换成基于置信的选择，能省多少次评估。<br><br><b>这个实验很便宜</b>（不需要新理论，只要换一个选择规则），<span class='w'>而且结果无论正负都有价值</span> —— 如果省不了，那本身是一个值得解释的现象。",
+    "ref": "本讲 p39 的探索理由；科研简报 §2（AFlow 的 Boltzmann 爬山，已核）"
+   }
+  },
+  {
+   "r": [
+    40,
+    40
+   ],
+   "t": "值函数与 Q 函数：为了改进策略，先得能评价策略",
+   "star": 5,
+   "quote": "What is the goal of reinforcement learning?  maximize expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[Σ_t^T r(s_t, a_t)].  How good is a particular policy?  V^π(s)  value function - future expected reward starting at s and following π.  Q^π(s, a)  Q-function - future expected reward starting at s, taking a, then following π.",
+   "one": "<b>一页两个定义，差别只有五个字：Q 函数「先走一步 a」，值函数不走。</b><span class='k'>但正是这五个字让 Q 函数可以直接拿来选动作，而 V 不行</span> —— <b>这个区别会一路贯穿到 L06 的 Q-learning。</b>",
+   "eq": "起点是一个很实际的问题（p40）：\n\n      **How good is a particular policy?**\n      （一个策略到底有多好？）\n\n两个答案：\n\n  V^π(s)   = 从状态 s 出发、之后一直按 π 走，**未来的期望回报**\n\n           = 𝔼_{τ ∼ p_π(τ | s₁ = s)} [ Σ_{t} r(s_t, a_t) ]\n\n  Q^π(s,a) = 从状态 s 出发、**先走动作 a**、之后再按 π 走，未来的期望回报\n\n           = 𝔼 [ Σ_{t} r(s_t, a_t)  |  s₁ = s, a₁ = a ]\n\n────────────────────────────────────────\n两者的关系（讲义没写，但一行就能看出来）：\n\n      V^π(s)  =  𝔼_{a ∼ π(·|s)} [ Q^π(s, a) ]\n                （对动作按策略取平均，就从 Q 回到 V）\n\n为什么 Q 更有用：\n      给定 Q^π，你可以直接问「哪个 a 最好」：  argmax_a Q^π(s,a)\n      给定 V^π，你**做不到** —— 要知道走 a 之后会到哪，\n      也就是**需要动力学 p(s'|s,a)**，而它是未知的。\n\n  ⇒ **这正是为什么有一整族「基于值」的算法学的是 Q 而不是 V**（L06）。",
+   "pts": [
+    "<b>讲稿里给的动机比幻灯更直白，而且它是整页的逻辑起点</b>：<span class='k'>「if you don't know how good your policy is, then you're not going to be able to make your policy better」</span>。<b>先会评价，才谈得上改进</b> —— <span class='w'>这句话也解释了为什么 Actor-Critic（第 3 族）要同时养一个 actor 和一个 critic。</span>",
+    "<b>V 和 Q 的差别只有「先走一步 a」，但后果很大：Q 自带了选动作的能力。</b><span class='k'>有了 Q，<code>argmax_a Q(s,a)</code> 直接给出该做什么</span>；<b>而有了 V，你得先知道走某个 a 会到哪个 s'，也就是需要动力学</b>。<span class='w'>动力学恰恰是未知的 —— 所以无模型算法学 Q，有模型算法才用得上 V。</span>",
+    "<b>两者的桥是 <code>V^π(s) = E_{a∼π(·|s)}[Q^π(s,a)]</code>，讲义没写但该自己补上。</b><span class='k'>对动作按当前策略取平均，就从 Q 回到 V</span>。<b>反过来从 V 推 Q 则需要动力学</b> —— <span class='w'>这个不对称性是「为什么 Q 更常用」的精确答案。</span>",
+    "<b>注意上标 π：这两个函数都是「某个特定策略的」，不是绝对的。</b><span class='k'>同一个状态，在好策略下值高、在烂策略下值低</span>。<b>而最优值函数 <code>V*</code>、<code>Q*</code>（这一页还没出现）是对最优策略说的</b> —— <span class='w'>第 4 族「基于值」的算法直接去估 Q*，跳过了「先有策略再评价」这一步</span>（p41 的措辞就是 estimate value of the **optimal** policy）。",
+    "<b>值函数的存在本身，是对「反馈间接」这个困难的回答。</b><span class='k'>你只在最后拿到一个总分，不知道该归功于哪一步</span>；<b>值函数把「从这里往后还能拿多少」这个量估出来，于是每一步都有了即时的评价</b>。<span class='w'>这就是信用分配的解法，也是 L04 Actor-Critic 的全部内容。</span>"
+   ],
+   "tbl": {
+    "cap": "V 与 Q：一步之差，用途天差地别",
+    "head": [
+     "",
+     "V^π(s)",
+     "<b>Q^π(s, a)</b>"
+    ],
+    "rows": [
+     [
+      "定义",
+      "从 s 出发，之后按 π 走",
+      "<b>从 s 出发，先走 a，之后按 π 走</b>"
+     ],
+     [
+      "能直接选动作吗",
+      "<b>不能</b>（要知道走 a 会到哪 ⇒ 需要动力学）",
+      "<b>能：argmax_a Q(s,a)</b>"
+     ],
+     [
+      "互推",
+      "V(s) = E_{a∼π}[Q(s,a)]（容易）",
+      "<b>从 V 推 Q 需要动力学（难）</b>"
+     ],
+     [
+      "谁在用",
+      "Actor-Critic 的基线（L04）",
+      "<b>基于值的算法（L06 Q-learning）</b>"
+     ],
+     [
+      "上标 π 的意思",
+      "<b>这是「这个策略的」值，不是绝对的</b>",
+      "同左"
+     ],
+     [
+      "它解决了什么",
+      "<b>信用分配：把「最后一个总分」摊到每一步</b>",
+      "同左"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里这一段的开场把这一页的必要性说清楚了，值得逐字看：</b><br><br>「<span class='k'>[how do we know] how good a policy is? Uh, and this is really useful to think about because if you don't know how good your policy is, then you're not going to be able to make your policy better. And the terminology that we use to think about this is referred to as a value function. So, we often think about the value function for a policy of a given state, and we denote it, uh, typically as V pi of S. And essentially what this means is it's the future expected reward if you start at S and then follow pi from then onward.</span>」<br><br><b>「if you don't know how good your policy is, then you're not going to be able to make your policy better」—— 这一句是整个 Actor-Critic 家族的一句话总结。</b><br><br><span class='w'>actor 负责「做」，critic 负责「评」</span>，<b>而 critic 学的就是这一页的 V 或 Q</b>。<span class='k'>讲者还提到 Q 函数「我们会在周五的课之后开始讲」</span> —— 也就是 L04 之后。",
+   "link": {
+    "t": "你学过的对应：Sutton & Barto 第 5 章（V 与 Q 的蒙特卡洛估计，以及为什么无模型时要学 Q）",
+    "href": "../../sutton-barto/精读/C05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「先会评价，才谈得上改进」这句话，在你的课题里对应一个很具体的缺口：你怎么评价一个「还没跑完的部分配置」？</b><br><br>你的 MCTS 要在树上做决策，<span class='k'>而树的内部节点是「只选了一半算子的 workflow」</span> —— <b>它没有分数，因为还没法跑</b>。<span class='w'>这正是值函数要解决的问题：给一个中间状态估一个「从这里往下最好能到多少」</span>。<br><br><b>三条可用的路，代价递增</b>：<br>① <span class='w'>rollout</span>：随机补全成一个完整配置，跑一次，拿分数当估计 —— <b>最直接，但每次都要一次昂贵评估</b>；<br>② <span class='w'>学一个代理值函数</span>：用历史数据训一个「部分配置 → 预期分数」的回归器 —— <b>便宜，但有估计误差</b>；<br>③ <span class='w'>乐观上界</span>：用支配关系给出一个可证的上界 —— <b>最贵也最硬，而且正好是你的剪枝机制的另一面</b>。<br><br><b>第 ③ 条值得认真想</b>：<span class='k'>如果你能给部分配置算一个可证的乐观上界，那剪枝与节点选择就是同一个量的两种用法</span> —— 上界低于当前最优就剪掉，上界高就优先展开。<b>这会让你的方法有一个很干净的叙述。</b>",
+    "ref": "本讲 p40 的 V/Q 定义；对照 CSE 541 L10 的乐观主义（在置信集里挑最有利的那个）"
+   }
+  },
+  {
+   "r": [
+    41,
+    42
+   ],
+   "t": "五族算法，和一句「为什么不能只有一个算法」",
+   "star": 5,
+   "quote": "Types of algorithms — 1. Imitation learning: mimic a policy that achieves high reward.  2. Policy gradients: directly differentiate the above objective.  3. Actor-critic: estimate value of the current policy and use it to make the policy better.  4. Value-based: estimate value of the optimal policy.  5. Model-based: learn to model the dynamics, and use it for planning or policy improvement.  Why so many algorithms?  How easy / cheap is it to collect data with policy? How easy / cheap are different forms of supervision? How important is stability and ease-of-use? Action space dimensionality, continuous vs. discrete. Is it easy to learn the dynamics model?  Algorithms make different trade-offs, thrive under different assumptions.",
+   "one": "<b>五族算法就是这门课的目录，而 p42 回答了那个每个初学者都会问的问题：为什么不能只有一个算法？</b><span class='k'>答案是「它们做了不同的取舍，在不同的假设下才好用」</span> —— <b>而这正是整门课要教会你判断的东西。</b>",
+   "eq": "五族算法（p41），按「离目标函数有多近」排：\n\n  1. **模仿学习**      模仿一个能拿高回报的策略\n                       → 绕开目标函数，直接监督学习\n  2. **策略梯度**      直接对目标求导\n                       → 最直接，但方差大\n  3. **Actor-Critic**  估计**当前策略**的值，用它来改进策略\n                       → 用 critic 降方差\n  4. **基于值**        估计**最优策略**的值\n                       → 跳过「策略」，直接学 Q*，再 argmax\n  5. **基于模型**      学动力学模型，用它做规划或改进策略\n                       → 把未知的 p(s'|s,a) 学出来\n\n────────────────────────────────────────\n为什么这么多（p42 的五条取舍）：\n\n  · 用策略去采数据有多容易/多便宜？（仿真器 vs 手写）\n  · 不同形式的监督有多容易/多便宜？（示范、细粒度奖励）\n  · 稳定性与易用性有多重要？\n  · 动作空间的维度、连续还是离散？\n  · 动力学模型好不好学？\n\n  结论原话：**Algorithms make different trade-offs, thrive under different assumptions.**",
+   "pts": [
+    "<b>第 3 族与第 4 族的差别只有一个词，但那是整门课最该分清的一对：<span class='k'>current</span> vs <span class='k'>optimal</span>。</b>Actor-Critic 估的是<b>当前策略</b>的值（所以 critic 要随 actor 一起更新）；基于值的算法估的是<b>最优策略</b>的值（所以可以不要显式的策略）。<span class='w'>前者是「评价我现在这样走多好」，后者是「评价最好能走多好」。</span>",
+    "<b>第 1 族（模仿学习）其实绕开了整个 RL 框架。</b><span class='k'>它不优化期望回报，它只是做监督学习：给定专家的 (s,a) 对，学一个 f(s) ≈ a</span>。<b>所以它最简单、最稳，代价是上界等于专家水平</b> —— <span class='w'>而且会碰到分布漂移（L02 的 DAgger 就是在补这个洞）</span>。",
+    "<b>动作空间连续还是离散，是选算法时第一个该问的问题。</b><span class='k'>离散动作：Q-learning 可以直接 argmax（枚举所有动作）</span>；<b>连续动作：argmax 本身就是一个优化问题</b>，<span class='w'>所以连续控制里基于值的方法要么不用（走策略梯度），要么要配一个 actor 来做那个 argmax（DDPG/SAC 那一族）</span>。",
+    "<b>p42 第一条「用策略去采数据有多容易」决定了在线还是离线。</b><span class='k'>仿真器里数据几乎免费 → 可以放肆地在线试（策略梯度就够）</span>；<b>真机/真人那边一次交互很贵 → 必须离线或者极度省样本</b>。<span class='w'>这条取舍直接对应 HW2 与 HW3 的分野。</span>",
+    "<b>「thrive under different assumptions」这个说法值得记住，它是读这门课所有后续内容的框架。</b><span class='k'>每学一个算法，就去问：它假设了什么？这个假设在我的问题里成立吗？</span><b>不问这个，你会把一个在仿真里很好的算法搬到真机上然后困惑于它为什么不work</b> —— <span class='w'>而答案通常是某条假设悄悄失效了。</span>"
+   ],
+   "tbl": {
+    "cap": "五族算法：各自假设了什么，什么时候该用",
+    "head": [
+     "族",
+     "核心做法",
+     "<b>关键假设</b>",
+     "什么时候用"
+    ],
+    "rows": [
+     [
+      "<b>1 模仿学习</b>",
+      "监督学习抄专家",
+      "<b>有高质量示范</b>",
+      "<b>有专家数据，且不要求超过专家</b>"
+     ],
+     [
+      "<b>2 策略梯度</b>",
+      "直接对目标求导",
+      "<b>能大量在线采样</b>",
+      "仿真便宜、动作连续"
+     ],
+     [
+      "<b>3 Actor-Critic</b>",
+      "学**当前**策略的值来降方差",
+      "同上 + critic 能训好",
+      "<b>策略梯度方差太大时</b>"
+     ],
+     [
+      "<b>4 基于值</b>",
+      "学**最优**策略的值 Q*，再 argmax",
+      "<b>动作离散（否则 argmax 难）</b>",
+      "<b>离散动作、要样本效率</b>"
+     ],
+     [
+      "<b>5 基于模型</b>",
+      "学动力学，在模型里规划",
+      "<b>动力学好学且误差可控</b>",
+      "<b>交互极贵、动力学相对简单</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里 p42 这一段的开场把这个问题问得很好，而且顺带点出了 RL 和监督学习的气质差别：</b><br><br>「<span class='k'>you might be wondering, why do we have so many different algorithms for optimizing this objective? In supervised learning, we like just have gradient descent, it works, it's great, it's simple. Um, in reinforcement learning, things are less simple. Algorithms make different trade-offs and thrive under different assumptions.</span>」<br><br>然后她举了第一条取舍的具体例子：<br><br>「<span class='w'>it's going to depend on, for example, how easy or cheap is it to collect data. And if you're in a simulator, for example, it's really, really cheap to collect lots of data versus if you're handwriting … actually interacting with a person that's writing things, that's going to be more expensive.</span>」<br><br><b>「In supervised learning, we like just have gradient descent, it works, it's great, it's simple」这句自嘲里有真东西</b>：<span class='k'>监督学习之所以能用一个算法通吃，是因为它的问题结构足够统一（i.i.d. 数据 + 可导损失）</span>。<b>RL 之所以要五族算法，正是因为 p8 那条分界打破了这个统一性。</b>",
+   "link": {
+    "t": "你学过的对应：CS234 L08（第 2 族策略梯度的完整推导：似然比技巧与因果性降方差）",
+    "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「每学一个算法就去问它假设了什么」这个习惯，用在你的课题上会立刻有产出。</b>把五条取舍逐条对照你的问题：<br><br>· <span class='k'>采数据多贵</span>？—— <b>非常贵</b>（每次要调 LLM）。⇒ <span class='w'>排除需要大量在线采样的那几族（2、3）</span>。<br>· <span class='k'>有没有示范</span>？—— <b>部分有</b>（人工设计的 workflow 模板）。⇒ <span class='w'>可以当初始化/先验用，但别指望靠它超过人工</span>。<br>· <span class='k'>动作空间</span>？—— <b>离散、组合、巨大</b>。⇒ <span class='w'>argmax 本身就是组合优化，这是你要剪枝的理由</span>。<br>· <span class='k'>动力学好学吗</span>？—— <b>你的「动力学」是确定的</b>（选了算子 A 之后状态就是确定的），<span class='w'>真正未知的只有最终分数</span>。⇒ <b>这是一个很重要的结构优势：你不需要学动力学，只需要学奖励</b>。<br><br><b>最后这一条值得写进论文</b>：<span class='k'>你的问题是「确定性转移 + 未知奖励」，这比一般 RL 简单得多</span>，<b>它更接近「结构化的 bandit」而不是 MDP</b>。说清楚这一点，读者就知道为什么你不需要整套 RL 机器。",
+    "ref": "本讲 p42 的五条取舍；对照 CSE 541 L09 的纯探索设定"
+   }
+  },
+  {
+   "r": [
+    43,
+    45
+   ],
+   "t": "回顾页：把两个新名词补上，然后指向下一讲",
+   "star": 2,
+   "quote": "Recap of definitions — Markov decision process (partially-observed) MDP, POMDP: initial state distr. p(s_1), unknown dynamics p(s_{t+1}|s_t, a_t).  π policy - represents behavior, selecting actions based on states or observations.  Goal: learn policy π_θ that maximizes expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[Σ_t^T r(s_t, a_t)].  Course Reminders — Coming Up Next: Imitation Learning Lecture (Friday 10:30, Hewlett 200). PyTorch Tutorial (Friday 1:30, Gates B1).",
+   "one": "<b>两页回顾基本是 p32–p40 的复述，但补了两个之前没出现的名词：<span class='k'>MDP</span> 与 <span class='k'>POMDP</span>。</b>这两个缩写是后面每一讲都会用的通用语。",
+   "eq": "回顾里新出现的两个名词（p43）：\n\n  **MDP**（Markov Decision Process，马尔可夫决策过程）\n     = 一个五元组：状态集、动作集、初始分布 p(s₁)、\n       动力学 p(s_{t+1}|s_t,a_t)、奖励 r(s,a)\n     关键：**状态满足马尔可夫性**（p33）\n\n  **POMDP**（Partially-Observed MDP，部分可观测 MDP）\n     = 看不到 s，只看得到 o\n     后果：**o 不满足马尔可夫性** ⇒ 策略要带记忆（p36）\n\n────────────────────────────────────────\n全部定义一页收（p43–p44）：\n\n  s_t 状态 · a_t 动作 · (o_t 观测) · r(s,a) 奖励函数\n  τ = (s₁,a₁,…,s_T,a_T) 轨迹\n  V^π(s) 值函数 · Q^π(s,a) Q 函数\n  π 策略 —— 表示行为，基于状态或观测来选动作\n\n  目标：  max_θ  𝔼_{τ∼p_θ(τ)} [ Σ_t^T r(s_t, a_t) ]\n\n────────────────────────────────────────\n下一讲（p45）：模仿学习（= 五族里的第 1 族，也是 HW1）",
+   "pts": [
+    "<b>MDP 与 POMDP 这两个缩写直到回顾页才正式出现，但它们是后面每一讲的通用语。</b><span class='k'>读论文时「we model the problem as an MDP」这句话，等价于声明了一整套假设</span>：<b>状态马尔可夫、动力学平稳、奖励只依赖 (s,a)</b>。<span class='w'>这些假设哪一条不成立，后面的理论就跟着失效。</span>",
+    "<b>P-O-MDP 里那个 P 的代价比看起来大。</b><span class='k'>一旦只有观测，最优策略一般不再是「当前观测的函数」，而要依赖整个历史</span>。<b>严格做法是维护一个「信念状态」（对真实状态的后验分布），而那是一个连续、高维的对象</b>；<span class='w'>实践中就用最近 m 帧凑合（p36）</span>。",
+    "<b>回顾页把 π 的定义写成「selecting actions based on states or observations」，这个「or」是故意的。</b><span class='k'>它承认了两种情形并存</span> —— <b>而整门课后面都会在这两种之间切换，不会每次重新说明</b>。",
+    "<b>p45 指向下一讲是模仿学习（五族里的第 1 族）。</b><span class='w'>从最简单、最像监督学习的那一族开始</span>，<b>然后一族比一族远离监督学习</b>。<span class='k'>这个顺序与四次作业的顺序一致（p12），都是「监督信号逐级减少」。</span>",
+    "<b>整讲到此结束：45 页里，真正的技术内容只有 p32–p44 这 13 页。</b><span class='k'>但这 13 页定义了整门课要用的全部语言</span> —— <b>后面每一讲都是在这套记号上做文章</b>。<span class='w'>所以这 13 页值得反复回来看，而前面 31 页看一遍就够。</span>"
+   ],
+   "tbl": {
+    "cap": "MDP vs POMDP：一个字母的差别，后果有多大",
+    "head": [
+     "",
+     "MDP",
+     "<b>POMDP</b>"
+    ],
+    "rows": [
+     [
+      "你看得到",
+      "状态 s",
+      "<b>只有观测 o</b>"
+     ],
+     [
+      "马尔可夫性",
+      "<b>成立</b>",
+      "<b>对 o 不成立</b>"
+     ],
+     [
+      "最优策略的形式",
+      "π(a|s)，当前状态的函数",
+      "<b>要依赖整个历史</b>"
+     ],
+     [
+      "严格做法",
+      "—",
+      "<b>维护信念状态（对 s 的后验）—— 连续高维</b>"
+     ],
+     [
+      "实践做法",
+      "—",
+      "<b>塞最近 m 帧（m 是超参，无理论答案）</b>"
+     ],
+     [
+      "本讲例子",
+      "机器人挂毛巾（p34）",
+      "<b>聊天机器人（p34）</b>"
+     ]
+    ]
+   },
+   "say": "<b>这一讲到这里就结束了，而它留下的东西可以压成一行：</b><br><br><code>max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t r(s_t, a_t) ]</code><br><br><b>后面十八讲，全部是在回答「这个式子怎么优化」。</b><br><br>· <span class='k'>L02</span>：绕开它 —— 直接抄专家（模仿学习）<br>· <span class='k'>L03</span>：直接对它求导（策略梯度）<br>· <span class='k'>L04–L05</span>：求导方差太大，用 critic 压（Actor-Critic、PPO）<br>· <span class='k'>L06</span>：不要显式策略，直接学 Q*（Q-learning）<br>· <span class='k'>L07</span>：不能再采数据了怎么办（离线 RL）<br>· <span class='k'>L08</span>：r 从哪来（奖励学习）<br>· <span class='k'>L09–L10</span>：把它用在语言模型上<br>· <span class='k'>L11</span>：把 p(s'|s,a) 学出来（基于模型）<br>· <span class='k'>L12–L13</span>：任务在变怎么办（多任务、元 RL）<br>· <span class='k'>L14</span>：怎么探索才高效<br><br><b>每读完一讲，回来看看它动的是这个式子的哪一部分</b> —— <span class='w'>这比记住算法名字有用得多</span>。",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（第 2–3 族的现代形态：离策略 Actor-Critic 与 PPO）",
+    "href": "L05-精读.html"
+   }
+  }
+ ],
+ "quiz": {
+  "32": [
+   {
+    "q": "p32 里「trajectory（could be length T=1!）」这个小括号说明了什么？",
+    "o": [
+     "轨迹至少要有一步",
+     "T=1 时没有状态转移、没有信用分配，只剩「选一个动作拿一个奖励」—— 那就是多臂老虎机",
+     "T 必须事先知道",
+     "一步的轨迹没有意义"
+    ],
+    "a": 1,
+    "why": "所以 CSE 541 整门课在这个框架里是 T=1 的那一格。"
+   },
+   {
+    "q": "马尔可夫性最准确的理解是什么？",
+    "o": [
+     "对状态表示的要求 —— 当前变量不足以预测未来，那它就还不配叫「状态」",
+     "对世界的假设：世界必须是无记忆的",
+     "一个近似，现实中从不严格成立",
+     "要求奖励只依赖当前状态"
+    ],
+    "a": 0,
+    "why": "任何过程都可以是马尔可夫的，只要状态定得够大（极端：把全部历史塞进状态）。真正的问题是「能不能找到一个足够小、又足够用的状态表示」。"
+   },
+   {
+    "q": "p33 的动力学 p(s_{t+1}|s_t,a_t) 上面明写着 unknown，这划出了什么分界？",
+    "o": [
+     "连续与离散的分界",
+     "在线与离线的分界",
+     "RL 与经典控制/规划的分界 —— 知道动力学就能直接算最优解，不知道才需要学",
+     "有模型与无模型的分界"
+    ],
+    "a": 2,
+    "why": "第 5 族算法「基于模型」做的就是先把它学出来（L11）。"
+   },
+   {
+    "q": "讲者对「实践中要多少过去的观测才能推出状态」这个问题的回答是？",
+    "o": [
+     "至少 10 帧",
+     "理论上有最优解",
+     "越多越好",
+     "heavily domain dependent —— 机器人里常常当前一帧就够，没有一般答案"
+    ],
+    "a": 3,
+    "why": "所以 p36 里那个窗口长度 m 是一个要调的超参。m 太小不马尔可夫，m 太大网络难训。"
+   }
+  ],
+  "34": [
+   {
+    "q": "为什么机器人例子用 s（状态），聊天机器人例子用 o（观测）？",
+    "o": [
+     "因为聊天数据是文本",
+     "因为用户的意图、心情、上下文记忆你一概看不见 —— 所以聊天是一个 POMDP",
+     "因为聊天机器人更复杂",
+     "因为这是记号习惯"
+    ],
+    "a": 1,
+    "why": "后果是策略必须带记忆（p36 的 π_θ(a_t|o_{t−m},…,o_t)），否则每一轮都像第一次见面。"
+   },
+   {
+    "q": "聊天机器人的奖励 +1 / −10 / 0 里，那个 −10 说明了什么？",
+    "o": [
+     "点踩的信号更可靠",
+     "数学上要求对称性",
+     "一个产品决策被编码进了奖励函数：宁可少讨好一次，也别惹恼一次",
+     "为了加快收敛"
+    ],
+    "a": 2,
+    "why": "奖励函数是你把价值观写进系统的地方，而它一旦写错，算法会非常忠实地把错的东西优化到极致。"
+   },
+   {
+    "q": "「没有反馈 = 0」这个设定埋着什么陷阱？",
+    "o": [
+     "0 会让梯度消失",
+     "会导致奖励函数不连续",
+     "0 不是合法的奖励值",
+     "绝大多数对话没有反馈，信号极稀疏；而且「没点赞」和「没看到」被混成了同一个 0"
+    ],
+    "a": 3,
+    "why": "这是真实 RLHF 系统里的核心难题，L08（奖励学习）与 L09（RLHF）会正面处理。"
+   }
+  ],
+  "36": [
+   {
+    "q": "把行为写成 π_θ(a|s)（一个条件分布）而不是 f(s)=a（一个函数），带来的最大好处是？",
+    "o": [
+     "计算更快",
+     "「改进行为」变成了「调 θ」，于是可以求导、可以用梯度下降",
+     "占内存更少",
+     "不需要神经网络"
+    ],
+    "a": 1,
+    "why": "写成分布还有两个独立理由（p39）：探索，和建模多样行为。"
+   },
+   {
+    "q": "一次交互循环里有两处采样，它们的区别是？",
+    "o": [
+     "只有一处是真正的随机",
+     "两者都是世界的随机",
+     "两者都由你控制",
+     "a_t ∼ π_θ 是你自己的随机（可控、分布已知）；s_{t+1} ∼ p 是世界的随机（不可控、分布未知）"
+    ],
+    "a": 3,
+    "why": "下一页 p37 要问的「随机性来源」，答案正是这两处。"
+   },
+   {
+    "q": "「给策略记忆」π_θ(a_t|o_{t−m},…,o_t) 是一个什么性质的做法？",
+    "o": [
+     "理论上最优的做法",
+     "POMDP 的标准补丁，但也是一个妥协 —— 理论上需要的是对整个历史的充分统计量（信念状态）",
+     "只在机器人里有效",
+     "等价于增大网络容量"
+    ],
+    "a": 1,
+    "why": "实践里就塞最近 m 帧了事。m 太小不马尔可夫，m 太大网络难训，而且没有一般答案。"
+   }
+  ],
+  "37": [
+   {
+    "q": "p_θ(τ) 这个下标为什么是全讲最该盯住的细节？",
+    "o": [
+     "因为 θ 的维度很高",
+     "因为 τ 的空间是指数大的",
+     "因为 p 是未知的",
+     "因为期望里的分布本身依赖于你要优化的参数 —— 改 θ 会同时改被积函数和积分测度，所以不能直接把梯度塞进期望"
+    ],
+    "a": 3,
+    "why": "普通监督学习是 min_θ E_{x∼D}[·]，分布 D 与 θ 无关。这正是策略梯度要用似然比技巧的原因。"
+   },
+   {
+    "q": "p37 给的两个随机性来源是？",
+    "o": [
+     "世界是随机的；策略也可能不是确定的",
+     "奖励有噪声；观测有噪声",
+     "初始状态随机；终止时刻随机",
+     "网络初始化随机；数据顺序随机"
+    ],
+    "a": 0,
+    "why": "讲稿里还有第三个来源（随机奖励），讲者的处理是「push that into the state if you need it」—— 把随机性推进状态里，奖励函数就能保持确定。"
+   },
+   {
+    "q": "轨迹分布分解式 p(s₁)·Π π_θ(a_t|s_t)·p(s_{t+1}|s_t,a_t) 里，你唯一能控制的是哪一项？",
+    "o": [
+     "p(s₁)",
+     "π_θ(a_t|s_t)",
+     "p(s_{t+1}|s_t,a_t)",
+     "三项都能控"
+    ],
+    "a": 1,
+    "why": "整个 RL 就是在只能动中间这一项的情况下，去影响整条轨迹的分布。"
+   },
+   {
+    "q": "套上期望之后，目标函数的新困难是什么？",
+    "o": [
+     "它不再可导",
+     "它不再有最大值",
+     "这个期望算不出来：τ 的空间是指数大的，而且 p 未知",
+     "它变成了非凸的"
+    ],
+    "a": 2,
+    "why": "所有算法都在解决同一个问题：怎么在不知道 p、也算不了期望的情况下，估出它对 θ 的梯度（或绕开梯度）。"
+   }
+  ],
+  "39": [
+   {
+    "q": "用确定性策略去拟合多模态的示范数据，会出什么问题？",
+    "o": [
+     "会过拟合",
+     "会收敛到各模态的平均值，而平均值常常不在任何一个模态里（如绕障碍：左绕右绕都对，平均就是撞上去）",
+     "会不收敛",
+     "会丢失状态信息"
+    ],
+    "a": 1,
+    "why": "这是 p39 理由二，比理由一（探索）更容易被忽略，但造成的失败更隐蔽。"
+   },
+   {
+    "q": "「We can leverage tools from generative modeling!」这句提示的是什么方向？",
+    "o": [
+     "用 GAN 生成训练数据",
+     "既然策略是「给定 s 的 a 的分布」，它就是一个条件生成模型 —— 高斯混合、自回归、扩散模型都能搬过来",
+     "用生成模型做数据增强",
+     "用生成模型学动力学"
+    ],
+    "a": 1,
+    "why": "近年机器人领域的 diffusion policy 正是这条路。"
+   },
+   {
+    "q": "随机策略有什么讲义没提的代价？",
+    "o": [
+     "计算更慢",
+     "需要更多参数",
+     "无法保证收敛",
+     "它引入了方差：策略越随机，回报波动越大，梯度估计越不准"
+    ],
+    "a": 3,
+    "why": "所以实践中常让随机性随训练衰减 —— 前期多探索，后期趋于确定。这个调度本身是一个超参。"
+   }
+  ],
+  "40": [
+   {
+    "q": "V 和 Q 只差「先走一步 a」，为什么这个差别很大？",
+    "o": [
+     "Q 的计算量更大",
+     "V 更容易估计",
+     "Q 自带选动作的能力：argmax_a Q(s,a) 直接给出该做什么；而有了 V 还需要知道走 a 会到哪，也就是需要未知的动力学",
+     "V 只适用于离散状态"
+    ],
+    "a": 2,
+    "why": "这正是为什么有一整族「基于值」的算法学的是 Q 而不是 V（L06）。"
+   },
+   {
+    "q": "V 与 Q 的关系式是（讲义没写，要自己补）？",
+    "o": [
+     "V^π(s) = E_{a∼π(·|s)}[Q^π(s,a)]，对动作按策略取平均就从 Q 回到 V",
+     "Q^π(s,a) = V^π(s) + r(s,a)",
+     "V^π(s) = max_a Q^π(s,a)",
+     "两者相等"
+    ],
+    "a": 0,
+    "why": "反过来从 V 推 Q 则需要动力学 —— 这个不对称性是「为什么 Q 更常用」的精确答案。"
+   },
+   {
+    "q": "讲稿里给这一页的动机是什么？",
+    "o": [
+     "值函数可以降低方差",
+     "「如果你不知道自己的策略有多好，就不可能让它变好」—— 先会评价，才谈得上改进",
+     "值函数是贝尔曼方程的基础",
+     "值函数比策略更容易学"
+    ],
+    "a": 1,
+    "why": "这句话也是整个 Actor-Critic 家族的一句话总结：actor 负责做，critic 负责评。"
+   }
+  ],
+  "41": [
+   {
+    "q": "Actor-Critic（第 3 族）与基于值（第 4 族）的差别只有一个词，是哪个？",
+    "o": [
+     "连续 vs 离散",
+     "在线 vs 离线",
+     "current vs optimal：前者估当前策略的值，后者估最优策略的值",
+     "有模型 vs 无模型"
+    ],
+    "a": 2,
+    "why": "前者的 critic 要随 actor 一起更新；后者可以不要显式的策略，直接学 Q* 再 argmax。"
+   },
+   {
+    "q": "为什么连续动作空间下基于值的方法不好直接用？",
+    "o": [
+     "Q 函数在连续空间上不存在",
+     "样本效率太低",
+     "连续空间下奖励不可导",
+     "argmax_a Q(s,a) 本身就是一个优化问题，不能靠枚举"
+    ],
+    "a": 3,
+    "why": "所以连续控制里要么走策略梯度，要么配一个 actor 来做那个 argmax（DDPG/SAC 那一族）。"
+   },
+   {
+    "q": "「Algorithms make different trade-offs, thrive under different assumptions」给了你什么读课框架？",
+    "o": [
+     "每学一个算法就去问：它假设了什么？这个假设在我的问题里成立吗？",
+     "应该先学最新的算法",
+     "应该把所有算法都实现一遍",
+     "应该按发表年代读"
+    ],
+    "a": 0,
+    "why": "不问这个，你会把一个在仿真里很好的算法搬到真机上然后困惑于它为什么不 work —— 答案通常是某条假设悄悄失效了。"
+   }
+  ],
+  "43": [
+   {
+    "q": "论文里写「we model the problem as an MDP」，等价于声明了哪些假设？",
+    "o": [
+     "只声明了状态是离散的",
+     "只声明了奖励有界",
+     "只声明了有限时间步",
+     "状态满足马尔可夫性、动力学平稳、奖励只依赖 (s,a)"
+    ],
+    "a": 3,
+    "why": "这些假设哪一条不成立，后面的理论就跟着失效。读论文时要去核这几条。"
+   },
+   {
+    "q": "POMDP 里那个 P 的代价是什么？",
+    "o": [
+     "计算量翻倍",
+     "奖励变得稀疏",
+     "最优策略一般不再是「当前观测的函数」，而要依赖整个历史；严格做法要维护信念状态（连续高维）",
+     "状态空间变大"
+    ],
+    "a": 2,
+    "why": "实践中就用最近 m 帧凑合（p36）。本讲的聊天机器人例子就是一个 POMDP。"
+   }
+  ]
+ }
+}

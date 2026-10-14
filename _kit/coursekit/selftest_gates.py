@@ -11,7 +11,7 @@ import build_reader as br
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-TOTAL = 33
+TOTAL = 38
 
 
 def run():
@@ -131,6 +131,30 @@ def run():
     ok += (len(br.check_quiz_leak(
         {"3": [{"q": "<b>问</b>", "o": ["甲", "乙", "丙"],
                 "a": 2, "why": "<b>因为</b>"}]})) == 0)
+
+    # ── 反向泄漏：某一项**从没当过正解**（CS224R L01.b 实测踩到）──
+    def _q4(a):
+        return {"q": "问", "o": ["甲", "乙", "丙", "丁"], "a": a, "why": "因为"}
+
+    # 必须报：20 题四选一，正解只落在前三项，第 4 项一次没中
+    ok += (len([m for m in br.check_quiz_leak(
+        {str(i): [_q4(i % 3)] for i in range(1, 21)}) if "一次都没当过" in m]) == 1)
+    # 必须不报：同样 20 题，四项都用到
+    ok += (len([m for m in br.check_quiz_leak(
+        {str(i): [_q4(i % 4)] for i in range(1, 21)}) if "一次都没当过" in m]) == 0)
+    # 必须不报：题太少（12 题）时第 4 项空着有 3.2% 是巧合，不该判
+    ok += (len([m for m in br.check_quiz_leak(
+        {str(i): [_q4(i % 3)] for i in range(1, 13)}) if "一次都没当过" in m]) == 0)
+    # 必须不报：**全是三选一**时第 4 项根本不可达，不排除的话每份三选一都会误报
+    ok += (len([m for m in br.check_quiz_leak(
+        {str(i): [{"q": "问", "o": ["甲", "乙", "丙"], "a": i % 3, "why": "因为"}]
+         for i in range(1, 21)}) if "一次都没当过" in m]) == 0)
+    # 必须报：混合宽度 —— 20 题四选一 + 4 题三选一，第 4 项可达 20 次却从没中
+    _mixed = {str(i): [_q4(i % 3)] for i in range(1, 21)}
+    _mixed.update({str(i): [{"q": "问", "o": ["甲", "乙", "丙"],
+                             "a": i % 3, "why": "因为"}] for i in range(21, 25)})
+    ok += (len([m for m in br.check_quiz_leak(_mixed)
+                if "一次都没当过" in m]) == 1)
 
     print("selftest_gates %d/%d" % (ok, TOTAL))
     return ok == TOTAL

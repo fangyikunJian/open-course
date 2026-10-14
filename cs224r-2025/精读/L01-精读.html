@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS224R 第一讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs224r-2025-l01">
+
+<div id="bar">
+  <h1>CS224R 第一讲 · <span>课程导论与 MDP、模仿学习开篇</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 45</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/01_cs224r_intro_2025.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs224r-2025</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L01-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "p4 列的三个学习目标里，「how to represent behavior」最后落实成了什么？", "o": ["一个奖励函数 r(s,a)", "一个策略 π_θ(a|s) —— 把「行为」变成一个可求导的条件分布", "一条轨迹 τ", "一个值函数 V^π(s)"], "a": 1, "why": "见 p36。把行为写成条件分布这一步做完，后面所有算法才有的谈 —— 这是整门课的技术核心，不是一句废话。"}, {"q": "从客座讲者的来处（Tesla、Google DeepMind）能读出这门课的什么取向？", "o": ["它偏理论证明", "它只讲机器人", "它偏实现与落地系统，理论推给了 CS234", "它偏数学分析"], "a": 2, "why": "p9 明写「For more theory & other applications, see CS234!」，核心目标是 able to understand and implement。"}],
+7: [{"q": "p8 说强化学习的数据「not i.i.d.」，根本原因是什么？", "o": ["奖励有噪声", "数据量太小", "动作会影响未来的观测 —— 你当前的策略决定了你会看到什么数据", "环境是连续的"], "a": 2, "why": "这六个字是整门课所有困难的来源：分布漂移（L02 DAgger）、探索（L14）、旧数据有偏（L05 PPO）三章内容根子都在这里。"}, {"q": "「indirect feedback」带来的具体困难叫什么？", "o": ["信用分配：总分高，但不知道是哪一步的功劳", "过拟合", "梯度消失", "维度灾难"], "a": 0, "why": "监督学习告诉你每一步该输出什么；RL 只告诉你整串做完得了多少分。值函数（p40）存在的全部理由就是回答这个问题。"}, {"q": "p7 对「deep」的定义是什么？", "o": ["用了深度神经网络的 RL", "层数超过 3 层的网络", "重点放在「能放大到深度神经网络」的那些解法 —— 是功利的定义，不是技术定义", "深度优先搜索"], "a": 2, "why": "同一个算法在表格情形和神经网络情形下会遇到完全不同的问题（L06 会看到），这门课关心的是后者。"}, {"q": "按这一页的判据，怎么区分一个问题该用 RL 还是该用 bandit？", "o": ["看动作空间是连续还是离散", "看要不要连着做多个决策、且后面的决策依赖前面的后果；互不影响、做完就结束的是 bandit", "看奖励有没有噪声", "看数据量大小"], "a": 1, "why": "讲稿强调的是 multiple 和 stream，不是「难」。用 RL 的工具去打 bandit 的问题是一种常见的浪费 —— bandit 有更紧的理论和更省样本的算法。"}],
+10: [{"q": "四次作业（模仿 → 在线 → 离线 → 目标条件/元）的内在顺序是什么？", "o": ["难度从易到难", "监督信号逐级减少：有示范 → 只有奖励 → 连试都不能试 → 连任务都在变", "按算法发明的年代", "按代码量从少到多"], "a": 1, "why": "每往下一级，能用的信息就少一点，算法就要多补一点结构。看懂这条线就知道每一讲在解决哪一级的困难。"}, {"q": "2025 年新加的默认项目是什么？", "o": ["训练一个足式机器人", "复现 AlphaGo", "做一个推荐系统", "用 RL 微调一个 LLM + 开放式扩展"], "a": 3, "why": "这说明这门课已经把 LLM 当成第一等的应用场景。L09（57 页）与 L10（41 页）是全课最厚的两讲，正是为它服务的。"}, {"q": "p10 说 RL 基础会「go quickly over」，推荐去补的是？", "o": ["Sutton & Barto 或 CS 221", "CS229", "CS231N", "Bishop 的 PRML"], "a": 0, "why": "本讲 p32–p44 用 13 页讲完了 MDP、策略、值函数、Q 函数、五族算法，而 S&B 讲这些要三章。卡住时应该去翻 S&B，而不是硬读。"}],
+13: [{"q": "「Deep RL methods take time to learn behavior」在技术上说的是什么？", "o": ["代码难写", "样本效率低：反馈间接、数据要自己走出来，同样的任务可能要几百万步交互", "网络太大", "超参太多"], "a": 1, "why": "原因正是 p8 那条分界。这条约束决定了课程后半一半的内容。"}, {"q": "课程后半用哪三条路对付「样本太贵」？", "o": ["更大的网络、更多的 GPU、更长的训练", "更好的优化器、更好的初始化、更好的正则", "离线 RL（不再交互）、多任务/元 RL（借别的任务的样本）、有模型 RL（在想象里试）", "课程表没有涉及这个问题"], "a": 2, "why": "三条路，同一个敌人。模仿学习（L02）算第四条：干脆直接抄专家，跳过试错。"}],
+17: [{"q": "p18 的场景 c「feedback loops」说的是什么？", "o": ["奖励函数里有循环", "部署会影响未来的结果与观测 —— 推荐系统推什么，用户就看什么，又成了下一轮的训练数据", "神经网络里的循环连接", "训练时的梯度回传"], "a": 1, "why": "这是四条里最容易被漏掉的，因为它不体现在训练时，只体现在部署后。离线指标涨了、线上没涨，常常是这个原因。"}, {"q": "场景 d 后面那个括号「(and isn't differentiable!)」为什么是技术上的关键？", "o": ["因为不可导的函数没有极值", "因为监督学习要求目标可导才能反传，而 BLEU、点击、测试通过率这些目标天生不可导；RL 只需要你能给一个数", "因为不可导意味着不连续", "因为 PyTorch 不支持"], "a": 1, "why": "这是 RL 最被低估的优势。文生图对齐（p24）和 RLHF 都是这一类的例子。"}, {"q": "为什么 Move 37 能用来说明「RL 能发现新解法」？", "o": ["因为它下得比人快", "因为 AlphaGo 赢了比赛", "因为那一手是在模仿人类棋谱", "因为监督学习的上界是示范者的水平，而 RL 在优化目标、不是在模仿行为，所以原则上可以超过示范者"], "a": 3, "why": "这是模仿学习（L02）与 RL 的根本差别，整门课会反复回到它。讲稿用的词是 discover new solutions，比「打败人类」准确得多。"}],
+19: [{"q": "p22 那句「Nearly all modern language models use some form of RL for post-training」里，哪个词最关键？", "o": ["post-training（后训练）—— 预训练靠下一词预测，RL 进场是在之后：对齐、偏好优化、推理", "nearly all", "modern", "some form"], "a": 0, "why": "搞清楚这个分界，才不会把「LLM 用了 RL」理解成「LLM 是用 RL 训出来的」。"}, {"q": "七个应用里，哪一个在问题形态上离「组合空间 + 昂贵评估 + 目标不可导」最近？", "o": ["足式机器人", "交通控制", "芯片布局（Google 量产 TPU）", "围棋"], "a": 2, "why": "离散组合空间、每次评估要跑昂贵仿真、目标（面积/时延/功耗）不可导且多目标 —— 三条全中。"}],
+26: [{"q": "p30 那张照片（Yevgen 比机器人还忙）要说明什么？", "o": ["研究生很辛苦", "机器人还不够聪明", "需要更多的 GPU", "真实世界里「练习」不是免费的：每次试错后都要有人复位，所以这样采不了大量数据"], "a": 3, "why": "讲者把自己领域最不光彩的一面主动放在三页漂亮演示之后 —— 先给最好的结果，再立刻给出它的代价。"}, {"q": "p29 那五个开放问题的提法有什么值得学的地方？", "o": ["每一条都是「一个具体的做不到」而不是「一个研究领域」，所以可以判断做没做到", "每一条都很宏大", "每一条都给了答案", "每一条都引用了论文"], "a": 0, "why": "「怎么学做饭这种长时程任务」比「研究分层强化学习」有用得多。写自己的研究问题时这是一个好格式。"}, {"q": "p29 里「Can robots practice fully autonomously?」对应的研究方向是？", "o": ["元强化学习", "reset-free RL（L16）—— 仿真里能一键重开，真实世界不行", "离线 RL", "分层 RL"], "a": 1, "why": "机器人把杯子打翻了得有人扶起来才能开始下一次。这不是小众话题，它是让 RL 真正可用的必要条件。"}],
+32: [{"q": "p32 里「trajectory（could be length T=1!）」这个小括号说明了什么？", "o": ["轨迹至少要有一步", "T=1 时没有状态转移、没有信用分配，只剩「选一个动作拿一个奖励」—— 那就是多臂老虎机", "T 必须事先知道", "一步的轨迹没有意义"], "a": 1, "why": "所以 CSE 541 整门课在这个框架里是 T=1 的那一格。"}, {"q": "马尔可夫性最准确的理解是什么？", "o": ["对状态表示的要求 —— 当前变量不足以预测未来，那它就还不配叫「状态」", "对世界的假设：世界必须是无记忆的", "一个近似，现实中从不严格成立", "要求奖励只依赖当前状态"], "a": 0, "why": "任何过程都可以是马尔可夫的，只要状态定得够大（极端：把全部历史塞进状态）。真正的问题是「能不能找到一个足够小、又足够用的状态表示」。"}, {"q": "p33 的动力学 p(s_{t+1}|s_t,a_t) 上面明写着 unknown，这划出了什么分界？", "o": ["连续与离散的分界", "在线与离线的分界", "RL 与经典控制/规划的分界 —— 知道动力学就能直接算最优解，不知道才需要学", "有模型与无模型的分界"], "a": 2, "why": "第 5 族算法「基于模型」做的就是先把它学出来（L11）。"}, {"q": "讲者对「实践中要多少过去的观测才能推出状态」这个问题的回答是？", "o": ["至少 10 帧", "理论上有最优解", "越多越好", "heavily domain dependent —— 机器人里常常当前一帧就够，没有一般答案"], "a": 3, "why": "所以 p36 里那个窗口长度 m 是一个要调的超参。m 太小不马尔可夫，m 太大网络难训。"}],
+34: [{"q": "为什么机器人例子用 s（状态），聊天机器人例子用 o（观测）？", "o": ["因为聊天数据是文本", "因为用户的意图、心情、上下文记忆你一概看不见 —— 所以聊天是一个 POMDP", "因为聊天机器人更复杂", "因为这是记号习惯"], "a": 1, "why": "后果是策略必须带记忆（p36 的 π_θ(a_t|o_{t−m},…,o_t)），否则每一轮都像第一次见面。"}, {"q": "聊天机器人的奖励 +1 / −10 / 0 里，那个 −10 说明了什么？", "o": ["点踩的信号更可靠", "数学上要求对称性", "一个产品决策被编码进了奖励函数：宁可少讨好一次，也别惹恼一次", "为了加快收敛"], "a": 2, "why": "奖励函数是你把价值观写进系统的地方，而它一旦写错，算法会非常忠实地把错的东西优化到极致。"}, {"q": "「没有反馈 = 0」这个设定埋着什么陷阱？", "o": ["0 会让梯度消失", "会导致奖励函数不连续", "0 不是合法的奖励值", "绝大多数对话没有反馈，信号极稀疏；而且「没点赞」和「没看到」被混成了同一个 0"], "a": 3, "why": "这是真实 RLHF 系统里的核心难题，L08（奖励学习）与 L09（RLHF）会正面处理。"}],
+36: [{"q": "把行为写成 π_θ(a|s)（一个条件分布）而不是 f(s)=a（一个函数），带来的最大好处是？", "o": ["计算更快", "「改进行为」变成了「调 θ」，于是可以求导、可以用梯度下降", "占内存更少", "不需要神经网络"], "a": 1, "why": "写成分布还有两个独立理由（p39）：探索，和建模多样行为。"}, {"q": "一次交互循环里有两处采样，它们的区别是？", "o": ["只有一处是真正的随机", "两者都是世界的随机", "两者都由你控制", "a_t ∼ π_θ 是你自己的随机（可控、分布已知）；s_{t+1} ∼ p 是世界的随机（不可控、分布未知）"], "a": 3, "why": "下一页 p37 要问的「随机性来源」，答案正是这两处。"}, {"q": "「给策略记忆」π_θ(a_t|o_{t−m},…,o_t) 是一个什么性质的做法？", "o": ["理论上最优的做法", "POMDP 的标准补丁，但也是一个妥协 —— 理论上需要的是对整个历史的充分统计量（信念状态）", "只在机器人里有效", "等价于增大网络容量"], "a": 1, "why": "实践里就塞最近 m 帧了事。m 太小不马尔可夫，m 太大网络难训，而且没有一般答案。"}],
+37: [{"q": "p_θ(τ) 这个下标为什么是全讲最该盯住的细节？", "o": ["因为 θ 的维度很高", "因为 τ 的空间是指数大的", "因为 p 是未知的", "因为期望里的分布本身依赖于你要优化的参数 —— 改 θ 会同时改被积函数和积分测度，所以不能直接把梯度塞进期望"], "a": 3, "why": "普通监督学习是 min_θ E_{x∼D}[·]，分布 D 与 θ 无关。这正是策略梯度要用似然比技巧的原因。"}, {"q": "p37 给的两个随机性来源是？", "o": ["世界是随机的；策略也可能不是确定的", "奖励有噪声；观测有噪声", "初始状态随机；终止时刻随机", "网络初始化随机；数据顺序随机"], "a": 0, "why": "讲稿里还有第三个来源（随机奖励），讲者的处理是「push that into the state if you need it」—— 把随机性推进状态里，奖励函数就能保持确定。"}, {"q": "轨迹分布分解式 p(s₁)·Π π_θ(a_t|s_t)·p(s_{t+1}|s_t,a_t) 里，你唯一能控制的是哪一项？", "o": ["p(s₁)", "π_θ(a_t|s_t)", "p(s_{t+1}|s_t,a_t)", "三项都能控"], "a": 1, "why": "整个 RL 就是在只能动中间这一项的情况下，去影响整条轨迹的分布。"}, {"q": "套上期望之后，目标函数的新困难是什么？", "o": ["它不再可导", "它不再有最大值", "这个期望算不出来：τ 的空间是指数大的，而且 p 未知", "它变成了非凸的"], "a": 2, "why": "所有算法都在解决同一个问题：怎么在不知道 p、也算不了期望的情况下，估出它对 θ 的梯度（或绕开梯度）。"}],
+39: [{"q": "用确定性策略去拟合多模态的示范数据，会出什么问题？", "o": ["会过拟合", "会收敛到各模态的平均值，而平均值常常不在任何一个模态里（如绕障碍：左绕右绕都对，平均就是撞上去）", "会不收敛", "会丢失状态信息"], "a": 1, "why": "这是 p39 理由二，比理由一（探索）更容易被忽略，但造成的失败更隐蔽。"}, {"q": "「We can leverage tools from generative modeling!」这句提示的是什么方向？", "o": ["用 GAN 生成训练数据", "既然策略是「给定 s 的 a 的分布」，它就是一个条件生成模型 —— 高斯混合、自回归、扩散模型都能搬过来", "用生成模型做数据增强", "用生成模型学动力学"], "a": 1, "why": "近年机器人领域的 diffusion policy 正是这条路。"}, {"q": "随机策略有什么讲义没提的代价？", "o": ["计算更慢", "需要更多参数", "无法保证收敛", "它引入了方差：策略越随机，回报波动越大，梯度估计越不准"], "a": 3, "why": "所以实践中常让随机性随训练衰减 —— 前期多探索，后期趋于确定。这个调度本身是一个超参。"}],
+40: [{"q": "V 和 Q 只差「先走一步 a」，为什么这个差别很大？", "o": ["Q 的计算量更大", "V 更容易估计", "Q 自带选动作的能力：argmax_a Q(s,a) 直接给出该做什么；而有了 V 还需要知道走 a 会到哪，也就是需要未知的动力学", "V 只适用于离散状态"], "a": 2, "why": "这正是为什么有一整族「基于值」的算法学的是 Q 而不是 V（L06）。"}, {"q": "V 与 Q 的关系式是（讲义没写，要自己补）？", "o": ["V^π(s) = E_{a∼π(·|s)}[Q^π(s,a)]，对动作按策略取平均就从 Q 回到 V", "Q^π(s,a) = V^π(s) + r(s,a)", "V^π(s) = max_a Q^π(s,a)", "两者相等"], "a": 0, "why": "反过来从 V 推 Q 则需要动力学 —— 这个不对称性是「为什么 Q 更常用」的精确答案。"}, {"q": "讲稿里给这一页的动机是什么？", "o": ["值函数可以降低方差", "「如果你不知道自己的策略有多好，就不可能让它变好」—— 先会评价，才谈得上改进", "值函数是贝尔曼方程的基础", "值函数比策略更容易学"], "a": 1, "why": "这句话也是整个 Actor-Critic 家族的一句话总结：actor 负责做，critic 负责评。"}],
+41: [{"q": "Actor-Critic（第 3 族）与基于值（第 4 族）的差别只有一个词，是哪个？", "o": ["连续 vs 离散", "在线 vs 离线", "current vs optimal：前者估当前策略的值，后者估最优策略的值", "有模型 vs 无模型"], "a": 2, "why": "前者的 critic 要随 actor 一起更新；后者可以不要显式的策略，直接学 Q* 再 argmax。"}, {"q": "为什么连续动作空间下基于值的方法不好直接用？", "o": ["Q 函数在连续空间上不存在", "样本效率太低", "连续空间下奖励不可导", "argmax_a Q(s,a) 本身就是一个优化问题，不能靠枚举"], "a": 3, "why": "所以连续控制里要么走策略梯度，要么配一个 actor 来做那个 argmax（DDPG/SAC 那一族）。"}, {"q": "「Algorithms make different trade-offs, thrive under different assumptions」给了你什么读课框架？", "o": ["每学一个算法就去问：它假设了什么？这个假设在我的问题里成立吗？", "应该先学最新的算法", "应该把所有算法都实现一遍", "应该按发表年代读"], "a": 0, "why": "不问这个，你会把一个在仿真里很好的算法搬到真机上然后困惑于它为什么不 work —— 答案通常是某条假设悄悄失效了。"}],
+43: [{"q": "论文里写「we model the problem as an MDP」，等价于声明了哪些假设？", "o": ["只声明了状态是离散的", "只声明了奖励有界", "只声明了有限时间步", "状态满足马尔可夫性、动力学平稳、奖励只依赖 (s,a)"], "a": 3, "why": "这些假设哪一条不成立，后面的理论就跟着失效。读论文时要去核这几条。"}, {"q": "POMDP 里那个 P 的代价是什么？", "o": ["计算量翻倍", "奖励变得稀疏", "最优策略一般不再是「当前观测的函数」，而要依赖整个历史；严格做法要维护信念状态（连续高维）", "状态空间变大"], "a": 2, "why": "实践中就用最近 m 帧凑合（p36）。本讲的聊天机器人例子就是一个 POMDP。"}]
+};
+
+var N = [
+{"r": [1, 6], "t": "开场六页：从课务安排里能读出这门课的取舍", "star": 2, "quote": "CS 224R Deep Reinforcement Learning.  Welcome!  Introductions.  The Plan for Today: 1. Course goals & logistics  2. Why study deep reinforcement learning?  3. Intro to modeling behavior and reinforcement learning.  Key learnings goals: what is deep reinforcement learning?? how to represent behavior, how to formulate a reinforcement learning problem.  Lectures & Office Hours — In-person, livestreamed, & recorded.  A few guest lectures (Ashish Kumar from Tesla, Archit Sharma from Google DeepMind, one TBD).  Aiming to make it interactive. I will ask you questions. Ask me questions too!", "one": "<b>这六页是课务，但不要整段跳过。</b><span class='k'>一门课选了哪些客座讲者、把三个学习目标定成哪三条，直接告诉你它要把你带去哪里</span> —— 而这三条目标，正好是本讲后半 p32–p44 的全部内容。", "eq": "今日三段（p4，后面 p16 与 p31 还会重复两次）：\n  1. 课程目标与课务\n  2. 为什么要学 deep RL\n  3. 行为建模与强化学习导论\n\n三个学习目标（p4 下半，**这是整讲的验收标准**）：\n  · what is deep reinforcement learning??\n  · how to represent behavior\n  · how to formulate a reinforcement learning problem\n\n  对应到页码：\n  第 1 条 → p7–p9      （什么是 deep RL、和监督学习差在哪）\n  第 2 条 → p36        （用神经网络表示策略 π_θ(a|s)）\n  第 3 条 → p32–p38    （状态/动作/轨迹/奖励，以及那个期望目标）\n\n客座讲者（p6）：\n  Ashish Kumar（Tesla）· Archit Sharma（Google DeepMind）· 一位待定", "pts": ["<b>客座讲者的来处就是这门课的重心所在。</b>Tesla 与 Google DeepMind —— <span class='k'>一个做量产机器人/自动驾驶，一个做通用 agent</span>。<b>这门课不是理论课，它要把你送到能动手做这些系统的位置上</b>，<span class='w'>这也解释了为什么 p9 会把理论推给 CS234</span>。", "<b>「Aiming to make it interactive. I will ask you questions.」这句不是客套。</b>本讲 p35 就有一个 <span class='k'>think-pair-share</span>（让你自己挑一个场景定义 s/a/τ/r），<span class='w'>而讲稿里能看到她当场点名回答、学生提了「实践中要多少历史观测才能推出状态」这种问题</span>。<b>看录像时这些问答段落往往比幻灯更有信息量</b> —— 本精读的「讲稿里补的」那一格就专门装它们。", "<b>三个学习目标里有一条容易被当成废话：「how to represent behavior」。</b><span class='k'>它其实是整门课的技术核心</span> —— <b>「行为」这个日常词要变成一个可以求导、可以优化的对象</b>，答案是 <code>π_θ(a|s)</code>（p36）。<span class='w'>把行为写成一个条件分布，这一步做完，后面所有算法才有的谈。</span>", "<b>p5 那句「We have put a lot of info here. Please read it. :)」也值得注意</b>：<span class='k'>这门课把大量信息放在网站而不是课上讲</span>，<b>所以课堂时间几乎全给了技术内容</b>。<span class='w'>45 页里只有 11 页是课务，而且讲者说「Hopefully, this will be fairly short」。</span>", "<b>对你的情况，这六页里真正要记的只有一条</b>：<span class='k'>这门课默认你会动手实现，而不只是读懂</span>。<b>验收标准写在 p9：「Able to understand and implement existing and emerging methods」</b> —— <span class='w'>读这门课的正确方式是边读边写代码，而不是只看讲解</span>。"], "tbl": {"cap": "三个学习目标对应到本讲哪几页", "head": ["学习目标（p4 原话）", "对应页", "<b>最后得到的东西</b>"], "rows": [["what is deep reinforcement learning??", "p7–p9", "<b>与监督学习的那条分界：数据不是 i.i.d.，动作影响未来观测</b>"], ["how to represent behavior", "p36", "<b>策略 π_θ(a|s)，一个可求导的条件分布</b>"], ["how to formulate a reinforcement learning problem", "p32–p38", "<b>max_θ E_{τ∼p_θ(τ)}[Σ_t r(s_t,a_t)]</b>"], ["（隐含的第四条）", "p41–p42", "五族算法，以及它们各自的适用前提"]]}, "say": "<b>讲稿第一段把讲者是谁说清楚了，这对判断这门课的口味有用：</b><br><br>「<span class='k'>My name is Chelsea. I am the instructor of the course. I'm an assistant professor here at Stanford. I do research on uh reinforcement learning, robotics, and language models and a variety of other topics.</span>」<br><br><b>Chelsea Finn —— MAML（模型无关元学习）的作者</b>，机器人学习与元学习方向。<span class='w'>这解释了课程后半为什么会有整整三讲给多任务/元 RL/分层</span>（L12/L13/L15），<b>而这几讲在别的 RL 课里通常只是一节</b>。<br><br>她接着说课务部分「<span class='k'>Hopefully, this will be fairly short uh cuz all this information is available online</span>」—— <b>所以这六页在课堂上确实是快速带过的</b>，你跟着快速带过是对的。", "link": {"t": "你学过的对应：CS234 L01（同为 RL 导论，但那门课重理论，正是 p9 说「For more theory, see CS234!」的那一门）", "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L01-精读.html"}},
+{"r": [7, 9], "t": "这门课的分界线：数据不是独立同分布，因为动作会改变你将来看到什么", "star": 5, "quote": "What do we mean by deep reinforcement learning?  Sequential decision-making problems: observe, take action, observe, take action, …  A system needs to make multiple decisions based on stream of information.  How does deep RL differ from other ML topics?  Supervised learning: Given labeled data {(x_i, y_i)}, learn f(x) ≈ y — directly told what to output; inputs x are independently, identically distributed (i.i.d.).  Reinforcement learning: Learn behavior π(a|s) — from experience, indirect feedback; data **not** i.i.d.: actions a affect the future observations.  For more theory & other applications, see CS234!  Core goal: Able to understand and implement existing and emerging methods.", "one": "<b>p8 那张左右对照是整门课的地基，而真正的分界只有一句：<span class='k'>actions affect the future observations</span>。</b><span class='w'>监督学习里数据是「给定」的，强化学习里数据是你自己「走出来」的</span> —— <b>你当前的策略决定了你会看到什么样的数据，而那些数据又用来改进策略。</b>", "eq": "两栏对照（p8 原文直译）：\n\n  监督学习                          │  强化学习\n  ─────────────────────────────────┼──────────────────────────────────\n  给定带标签的数据 {(x_i, y_i)}      │  学习**行为** π(a|s)\n  学 f(x) ≈ y                       │\n                                    │\n  · 直接被告知该输出什么             │  · 从**经验**中学，反馈是**间接**的\n  · 输入 x 独立同分布（i.i.d.）      │  · 数据**不是** i.i.d.：\n                                    │    **动作 a 会影响未来的观测**\n\n「行为」可以是什么（p8 底部）：\n  运动控制 · 聊天机器人 · 玩游戏 · 开车 · 网页 agent\n\n────────────────────────────────────────\n什么叫 deep RL（p7）：\n  **序贯决策问题**：observe → take action → observe → take action → …\n  一个系统要基于一串不断到来的信息做出多次决策。\n\n  以及这类问题的解法：\n    模仿学习 · 无模型与有模型 RL · 离线与在线 RL · 多任务与元 RL\n  重点放在**能放大到深度神经网络**的那些解法，外加：\n    RL for LLMs · RL for robots", "pts": ["<b>「data not i.i.d.」这六个字是整门课所有困难的来源，值得逐条展开它的后果。</b>① <span class='k'>训练分布会随策略改变而漂移</span>（所以有 L02 的 DAgger）；② <span class='k'>你只能看到自己走过的那条路，别的路没数据</span>（所以有探索问题，L14）；③ <span class='k'>用旧策略的数据更新新策略是有偏的</span>（所以有重要性采样与 PPO，L05）。<b>三章内容，根子都在这一句上。</b>", "<b>「indirect feedback」是第二条分界，和第一条一样重。</b>监督学习告诉你「<span class='w'>这一步该输出什么</span>」；强化学习只告诉你「<span class='w'>这一整串做完得了多少分</span>」。<b>于是出现了信用分配问题</b>：<span class='k'>得分高是因为第 3 步做得好还是第 17 步做得好？</b><b>值函数（p40）存在的全部理由就是回答它。</b>", "<b>注意 p7 对「deep」的定义是功利的，不是技术的。</b>它说的是「<span class='k'>重点放在能放大到深度神经网络的那些解法</span>」 —— <b>而不是「用了神经网络就叫 deep RL」</b>。<span class='w'>同一个算法（比如 Q-learning）在表格情形和神经网络情形下，会遇到完全不同的问题</span>（L06 会看到），这门课关心的是后者。", "<b>p9 那句「For more theory & other applications, see CS234!」是一条明确的分工声明。</b><span class='k'>CS234 走理论（遗憾界、样本复杂度、收敛性证明），CS224R 走实现</span>。<b>你两门都在读，所以可以把它们当互补</b>：<span class='w'>CS234 告诉你「为什么这个算法该work」，CS224R 告诉你「怎么让它真的跑起来」</span>。", "<b>对你的课题，这一页提供了一个判断「我的问题是不是 RL 问题」的清单。</b>核心是问两件事：① <span class='k'>我的动作会不会改变我将来能看到的数据？</span>② <span class='k'>我拿到的反馈是不是只有一个最终分数、而不是逐步的正确答案？</span><b>两条都是「是」，才真的需要 RL 那套机器</b>；<span class='w'>只有第 ② 条成立的，往往用 bandit 就够了（那是 CSE 541 的地盘）</span>。"], "tbl": {"cap": "「数据不是 i.i.d.」的三个后果，各自对应课程的哪一讲", "head": ["后果", "具体表现", "<b>这门课在哪讲处理</b>"], "rows": [["<b>分布漂移</b>", "策略一变，训练数据的分布就跟着变", "<b>L02 模仿学习（DAgger）</b>"], ["<b>只看得见走过的路</b>", "没走过的动作没有数据，无从评估", "<b>L14 探索</b>"], ["<b>旧数据有偏</b>", "用旧策略采的数据更新新策略，期望不对", "<b>L05 离策略 AC 与 PPO（重要性加权）</b>"], ["<b>（反馈间接带来的）信用分配</b>", "总分高，但不知道是哪一步的功劳", "<b>L04 Actor-Critic（值函数）</b>"], ["共同的根", "<b>actions affect the future observations</b>", "—"]]}, "say": "<b>讲稿里对「序贯决策」的定义比幻灯更口语，也更准：</b><br><br>「<span class='k'>these are problems where a system needs to make multiple decisions based on a stream of information. So, it'll observe and then take an action based on that observation</span>…」<br><br><b>注意她强调的是 multiple 和 stream</b>，而不是「难」或「复杂」。<span class='w'>一个问题是不是 RL 问题，判据是「要不要连着做多个决策、且后面的决策依赖前面的后果」</span>，<b>不是它看起来有多难</b>。<br><br>这个判据很有用，因为它能把一类伪装成 RL 的问题排除掉：<span class='k'>如果你的每个决策互不影响、做完就结束，那它是一个（上下文）bandit 问题，不是 RL 问题</span> —— <b>而 bandit 有更紧的理论和更省样本的算法</b>。<span class='w'>用 RL 的工具去打 bandit 的问题，是一种常见的浪费。</span>", "link": {"t": "你学过的对应：CSE 541 L01（同一条分界的另一侧：不假设 i.i.d. 时该怎么办，答案是对抗式在线学习）", "href": "../../bandits-cse541/精读/L01-精读.html"}, "res": {"tag": "推断", "v": "<b>这一页给了你一个该正面回答的问题：你的配置搜索，到底是 bandit 还是 RL？</b><br><br>按 p8 的判据逐条核：<br>① <span class='k'>动作会改变未来观测吗？</span>——<b>部分会</b>。你选哪个配置去评估，决定了你下一步手上有什么数据；但它<span class='w'>不改变「世界」本身</span>（配置 A 的真实分数不会因为你先试了 B 而变）。<br>② <span class='k'>反馈是间接的吗？</span>——<b>不是</b>。每跑一个配置就直接拿到那个配置的分数，<span class='w'>没有信用分配问题</span>。<br><br><b>所以你的问题更像 bandit（纯探索）而不是 RL</b>：没有状态转移、没有信用分配，只有「该把预算花在哪个候选上」。<b>这正是 CSE 541 L09 那一套的设定。</b><br><br><span class='k'>但有一个例外值得想清楚</span>：若你的 MCTS 是在<b>逐步构造</b>一个 workflow（先选第一个算子、再选第二个），<span class='w'>那中间状态是真实存在的，部分奖励也只有走完才知道 —— 那一侧确实是 RL</span>。<b>所以你的问题可能是「组合构造用 RL 的语言、最终选择用 bandit 的语言」</b>，写论文时把这个分界说清楚，比笼统地说「我们用 RL」要准确得多。", "ref": "本讲 p7 的序贯决策定义与 p8 的两条分界；对照 CSE 541 L09 的纯探索设定"}},
+{"r": [10, 12], "t": "四次作业就是整门课的地图，而默认项目恰好撞上你的方向", "star": 3, "quote": "Pre-Requisites — Machine learning: CS229 or equivalent. We'll build on concepts like backpropagation, neural networks, sequence models. Assignments will require training networks in PyTorch.  Some familiarity with reinforcement learning: We will go quickly over the basics. See Sutton & Barto or CS 221 for intro RL content.  Coursework and Grading — 4 x 2-week assignments (50% - lowest scoring is 5%, rest worth 15%); Final default or custom course project (1-3 people, 50%).  Homework 1: Imitation learning.  Homework 2: Online reinforcement learning.  Homework 3: Offline reinforcement learning.  Homework 4: Goal-conditioned & meta reinforcement learning.  Project: Custom project - propose your own topic, or Default project (new this year!) - fine-tune an LLM with RL + open-ended extension.", "one": "<b>把四次作业列出来，这门课的骨架就全在上面了</b>：模仿 → 在线 → 离线 → 目标条件/元。<span class='k'>这四步是「监督信号从多到少」的一条递减线</span>。<b>而默认项目「用 RL 微调一个 LLM」——这是今年新加的，而且正好压在你的研究方向上。</b>", "eq": "四次作业与它们对应的讲（p12）：\n\n  HW1  模仿学习              → L02（行为克隆与 DAgger）\n  HW2  在线强化学习          → L03 策略梯度 · L04 Actor-Critic · L05 PPO · L06 Q-learning\n  HW3  离线强化学习          → L07\n  HW4  目标条件与元 RL       → L12 多任务/目标条件 · L13 元 RL\n\n  **这四步的内在顺序 = 监督信号逐级减少：**\n    HW1  有专家示范，直接学它                  （监督最强）\n    HW2  没有示范，但可以自己去环境里试        （只有奖励）\n    HW3  连试都不能试，只有一批别人留下的数据  （离线，还有分布外的风险）\n    HW4  连「任务是什么」都在变                （要泛化到新目标/新任务）\n\n评分（p11）：\n  作业 50%（4 次 × 2 周；**最低的那次只算 5%**，其余各 15%）\n  项目 50%（proposal 10% · milestone 10% · poster 10% · report 20%）\n  迟交：6 天免费额度，之后每天扣总评 2%；单次作业最多用 2 天\n\n先修（p10）：\n  机器学习 CS229 或同等（反向传播、神经网络、序列模型、SGD、交叉验证、微积分、概率论）\n  RL 基础会**快速带过** —— 要补就看 Sutton &amp; Barto 或 CS 221", "pts": ["<b>四次作业的顺序不是随便排的，它是一条「监督信号逐级减少」的线。</b><span class='k'>HW1 有专家示范（最接近监督学习）→ HW2 只有奖励 → HW3 连环境都不能碰 → HW4 连任务都在变</span>。<b>每往下一级，能用的信息就少一点，算法就要多补一点结构</b>。<span class='w'>看懂这条线，你就知道每一讲在解决哪一级的困难。</span>", "<b>「Default project (new this year!) - fine-tune an LLM with RL」这一行值得你单独停一下。</b><span class='k'>2025 年才加的默认项目，内容正是用 RL 微调语言模型</span> —— <b>这说明这门课已经把 LLM 当成了第一等的应用场景，而不是附录</b>。<span class='w'>课程后半的 L09（RLHF/DPO）和 L10（RL for reasoning）共 98 页，是全课最厚的两讲</span>，正是为它服务的。", "<b>p10 那句「We will go quickly over the basics」是一个真实的警告。</b>本讲 p32–p44 用 13 页讲完了 MDP、策略、值函数、Q 函数、五族算法 —— <span class='w'>而 Sutton &amp; Barto 讲这些要三章</span>。<b>所以如果你在某一页卡住，正确的做法是去翻 S&amp;B 对应的那一节，而不是硬读</b>。<span class='k'>你那边第 5、8、13 章已经做过精读。</span>", "<b>作业的评分规则里藏着一条实用信息：最低分那次只算 5%。</b><span class='k'>也就是说四次里可以有一次翻车而代价有限</span>。<b>但这不意味着可以跳过一次</b> —— <span class='w'>四次作业各对应一类算法，跳过的那一类在后面的讲里会一直欠着</span>。", "<b>「Employing AI tools (e.g. ChatGPT, Cursor) substantially is not allowed」这条政策本身有点反讽，值得记一笔。</b><span class='k'>一门教你用 RL 训练 LLM 的课，禁止你用 LLM 写作业</span>。<b>这不矛盾 —— 它要确保你真的理解了那些你将来要去改进的东西</b>。<span class='w'>（你是自学，不受这条约束；但「自己把算法写一遍」这个要求对你同样成立。）</span>"], "tbl": {"cap": "四次作业 = 监督信号逐级减少的四级台阶", "head": ["作业", "你手上有什么", "少了什么", "<b>对应的讲</b>"], "rows": [["<b>HW1 模仿学习</b>", "专家示范 (s, a) 对", "—（最接近监督学习）", "<b>L02</b>"], ["<b>HW2 在线 RL</b>", "能和环境交互，拿到奖励", "<b>没有示范，反馈变间接</b>", "<b>L03–L06</b>"], ["<b>HW3 离线 RL</b>", "一批固定的历史数据", "<b>不能再去环境里试，有分布外风险</b>", "<b>L07</b>"], ["<b>HW4 目标条件 / 元 RL</b>", "多个任务的数据", "<b>任务本身在变，要泛化</b>", "<b>L12 / L13</b>"], ["<b>默认项目</b>", "一个预训练 LLM", "<b>奖励要自己定义</b>", "<b>L09 / L10</b>"]]}, "say": "<b>讲稿里关于先修的那段比幻灯更明确地划了一条线：</b><br><br>幻灯写「Some familiarity with reinforcement learning: We will go quickly over the basics」，<span class='k'>而配套的参考是 Sutton &amp; Barto 或 CS 221</span>。<br><br><b>这对你是一个现成的学习路径确认</b>：<span class='w'>你清单里的条目「S&amp;B 按章精读」不是绕路，它正是这门课默认你已经有的底子</span>。<br><br><b>更实际的一条</b>：p10 还写了「Marcel will hold a PyTorch review session on Friday」。<span class='k'>这门课的作业全部是 PyTorch 实现</span> —— <b>不写代码就只能拿到一半</b>。<span class='w'>而本讲 p9 的核心目标明写着 implement 这个词</b>，不是 understand 而已。", "link": {"t": "你学过的对应：Sutton & Barto 第 5 章（蒙特卡洛方法，p10 推荐补基础时该看的那一本）", "href": "../../sutton-barto/精读/C05-精读.html"}, "res": {"tag": "推断", "v": "<b>「默认项目 = 用 RL 微调 LLM」这件事，对你有一个很直接的用处：它意味着这门课的 L09/L10 会讲得足够具体，可以当实现参考用。</b><br><br><span class='k'>很多讲 RLHF 的材料停在「用 PPO 优化偏好奖励」这种描述层面</span>；<b>而一门要让学生真的交出代码的课，必须把超参、数据格式、常见失败模式都讲到</b>。<span class='w'>L09 有 57 页、L10 有 41 页，是全课最厚的两讲</span>，大概率就是在讲这些。<br><br><b>对你的课题的关系要说清楚，别夸大</b>：你做的是<span class='k'>搜索 LLM workflow 的配置</span>，不是<span class='k'>用 RL 调 LLM 的权重</span>。<b>两者的共同点是「都要给 LLM 的输出定义一个标量目标并据此优化」</b>，<span class='w'>而这正是奖励设计那一块（L08）的内容</span>。<b>所以对你最有用的多半是 L08 奖励学习，而不是 L09/L10 的优化算法本身。</b>", "ref": "本讲 p12 的默认项目；课程表上 L08/L09/L10 的页数"}},
+{"r": [13, 16], "t": "三页实务提醒，其中一句对做研究的人同样成立", "star": 2, "quote": "A bit of advice — Deep RL methods take time to learn behavior!  We try to make homeworks fast to train (e.g. by using simple environments). But, they will still take some time & you may choose to be more ambitious in your project.  We recommend that you don't start HWs/project deliverables the night before the deadline. :)  One more thing — We have been working hard to develop a great course!  But, we will probably make mistakes.  We would love your feedback both for this iteration & future iterations. —> high-resolution feedback form sent weekly to subset of students.  Initial Steps: 1. Homework 1 coming out on Fri — due Fri 4/18 at 11:59 pm PT  2. Start forming final project groups if you want to work in a group", "one": "<b>「Deep RL methods take time to learn behavior!」这句话是实务提醒，但它背后是一个技术事实</b>：<span class='k'>RL 的样本效率远低于监督学习</span>。<b>而这一点对你的课题是核心约束，不是边角料</b> —— 你的每次评估都要调用 LLM，贵得多。", "eq": "p13 的三句（原文直译）：\n  · 深度 RL 方法学会一个行为是**要花时间的**\n  · 我们尽量让作业训得快（比如用简单环境），但还是要花些时间\n  · 不建议截止前一晚才开始 :)\n\np14：\n  · 我们会犯错，欢迎反馈 → 每周向一部分学生发高分辨率反馈表\n\np15 / p16：\n  · HW1 周五发布，4/18 截止\n  · 想组队的话开始找人\n  · （p16 把今日提纲又放了一遍，与 p4 相同）", "pts": ["<b>「take time to learn behavior」在技术上说的是样本效率。</b><span class='k'>监督学习里几万个样本能训出一个不错的分类器；RL 里同样的任务可能要几百万步交互</span>。<b>原因正是 p8 那条分界</b>：<span class='w'>反馈是间接的（要试很多次才知道哪一步有用），数据是自己走出来的（没走到的地方学不到）</span>。", "<b>这条约束决定了这门课后半的一半内容。</b><span class='k'>离线 RL（L07）是为了「不用再去环境里试」</span>；<span class='k'>多任务/元 RL（L12/L13）是为了「从别的任务借样本」</span>；<span class='k'>有模型 RL（L11）是为了「在想象里试而不是在真实环境里试」</span>。<b>三条路，同一个敌人：样本太贵。</b>", "<b>p14 的「high-resolution feedback form sent weekly to subset of students」是一个值得偷学的做法。</b><span class='w'>不是学期末发一次大问卷，而是每周向一小部分人发细问卷</span> —— <b>这样信号密度高、而且还来得及改</b>。<span class='k'>这其实就是一种在线学习：边跑边调，而不是跑完再复盘。</span>", "<b>p16 是 p4 的原样重复，p31 还会再来一次。</b><span class='k'>讲者用它们当章节分隔</span>，每讲完一段就把提纲再放一遍、划掉已完成的部分。<span class='w'>本精读把这类页并进相邻的讲解里，不单独成条</span>。"], "tbl": {"cap": "「RL 太费样本」这一条，衍生出课程后半的三条路", "head": ["路线", "思路", "<b>对应的讲</b>"], "rows": [["<b>离线 RL</b>", "不再和环境交互，只用已有数据", "<b>L07</b>"], ["<b>多任务 / 元 RL</b>", "从别的任务借样本，学会「怎么快速学」", "<b>L12 / L13</b>"], ["<b>有模型 RL</b>", "先学一个世界模型，在想象里试", "<b>L11</b>"], ["<b>模仿学习</b>", "干脆直接抄专家，跳过试错", "<b>L02</b>"], ["共同的敌人", "<b>样本太贵</b>", "—"]]}, "say": "<b>讲稿里讲者把这一段说得很轻松，但其中一句对做研究的人同样成立：</b><br><br>幻灯上是「<span class='k'>We recommend that you don't start HWs/project deliverables the night before the deadline. :)</span>」，<b>背后的真实理由不是拖延症，是 RL 实验本身的时间结构</b>：<span class='w'>一次训练跑几小时，调错一个超参就是一天</span>。<br><br><b>这对你的课题有一个直接的对应</b>：你的每次「评估」要调用 LLM，<span class='k'>既慢又贵</span>。<b>所以「一次实验跑多久」不是工程细节，它决定了你能试多少个想法</b> —— <span class='w'>而能试多少个想法，直接决定了研究进度</span>。<br><br>这也正是你的课题本身要解决的问题：<b>在昂贵的评估预算下，怎么用最少的次数找到最便宜的可行配置。</b><span class='k'>你研究的东西，恰好是你研究时碰到的瓶颈。</span>", "res": {"tag": "推断", "v": "<b>「样本效率」这条线把这门课的后半和你的课题接上了，而且接口很清楚。</b>课程用三条路对付「样本太贵」：离线复用、跨任务迁移、用模型做想象。<br><br><b>你的课题是第四条路：主动选择测什么。</b><span class='k'>前三条都是「同样的预算榨出更多信息」，你的是「把预算花在最有信息量的地方」</span> —— <b>这正是实验设计/纯探索 bandit 的立场（CSE 541 L07/L09）</b>。<br><br><b>这个定位在写 related work 时很有用</b>：<span class='w'>不要把你的方法和 RL 的样本效率方法并列比较</span>（它们解决的是不同的瓶颈），<b>而是指出它们正交、可以叠加</b> —— 离线复用 + 主动选择，两者不冲突。<br><br>⚠ <b>要核的一件事</b>：你的评估是否真的可以「主动选择」。<span class='k'>如果配置之间有依赖（必须先跑 A 才能跑 B），那就不是纯探索而是某种序贯设计</span>，可用的工具不同。", "ref": "本讲 p13 的样本效率提醒；对照 CSE 541 L07/L09 的实验设计与纯探索"}},
+{"r": [17, 18], "t": "四条理由，而第三条「反馈回路」是你最该带走的那一条", "star": 4, "quote": "Why study deep reinforcement learning?  1. Going beyond supervised (x, y) examples — AI model predictions have consequences! How can we take them into account?  When direct supervision isn't available — Learn from any objective.  2. Widely used and deployed for performant AI systems.  3. Learning from experience seems fundamental to intelligence — RL can discover new solutions.  4. Plenty of exciting open research problems.  Decision-making problems are everywhere!  a. Any sort of AI agent: robots, autonomous vehicles, web assistants  b. What if you want your AI system to interact with people? (chatbots, recommenders)  c. What if deploying your system affects future outcomes & observations? (\"feedback loops\")  d. What if don't have labels or your objective isn't just accuracy? (and isn't differentiable!)", "one": "<b>p18 的四个场景 a–d 比 p17 的四条理由更有用，因为它们是可以拿来对照自己问题的判据。</b><span class='k'>其中 c（反馈回路）与 d（目标不可导）是最常被忽略、也最常把一个「监督学习问题」变成 RL 问题的两条。</span>", "eq": "p17 的四条理由：\n  1. 超越监督的 (x, y) 样本\n       · AI 的预测**是有后果的**！怎么把后果算进去？\n       · 没有直接监督时 —— **可以从任意目标学习**\n  2. 被广泛使用、广泛部署于高性能 AI 系统\n  3. 从经验中学习似乎是智能的基本面 —— RL 能**发现新解法**\n  4. 有大量令人兴奋的开放研究问题\n\n────────────────────────────────────────\np18 的四个场景（**这四条是判据，可以拿来对照自己的问题**）：\n\n  a. 任何一种 AI agent：机器人、自动驾驶、网页助手\n  b. 你的系统要**和人交互**         → 聊天机器人、推荐系统\n  c. 部署它会**影响未来的结果与观测** → 讲义原文：\"feedback loops\"\n  d. **没有标签**，或者目标不只是准确率 → 讲义原文：\"(and isn't differentiable!)\"\n\n  判法：四条里中了任何一条，监督学习的框架就开始不够用。", "pts": ["<b>场景 c「feedback loops」是四条里最容易被漏掉的，因为它不体现在训练时，只体现在部署后。</b><span class='k'>推荐系统是最清楚的例子：你推什么，用户就看什么；用户看什么，又成了下一轮的训练数据</span>。<b>离线评估看起来很好的模型，上线后会把自己带进一个越来越窄的回路里。</b>", "<b>场景 d 的括号「and isn't differentiable!」是技术上的关键。</b><span class='w'>监督学习要求目标可导才能反传</span>；<b>而真实世界的很多目标天生不可导</b> —— <span class='k'>BLEU 分数、用户是否点击、代码能不能通过测试、机器人有没有把毛巾挂上去</span>。<b>RL 不需要目标可导，它只需要你能给一个数</b>，<span class='w'>这是它最被低估的优势</span>。", "<b>第 1 条理由里那句「AI model predictions have consequences!」，讲的其实就是 c 和 d 的合体。</b><span class='k'>监督学习假设预测做完就结束了</span>；<b>而一旦预测要被拿去行动，行动就有后果，后果就反过来变成新的输入</b>。<span class='w'>「把后果算进去」正是 RL 这套语言存在的理由。</span>", "<b>第 3 条「RL can discover new solutions」后面跟着 p21 的 Move 37，这个配对不是修辞。</b><span class='k'>监督学习的上界是示范者的水平</span>（你只能学会老师会的）；<b>而 RL 只要有奖励就能超过示范者</b>，<span class='w'>因为它是在优化目标，不是在模仿行为</span>。<b>这是模仿学习（L02）与 RL 的根本差别，整门课会反复回到它。</b>", "<b>第 4 条「plenty of open research problems」在 p29 会展开成五个具体问题，而每一个都对应课程后半的一讲。</b><span class='k'>这是一个很实用的读课方式：把 p29 那五个问题抄下来，每读完一讲就回去看它回答了哪一个</span>。"], "tbl": {"cap": "p18 四个场景：拿来对照你自己的问题", "head": ["场景", "判据", "典型例子", "<b>为什么监督学习不够</b>"], "rows": [["a", "要连着做多个决策", "机器人、自动驾驶、网页 agent", "<b>没有逐步的标准答案</b>"], ["b", "要和人交互", "聊天机器人、推荐", "<b>人会反应，分布随之变化</b>"], ["<b>c</b>", "<b>部署会影响未来的观测</b>", "<b>推荐系统的回路</b>", "<b>离线评估与上线表现脱节</b>"], ["<b>d</b>", "<b>没标签，或目标不可导</b>", "<b>BLEU、点击、测试通过率</b>", "<b>反传不了，只能给一个数</b>"], ["中了几条", "<b>任意一条成立，就该考虑 RL</b>", "—", "—"]]}, "say": "<b>讲稿把 c 和 d 这两条说得比幻灯更明白：</b><br><br>「<span class='k'>also if you want your AI system to interact with people, like chatbots or recommenders, um, or scenarios where it will affect decisions will affect future outcomes or observations, these kind of feedback loops, um, these are reinforcement learning problems. Um, and then yeah, like I mentioned before, if your labels if you don't have labels and your objective isn't just accuracy or it's non-differentiable, um, these are scenarios where reinforcement learning is useful.</span>」<br><br><b>注意她用的词是「these ARE reinforcement learning problems」</b> —— <span class='w'>不是「可以用 RL 来做」，而是「它们本来就是 RL 问题」</span>。<br><br><b>这个区别在实践里很重要</b>：<span class='k'>很多团队把一个本质上有反馈回路的问题硬当成监督学习来做，然后困惑于「离线指标涨了、线上没涨」</span>。<b>那不是模型不够好，是问题被建模错了。</b>", "res": {"tag": "推断", "v": "<b>把 p18 的四条判据逐条对照你的课题，结论相当清楚：你中的是 d，不是 a/b/c。</b><br><br>· <span class='w'>a（多步决策）</span>：半中。若 MCTS 在逐步构造 workflow，那是多步的；但「选哪个配置去评估」这一层不是。<br>· <span class='w'>b（和人交互）</span>：不中。<br>· <span class='w'>c（反馈回路）</span>：<b>不中，而这是好事</b> —— 你跑配置 A 不会改变配置 B 的真实分数。<span class='k'>没有回路意味着离线评估是可信的，你的日志可以重复利用</span>。<br>· <span class='k'>d（目标不可导）</span>：<b>正中</b>。你的目标是「benchmark 分数 + 调用成本」，<span class='w'>既不可导，也没有逐步的正确答案</span>。<br><br><b>结论：你的问题是「不可导目标上的黑盒优化 / 纯探索」，不是序贯决策。</b><span class='k'>这就是为什么 CSE 541（bandit）比 CS224R（RL）更贴你的主线</span> —— <b>但 c 不中这一点要写出来，因为它是你能用离线日志做诊断的前提</b>，而很多 RL 方法恰恰不能。", "ref": "本讲 p18 的四个场景；对照 CSE 541 L09 的纯探索设定"}},
+{"r": [19, 25], "t": "七张应用截图：挑出其中两张就够，但要挑对", "star": 3, "quote": "Widely used for performant AI systems — Learning complex physical tasks: legged robots (Unitree); robot manipulation (Physical Intelligence π0, Google Gemini Robotics).  Learning to play complex games — Ability to discover new solutions: \"Move 37\" in Lee Sedol AlphaGo match surprises everyone.  Not just robots and games! — ChatGPT: Nearly all modern language models use some form of RL for post-training, especially for more advanced reasoning.  Research on traffic control.  Training generative image models to follow their prompt.  Chip design, in Google's production TPU chips.", "one": "<b>七页应用，每页只有一句话加一段视频。</b><span class='k'>读的时候不必每张都停</span> —— <b>但有两张必须停：p21 的 Move 37（RL 能超过示范者）和 p22 的那句「几乎所有现代语言模型都用了某种 RL 做后训练」。</b>", "eq": "七个应用（p19–p25）：\n\n  p19  足式机器人            Unitree\n  p20  机器人操作            Physical Intelligence π0 · Google Gemini Robotics\n  p21  下围棋                **AlphaGo 对李世石，Move 37**\n  p22  语言模型              **ChatGPT**\n  p23  交通控制              MIT Wu Lab\n  p24  文生图模型对齐提示词   rl-diffusion.github.io\n  p25  芯片设计              Google 量产 TPU 芯片\n\n────────────────────────────────────────\n两张必须停的：\n\n  p21 的配文（原文）：\n    Ability to discover new solutions:\n    \"Move 37\" in Lee Sedol AlphaGo match surprises everyone\n    → **RL 不是在模仿人，它在优化目标，所以能超过示范者**\n\n  p22 的配文（原文）：\n    **Nearly all modern language models use some form of RL for post-training.**\n    especially for more advanced reasoning.\n    → 这是这门课后半 L09/L10 共 98 页的全部理由", "pts": ["<b>Move 37 的意义不在于它下得好，而在于它<span class='k'>不是人教的</span>。</b>监督学习（这里就是模仿人类棋谱）的上界是示范者的水平；<b>而 AlphaGo 的那一手超出了所有人类专家的预期</b>。<span class='w'>这说明优化目标和模仿行为是两件根本不同的事</span> —— <b>模仿学习（L02）做得再好也只能逼近老师，RL 原则上可以超过。</b>", "<b>p22 那句话要逐字读：「Nearly all modern language models use some form of RL for post-training.」</b><span class='k'>注意是 post-training（后训练），不是预训练</span>。<b>预训练靠的是下一词预测（纯监督），RL 进场是在之后：对齐、偏好优化、推理能力提升。</b><span class='w'>搞清楚这个分界，才不会把「LLM 用了 RL」理解成「LLM 是用 RL 训出来的」。</span>", "<b>p25 的芯片设计是七个里最该知道的那个「不显眼」的例子。</b><span class='k'>Google 的量产 TPU 芯片里真的用了 RL 做布局</span> —— <b>这是一个组合优化问题：在巨大的离散空间里找一个好的摆放</b>。<span class='w'>而这恰好是和你的课题形态最接近的一个应用</span>：离散组合空间、昂贵的评估（要跑仿真）、目标不可导。", "<b>p24 的文生图对齐是 d 类场景（目标不可导）的教科书例子。</b><span class='k'>「图片符不符合提示词」这件事没有可导的度量</span>，<b>于是用一个打分模型给分，再用 RL 去优化那个分数</b>。<span class='w'>这与 RLHF 是同一个套路，只是换了模态。</span>", "<b>七张图共同传达的一件事：RL 的应用面比「机器人 + 游戏」宽得多。</b><span class='k'>讲者连说三次「Not just robots and games!」</span> —— <b>因为这是一个真实存在的刻板印象</b>。<span class='w'>交通、芯片、图像生成、语言模型，这四个都不是传统 RL 的地盘。</span>"], "tbl": {"cap": "七个应用按「问题形态」归类，看哪一类离你最近", "head": ["应用", "空间", "评估代价", "<b>离你的课题多远</b>"], "rows": [["足式机器人 / 操作", "连续控制", "仿真便宜、真机贵", "远（有真实的状态转移）"], ["围棋", "离散、巨大", "自我对弈便宜", "中（组合搜索，但能无限自对弈）"], ["<b>语言模型后训练</b>", "token 序列", "<b>贵（要采样+打分）</b>", "<b>近（同样的评估瓶颈）</b>"], ["交通控制", "连续", "仿真", "远"], ["文生图对齐", "连续", "要跑打分模型", "中（目标不可导，同一类）"], ["<b>芯片布局</b>", "<b>离散组合</b>", "<b>贵（要跑仿真）</b>", "<b>最近 —— 组合 + 昂贵评估 + 目标不可导</b>"]]}, "say": "<b>讲稿里 Move 37 那一段讲者说得比幻灯多，而多出来的那句正是重点：</b><br><br>「<span class='k'>there was this move that surprised everyone that was an expert in Go. Uh, it's called move 37, uh, and it kind of discovered a strategy that humans previously hadn't thought of before. Uh, so this is an example of how reinforcement learning can, uh, be a tool to discover new solutions. And this might be useful beyond games, but if you want to, for example, discover, uh, cure diseases or dis…</span>」<br><br><b>「discover new solutions」这个说法比「打败人类」准确得多。</b><span class='w'>打败人类只是分数更高；而「发现了人类没想到的策略」说的是搜索到了解空间里一个没人去过的区域</span>。<br><br><b>这一点对你的课题是直接相关的</b>：<span class='k'>你的搜索如果只在人工设计的 workflow 模板附近微调，那你最多比人工好一点；要「发现」，搜索空间必须允许人工不会写出来的组合</span> —— <b>而那恰恰是组合空间大到需要剪枝的原因</b>。<span class='w'>剪枝和「发现」之间有一个真实的张力：剪得太狠，就把没人去过的区域一起剪掉了。</span>", "res": {"tag": "推断", "v": "<b>p25 的芯片设计是七个应用里你最该去读原文的那一个。</b>理由是形态上的三重吻合：<span class='k'>① 离散组合空间；② 每次评估要跑昂贵的仿真；③ 目标（面积/时延/功耗）不可导且是多目标</span>。<b>你的课题三条全中。</b><br><br><b>可以从它那里借的东西</b>：① <span class='w'>他们怎么把组合布局编码成一个 RL 能处理的序贯构造过程</span>（这与你的 MCTS 逐步构造 workflow 是同一个手法）；② <span class='w'>他们怎么处理「仿真太贵」</span>（多半用了代理模型 / 多保真度）；③ <span class='w'>他们的 baseline 是什么</span>（和人类专家比，还是和模拟退火比）。<br><br>⚠ <b>要留意的争议</b>：这项工作（Nature 2021）后来受到过方法学上的质疑，<span class='k'>有后续论文质疑它的 baseline 设置</span>。<b>引用时最好同时读那场争论</b> —— 而且那场争论本身就是一堂「baseline 该怎么设」的课，对你写实验部分有用。<br><br>⚠ 争议这一条是我的印象，<span class='w'>具体是哪几篇、争论焦点是什么，你要自己去核</span>。", "ref": "本讲 p25 的芯片设计；争议那一条未核，需自行查证"}},
+{"r": [26, 31], "t": "「从经验中变好」，和那张拆穿一切的照片", "star": 3, "quote": "Why study deep reinforcement learning?  Fundamental aspect of intelligence — Enables the ability to get better with practice.  The robot has its eyes closed. (Levine et al. ICRA '15)  with vision this time (Levine*, Finn* et al. JMLR '16)  Still lots of exciting research problems! — How does robot learn to represent what is good or bad for the task? —> reward learning.  How can an agent generalize its behavior to many different scenarios? Transfer from other tasks, goals —> multitask RL, meta-RL.  Can use RL to learn long-horizon tasks, like cooking a meal? —> hierarchy, reasoning.  Leverage large, diverse datasets —> offline RL.  Can robots practice fully autonomously? —> reset-free RL.  Behind the scenes of RL… Yevgen is doing more work than the robot!  It's not practical to collect a lot of data this way.", "one": "<b>p26–28 展示机器人「越练越好」，p29 列出五个开放问题，然后 p30 放了一张照片把前面全部拆穿</b>：<span class='k'>画面里真正在忙的是研究生 Yevgen，不是机器人</span>。<b>讲者自己写的配文是「It's not practical to collect a lot of data this way.」</b>", "eq": "p26–p28：同一个任务的三段视频\n  p26  机器人闭着眼睛学会（Levine et al. ICRA '15）\n  p27–28  这次带视觉（Levine*, Finn* et al. JMLR '16）\n  共同配文：Enables the ability to get better with practice\n\n────────────────────────────────────────\np29 的五个开放问题 → 五个研究方向（**这是课程后半的目录**）：\n\n  机器人怎么学会「对这个任务什么是好什么是坏」？   → **奖励学习**（L08）\n  怎么把行为泛化到很多不同场景？从别的任务/目标迁移 → **多任务 RL · 元 RL**（L12/L13）\n  能不能学做饭这种长时程任务？                     → **分层 · 推理**（L15/L10）\n  怎么利用大规模、多样的数据集？                   → **离线 RL**（L07）\n  机器人能不能完全自主地练习？                     → **reset-free RL**（L16）\n\n────────────────────────────────────────\np30：那张照片\n  配文 1：Yevgen is doing more work than the robot!\n  配文 2：**It's not practical to collect a lot of data this way.**\n  → 每一次试错之后，都要有人把积木摆回原位、把机器人复位", "pts": ["<b>p30 这一页是整段演示里最诚实、也最有信息量的一页。</b>前面三页让你看到机器人越练越好，<span class='k'>这一页告诉你那是怎么换来的：一个研究生在镜头外不停地复位</span>。<b>「practice」在真实世界里不是免费的，这是 RL 从实验室走向实用的头号障碍。</b>", "<b>「reset」这个词值得单独认一下。</b><span class='w'>仿真里可以一键重开，真实世界不行</span> —— <b>机器人把杯子打翻了，得有人扶起来才能开始下一次</b>。<span class='k'>所以 p29 最后那条「Can robots practice fully autonomously?」对应的 reset-free RL（L16）不是一个小众话题，它是让 RL 真正可用的必要条件。</span>", "<b>p29 这五个问题的提法值得学：每一条都是「一个具体的做不到」，而不是「一个研究领域」。</b><span class='k'>「怎么学做饭这种长时程任务」比「研究分层强化学习」有用得多</span>，<b>因为前者可以判断做没做到</b>。<span class='w'>写自己的研究问题时，这是一个好格式。</span>", "<b>把 p29 抄下来当读课的检查单。</b>每读完一讲，回去看它回答了哪一个问题、回答到了什么程度。<span class='k'>五个问题对应五讲（L07/L08/L12/L13/L15/L16），加起来是课程后半的大部分</span>。", "<b>p31 又是提纲页（与 p4、p16 相同），意味着动机部分讲完了。</b><span class='w'>从 p32 开始是真正的技术内容</span> —— <b>整讲 45 页里，技术内容只有最后 13 页</b>。<span class='k'>本精读把它们单独做成了 .b 片。</span>"], "tbl": {"cap": "p29 五个开放问题 → 课程后半的目录", "head": ["问题（原文直译）", "方向", "<b>在哪一讲</b>"], "rows": [["机器人怎么学会什么是好什么是坏？", "奖励学习", "<b>L08</b>"], ["怎么泛化到很多不同场景？", "多任务 RL · 元 RL", "<b>L12 · L13</b>"], ["能学做饭这种长时程任务吗？", "分层 · 推理", "<b>L15 · L10</b>"], ["怎么用上大规模多样数据集？", "<b>离线 RL</b>", "<b>L07</b>"], ["机器人能完全自主地练习吗？", "<b>reset-free RL</b>", "<b>L16</b>"], ["<b>共同的障碍（p30）</b>", "<b>真实世界里采数据太贵</b>", "—"]]}, "say": "<b>讲稿里讲者对 p26 那段视频的说明，比幻灯上「The robot has its eyes closed」这一句要具体：</b>机器人在<span class='k'>没有视觉</span>的情况下靠反复试错学会了一个操作任务，<b>而 p27–28 是同一个任务「这次带视觉」</b>。<span class='w'>两段对照是在说：同一套 RL 方法，换一种感知输入照样成立</span> —— 这是「方法通用」的一个具体证据。<br><br><b>但真正该带走的是 p30。</b><span class='k'>讲者把自己领域最不光彩的一面主动放进了导论课的第 30 页</span>，紧跟在三页漂亮演示之后。<br><br><b>这个安排本身是一堂方法论课</b>：<span class='w'>先给最好的结果，再立刻给出它的代价</span>。<b>你写论文时也该这么排 —— 把 limitation 放在结果之后、而不是藏在最后一节</b>，<span class='k'>因为读者在看到漂亮结果时，心里正好就在问「这得花多大代价」</span>。", "res": {"tag": "推断", "v": "<b>p30 那句「It's not practical to collect a lot of data this way」，换到你的场景就是「每次评估都要调一次（或几次）LLM」。</b><span class='k'>形态不同，瓶颈的位置完全一样：真正稀缺的不是算力，是评估次数</span>。<br><br><b>这给了你一个很好的开场类比</b>：机器人 RL 的「reset 要人手动做」，对应你的「每个配置要真跑一遍 benchmark」。<span class='w'>两边都是「学习算法本身很快，但获取一个数据点很慢」</span>。<br><br><b>而两边的解法分岔了，这个分岔正是你的立足点</b>：<br>· <span class='k'>机器人那边走的是「减少需要的数据点」</span>（离线复用、仿真迁移、元学习）；<br>· <span class='k'>你走的是「选对要测的那些点」</span>（实验设计、支配剪枝）。<br><br><b>在 introduction 里把这个分岔画出来，你的贡献位置立刻就清楚了</b> —— <span class='w'>而且它说明你不是在重复 RL 社区做过的事</span>。", "ref": "本讲 p30 的配文；对照 CSE 541 L07 的实验设计"}},
+{"r": [32, 33], "t": "五个名词定完，RL 的世界就搭好了——其中两个带着容易漏掉的小括号", "star": 5, "quote": "How to represent experience as data?  s_t  state - the state of the \"world\" at time t.  a_t  action - the decision taken at time t.  o_t  observation - what the agent observes at time t (only used when missing information).  τ  trajectory - sequence of states/observations and actions (s_1, a_1, s_2, a_2, . . . , s_T, a_T)  (could be length T=1!).  r(s, a)  reward function - how good is s, a?  States vs. observations — Next state is purely a function of the current state and action (and randomness): unknown dynamics p(s_{t+1}|s_t, a_t).  \"Markov property\": independent of s_{t−1}.", "one": "<b>整个强化学习只需要五个名词：状态、动作、观测、轨迹、奖励。</b><span class='k'>而两个最该注意的信息藏在小括号里</span>：观测这个概念「<b>只在信息缺失时才用</b>」，轨迹「<b>长度可以是 1</b>」—— 后一条直接说明了 bandit 是 RL 的一个特例。", "eq": "五个基本量（p32）：\n\n  s_t   状态     时刻 t 这个「世界」的状态\n  a_t   动作     时刻 t 做出的决策\n  o_t   观测     时刻 t agent 看到的东西\n                 （讲义小字：**only used when missing information**\n                   —— 只有在看不全状态时才需要这个概念）\n  τ     轨迹     (s₁, a₁, s₂, a₂, …, s_T, a_T)\n                 （讲义小字：**could be length T=1!**）\n  r(s,a) 奖励函数  (s,a) 这一步有多好\n\n────────────────────────────────────────\n马尔可夫性（p33）：\n\n  下一个状态**纯粹**是当前状态与动作（加上随机性）的函数：\n\n      s_{t+1}  ∼  p( · | s_t, a_t )          ← **动力学，而且是未知的**\n\n  关键是它**不**出现 s_{t−1}：\n      p(s_{t+1} | s_t, a_t, s_{t−1}, a_{t−1}, …)  =  p(s_{t+1} | s_t, a_t)\n\n  这条独立性就叫**马尔可夫性**。\n\n  ⚠ 它是对「状态」的定义性要求，不是对世界的假设：\n     **如果当前变量不足以预测未来，那它就还不配叫「状态」** —— 这时候\n     你手上的是「观测」o_t，要靠记忆（p36）把历史拼回去。", "pts": ["<b>「could be length T=1!」这个小括号对你尤其重要：它说的是 bandit 是 RL 的退化情形。</b><span class='k'>轨迹长度为 1 时没有状态转移、没有信用分配，只剩「选一个动作、拿一个奖励」</span> —— <b>那正是多臂老虎机</b>。<span class='w'>所以 CSE 541 整门课，在这个框架里是 T=1 的那一格。</span>", "<b>「observation — only used when missing information」这句话把观测的地位说清楚了：它是一个不得已的概念。</b><span class='k'>理想情况下你直接拿到状态 s，马尔可夫性成立，一切都干净</span>；<b>现实中你只拿到观测 o（摄像头的一帧、用户的一句话），而它不足以决定未来</b>。<span class='w'>于是 MDP 退化成 POMDP（p43 会给这个名字）</span>。", "<b>马尔可夫性最容易被误解成「对世界的假设」，其实它是「对状态的要求」。</b><span class='k'>任何过程都可以是马尔可夫的 —— 只要你把状态定义得足够大</span>（极端情形：把全部历史塞进状态）。<b>所以真正的问题从来不是「这个世界马尔可夫吗」，而是「我能不能找到一个足够小、又足够用的状态表示」。</b>", "<b>注意动力学 <code>p(s_{t+1}|s_t,a_t)</code> 上面明写着 unknown。</b><span class='w'>这是 RL 与经典控制/规划的分界</span>：<b>知道动力学就是规划问题（可以直接算最优解），不知道才需要学</b>。<span class='k'>第 5 族算法「基于模型」做的就是先把它学出来（L11）</span>。", "<b>奖励写成 <code>r(s,a)</code> 而不是 <code>r(s)</code> 也是一个选择。</b><span class='k'>动作本身可以有代价</span> —— <b>而这对你的课题是刚需</b>：<span class='w'>你的「cheapest-feasible」里那个 cost，正是一个只依赖动作（调用了哪个算子）的奖励项</span>。"], "tbl": {"cap": "五个名词，以及各自最容易出错的地方", "head": ["记号", "是什么", "<b>容易出错的地方</b>"], "rows": [["s_t", "世界在 t 时刻的状态", "<b>「状态」是你定义的，不是世界给的 —— 定得不够就不马尔可夫</b>"], ["a_t", "t 时刻做的决策", "动作空间连续还是离散，决定了能用哪族算法（p42）"], ["o_t", "agent 看到的东西", "<b>只在信息缺失时才需要它；有 o 没 s ⇒ POMDP，策略要带记忆</b>"], ["τ", "(s₁,a₁,…,s_T,a_T)", "<b>T 可以是 1 —— 那就退化成 bandit</b>"], ["r(s,a)", "这一步有多好", "<b>依赖 a 而不只是 s，所以「动作本身的代价」可以写进去</b>"], ["p(s_{t+1}|s_t,a_t)", "动力学", "<b>未知 —— 知道它就是规划问题，不是 RL</b>"]]}, "say": "<b>讲稿里讲者对马尔可夫性的说明，比幻灯那一行更能说明它为什么有用：</b><br><br>「<span class='k'>the crucial thing to notice here is that S3 only depends on S2 and A2 and it doesn't depend on [S]1. … And this sort of independence property is called the Markov property. Uh, and it's, uh, one of the things that actually ends up being very useful in reinforcement learning. So, it allows you to break up the problem into these scenarios where you don't have to worry about all the dependencies that come before it.</span>」<br><br><b>「break up the problem」是关键词</b>：<span class='w'>马尔可夫性让你可以把一个 T 步的联合问题拆成 T 个一步的问题</span>。<b>动态规划、贝尔曼方程、值迭代，全部建立在这一条上。</b><br><br><b>课堂上还有一个很实际的提问值得记下来</b>：有学生问「<span class='k'>in practice, how many past observations do we need to infer the state?</span>」讲者的回答是「<span class='w'>it is heavily domain dependent … In a lot of robotics examples, you can often get away with just using the current [observation]</span>」。<b>也就是说这个窗口长度 m（p36 会出现）是一个要调的超参，没有理论答案。</b>", "link": {"t": "你学过的对应：Sutton & Barto 第 5 章（MDP 与蒙特卡洛方法，同一套记号的系统版本）", "href": "../../sutton-barto/精读/C05-精读.html"}, "res": {"tag": "推断", "v": "<b>「轨迹长度可以是 1」这个小括号，正好标出了你的课题在这张图里的位置。</b><br><br>你的配置搜索，<span class='k'>如果建模成「选一个完整配置 → 拿一个分数」，那 T=1，是纯 bandit</span>；<b>如果建模成「逐个算子地构造 workflow，走完才给分」，那 T&gt;1，是 RL（而且是稀疏奖励的 RL）</b>。<br><br><b>两种建模的代价很不一样，值得先想清楚再动手</b>：<br>· <span class='w'>T=1</span>：动作空间 = 全部配置（巨大，但可以靠结构/支配关系剪枝）；<b>理论工具最成熟（CSE 541 L09）</b>。<br>· <span class='w'>T&gt;1</span>：动作空间小（每步只选一个算子），但<span class='k'>要处理信用分配与稀疏奖励</span>；<b>好处是中间状态可以共享信息</b>。<br><br><b>你的 dominance-pruning MCTS 听起来是第二种</b>，<span class='k'>而你的「最终选哪个配置」是第一种</span>。<b>两层都在，所以论文里要明确说清哪一层用哪套理论</b> —— ⚠ 这是我按你课题名字的推断，<span class='w'>实际怎么建模要你自己确认</span>。", "ref": "本讲 p32 的「could be length T=1!」；对照 CSE 541 L09 的纯探索"}},
+{"r": [34, 35], "t": "同一套记号套两个完全不同的场景，其中聊天机器人那个奖励值得停一下", "star": 4, "quote": "Examples — s state: RGB images, joint positions, joint velocities.  a action: commanded next joint position.  τ trajectory: 10-sec sequence of camera, joint readings, controls at 20 Hz, T = 200.  r(s, a) reward = 1 if the towel is on the hook in state s, 0 otherwise.  —  o observation: the user's most recent message.  a action: chatbot's next message.  τ trajectory: variable length conversation trace (o_1, a_1, o_2, a_2, . . . , o_T, a_T).  r(s, a) reward = 1 if the user gives upvote, -10 if the user downvotes, 0 if no user feedback.  Think-pair-share: how to represent another example?  Define autonomous driving / web agent / poker player / choose your own!", "one": "<b>一个机器人、一个聊天机器人，同一套记号全部套上。</b><span class='k'>最该注意的是聊天机器人那一行：机器人用 s（状态），聊天机器人用 o（观测）</span> —— <b>因为你永远看不到用户心里在想什么</b>。还有那个 <b>+1 / −10 / 0</b> 的奖励，不对称得很刻意。", "eq": "例子一：机器人把毛巾挂上钩子\n  s   = RGB 图像 + 关节位置 + 关节速度\n  a   = 下一个关节位置的指令\n  τ   = 20 Hz 下 10 秒的相机/关节读数与控制序列  ⇒  **T = 200**\n  r   = 状态 s 里毛巾挂在钩子上则 1，否则 0\n\n例子二：聊天机器人\n  **o** = 用户最近的一条消息          ← 注意用的是 o 不是 s\n  a   = 机器人的下一条消息\n  τ   = 变长的对话记录 (o₁, a₁, o₂, a₂, …, o_T, a_T)\n  r   = 用户点赞 **+1** / 点踩 **−10** / 没有反馈 **0**\n\n────────────────────────────────────────\np35 的练习（think-pair-share）：\n  自己挑一个场景，把 s 或 o、a、τ、r 都定义出来：\n    自动驾驶 · 网页 agent · 扑克玩家 · 或者自己选一个\n\n  **这个练习值得真做一遍** —— 定义这四样东西本身就是\n  把一个现实问题变成 RL 问题的全部工作量。", "pts": ["<b>机器人用 s、聊天机器人用 o，这个区别是刻意的。</b>机器人可以认为相机加关节读数基本就是状态；<span class='k'>而用户的意图、心情、上下文记忆，你一概看不见</span>。<b>所以聊天是一个 POMDP</b>，<span class='w'>策略必须带记忆（p36 的 π_θ(a_t|o_{t−m},…,o_t)），否则每一轮都像第一次见面</span>。", "<b>那个 <code>−10</code> 是整页最值得停的地方：点踩的代价是点赞收益的十倍。</b><span class='k'>这不是数学上的必要，是一个产品决策被编码进了奖励函数</span> —— <b>「宁可少讨好一次，也别惹恼一次」</b>。<span class='w'>奖励函数是你把价值观写进系统的地方</span>，<b>而它一旦写错，算法会非常忠实地把错的东西优化到极致。</b>", "<b>「没有反馈 = 0」这个设定也埋着一个陷阱。</b><span class='k'>绝大多数对话是没有反馈的</span>，<b>所以奖励信号极其稀疏</b>；<span class='w'>而且「没点赞」和「没看到」被混成了同一个 0</span>。<b>这是真实 RLHF 系统里的一个核心难题</b>，L08（奖励学习）与 L09（RLHF）会正面处理。", "<b>机器人那个 <code>T = 200</code> 是算出来的，不是给出来的</b>：<span class='k'>20 Hz × 10 秒 = 200 步</span>。<b>值得自己验一遍，因为「一条轨迹有多长」直接决定了信用分配有多难</b> —— <span class='w'>200 步里只有最后才知道毛巾挂没挂上，中间 199 步的奖励全是 0</span>。", "<b>p35 的练习真的值得做一遍，而且最好拿你自己的问题去做。</b><span class='k'>把 s / a / τ / r 定义出来，就是把一个现实问题变成 RL 问题的全部工作量</span> —— <b>后面所有算法都只是在这四样东西上操作</b>。<span class='w'>定不出来，说明这个问题还不是（或者不该是）一个 RL 问题。</span>"], "tbl": {"cap": "两个例子逐行对照：差别全在「看得见多少」和「奖励多稀疏」", "head": ["", "机器人挂毛巾", "<b>聊天机器人</b>"], "rows": [["用 s 还是 o", "<b>s（相机+关节基本就是状态）</b>", "<b>o（看不见用户心里想什么）⇒ POMDP</b>"], ["动作空间", "连续（关节位置）", "<b>离散但巨大（整条消息）</b>"], ["轨迹长度", "<b>T = 200（20 Hz × 10 秒）</b>", "<b>变长</b>"], ["奖励", "0/1，只在最后判定", "<b>+1 / −10 / 0，**不对称**</b>"], ["奖励稀疏吗", "<b>很稀疏（199 步都是 0）</b>", "<b>更稀疏（多数对话根本没反馈）</b>"], ["最大的难点", "信用分配", "<b>「没反馈」与「没看到」混成同一个 0</b>"]]}, "say": "<b>讲稿在这一段之后有一个学生提问，答案值得记下来，因为它涉及一个常见的实现选择：</b><br><br>学生问的大意是：观测该用「当前的全部信息」还是「与上一帧的差分」？讲者答：<br><br>「<span class='k'>it would come out down to different trade-offs often times. If you are going to be including a lot of history, then kind of compressing it by using deltas could potentially make a lot of sense</span>…」<br><br><b>这是一个真实的工程取舍</b>：<span class='w'>要塞进很多历史时，用差分来压缩往往划算</span>；<b>但差分会丢掉绝对位置信息</b>，所以不是无脑更好。<br><br><b>更一般地看，这个问题问的是「状态该怎么表示」</b> —— <span class='k'>而这正是前一页说的那件事：马尔可夫性是对状态表示的要求</span>。<b>表示设计得好，一帧就够；设计得差，塞一百帧也不马尔可夫。</b>", "res": {"tag": "推断", "v": "<b>那个 <code>−10</code> 对你的课题有一个很直接的类比：你的目标也是不对称的。</b><br><br>「cheapest-feasible」里，<span class='k'>「不可行」和「贵一点」的代价根本不是一个量级</span> —— <b>一个配置如果产出的结果不可用，那它多便宜都没意义</b>。<span class='w'>这在数学上就是一个硬约束，或者一个极大的负奖励</span>。<br><br><b>两种写法的后果不同，要选一个并说明理由</b>：<br>· <span class='w'>写成硬约束</span>（可行域里只留可行配置）：干净，但要求你<b>事先知道哪些可行</b> —— 而可行性往往要跑了才知道。<br>· <span class='w'>写成大负奖励</span>：允许「跑了才发现不可行」，但<span class='k'>常数取多大会直接影响搜索行为</span>，而且理论分析里那个常数会进界。<br><br><b>你的 nogood 机制听起来是第一种的增量版</b>：边搜边把发现的不可行组合加进约束。<span class='k'>那在形式上是一个「可行域在收缩的约束优化」</span> —— <b>这个提法本身就值得在论文里写清楚，因为标准的 bandit 理论都假设臂集固定</b>。", "ref": "本讲 p34 的 −10；对照 CSE 541 L04 的「可行域收缩」那条待核事项"}},
+{"r": [36, 36], "t": "把行为变成一个可以求导的东西：策略，以及 rollout 这个词", "star": 5, "quote": "How to represent behavior with a neural network?  Observe state s_t → Take action a_t (e.g. by sampling from policy π_θ(·|s_t)) → Observe next state s_{t+1}, sampled from unknown world dynamics p(·|s_t, a_t).  Result: a trajectory s_1, a_1, . . . , s_T, a_T — also called a policy roll-out or an episode.  π_θ(a|s) also called a policy, θ.  If you only have observations o, give the policy memory: π_θ(a_t|o_{t−m}, …, o_t).", "one": "<b>这一页回答了 p4 那三个学习目标里的第二条：怎么表示行为。</b>答案只有一个记号：<span class='k'><code>π_θ(a|s)</code> —— 一个由参数 θ 决定的、从状态到动作的条件分布</span>。<b>写成这个样子，「改进行为」就变成了「调 θ」，于是可以求导、可以用梯度下降。</b>", "eq": "一次交互循环（p36）：\n\n  观察状态 s_t\n      ↓\n  采取动作 a_t      （例如从策略里**采样**：a_t ∼ π_θ( · | s_t)）\n      ↓\n  观察下一个状态 s_{t+1}  ∼  p( · | s_t, a_t)      ← **未知的世界动力学**\n      ↓\n  （回到第一步）\n\n  结果：一条轨迹 s₁, a₁, …, s_T, a_T\n  **这条轨迹也叫 policy roll-out，或者一个 episode。**\n\n────────────────────────────────────────\n策略本身：\n\n      π_θ(a | s)        θ 是神经网络的参数\n\n  · 它是一个**分布**，不是一个函数 —— 同一个 s 可以给出不同的 a\n  · 「学习行为」 = 「调 θ」，于是可以求导\n\n只有观测、没有状态时（p36 小字）：\n\n      π_θ( a_t | o_{t−m}, …, o_t )      ← **给策略一段记忆**\n\n  窗口长度 m 是超参。讲稿里学生问过「要多少历史」，\n  答案是 **heavily domain dependent**，机器人里常常当前一帧就够。", "pts": ["<b>把行为写成分布而不是函数，是这一页最关键的一步，而它有两个独立的理由（p39 会展开）。</b><span class='k'>一是探索</span>：确定性策略永远走同一条路，学不到别的；<span class='k'>二是建模</span>：真实数据里同一个状态下人们会做不同的事。<b>两条都要求 π 是一个分布。</b>", "<b>「roll-out」这个词要和「episode」区分开，虽然这一页把它们并列了。</b><span class='w'>episode 强调的是「一次完整的尝试，从头到尾」</span>；<span class='w'>roll-out 强调的是「按某个策略把它展开出来」</span>。<b>在 MCTS 的语境里 rollout 还有更窄的含义（从某个节点往下随机走到底）</b> —— <span class='k'>你做 MCTS，读文献时要留意是哪一种</span>。", "<b>注意采样发生在两个地方，而且这两处的随机性来源完全不同。</b>① <span class='k'>a_t ∼ π_θ(·|s_t)</span> —— 你自己的随机（可控）；② <span class='k'>s_{t+1} ∼ p(·|s_t,a_t)</span> —— 世界的随机（不可控，而且 p 未知）。<b>下一页 p37 要问的「随机性来源」，答案就是这两处。</b>", "<b>「给策略记忆」那一行是 POMDP 的标准补丁，但它也是一个妥协。</b><span class='w'>理论上你需要的是对整个历史的充分统计量（信念状态）</span>；<b>实践里就塞最近 m 帧了事</b>。<span class='k'>m 太小不马尔可夫，m 太大网络难训</span> —— 而且讲稿明说<b>没有一般答案，heavily domain dependent</b>。", "<b>θ 这个下标值得单独认一下：它是整门课唯一要优化的东西。</b><span class='k'>p38 的目标 <code>max_θ E_{τ∼p_θ(τ)}[·]</code> 里，max 下面写的就是 θ</span>。<b>后面五族算法的差别，说到底都是「怎么估这个期望对 θ 的梯度」或者「要不要绕开它」。</b>"], "tbl": {"cap": "两处采样：同样是随机，来源与可控性完全不同", "head": ["", "a_t ∼ π_θ(·|s_t)", "<b>s_{t+1} ∼ p(·|s_t,a_t)</b>"], "rows": [["随机来自", "<b>你自己的策略</b>", "<b>世界</b>"], ["你能控制吗", "<b>能（调 θ）</b>", "<b>不能</b>"], ["分布知道吗", "<b>知道（你定义的）</b>", "<b>不知道（unknown dynamics）</b>"], ["为什么要它随机", "探索 + 建模多样行为（p39）", "世界本来就随机"], ["在 p37 里的身份", "<b>第 2 个变异来源</b>", "<b>第 1 个变异来源</b>"], ["哪族算法会去学它", "策略梯度 / AC（直接调 θ）", "<b>基于模型（L11 要把 p 学出来）</b>"]]}, "say": "<b>讲稿在进入这一页时有一句很好的过渡，它点出了这一页在整讲里的位置：</b><br><br>「<span class='k'>Okay, so now that we've talked about formulating the reinforcement learning problem, let's talk about actually representing behavior. So, we want to map typically from states or observations to action.</span>」<br><br><b>注意她说的是 map from states or observations to action</b> —— <span class='w'>一个映射</span>。<b>但幻灯上写的是 <code>π_θ(a|s)</code>，一个条件分布。</b><br><br><span class='k'>这个口语与记号之间的小差距，正是下一页 p39 要补的那一课</span>：<b>为什么不能只用一个映射（确定性策略），非要用分布</b>。<br><br>读的时候可以带着这个问题往下走 —— <span class='w'>如果策略只是一个 s → a 的函数，哪里会出问题？</span>（答案：你永远不会尝试别的动作，也就永远不知道别的动作好不好。）", "link": {"t": "你学过的对应：CS234 L08 策略梯度（π_θ 的梯度怎么求：似然比技巧）", "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}},
+{"r": [37, 38], "t": "目标写不出来的那一刻：回报不是一个确定的数，所以要套一个期望", "star": 5, "quote": "What is the goal of reinforcement learning?  maximize sum of rewards: max Σ_t^T r(s_t, a_t) — but this is not a deterministic quantity!  Question: what are the sources of variability?  p(s_1, a_1, . . . , s_T, a_T) = p(s_1) Π_{t=1}^T π_θ(a_t|s_t) p(s_{t+1}|s_t, a_t)  ≜ p_θ(τ).  1. the world is stochastic.  2. the car may not make the same decision every time.  maximize expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t^T r(s_t, a_t) ].", "one": "<b>这两页只做了一件事：在目标函数外面套了一个期望。</b><span class='k'>但这一步是整门课的转折点</span> —— <b>因为「最大化回报」这句话本身是没定义的：同一个策略跑两次，回报就不一样。</b>", "eq": "先写下想要的（p37 上半）：\n\n      max  Σ_{t}^{T} r(s_t, a_t)\n\n  **但这不是一个确定的量！**  讲者当场提问：变异来自哪里？\n\n────────────────────────────────────────\n轨迹的分布（p37，这一行是全讲最该背的）：\n\n  p(s₁, a₁, …, s_T, a_T)\n      =  p(s₁) · Π_{t=1}^{T}  π_θ(a_t | s_t) · p(s_{t+1} | s_t, a_t)\n         └初始态┘   └── 你的策略 ──┘   └── 世界的动力学 ──┘\n      ≜  p_θ(τ)\n\n  注意下标 θ：**整条轨迹的分布依赖于你的参数** —— 这正是难点所在。\n\n  两个变异来源（p37 答案）：\n    1. **the world is stochastic**              ← p(s_{t+1}|s_t,a_t) 是分布\n    2. **the car may not make the same decision every time**  ← π_θ 是分布\n\n────────────────────────────────────────\n于是目标改写成（p38）：\n\n      max_θ   𝔼_{τ ∼ p_θ(τ)} [ Σ_{t}^{T} r(s_t, a_t) ]\n\n  **这就是整门课要优化的那个式子。**后面所有算法都在打它的主意。", "pts": ["<b><code>p_θ(τ)</code> 这个下标是全讲最该盯住的一个细节：期望里的分布本身依赖于你要优化的参数。</b><span class='k'>普通的监督学习是 <code>min_θ E_{x∼D}[ℓ(f_θ(x))]</code>，分布 D 与 θ 无关</span>；<b>这里是 <code>max_θ E_{τ∼p_θ(τ)}[R(τ)]</code>，改 θ 会同时改被积函数和积分测度</b>。<span class='w'>所以你不能直接把梯度塞进期望里 —— 这正是策略梯度要用似然比技巧的原因。</span>", "<b>那一行乘积分解值得逐项认：它说明轨迹的概率由三样东西决定。</b>① <span class='k'>p(s₁)</span> 初始状态分布（你不能控）；② <span class='k'>π_θ(a_t|s_t)</span> 你的策略（唯一能控的）；③ <span class='k'>p(s_{t+1}|s_t,a_t)</span> 世界（不能控，还未知）。<b>整个 RL 就是在只能动第 ② 项的情况下，去影响整条轨迹的分布。</b>", "<b>讲者在这里用提问的方式推进，而学生的答案正好覆盖了两条。</b><span class='w'>第一个学生说「状态不只取决于动作和状态，还有随机性影响下一个状态」</span>（= 世界随机）；<span class='w'>第二个说「你的策略也可能不是确定性的」</span>（= 策略随机）。<b>这两条是 p37 给的标准答案。</b>", "<b>还有第三个可能的来源，讲稿里有，幻灯上没有：奖励本身也可能是随机的。</b><span class='k'>讲者的处理是「generally without losing generality, you can push that into the state if you need it」</span> —— <b>把随机性推进状态里，奖励函数就可以保持确定性</b>。<span class='w'>这是一个标准技巧，但它要求状态能装下那个隐藏变量。</span>", "<b>套上期望之后，目标才终于是一个关于 θ 的确定函数，可以谈「最大化」了。</b><span class='k'>但代价是：这个期望算不出来</span>（τ 的空间是指数大的，而且 p 未知）。<b>所以所有算法都在解决同一个问题：怎么在不知道 p、也算不了期望的情况下，估出它对 θ 的梯度（或者绕开梯度）。</b>"], "tbl": {"cap": "p_θ(τ) 的三个因子：哪些你能动，哪些你连看都看不到", "head": ["因子", "是什么", "你能控吗", "你知道吗", "<b>哪族算法会动它</b>"], "rows": [["p(s₁)", "初始状态分布", "<b>不能</b>", "一般不知道", "—"], ["<b>π_θ(a_t|s_t)</b>", "<b>你的策略</b>", "<b>能（调 θ）</b>", "<b>知道（你定义的）</b>", "<b>策略梯度 / AC</b>"], ["p(s_{t+1}|s_t,a_t)", "世界动力学", "<b>不能</b>", "<b>不知道</b>", "<b>基于模型（L11 学它）</b>"], ["<b>合起来</b>", "<b>p_θ(τ)</b>", "<b>只能通过第二项间接影响</b>", "—", "—"], ["由此带来的技术难点", "<b>期望里的分布依赖 θ</b>", "—", "—", "<b>似然比技巧 / 重要性采样</b>"]]}, "say": "<b>讲稿里这一段是课堂互动，而且问答把三个变异来源都问出来了，值得完整看一遍：</b><br><br>讲者先问：「<span class='k'>why is this not a deterministic quantity and what are the sources of variability that might cause the sum of rewards to differ from one trajectory to another trajectory?</span>」<br><br>学生甲：「<span class='w'>one source of variability is that the state doesn't just depend on the action and the state, but there's also kind of randomness that can affect the next state.</span>」<br>学生乙：「<span class='w'>Your policy may not be deterministic either.</span>」<br><br>讲者确认这两条是「<span class='k'>two really key sources</span>」，然后补了第三条：「<span class='w'>You might have a stochastic reward…</span>」并给出处理办法：「<span class='k'>generally without losing generality, you can push that into the state if you need it.</span>」<br><br><b>最后她用开车作例子把两条收束了</b>：「<span class='w'>in driving, for example, other cars are going to behave in ways that are random. And your car might not make the same decision every time.</span>」<br><br><b>这一段是本讲最值得看录像的地方</b> —— 幻灯上只有两行结论，<span class='k'>而推出结论的过程全在问答里</span>。", "link": {"t": "你学过的对应：CS234 L08 策略梯度（p_θ(τ) 依赖 θ 怎么办：∇log p_θ(τ) 的那一招）", "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}, "res": {"tag": "推断", "v": "<b>「期望里的分布依赖于你要优化的参数」这件事，在你的课题里有一个对应，而且是你必须处理的。</b><br><br>你的搜索策略决定了<span class='k'>你会去评估哪些配置</span>，而那些评估又用来更新搜索策略。<b>于是你收集到的数据分布依赖于你的算法</b> —— <span class='w'>这正是「自适应收集的数据」，而标准的集中不等式（CSE 541 L05）假设 n 事先固定，在这里不成立</span>。<br><br><b>这是你论文里一个必须显式处理的技术点</b>：<span class='k'>用固定 n 的 Hoeffding 界去给自适应收集的数据做置信区间，是错的</span>。<b>正确的工具是鞅型置信界 / anytime 界（CSE 541 L12）</b>。<br><br><b>好消息是这个洞有标准补丁</b>，而且你已经读过那一讲。<span class='w'>坏消息是很多实证论文根本没意识到这个问题</span> —— <b>所以把它处理对，本身就是一个可以写出来的严谨性加分项</b>。", "ref": "本讲 p37 的 p_θ(τ)；对照 CSE 541 L05 的固定 n 假设与 L12 的鞅型界"}},
+{"r": [39, 39], "t": "为什么策略非得是随机的：一个为了学，一个为了学得像", "star": 4, "quote": "Aside: why stochastic policies?  1. Exploration: to learn from your own experience, must try different things.  We can leverage tools from generative modeling!  2. Modeling stochastic behavior: existing data will exhibit varying behaviors —> generative model over actions given states/observations.", "one": "<b>两个理由，而且它们服务于两种完全不同的场景。</b><span class='k'>第一个是为了「学」（在线：不试别的就不知道别的好不好）</span>，<span class='k'>第二个是为了「学得像」（离线：数据里本来就有多种做法）</span>。<b>讲义把这一页标成 Aside，但它其实解释了整门课为什么长成现在这样。</b>", "eq": "理由一：**探索**\n  要从自己的经验里学，就必须去试不同的东西。\n  · 确定性策略 a = f(s)：同一个状态永远做同一件事\n    ⇒ 其他动作的回报**永远不会被观测到**\n    ⇒ 你无法知道自己是不是停在一个次优解上\n  · 讲义补了一句：**We can leverage tools from generative modeling!**\n    （策略就是一个条件生成模型 —— 扩散策略、自回归策略都是这么来的）\n\n理由二：**建模随机行为**\n  已有的数据会表现出多样的行为：\n  · 不同的人开车方式不同；同一个人不同时候也不同\n  · 若你用确定性策略去拟合，它会收敛到**平均**那个动作\n    ⇒ 而「平均的动作」常常是**所有做法里最差的那个**\n      （例：绕开障碍物，左绕和右绕都对，平均就是直接撞上去）\n  ⇒ 所以要在「给定状态的动作」上建一个**生成模型**\n\n────────────────────────────────────────\n两个理由的分工：\n  理由一 → **在线**场景（L03–L06、L14 探索）\n  理由二 → **离线/模仿**场景（L02 模仿学习、L07 离线 RL）", "pts": ["<b>理由二比理由一更容易被忽略，但它造成的失败更隐蔽。</b><span class='k'>用确定性策略去拟合多模态的数据，结果是落在各个模态的平均值上</span> —— <b>而平均值常常不在任何一个模态里</b>。<span class='w'>讲义没举例，但最经典的是绕障碍：左绕右绕都对，平均一下就是直直撞上去</span>。", "<b>「We can leverage tools from generative modeling!」这一句是一个方向性的提示。</b><span class='k'>既然策略是「给定 s 的 a 的分布」，那它就是一个条件生成模型</span> —— <b>于是整个生成模型工具箱都能搬过来</b>：<span class='w'>高斯混合、自回归、扩散模型</span>。<b>近年机器人领域的 diffusion policy 正是这条路。</b>", "<b>理由一与「探索-利用权衡」是同一件事的两个说法，而这正是 bandit 的核心话题。</b><span class='k'>随机策略是最朴素的探索手段（ε-贪心、softmax）</span>；<b>而 CSE 541 整门课在讲更聪明的做法</b>：<span class='w'>用置信上界、用实验设计，而不是靠随机碰</span>。<b>两者的差别在样本效率上是数量级的。</b>", "<b>注意这一页被标成 Aside（插叙），但它的位置不是随便放的。</b><span class='k'>它夹在「目标是最大化期望回报」（p38）与「值函数」（p40）之间</span> —— <b>因为前一页刚说策略是随机性的来源之一，自然要解释「那为什么不干脆让它确定」。</b>", "<b>随机策略也有代价，讲义没提但该知道：它引入了方差。</b><span class='w'>策略越随机，同一个 θ 下的回报波动越大，梯度估计就越不准</span>。<b>所以实践中常让随机性随训练衰减</b> —— <span class='k'>前期多探索，后期趋于确定。这个调度本身是一个超参。</span>"], "tbl": {"cap": "两个理由的分工，以及各自失败时的样子", "head": ["", "理由一：探索", "<b>理由二：建模随机行为</b>"], "rows": [["场景", "<b>在线</b>（自己去试）", "<b>离线 / 模仿</b>（学已有数据）"], ["不随机会怎样", "<b>永远观测不到别的动作的回报</b>", "<b>收敛到各模态的平均 —— 可能哪个模态都不是</b>"], ["典型失败", "卡在次优解上还不自知", "<b>绕障碍时直直撞上去</b>"], ["对应的讲", "L03–L06 · <b>L14 探索</b>", "<b>L02 模仿学习</b> · L07 离线 RL"], ["更聪明的做法", "<b>UCB / 实验设计（CSE 541）</b>", "<b>条件生成模型（扩散策略）</b>"], ["代价", "<b>方差变大，梯度估计变差</b>", "模型更复杂"]]}, "say": "<b>讲稿里讲者用打网球作例子解释探索，这个比喻比幻灯上那行字好记得多：</b><br><br>「<span class='k'>if you want to learn, you probably have to try different things. Like if you're learning how to play tennis, you probably shouldn't try the same exact technique over and over again. You need actually explore and try different strategies in order to do it. And so, that can be represented as a stochastic policy that's trying a few different strategies and trying to figure out which strategy is best.</span>」<br><br>接着是理由二：<br><br>「<span class='w'>there's scenarios where you collect data from people or from different systems and those people are taking different strategies. And if you want to model the way that they're ap[proaching it]…</span>」<br><br><b>两个比喻的对象不一样，值得注意</b>：<span class='k'>理由一讲的是「你自己在学」，理由二讲的是「你在学别人」</span>。<b>这也正好对应在线与离线两种场景</b> —— <span class='w'>而这门课后面会把它们拆成完全不同的两章</span>（HW2 在线 vs HW3 离线）。", "link": {"t": "你学过的对应：CSE 541 L06 逐次淘汰（比随机探索聪明得多的做法：用置信区间决定该试谁）", "href": "../../bandits-cse541/精读/L06-精读.html"}, "res": {"tag": "推断", "v": "<b>这一页给了你一个可以正面写进论文的对比点：你的搜索用的是哪一种探索？</b><br><br>· <span class='w'>随机策略（ε-贪心、Boltzmann）</span>：最朴素的一档。<b>简报 §2 已核实 AFlow 用的正是 Boltzmann 爬山</b> —— <span class='k'>softmax(α(s_i − s_max)) 再与均匀分布混合</span>。<br>· <span class='w'>基于置信的探索（UCB、逐次淘汰）</span>：用不确定性决定试谁，<b>而不是靠掷骰子</b>。<br>· <span class='w'>实验设计（G-最优、XY-最优）</span>：<b>一次性规划好要测哪些</b>，最省样本的一档。<br><br><b>三档之间的差距在样本效率上是数量级的</b>，<span class='k'>而这正是一个干净的、可以实验验证的贡献点</span>：在同样的评估预算下，把 Boltzmann 换成基于置信的选择，能省多少次评估。<br><br><b>这个实验很便宜</b>（不需要新理论，只要换一个选择规则），<span class='w'>而且结果无论正负都有价值</span> —— 如果省不了，那本身是一个值得解释的现象。", "ref": "本讲 p39 的探索理由；科研简报 §2（AFlow 的 Boltzmann 爬山，已核）"}},
+{"r": [40, 40], "t": "值函数与 Q 函数：为了改进策略，先得能评价策略", "star": 5, "quote": "What is the goal of reinforcement learning?  maximize expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[Σ_t^T r(s_t, a_t)].  How good is a particular policy?  V^π(s)  value function - future expected reward starting at s and following π.  Q^π(s, a)  Q-function - future expected reward starting at s, taking a, then following π.", "one": "<b>一页两个定义，差别只有五个字：Q 函数「先走一步 a」，值函数不走。</b><span class='k'>但正是这五个字让 Q 函数可以直接拿来选动作，而 V 不行</span> —— <b>这个区别会一路贯穿到 L06 的 Q-learning。</b>", "eq": "起点是一个很实际的问题（p40）：\n\n      **How good is a particular policy?**\n      （一个策略到底有多好？）\n\n两个答案：\n\n  V^π(s)   = 从状态 s 出发、之后一直按 π 走，**未来的期望回报**\n\n           = 𝔼_{τ ∼ p_π(τ | s₁ = s)} [ Σ_{t} r(s_t, a_t) ]\n\n  Q^π(s,a) = 从状态 s 出发、**先走动作 a**、之后再按 π 走，未来的期望回报\n\n           = 𝔼 [ Σ_{t} r(s_t, a_t)  |  s₁ = s, a₁ = a ]\n\n────────────────────────────────────────\n两者的关系（讲义没写，但一行就能看出来）：\n\n      V^π(s)  =  𝔼_{a ∼ π(·|s)} [ Q^π(s, a) ]\n                （对动作按策略取平均，就从 Q 回到 V）\n\n为什么 Q 更有用：\n      给定 Q^π，你可以直接问「哪个 a 最好」：  argmax_a Q^π(s,a)\n      给定 V^π，你**做不到** —— 要知道走 a 之后会到哪，\n      也就是**需要动力学 p(s'|s,a)**，而它是未知的。\n\n  ⇒ **这正是为什么有一整族「基于值」的算法学的是 Q 而不是 V**（L06）。", "pts": ["<b>讲稿里给的动机比幻灯更直白，而且它是整页的逻辑起点</b>：<span class='k'>「if you don't know how good your policy is, then you're not going to be able to make your policy better」</span>。<b>先会评价，才谈得上改进</b> —— <span class='w'>这句话也解释了为什么 Actor-Critic（第 3 族）要同时养一个 actor 和一个 critic。</span>", "<b>V 和 Q 的差别只有「先走一步 a」，但后果很大：Q 自带了选动作的能力。</b><span class='k'>有了 Q，<code>argmax_a Q(s,a)</code> 直接给出该做什么</span>；<b>而有了 V，你得先知道走某个 a 会到哪个 s'，也就是需要动力学</b>。<span class='w'>动力学恰恰是未知的 —— 所以无模型算法学 Q，有模型算法才用得上 V。</span>", "<b>两者的桥是 <code>V^π(s) = E_{a∼π(·|s)}[Q^π(s,a)]</code>，讲义没写但该自己补上。</b><span class='k'>对动作按当前策略取平均，就从 Q 回到 V</span>。<b>反过来从 V 推 Q 则需要动力学</b> —— <span class='w'>这个不对称性是「为什么 Q 更常用」的精确答案。</span>", "<b>注意上标 π：这两个函数都是「某个特定策略的」，不是绝对的。</b><span class='k'>同一个状态，在好策略下值高、在烂策略下值低</span>。<b>而最优值函数 <code>V*</code>、<code>Q*</code>（这一页还没出现）是对最优策略说的</b> —— <span class='w'>第 4 族「基于值」的算法直接去估 Q*，跳过了「先有策略再评价」这一步</span>（p41 的措辞就是 estimate value of the **optimal** policy）。", "<b>值函数的存在本身，是对「反馈间接」这个困难的回答。</b><span class='k'>你只在最后拿到一个总分，不知道该归功于哪一步</span>；<b>值函数把「从这里往后还能拿多少」这个量估出来，于是每一步都有了即时的评价</b>。<span class='w'>这就是信用分配的解法，也是 L04 Actor-Critic 的全部内容。</span>"], "tbl": {"cap": "V 与 Q：一步之差，用途天差地别", "head": ["", "V^π(s)", "<b>Q^π(s, a)</b>"], "rows": [["定义", "从 s 出发，之后按 π 走", "<b>从 s 出发，先走 a，之后按 π 走</b>"], ["能直接选动作吗", "<b>不能</b>（要知道走 a 会到哪 ⇒ 需要动力学）", "<b>能：argmax_a Q(s,a)</b>"], ["互推", "V(s) = E_{a∼π}[Q(s,a)]（容易）", "<b>从 V 推 Q 需要动力学（难）</b>"], ["谁在用", "Actor-Critic 的基线（L04）", "<b>基于值的算法（L06 Q-learning）</b>"], ["上标 π 的意思", "<b>这是「这个策略的」值，不是绝对的</b>", "同左"], ["它解决了什么", "<b>信用分配：把「最后一个总分」摊到每一步</b>", "同左"]]}, "say": "<b>讲稿里这一段的开场把这一页的必要性说清楚了，值得逐字看：</b><br><br>「<span class='k'>[how do we know] how good a policy is? Uh, and this is really useful to think about because if you don't know how good your policy is, then you're not going to be able to make your policy better. And the terminology that we use to think about this is referred to as a value function. So, we often think about the value function for a policy of a given state, and we denote it, uh, typically as V pi of S. And essentially what this means is it's the future expected reward if you start at S and then follow pi from then onward.</span>」<br><br><b>「if you don't know how good your policy is, then you're not going to be able to make your policy better」—— 这一句是整个 Actor-Critic 家族的一句话总结。</b><br><br><span class='w'>actor 负责「做」，critic 负责「评」</span>，<b>而 critic 学的就是这一页的 V 或 Q</b>。<span class='k'>讲者还提到 Q 函数「我们会在周五的课之后开始讲」</span> —— 也就是 L04 之后。", "link": {"t": "你学过的对应：Sutton & Barto 第 5 章（V 与 Q 的蒙特卡洛估计，以及为什么无模型时要学 Q）", "href": "../../sutton-barto/精读/C05-精读.html"}, "res": {"tag": "推断", "v": "<b>「先会评价，才谈得上改进」这句话，在你的课题里对应一个很具体的缺口：你怎么评价一个「还没跑完的部分配置」？</b><br><br>你的 MCTS 要在树上做决策，<span class='k'>而树的内部节点是「只选了一半算子的 workflow」</span> —— <b>它没有分数，因为还没法跑</b>。<span class='w'>这正是值函数要解决的问题：给一个中间状态估一个「从这里往下最好能到多少」</span>。<br><br><b>三条可用的路，代价递增</b>：<br>① <span class='w'>rollout</span>：随机补全成一个完整配置，跑一次，拿分数当估计 —— <b>最直接，但每次都要一次昂贵评估</b>；<br>② <span class='w'>学一个代理值函数</span>：用历史数据训一个「部分配置 → 预期分数」的回归器 —— <b>便宜，但有估计误差</b>；<br>③ <span class='w'>乐观上界</span>：用支配关系给出一个可证的上界 —— <b>最贵也最硬，而且正好是你的剪枝机制的另一面</b>。<br><br><b>第 ③ 条值得认真想</b>：<span class='k'>如果你能给部分配置算一个可证的乐观上界，那剪枝与节点选择就是同一个量的两种用法</span> —— 上界低于当前最优就剪掉，上界高就优先展开。<b>这会让你的方法有一个很干净的叙述。</b>", "ref": "本讲 p40 的 V/Q 定义；对照 CSE 541 L10 的乐观主义（在置信集里挑最有利的那个）"}},
+{"r": [41, 42], "t": "五族算法，和一句「为什么不能只有一个算法」", "star": 5, "quote": "Types of algorithms — 1. Imitation learning: mimic a policy that achieves high reward.  2. Policy gradients: directly differentiate the above objective.  3. Actor-critic: estimate value of the current policy and use it to make the policy better.  4. Value-based: estimate value of the optimal policy.  5. Model-based: learn to model the dynamics, and use it for planning or policy improvement.  Why so many algorithms?  How easy / cheap is it to collect data with policy? How easy / cheap are different forms of supervision? How important is stability and ease-of-use? Action space dimensionality, continuous vs. discrete. Is it easy to learn the dynamics model?  Algorithms make different trade-offs, thrive under different assumptions.", "one": "<b>五族算法就是这门课的目录，而 p42 回答了那个每个初学者都会问的问题：为什么不能只有一个算法？</b><span class='k'>答案是「它们做了不同的取舍，在不同的假设下才好用」</span> —— <b>而这正是整门课要教会你判断的东西。</b>", "eq": "五族算法（p41），按「离目标函数有多近」排：\n\n  1. **模仿学习**      模仿一个能拿高回报的策略\n                       → 绕开目标函数，直接监督学习\n  2. **策略梯度**      直接对目标求导\n                       → 最直接，但方差大\n  3. **Actor-Critic**  估计**当前策略**的值，用它来改进策略\n                       → 用 critic 降方差\n  4. **基于值**        估计**最优策略**的值\n                       → 跳过「策略」，直接学 Q*，再 argmax\n  5. **基于模型**      学动力学模型，用它做规划或改进策略\n                       → 把未知的 p(s'|s,a) 学出来\n\n────────────────────────────────────────\n为什么这么多（p42 的五条取舍）：\n\n  · 用策略去采数据有多容易/多便宜？（仿真器 vs 手写）\n  · 不同形式的监督有多容易/多便宜？（示范、细粒度奖励）\n  · 稳定性与易用性有多重要？\n  · 动作空间的维度、连续还是离散？\n  · 动力学模型好不好学？\n\n  结论原话：**Algorithms make different trade-offs, thrive under different assumptions.**", "pts": ["<b>第 3 族与第 4 族的差别只有一个词，但那是整门课最该分清的一对：<span class='k'>current</span> vs <span class='k'>optimal</span>。</b>Actor-Critic 估的是<b>当前策略</b>的值（所以 critic 要随 actor 一起更新）；基于值的算法估的是<b>最优策略</b>的值（所以可以不要显式的策略）。<span class='w'>前者是「评价我现在这样走多好」，后者是「评价最好能走多好」。</span>", "<b>第 1 族（模仿学习）其实绕开了整个 RL 框架。</b><span class='k'>它不优化期望回报，它只是做监督学习：给定专家的 (s,a) 对，学一个 f(s) ≈ a</span>。<b>所以它最简单、最稳，代价是上界等于专家水平</b> —— <span class='w'>而且会碰到分布漂移（L02 的 DAgger 就是在补这个洞）</span>。", "<b>动作空间连续还是离散，是选算法时第一个该问的问题。</b><span class='k'>离散动作：Q-learning 可以直接 argmax（枚举所有动作）</span>；<b>连续动作：argmax 本身就是一个优化问题</b>，<span class='w'>所以连续控制里基于值的方法要么不用（走策略梯度），要么要配一个 actor 来做那个 argmax（DDPG/SAC 那一族）</span>。", "<b>p42 第一条「用策略去采数据有多容易」决定了在线还是离线。</b><span class='k'>仿真器里数据几乎免费 → 可以放肆地在线试（策略梯度就够）</span>；<b>真机/真人那边一次交互很贵 → 必须离线或者极度省样本</b>。<span class='w'>这条取舍直接对应 HW2 与 HW3 的分野。</span>", "<b>「thrive under different assumptions」这个说法值得记住，它是读这门课所有后续内容的框架。</b><span class='k'>每学一个算法，就去问：它假设了什么？这个假设在我的问题里成立吗？</span><b>不问这个，你会把一个在仿真里很好的算法搬到真机上然后困惑于它为什么不work</b> —— <span class='w'>而答案通常是某条假设悄悄失效了。</span>"], "tbl": {"cap": "五族算法：各自假设了什么，什么时候该用", "head": ["族", "核心做法", "<b>关键假设</b>", "什么时候用"], "rows": [["<b>1 模仿学习</b>", "监督学习抄专家", "<b>有高质量示范</b>", "<b>有专家数据，且不要求超过专家</b>"], ["<b>2 策略梯度</b>", "直接对目标求导", "<b>能大量在线采样</b>", "仿真便宜、动作连续"], ["<b>3 Actor-Critic</b>", "学**当前**策略的值来降方差", "同上 + critic 能训好", "<b>策略梯度方差太大时</b>"], ["<b>4 基于值</b>", "学**最优**策略的值 Q*，再 argmax", "<b>动作离散（否则 argmax 难）</b>", "<b>离散动作、要样本效率</b>"], ["<b>5 基于模型</b>", "学动力学，在模型里规划", "<b>动力学好学且误差可控</b>", "<b>交互极贵、动力学相对简单</b>"]]}, "say": "<b>讲稿里 p42 这一段的开场把这个问题问得很好，而且顺带点出了 RL 和监督学习的气质差别：</b><br><br>「<span class='k'>you might be wondering, why do we have so many different algorithms for optimizing this objective? In supervised learning, we like just have gradient descent, it works, it's great, it's simple. Um, in reinforcement learning, things are less simple. Algorithms make different trade-offs and thrive under different assumptions.</span>」<br><br>然后她举了第一条取舍的具体例子：<br><br>「<span class='w'>it's going to depend on, for example, how easy or cheap is it to collect data. And if you're in a simulator, for example, it's really, really cheap to collect lots of data versus if you're handwriting … actually interacting with a person that's writing things, that's going to be more expensive.</span>」<br><br><b>「In supervised learning, we like just have gradient descent, it works, it's great, it's simple」这句自嘲里有真东西</b>：<span class='k'>监督学习之所以能用一个算法通吃，是因为它的问题结构足够统一（i.i.d. 数据 + 可导损失）</span>。<b>RL 之所以要五族算法，正是因为 p8 那条分界打破了这个统一性。</b>", "link": {"t": "你学过的对应：CS234 L08（第 2 族策略梯度的完整推导：似然比技巧与因果性降方差）", "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}, "res": {"tag": "推断", "v": "<b>「每学一个算法就去问它假设了什么」这个习惯，用在你的课题上会立刻有产出。</b>把五条取舍逐条对照你的问题：<br><br>· <span class='k'>采数据多贵</span>？—— <b>非常贵</b>（每次要调 LLM）。⇒ <span class='w'>排除需要大量在线采样的那几族（2、3）</span>。<br>· <span class='k'>有没有示范</span>？—— <b>部分有</b>（人工设计的 workflow 模板）。⇒ <span class='w'>可以当初始化/先验用，但别指望靠它超过人工</span>。<br>· <span class='k'>动作空间</span>？—— <b>离散、组合、巨大</b>。⇒ <span class='w'>argmax 本身就是组合优化，这是你要剪枝的理由</span>。<br>· <span class='k'>动力学好学吗</span>？—— <b>你的「动力学」是确定的</b>（选了算子 A 之后状态就是确定的），<span class='w'>真正未知的只有最终分数</span>。⇒ <b>这是一个很重要的结构优势：你不需要学动力学，只需要学奖励</b>。<br><br><b>最后这一条值得写进论文</b>：<span class='k'>你的问题是「确定性转移 + 未知奖励」，这比一般 RL 简单得多</span>，<b>它更接近「结构化的 bandit」而不是 MDP</b>。说清楚这一点，读者就知道为什么你不需要整套 RL 机器。", "ref": "本讲 p42 的五条取舍；对照 CSE 541 L09 的纯探索设定"}},
+{"r": [43, 45], "t": "回顾页：把两个新名词补上，然后指向下一讲", "star": 2, "quote": "Recap of definitions — Markov decision process (partially-observed) MDP, POMDP: initial state distr. p(s_1), unknown dynamics p(s_{t+1}|s_t, a_t).  π policy - represents behavior, selecting actions based on states or observations.  Goal: learn policy π_θ that maximizes expected sum of rewards: max_θ 𝔼_{τ∼p_θ(τ)}[Σ_t^T r(s_t, a_t)].  Course Reminders — Coming Up Next: Imitation Learning Lecture (Friday 10:30, Hewlett 200). PyTorch Tutorial (Friday 1:30, Gates B1).", "one": "<b>两页回顾基本是 p32–p40 的复述，但补了两个之前没出现的名词：<span class='k'>MDP</span> 与 <span class='k'>POMDP</span>。</b>这两个缩写是后面每一讲都会用的通用语。", "eq": "回顾里新出现的两个名词（p43）：\n\n  **MDP**（Markov Decision Process，马尔可夫决策过程）\n     = 一个五元组：状态集、动作集、初始分布 p(s₁)、\n       动力学 p(s_{t+1}|s_t,a_t)、奖励 r(s,a)\n     关键：**状态满足马尔可夫性**（p33）\n\n  **POMDP**（Partially-Observed MDP，部分可观测 MDP）\n     = 看不到 s，只看得到 o\n     后果：**o 不满足马尔可夫性** ⇒ 策略要带记忆（p36）\n\n────────────────────────────────────────\n全部定义一页收（p43–p44）：\n\n  s_t 状态 · a_t 动作 · (o_t 观测) · r(s,a) 奖励函数\n  τ = (s₁,a₁,…,s_T,a_T) 轨迹\n  V^π(s) 值函数 · Q^π(s,a) Q 函数\n  π 策略 —— 表示行为，基于状态或观测来选动作\n\n  目标：  max_θ  𝔼_{τ∼p_θ(τ)} [ Σ_t^T r(s_t, a_t) ]\n\n────────────────────────────────────────\n下一讲（p45）：模仿学习（= 五族里的第 1 族，也是 HW1）", "pts": ["<b>MDP 与 POMDP 这两个缩写直到回顾页才正式出现，但它们是后面每一讲的通用语。</b><span class='k'>读论文时「we model the problem as an MDP」这句话，等价于声明了一整套假设</span>：<b>状态马尔可夫、动力学平稳、奖励只依赖 (s,a)</b>。<span class='w'>这些假设哪一条不成立，后面的理论就跟着失效。</span>", "<b>P-O-MDP 里那个 P 的代价比看起来大。</b><span class='k'>一旦只有观测，最优策略一般不再是「当前观测的函数」，而要依赖整个历史</span>。<b>严格做法是维护一个「信念状态」（对真实状态的后验分布），而那是一个连续、高维的对象</b>；<span class='w'>实践中就用最近 m 帧凑合（p36）</span>。", "<b>回顾页把 π 的定义写成「selecting actions based on states or observations」，这个「or」是故意的。</b><span class='k'>它承认了两种情形并存</span> —— <b>而整门课后面都会在这两种之间切换，不会每次重新说明</b>。", "<b>p45 指向下一讲是模仿学习（五族里的第 1 族）。</b><span class='w'>从最简单、最像监督学习的那一族开始</span>，<b>然后一族比一族远离监督学习</b>。<span class='k'>这个顺序与四次作业的顺序一致（p12），都是「监督信号逐级减少」。</span>", "<b>整讲到此结束：45 页里，真正的技术内容只有 p32–p44 这 13 页。</b><span class='k'>但这 13 页定义了整门课要用的全部语言</span> —— <b>后面每一讲都是在这套记号上做文章</b>。<span class='w'>所以这 13 页值得反复回来看，而前面 31 页看一遍就够。</span>"], "tbl": {"cap": "MDP vs POMDP：一个字母的差别，后果有多大", "head": ["", "MDP", "<b>POMDP</b>"], "rows": [["你看得到", "状态 s", "<b>只有观测 o</b>"], ["马尔可夫性", "<b>成立</b>", "<b>对 o 不成立</b>"], ["最优策略的形式", "π(a|s)，当前状态的函数", "<b>要依赖整个历史</b>"], ["严格做法", "—", "<b>维护信念状态（对 s 的后验）—— 连续高维</b>"], ["实践做法", "—", "<b>塞最近 m 帧（m 是超参，无理论答案）</b>"], ["本讲例子", "机器人挂毛巾（p34）", "<b>聊天机器人（p34）</b>"]]}, "say": "<b>这一讲到这里就结束了，而它留下的东西可以压成一行：</b><br><br><code>max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t r(s_t, a_t) ]</code><br><br><b>后面十八讲，全部是在回答「这个式子怎么优化」。</b><br><br>· <span class='k'>L02</span>：绕开它 —— 直接抄专家（模仿学习）<br>· <span class='k'>L03</span>：直接对它求导（策略梯度）<br>· <span class='k'>L04–L05</span>：求导方差太大，用 critic 压（Actor-Critic、PPO）<br>· <span class='k'>L06</span>：不要显式策略，直接学 Q*（Q-learning）<br>· <span class='k'>L07</span>：不能再采数据了怎么办（离线 RL）<br>· <span class='k'>L08</span>：r 从哪来（奖励学习）<br>· <span class='k'>L09–L10</span>：把它用在语言模型上<br>· <span class='k'>L11</span>：把 p(s'|s,a) 学出来（基于模型）<br>· <span class='k'>L12–L13</span>：任务在变怎么办（多任务、元 RL）<br>· <span class='k'>L14</span>：怎么探索才高效<br><br><b>每读完一讲，回来看看它动的是这个式子的哪一部分</b> —— <span class='w'>这比记住算法名字有用得多</span>。", "link": {"t": "你学过的对应：CS224R L05 精读（第 2–3 族的现代形态：离策略 Actor-Critic 与 PPO）", "href": "L05-精读.html"}}
+];
+
+var TH = {"title": "L01 接上课题的哪一段：先把「我的问题到底是不是 RL」这件事定下来", "arc": "这一讲 45 页，<b>真正的技术内容只有最后 13 页（p32–p44）</b>，前 31 页是课务与应用巡礼。但那 13 页定义了整门课要用的<span class='k'>全部语言</span>，后面十八讲都是在这套记号上做文章。<br><br><b>整讲可以压成一行</b>：<br><code>max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t r(s_t, a_t) ]</code><br>后面每一讲动的都是这个式子的某一部分 —— <span class='w'>L03 直接对它求导，L04 用 critic 压方差，L06 绕开策略直接学 Q*，L11 把未知的 p 学出来</span>。<b>每读完一讲回来问「它动的是哪一部分」，比记算法名字有用得多。</b><br><br><b>对你的课题，这一讲最有价值的不是那条公式，而是 p32 一个小括号和 p18 四条判据给出的「这是不是 RL 问题」的判法。</b><br><br>· <span class='k'>p32 的「trajectory（could be length T=1!）」</span> —— T=1 时没有状态转移、没有信用分配，<b>那就是 bandit</b>。CSE 541 整门课在这张图里就是 T=1 的那一格。<br>· <span class='k'>p18 的四条</span> —— a 多步决策 / b 与人交互 / c 反馈回路 / d 目标不可导。<b>你的课题正中 d，而 c 不中</b>（跑配置 A 不改变配置 B 的真实分数）。<span class='w'>c 不中是好事：它意味着你的离线日志是可信的、可以反复利用</span>，而很多 RL 方法恰恰不能。<br><br><b>所以结论是：你的主线在 CSE 541（bandit / 纯探索）那一侧，CS224R 是参照系而不是主干。</b><span class='k'>但有一个例外要想清楚</span> —— 若你的 MCTS 是在<b>逐步构造</b> workflow（先选第一个算子、再选第二个、走完才给分），<span class='w'>那一层确实是 RL：有中间状态、有稀疏奖励、有信用分配</span>。<b>你的问题很可能是「构造那一层用 RL 的语言、最终选择那一层用 bandit 的语言」</b>，论文里把这个分界说清楚，比笼统地说「我们用 RL」准确得多。<br><br>⚠ <b>材料形态提醒</b>：本精读分两片。<span class='w'><b>.a 片（p1–31）</b>按材料形态把密度基准定在 320 并在文件里写明了理由</span>（31 页里 19 页是课务信息与应用截图，每页只有一句说明）；<b>.b 片（p32–45）是技术部分，用项目标准 600</b>。<span class='k'>时间紧就只读 .b。</span>", "pitfalls": [{"v": "<b>默认「我的问题是 RL 问题」。</b>p32 那个小括号写得很轻：<code>trajectory（could be length T=1!）</code> —— <span class='k'>T=1 时没有状态转移、没有信用分配，只剩「选一个动作拿一个奖励」，那是 bandit</span>。<b>用 RL 的工具去打 bandit 的问题是一种常见的浪费</b>：<span class='w'>bandit 有更紧的理论、更省样本的算法，以及对「纯探索」这个目标的专门处理</span>。判法见讲稿：问题的判据是「<b>要不要连着做多个决策、且后面的决策依赖前面的后果</b>」，不是它看起来有多难。", "tag": "已核", "ref": "本讲 p32 的小括号与 p7 的序贯决策定义；对照 CSE 541 L09"}, {"v": "<b>把马尔可夫性当成「对世界的假设」。</b>它是<span class='k'>对状态表示的要求</span>：任何过程都可以是马尔可夫的，只要你把状态定得足够大（极端情形：把全部历史塞进去）。<b>所以真正的问题从来不是「这个世界马尔可夫吗」，而是「我能不能找到一个足够小、又足够用的状态表示」。</b><span class='w'>找不到就只有观测 o，于是 MDP 退化成 POMDP，策略要带记忆 —— 而窗口长度 m 讲稿明说「heavily domain dependent」，没有理论答案。</span>", "tag": "已核", "ref": "本讲 p33 与 p36；讲稿里学生关于「要多少历史观测」的提问"}, {"v": "<b>忽略 <code>p_θ(τ)</code> 那个下标。</b>目标是 <code>max_θ 𝔼_{τ∼p_θ(τ)}[·]</code> —— <span class='k'>期望里的分布本身依赖于你要优化的参数</span>。<b>普通监督学习是 <code>min_θ 𝔼_{x∼D}[·]</code>，分布 D 与 θ 无关</b>；<span class='w'>这里改 θ 会同时改被积函数和积分测度，所以不能直接把梯度塞进期望</span>。<b>这正是策略梯度非要用似然比技巧的原因</b>，也是 L05 的重要性加权与 PPO 的全部背景。", "tag": "已核", "ref": "本讲 p37 的轨迹分布分解式"}, {"v": "<b>把 V 和 Q 当成可以互换。</b>差别只有「先走一步 a」，但后果很大：<span class='k'>有 Q 可以直接 <code>argmax_a Q(s,a)</code> 选动作；有 V 则需要知道走 a 会到哪，也就是需要动力学 —— 而动力学恰恰是未知的</span>。<b>从 Q 推 V 容易（<code>V^π(s) = 𝔼_{a∼π}[Q^π(s,a)]</code>），从 V 推 Q 难</b>。<span class='w'>这个不对称性就是「为什么无模型算法学 Q 不学 V」的精确答案。</span>", "tag": "已核", "ref": "本讲 p40；互推关系式讲义未写，是补的"}, {"v": "<b>用确定性策略去拟合多模态的示范数据。</b>结果是落在各个模态的<span class='k'>平均值</span>上，<b>而平均值常常不在任何一个模态里</b> —— <span class='w'>绕障碍时左绕右绕都对，平均一下就是直直撞上去</span>。p39 把这列为随机策略的第二个理由（第一个是探索）。<b>这一条在离线/模仿场景下尤其容易中招</b>，因为那里没有「探索」的压力，容易让人以为确定性策略就够了。", "tag": "已核", "ref": "本讲 p39 理由二；绕障碍那个例子是补的，讲义只说了 varying behaviors"}], "ammo": [{"q": "你的问题到底是 RL 还是 bandit？为什么不用 RL 的那一套？", "a": "<b>用 p18 的四条判据逐条过，答案会很干净。</b><br>· <span class='w'>a 多步决策</span>：半中 —— 若 MCTS 在逐步构造 workflow 则中，「选哪个配置去评估」这一层不中。<br>· <span class='w'>b 与人交互</span>：不中。<br>· <span class='k'>c 反馈回路</span>：<b>不中，而且这是好事</b> —— 跑配置 A 不会改变配置 B 的真实分数。<span class='w'>没有回路意味着离线评估可信、日志可反复利用</span>。<br>· <span class='k'>d 目标不可导</span>：<b>正中</b> —— benchmark 分数加调用成本，既不可导也没有逐步的正确答案。<br><br><b>再加一条结构优势（来自 p42 第五问）</b>：你的「动力学」是<span class='k'>确定的</span>（选了算子 A 之后状态就确定），<b>真正未知的只有最终分数</b>。<span class='w'>「确定性转移 + 未知奖励」比一般 MDP 简单得多，它更接近结构化 bandit</span>。<br><br><b>说清这一点，读者就知道为什么你不需要整套 RL 机器 —— 而不会以为你是漏掉了。</b>", "tag": "推断", "ref": "本讲 p18 四条判据、p32 的 T=1、p42 的五条取舍"}, {"q": "你的 MCTS 怎么评价一个还没跑完的部分配置？", "a": "<b>这正是 p40 值函数要解决的问题，而且讲稿给了最好的一句动机</b>：「<span class='k'>if you don't know how good your policy is, then you're not going to be able to make your policy better</span>」。<br><br><b>三条路，代价递增</b>：<br>① <span class='w'>rollout</span> —— 随机补全成完整配置、跑一次、拿分数当估计。最直接，<b>但每次都要一次昂贵评估</b>。<br>② <span class='w'>学一个代理值函数</span> —— 用历史数据训「部分配置 → 预期分数」的回归器。便宜，<b>但有估计误差，而且误差会被 argmax 放大</b>。<br>③ <span class='k'>可证的乐观上界</span> —— 用支配关系给部分配置算一个上界。<b>最贵也最硬。</b><br><br><b>第 ③ 条值得认真想，因为它让你的方法有一个很干净的叙述</b>：<span class='k'>剪枝与节点选择变成同一个量的两种用法</span> —— 上界低于当前最优就剪掉，上界高就优先展开。<b>这与 CSE 541 L10 的「在置信集里挑对这条臂最有利的 θ」是同一种乐观主义。</b>", "tag": "推断", "ref": "本讲 p40；对照 CSE 541 L10 的乐观主义"}, {"q": "你的搜索怎么探索？比随机好在哪？", "a": "<b>p39 把探索列为随机策略的第一个理由，但它只给了最朴素的一档。</b>三档并排：<br>· <span class='w'>随机策略（ε-贪心、Boltzmann）</span> —— <b>简报 §2 已核实 AFlow 用的正是这一档</b>：<code>softmax(α(s_i − s_max))</code> 再与均匀分布混合。<br>· <span class='w'>基于置信的探索（UCB、逐次淘汰）</span> —— 用不确定性决定试谁，<b>而不是掷骰子</b>。<br>· <span class='w'>实验设计（G-最优、XY-最优）</span> —— <b>一次性规划好测哪些</b>，最省样本。<br><br><b>三档之间在样本效率上是数量级的差距</b>，<span class='k'>而这是一个很便宜、而且结果无论正负都有价值的实验</span>：同样的评估预算下，把 Boltzmann 换成基于置信的选择，能省多少次评估。<b>不需要新理论，只要换一个选择规则。</b>", "tag": "推断", "ref": "本讲 p39；科研简报 §2（AFlow 的 Boltzmann 爬山，已核）；CSE 541 L06/L07"}, {"q": "你的置信区间凭什么成立？数据是你自己挑着收的。", "a": "<b>这是 p37 那个下标 <code>p_θ(τ)</code> 在你问题里的直接后果，而且是必须正面处理的一个洞。</b><br><br>你的搜索策略决定了<span class='k'>你会去评估哪些配置</span>，而那些评估又用来更新搜索策略 —— <b>所以你收集到的数据是「自适应收集的」</b>。<span class='w'>而 CSE 541 L05 那套 Hoeffding 型置信界假设 n 事先固定，在这里不成立</span>。<br><br><b>正确的工具是鞅型置信界 / anytime 界（CSE 541 L12）</b>，<span class='k'>它要求 θ* ∈ C_t 对所有 t 同时成立</span>，而不是对某个固定的 n 成立。<br><br><b>好消息：这个洞有标准补丁，而且你已经读过那一讲。坏消息：很多实证论文根本没意识到它。</b><span class='w'>所以把它处理对，本身就是一个可以写出来的严谨性加分项</b> —— 而且审稿人问起来你有现成的答案。", "tag": "已核", "ref": "本讲 p37；CSE 541 L05 的固定 n 假设与 L10/L12 的鞅型界"}], "papers": [{"t": "Sutton & Barto, Reinforcement Learning: An Introduction", "id": "官方免费全书", "why": "<b>p10 明写的补基础去处</b>：「We will go quickly over the basics. See Sutton &amp; Barto or CS 221 for intro RL content」。<span class='k'>本讲 p32–p44 用 13 页讲完的东西，那本书要三章</span>。<b>卡住时去翻对应的那一节，而不是硬读</b> —— <span class='w'>你那边第 5、8、13 章已经做过精读</span>。"}, {"t": "CS234（Stanford，强化学习）", "id": "本站已有 15 讲精读", "why": "<b>p9 明写的分工</b>：「For more theory &amp; other applications, see CS234!」。<span class='k'>CS234 走理论（遗憾界、样本复杂度、收敛性），CS224R 走实现</span>。<b>两门并读的正确方式</b>：<span class='w'>CS234 告诉你为什么该 work，CS224R 告诉你怎么让它真的跑起来</span>。"}, {"t": "CSE 541（UW，交互式学习）", "id": "本站已有 13 讲精读", "why": "<b>p32 那个「T=1」小括号指向的那一整门课。</b><span class='k'>你的课题主线在这里，不在 CS224R</span>：纯探索、实验设计、置信界、组合结构。<b>本讲是参照系 —— 它让你能说清楚「我的问题为什么不是 RL 问题」</b>，<span class='w'>而这件事审稿人一定会问</span>。"}, {"t": "Finn, Abbeel & Levine, Model-Agnostic Meta-Learning (MAML)", "id": "ICML 2017", "why": "<b>讲者 Chelsea Finn 自己的代表作</b>，<span class='k'>这解释了课程后半为什么给了多任务/元 RL/分层整整三讲</span>（L12/L13/L15）—— 而这在别的 RL 课里通常只是一节。<span class='w'>读这几讲之前先知道这篇，会明白它们为什么被排得这么重。</span>"}, {"t": "Levine, Finn et al., End-to-End Training of Deep Visuomotor Policies", "id": "JMLR 2016", "why": "<b>p27–p28 那两段「这次带视觉」的机器人视频出处</b>（p26 是 ICRA '15 的闭眼版本）。<span class='k'>两段对照说明的是「同一套方法换一种感知输入照样成立」</span>。<b>而紧接着的 p30 那张 Yevgen 的照片，给出了它的代价</b> —— <span class='w'>这个「先给结果再给代价」的排法本身值得学</span>。"}]};
+
+(function(){
+  var PDF="../corpus/slides/01_cs224r_intro_2025.pdf", MAX=45;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l01quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l01p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l01quiz");
+      localStorage.removeItem("l01p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

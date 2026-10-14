@@ -59,6 +59,9 @@ DENSITY_MIN = 400
 QUOTE_COVER_MIN = 0.80
 # 表格：每 4 页有讲解至少 1 张。
 TBL_PER_PAGES = 4
+# 「某一项从没当过正解」这条判据的起判题数。见 check_quiz_leak 里的概率估算：
+# 四选一下 (3/4)^16 ≈ 1.0%，四项合起来约 4%，是可以接受的误报率。
+NEVER_USED_MIN = 16
 # 科研格的出处档位，三档与 research/00-BRIEFING 的原始标注一致。
 # 多一档少一档都不行 —— 把【待核】写成断言是本项目明确要防的事故。
 RES_TAGS = ("已核", "推断", "待核")
@@ -196,6 +199,26 @@ def check_quiz_leak(quiz):
     elif n >= 4 and len(pos) == 1:
         k = list(pos)[0]
         bad.append("答案位置全在第 %d 项（%d 题）—— 跑 quizfix 打散" % (k + 1, n))
+    # 上面两条查的都是「某一项出现得太多」。还有反过来的一侧：**某一项一次都没当过
+    # 正解**。读者学到「最后一项从不是答案」，和学到「永远选 B」是同一类泄漏，
+    # 而上面两条一声不吭 —— 实测 CS224R L01.b 的 25 题里第 4 项出现 0 次，
+    # 集中度只有 48%，稳稳低于 50% 的线。
+    #
+    # 判多少题才算信号：四选一下某一项 n 题都没中的概率是 (3/4)^n，
+    # n=12 时 3.2%（四项合起来 12.7%，太容易误报），n=16 时 1.0%（合 4.0%）。
+    # 取 16 —— 误报一次的代价只是白打散一遍，漏报的代价是读者真学会了这个规律。
+    #
+    # ⚠ 必须按**可达**档位算，不能一律查第 4 项：三选一的题里第 4 项根本不存在，
+    # 不排除的话每一份三选一的测验都会被误报。
+    if n >= NEVER_USED_MIN:
+        width = max((len(q.get("o") or []) for page in quiz for q in quiz[page]),
+                    default=0)
+        for k in range(width):
+            reach = sum(1 for page in quiz for q in quiz[page]
+                        if len(q.get("o") or []) > k)
+            if reach >= NEVER_USED_MIN and pos.get(k, 0) == 0:
+                bad.append("第 %d 项在 %d 道题里**一次都没当过正解** —— "
+                           "读者会学到「别选它」，跑 quizfix 打散" % (k + 1, reach))
     return bad
 
 
