@@ -1,0 +1,89 @@
+{
+ "title": "L04 接上课题的哪一段：三笔欠账一次结清，最后告诉你「极限在哪」",
+ "arc": "这一讲没有新主题，它在<b>结账</b>。前三讲欠下的三笔，这里一次还清：<br><br>· <span class='k'>L03 p33 问「How do we compete with any p ∈ Δ_d?」</span> → 本讲 <b>p19</b>（线性化 + 指数权重，得 √(T log d)）与 <b>p23</b>（连续指数权重，得 1 + d log T）各给一个答案，<span class='w'>而且技术路线完全不同</span>。<br>· <span class='k'>L03 的 OGD 只处理 Lipschitz 损失，而 log 损失不是</span> → 本讲 p19 用一步线性化绕过去。<br>· <span class='k'>前面所有定理都没说「这已经是最好的了吗」</span> → 本讲 <b>p25–29</b> 的极小极大分析回答：<b>在线学习的极限就是这个假设类的序列 Rademacher 复杂度</b>，<span class='w'>ℜ ≤ 𝒱 ≤ 2ℜ</span>。<br><br><b>两条该带走的东西</b>：<br>① <b>p19 的几何课</b>——同一批梯度损失，OGD 给 <code>√(dT)</code>，指数权重给 <code>√(T log d)</code>。<span class='k'>差别不在算法多聪明，在「用什么几何度量这个可行域」</span>。<b>先看可行域长什么样，再选算法</b>：单纯形 → 乘性更新；欧氏球 → 梯度方法。d = 10⁶ 时这是 270 倍的差别。<br>② <b>p29 的终点</b>——「最好能做到多少」不取决于你多聪明，<span class='w'>只取决于你允许自己考虑多大的一类解释</span>。这与 L01 的统计学习结论是同一种形状的东西。<br><br><b>对你清单的位置</b>：这是条目 1（CSE 541）**最后一份要做的讲义**，也是 online learning 工具链的收口。<span class='k'>p25–29 的零和博弈框架正是条目 7（MIT 6.S890）的正式入口</span> —— 那门课的核心结论「两个 no-regret 算法互打，平均策略收敛到纳什均衡」，用的就是这里的 <code>min_q max_z</code>。<br><br>⚠ <b>材料形态提醒</b>：29 页里 <span class='w'>15 页是逐像素重放</span>（p1–5 ←L01 p49–53 · p6 ←L03 p22 · p7–13 ←L03 p23–29 · p17–18 ←L03 p32–33）。<b>新的 14 页是 p14–16 与 p19–29</b>。本精读的重放段写的是「为什么现在放它 + 这次该盯什么」，不是重复讲解；<span class='k'>原讲的完整讲解在 L01 / L03 精读里</span>。",
+ "pitfalls": [
+  {
+   "v": "<b>把 p19 的线性化当成免费的。</b>「线性目标在单纯形上的极值必在顶点取到」那一步<span class='k'>确实免费</span>（是个几何事实），<b>但线性化本身用的是凸性的一阶定义，那是一个不等号</b>：<code>真实遗憾 ≤ 线性遗憾</code>。<span class='w'>所以你得到的保证是对一个放大了的量说的，界可能比真实遗憾松</span>。放大方向是对的，但别宣称它紧。",
+   "tag": "已核",
+   "ref": "本讲 p19 的 max_{a*} Σ ℓ(a_t,z_t) − ℓ(a*,z_t) ≤ max_{a*} Σ ∇ℓ(a_t,z_t)ᵀ(a_t − a*)"
+  },
+  {
+   "v": "<b>把 <code>√(T log d)</code> 和 <code>1 + d log T</code> 当成「后者更好」。</b>两者在不同轴上各胜一筹：<span class='k'>d 大时前者赢（d 只进 log），T 大时后者赢（只按 log T 长）</span>。<b>而且前者每步 O(d)，后者要在凸体上采样（一般 #P-hard）</b>。<span class='w'>「哪个算法最好」没有答案，「我这个场景该用哪个」才有。</span>",
+   "tag": "已核",
+   "ref": "本讲 p19 与 p23 两个定理；计算复杂度那一句是补的（Kalai-Vempala 2002）"
+  },
+  {
+   "v": "<b>以为连续指数权重的 <code>d·log(T)</code> 和离散版的 <code>log(d)</code> 是同一类量。</b><span class='k'>log(d) 来自「总和 ≥ 其中一项」，量的是候选个数</span>；<span class='k'>d·log(T) 来自体积比 γ^d，量的是一个 d 维凸体缩小 γ 倍后还剩多少</span>。<b>维度之所以进界，是因为体积随维度指数地缩</b> —— <span class='w'>凡是界里出现 d 的一次方（而非 log d），八成背后有一个体积论证</span>。",
+   "tag": "已核",
+   "ref": "本讲 p22 的 𝒩_γ 与 γ^d；对照 p6 的 W₁ = d"
+  },
+  {
+   "v": "<b>忽略 𝒱 上标里的 obliv。</b>它指<span class='k'>健忘对手</span>：一开始就把整个序列 z₁,…,z_T 定死，不看你的实际出招。<b>更强的是 adaptive 对手</b>；<span class='w'>对确定性算法两者等价，对随机算法不等价</span>。引用 <code>ℜ ≤ 𝒱 ≤ 2ℜ</code> 时必须连这个限定一起报，否则是过度宣称。",
+   "tag": "已核",
+   "ref": "本讲 p29 的 𝒱^obliv 定义；手写那行还另加了「ℓ(a,z) = ⟨a,z⟩」的前提"
+  },
+  {
+   "v": "<b>以为连续指数权重是确定性算法就说明「随机化没必要」。</b>它能用确定性的后验均值，<span class='k'>靠的是损失凸 + Jensen（ℓ(E[A]) ≤ E[ℓ(A)]）</span> —— <b>凸性在那里替代了随机化的作用</b>。<span class='w'>一条对偶：面对对抗的对手，要么随机化，要么依赖凸性，两者至少得有一个</span>。两样都没有的确定性算法会被针对（L01 p34）。",
+   "tag": "推断",
+   "ref": "本讲 p22 的 Jensen 那一步与 p27 的随机化修复；「对偶」这个说法是补的"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你为什么用乘性权重而不是梯度下降？",
+   "a": "<b>用 p19 那一页正面答：因为可行域是单纯形。</b>同一批梯度损失、同一个 T，两套算法差的是几何：<br>· <span class='k'>OGD 用 ℓ₂ 几何</span>，<code>G = ‖z̃‖₂ ≤ √d</code>，得 <code>√(dT)</code><br>· <span class='k'>指数权重用熵几何</span>，<code>‖z̃‖_∞ ≤ 1</code>，得 <code>√(T log d)</code><br><br><b>d = 10⁴ 个候选时这是 100 倍 vs 3 倍的差别。</b><span class='w'>统一视角是镜像下降：距离生成函数取欧氏范数平方得 OGD，取负熵得指数权重</span> —— <b>选错不会出错，只会让界里多一个 √d</b>，而那在候选多时就是「能用」与「不能用」的差别。<br><br><b>判据一句话</b>：<span class='k'>可行域是「把预算/概率分到 n 个选项上」就用乘性更新；是欧氏球或一般凸体就用梯度方法</span>。",
+   "tag": "已核",
+   "ref": "本讲 p19 的两条路；镜像下降的名字与统一视角是补的（Hazan 第 5 章）"
+  },
+  {
+   "q": "你的方法已经够好了吗？还有改进空间吗？",
+   "a": "<b>p29 给了回答这个问题的正确框架：先问「这个问题的极小极大值是多少」。</b>结论是 <code>ℜ ≤ 𝒱 ≤ 2ℜ</code> —— <span class='k'>在线学习的极限就是假设类的序列 Rademacher 复杂度，相差不超过常数 2</span>。<br><br><b>推论很硬</b>：若你的算法已经达到 <code>O(ℜ)</code>，<span class='w'>再改进算法最多省掉一个常数</span>。<b>要本质地变好，只有两条路</b>：① <span class='k'>缩小假设类</span>（加结构假设）；② <span class='k'>换一个更弱的对手模型</span>（从对抗退到随机）。<br><br><b>对你的课题，第 ② 条本来就成立</b>（LLM 采样噪声是随机的，不是对手选的），所以你该走 L06/L09 那一侧；<b>而第 ① 条正是 dominance-pruning 在做的事 —— 它把有效候选集缩小了</b>。<span class='w'>这两件事可以合起来写成一句：「我们不在对抗设定下工作，且剪枝进一步缩小了有效假设类，因此可以突破 √T」。</span>",
+   "tag": "已核",
+   "ref": "本讲 p29 的双边夹击；应用到课题那一段是推断"
+  },
+  {
+   "q": "你的复杂度量是什么？为什么你的界里是那个量而不是候选总数？",
+   "a": "<b>这正是 p29 教你去问的问题，而对 dominance-pruning 有一个很贴的答案候选：偏序的宽度。</b><br><br>连续空间里用体积/维度，组合空间里的对应物有三档：<br>· <span class='w'>log n</span>（最粗，总是可用）<br>· <span class='w'>覆盖数 / 度量熵</span>（若配置间有距离结构）<br>· <span class='k'>偏序的宽度 —— 互不可比的配置最多有多少个</span><br><br><b>第三档最贴你的方法</b>：如果支配关系构成偏序，<span class='k'>那你真正要付钱的是「宽度」而不是配置总数 n</span>。<b>剪枝的全部价值，正是把 n 换成了宽度。</b><br><br><b>如果能把它写成一个定理（遗憾/样本复杂度按宽度而非总数计），那是一个干净、好懂、而且恰好刻画了你方法的贡献</b> —— <span class='w'>比报一个泛泛的 √T 界有力得多</span>。<br><br>⚠ 这是方向，<span class='k'>偏序宽度能否真的充当复杂度量要自己推或去查组合 bandit 文献</span>。",
+   "tag": "推断",
+   "ref": "本讲 p29 的 ℜ；偏序宽度这条是推断，未核"
+  },
+  {
+   "q": "你的算法是确定性的，在对抗环境下不会被针对吗？",
+   "a": "<b>先用 p25–27 把对偶说清楚，再声明你的设定。</b>面对对抗对手，<span class='k'>要么随机化（p27：均匀混合把 p26 那张表的值从 1 降到 0），要么依赖目标的凸性（p22 的 Jensen：出后验均值不比采样差）</span> —— <b>两者至少得有一个</b>。<br><br><b>而你的搜索两样都没有</b>：规则确定、空间不凸。<span class='w'>所以必须正面声明：你的设定不是对抗的</b>。评估噪声来自 LLM 采样，<span class='k'>是随机的而不是对手选的</span>。<br><br><b>写法</b>：「我们假设评估噪声独立同分布（sub-Gaussian），不假设对抗序列；在这一设定下确定性剪枝是安全的，其正确性由 ___ 保证。」<br><br><b>把设定声明清楚，比加一个不必要的随机化要好得多</b> —— <span class='w'>否则读者会用对抗设定的直觉来质疑你的确定性算法</span>。",
+   "tag": "推断",
+   "ref": "本讲 p27 的随机化修复与 p22 的 Jensen；对照 L01 p34、L06 的随机设定"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Cover, Universal Portfolios",
+   "id": "Mathematical Finance 1991",
+   "why": "<b>p23 那个 <code>1 + d log T</code> 的原始出处。</b>Cover 还证明了这个阶<span class='k'>不可改进</span>（有匹配下界），所以这不是「目前最好的结果」而是最终答案。<span class='w'>本讲 p25–29 讲的正是「怎么论证一个界不可改进」。</span>"
+  },
+  {
+   "t": "Kalai & Vempala, Efficient Algorithms for Universal Portfolios",
+   "id": "JCSS 2002 / FOCS 2000",
+   "why": "补讲义完全没提的那一块：<b>连续指数权重每步要在凸体上积分，一般是 #P-hard</b>。<span class='k'>这篇给了多项式时间的近似实现（MCMC / hit-and-run 采样）</span>。<b>要真跑这个算法，必读。</b>"
+  },
+  {
+   "t": "Bubeck, Introduction to Online Optimization",
+   "id": "讲义（p22 脚注明写的出处）",
+   "why": "<b>p22 那个证明讲义自己标明了出处就是它。</b><span class='w'>𝒩_γ 缩体积那一招在那里有更完整的上下文</span>，而且它把连续指数权重、OGD、镜像下降放在同一个框架里讲。"
+  },
+  {
+   "t": "Hazan, Introduction to Online Convex Optimization",
+   "id": "免费电子书",
+   "why": "<b>第 5 章是镜像下降</b> —— 本讲 p19 那个「几何决定界」的现象，在那里是一个定理而不是一个观察。<span class='k'>第 4 章讲 p14 那两条自适应遗憾界的算法</span>（本讲只给了结论没给算法）。"
+  },
+  {
+   "t": "Rakhlin, Sridharan & Tewari, Online Learning: Random Averages, Combinatorial Parameters, and Learnability",
+   "id": "NeurIPS 2010",
+   "why": "<b>p29 那个序列 Rademacher 复杂度的来源</b>，以及 <code>ℜ ≤ 𝒱 ≤ 2ℜ</code> 的完整证明。<span class='w'>标题里的 combinatorial parameters 正是「组合空间里该用什么复杂度量」</span> —— <b>对你那个「偏序宽度」的想法，这是该去查的第一篇。</b>"
+  },
+  {
+   "t": "Cesa-Bianchi & Lugosi, Prediction, Learning, and Games",
+   "id": "教材",
+   "why": "<b>第 2 章讲 p14 第二条（一阶/小损失界）的自适应步长</b>，<span class='k'>以及 Fixed Share 那类跟踪遗憾算法</span>。书名里的 Games 到这一讲终于兑现了 —— p25–29 的零和博弈正是它后半的主题。"
+  }
+ ]
+}
