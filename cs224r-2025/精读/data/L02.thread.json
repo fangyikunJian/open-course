@@ -1,0 +1,89 @@
+{
+ "title": "L02 接上课题的哪一段：两个独立的毛病，和一条「什么时候该用模仿」的判据",
+ "arc": "模仿学习是 L01 那五族算法里的第 1 族，<b>也是唯一一族不碰那行目标函数的</b>。它优化的是<code>min_θ −𝔼_{(s,a)∼𝒟}[log π_θ(a|s)]</code> —— <span class='k'>期望对固定的数据集取，不是对 p_θ(τ) 取</span>，<b>所以它就是一个普通的监督学习问题</b>：i.i.d. 样本、固定分布、可导损失。这就是它为什么最简单、最稳定。<br><br><b>而这一讲讲的是它为此付出的两笔账，两笔互相独立、但会相乘：</b><br><br>① <b>表达力不足</b>（p7–p16）—— <span class='k'>ℓ2 回归的解是条件均值</span>，而多个示范者意味着多模态，<b>均值常常是一个在数据里几乎没出现过的动作</b>（绕障碍：左绕右绕都对，平均是撞上去）。<span class='w'>解法是让网络输出<b>分布的参数</b>，而不是一个动作</span>。p10 那条红线是本讲最该记住的一句：<b>Neural network expressivity is often distinct from distribution expressivity!</b> —— 加大网络解决不了这个问题。<br><br>② <b>复合误差</b>（p18–p21）—— <span class='k'>p_expert(s) ≠ p_π(s)</span>，犯错就偏离，偏离就更容易犯错。<b>解法是把标注的位置从「专家走过的地方」挪到「我自己走过的地方」</b>（DAgger），或者干脆让专家接管（HG-DAgger）。<br><br><b>两者会相乘</b>：讲稿原话 —— <span class='w'>学得差（只学到均值）⇒ 更早偏离 ⇒ 偏离之后错得更多</span>。<br><br><b>对你的课题，这一讲最有用的是两个东西，而且都不在算法里：</b><br>· <span class='k'>「ℓ2 的解是条件均值」</span> —— 你要训一个「配置 → 预期分数」的代理模型，<b>如果用平方损失，你拿到的是均值，而你真正需要的是不确定性</b>（没有它就没有 UCB、没有淘汰判据）。<br>· <span class='k'>p21 底部那个留白问题</span>：<b>could you automatically detect when intervention is needed?</b> —— 它问的是「模型能不能知道自己不知道」，<span class='w'>而这正是你的剪枝与搜索共同依赖的那个能力</span>。CSE 541 L10 的 <code>‖x‖_{V_t⁻¹}</code> 是一个现成的答案。<br><br>⚠ <b>材料形态提醒</b>：全讲 27 页、两片都用项目标准 600，没有破例。<span class='w'>讲稿有 9754 词，`say` 格全部引原话</span> —— 这一讲里好几个关键细节只在讲稿里（绕障碍的均值为什么糟、复合误差的恶性循环机制、讲者对 DAgger 这个名字的吐槽、安全员没能阻止事故的案例、「上界永远是专家」那一句）。",
+ "pitfalls": [
+  {
+   "v": "<b>以为「拟合不好就加大网络」。</b>p10 那条红线专门堵这个：<span class='k'>Neural network expressivity is often distinct from distribution expressivity!</span> —— <b>ℓ2 损失的最优解是条件均值，这与网络多大无关</b>。<span class='w'>一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准</span>。瓶颈是你选的<b>输出分布类</b>，不是容量。",
+   "tag": "已核",
+   "ref": "本讲 p10 的 Important Note；p6–p7 的 ℓ2 与条件均值"
+  },
+  {
+   "v": "<b>把 version 1 理解成「换了个损失函数」。</b>固定方差高斯下 <code>−log 𝒩(a; μ_θ(s), σ²) = ‖a−μ_θ(s)‖²/(2σ²) + 常数</code> —— <span class='k'>最大似然与最小二乘<b>等价</b></span>。<b>所以 v0 是 v1 在「分布类 = 固定方差高斯」时的特例</b>；<span class='w'>真正的改动是换分布类（GMM / 自回归 / 扩散），不是换损失</span>。想不清这一点，很容易「改成对数似然但继续用高斯」，那什么都没变。",
+   "tag": "推断",
+   "ref": "本讲 p6 与 p11 对照；等价性的推导讲义未给，是补的"
+  },
+  {
+   "v": "<b>以为表达力是普遍收益。</b>p12 两组实验都把「单人数据」与「多人数据」分开画，<span class='k'>而单人那一档两个方法差不多</span>。<b>表达力是一个<b>条件</b>收益，条件是数据多模态。</b><span class='w'>所以换强模型之前先画一张「同一状态下示范动作」的直方图</span> —— <b>只有一个峰就别折腾</b>。这也是一个诊断法：强模型没赢，通常是数据本来就单峰，不是参数没调好。",
+   "tag": "已核",
+   "ref": "本讲 p12 的实验设计（横轴是 demo dataset type）；p15 的二分判断表"
+  },
+  {
+   "v": "<b>把复合误差当成「模型不够好」。</b>它不是拟合问题，是<span class='k'>分布问题</span>：<code>p_expert(s) ≠ p_π(s)</code>。<b>讲稿明说「it differs fundamentally from supervised learning」</b> —— 类别不同，不是程度不同。<span class='w'>而且拟合得再好也只是推迟它</span>：「Even if you do fit it well, you might still make mistakes and might drift off the distribution」。<b>治它只有一条路：把训练数据采到 p_π(s) 上去（DAgger）。</b>",
+   "tag": "已核",
+   "ref": "本讲 p18；讲稿里 differs fundamentally 与 even if you do fit it well 两句"
+  },
+  {
+   "v": "<b>以为 DAgger / HG-DAgger 能让策略超过专家。</b>讲稿里有一句贯穿两页的话：<span class='k'>「In all of these cases, the best performance of the policy is upper bounded by the expert.」</span><b>它们让你更快、更可靠地逼近那个上界，但不会越过它</b> —— <span class='w'>因为优化目标里只有「像不像」，没有「做得好不好」</span>。要越过去只有定义奖励函数、让它自己练（p25 那条「doesn't provide a framework for improving on own」）。",
+   "tag": "已核",
+   "ref": "讲稿（p21 那一段）；本讲 p25 的两条「−」"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你的代理模型为什么要输出分布而不是一个分数？",
+   "a": "<b>用 p6–p10 那条链正面答，而且它有一行就能推的数学支撑。</b><br><br><span class='k'>最小化 𝔼[(a−â)²] 的解是 â = 𝔼[a|s]</span> —— <b>平方损失根本不在学分布，它只学一个数</b>，而且这与网络多大无关（p10 的红线）。<br><br><b>为什么这对你是刚需，三条</b>：<br>① <span class='w'>置信区间要靠方差</span> —— 没有它就没有 UCB、没有淘汰判据（CSE 541 L06）；<br>② <span class='w'>LLM 评估的噪声在不同配置上差别很大</span>，有的稳、有的时好时坏；<br>③ <b>「稳定地还行」和「偶尔很好」在实用上完全不同</b>，均值把它们混成一个数。<br><br><b>三档做法，按代价递增</b>：输出 <code>μ, σ</code>（高斯似然训练，最省事）→ 分位数回归 / 集成（能表示双峰）→ 高斯过程（<span class='k'>小样本下最合适，而你的评估预算正好小</span>）。",
+   "tag": "推断",
+   "ref": "本讲 p6–p10；对照 CSE 541 L05/L06 的置信半径"
+  },
+  {
+   "q": "你怎么知道搜索该去试哪个配置？凭什么说某片区域不必再看？",
+   "a": "<b>p21 底部那个留白问题就是这件事：<span class='k'>could you automatically detect when intervention is needed?</span> —— 模型能不能知道自己不知道。</b><br><br><b>三档，和你读过的材料能对上</b>：<br>· <span class='w'>熵 / 预测分布的宽度</span> —— 最便宜，但在深度模型上<b>校准很差</b>（模型常常自信地错）；<br>· <span class='k'>离训练数据的距离</span> —— <b>就是 CSE 541 L10 的 <code>‖x‖_{V_t⁻¹}</code></b>：在信息矩阵诱导的度量下量「这个方向我测得够不够」；<br>· <span class='k'>可证的置信集</span> —— 最硬，L10/L12 给了现成构造。<br><br><b>第二条对你最实用，而且一个量两个用途</b>：<span class='w'>把跑过的配置写成特征向量、累积 V_t，新配置的 ‖x‖_{V_t⁻¹} 大就说明这个方向没怎么测过</span> —— <b>既能选下一个该评估谁，也能判断代理模型在哪里不可信</b>。",
+   "tag": "推断",
+   "ref": "本讲 p21 的留白问题；CSE 541 L10 的 ‖x‖_{V_t⁻¹}"
+  },
+  {
+   "q": "你手上有人工设计的 workflow，为什么不直接模仿它们？",
+   "a": "<b>用 p25 的上界那一条正面答：模仿的天花板就是示范者。</b><br><br><span class='k'>而你的目标恰恰是找到人工设计不出来的更便宜的配置</span> —— <b>L01 p21 的 Move 37 讲的就是这件事：价值在人类想不到的地方</b>。<span class='w'>把人工 workflow 当模仿目标，等于把搜索锁死在人类想得到的范围内。</span><br><br><b>但也别浪费它们。正确的用法是当<b>先验</b>而不是当<b>目标</b></b>：<span class='k'>从人工 workflow 里抽出结构性规律（哪些算子常搭配、哪些顺序从不出现），编码成搜索空间的约束或初始分布</span>。<br><br><b>这个叙述同时回答了两个会被问到的问题</b>：<br>· 「为什么不直接用人工设计的？」→ <span class='w'>用了，作为起点；但上界是它</span>。<br>· 「为什么不从零开始搜？」→ <span class='w'>评估预算有限，从零搜要花大量预算重新发现人类已知的结构，而那是免费的</span>。<br><br>⚠ 要先数一遍：<b>几十个人工 workflow 可能只够做初始化点，不够构成一个分布。</b>",
+   "tag": "推断",
+   "ref": "本讲 p23 的三档分类与 p25 的上界；对照 L01 p21"
+  },
+  {
+   "q": "你的日志能直接拿来训代理模型吗？",
+   "a": "<b>能，但要先说清一个和这一讲同源的问题：选择偏倚。</b><br><br><span class='k'>这一讲的协变量偏移是「我的动作改变了我将来遇到的状态」</span>；<b>你没有这个问题</b> —— 跑配置 A 不改变配置 B 的真实分数（L01 p18 的场景 c 不中）。<span class='w'>这是你的一个优势，值得主动写出来：它意味着你的离线日志是可信的、可以反复利用。</span><br><br><b>但你有一个形状相似、程度轻得多的版本</b>：<span class='k'>你的搜索策略决定了哪些配置被评估过，所以日志不是配置空间的均匀样本，它偏向你的算法认为好的那些</span>。<br><br><b>两个后果</b>：① <span class='w'>代理模型在没搜过的区域上外推不可靠，而剪枝恰恰要靠它去判断没搜过的区域</span>；② <span class='w'>离线比较两个搜索算法时，用其中一个的日志会偏向它</span>。<br><br><b>第 ① 条的标准补丁就是上一条 ammo 说的</b>：<span class='k'>让代理模型带不确定性，并且在外推区域给出大的不确定性</span> —— 高斯过程天然有这个性质，普通回归器没有。",
+   "tag": "推断",
+   "ref": "本讲 p18 的 covariate shift；对照 L01 p18 场景 c"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Chi et al., Diffusion Policy",
+   "id": "RSS 2023（p12 引的 diffusion-policy.cs.columbia.edu）",
+   "why": "<b>p12 左边那组实验的出处</b>，也是「用扩散模型当策略」这条路的代表作。<span class='k'>它把 p10 那条红线变成了一个实证结论</span>：<b>同样的网络、同样的数据，换一个表达力强的分布类，多模态数据上的成功率明显上去</b>。<span class='w'>p13 那三个机器人系统（π0 / Gr00t N1 / Helix）走的都是这条。</span>"
+  },
+  {
+   "t": "ALOHA Unleashed",
+   "id": "p12 引的 aloha-unleashed.github.io",
+   "why": "<b>p12 右边那组真实挂衬衫实验的出处。</b><span class='k'>ALOHA 这一系列的硬件设计正是 p23 说的「傀儡操作」</span> —— <b>人操作一套小的同构装置来驱动机器人，所以记录下来的动作不需要任何重定向</b>。<span class='w'>读它能顺带看到「示范界面怎么设计」这件事对数据质量的影响有多大。</span>"
+  },
+  {
+   "t": "Ross, Gordon & Bagnell, A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning",
+   "id": "AISTATS 2011（DAgger 原始论文）",
+   "why": "<b>p20 的出处，而且标题里那句 \"to No-Regret Online Learning\" 对你格外相关</b>：<span class='k'>它把模仿学习归约成了一个在线学习问题，从而拿到遗憾界</span>。<b>你在 CSE 541 学的那套 no-regret 工具，在这里直接变成了模仿学习的理论基础</b> —— <span class='w'>这是两门课少有的正面交汇点，值得读原文看它怎么接的。</span>"
+  },
+  {
+   "t": "Kelly et al., HG-DAgger: Interactive Imitation Learning with Human Experts",
+   "id": "ICRA 2019",
+   "why": "<b>p21 的出处。</b><span class='k'>它的全部贡献在人机交互那一侧</span>（让专家接管而不是逐帧标注），<b>而这恰好说明一件事：算法上的小改动，如果解决的是「人做不到」而不是「机器算不动」，收益可以很大</b>。<span class='w'>做应用研究时值得记住这个样本。</span>"
+  },
+  {
+   "t": "Peng, Kanazawa, Malik, Abbeel & Levine. SFV: Reinforcement Learning of Physical Skills from Videos",
+   "id": "SIGGRAPH Asia 2018（p24 明引）",
+   "why": "<b>p24 那条「embodiment gap」的出处</b>，也是「视频不能直接模仿、但可以引导探索」这个降级结论的来源。<span class='k'>它的做法正是 p25 最后那句「combine imitation learning and reinforcement learning」的一个具体形态</span>。"
+  },
+  {
+   "t": "本课 L07：离线强化学习",
+   "id": "lecture_7（33 页）",
+   "why": "<b>这一讲的直接下游。</b>行为克隆是「只用离线数据、不定义奖励」；<span class='k'>离线 RL 是「只用离线数据、但要定义奖励」</span> —— <b>多了奖励，于是可以超过数据里的最好水平</b>，代价是要处理分布外动作的高估。<span class='w'>两讲对照着读，「离线」这个约束到底限制了什么就清楚了。</span>"
+  }
+ ]
+}

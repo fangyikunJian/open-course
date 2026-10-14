@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS224R 第二讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs224r-2025-l02">
+
+<div id="bar">
+  <h1>CS224R 第二讲 · <span>模仿学习：行为克隆与 DAgger</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 27</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/02_cs224r_imitation_2025.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs224r-2025</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L02-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+1: [{"q": "p3 的回顾页比 L01 的回顾只多了一句话，那句是什么？", "o": ["策略可以用一个生成模型来表示 —— 这就是本讲的主线", "奖励函数可以是随机的", "马尔可夫性是必需的", "轨迹长度可以是 1"], "a": 0, "why": "L01 把策略定义成条件分布但没说怎么表示；这一讲就在回答「怎么表示」，答案是「用生成模型」。"}, {"q": "讲者说第一个学习目标「怎么用神经网络表示分布」与课程主题的关系是？", "o": ["它是强化学习的核心", "orthogonal to the main topic —— 与 RL 本身正交，但不懂它就拿不到性能", "它只在模仿学习里有用", "它是先修内容"], "a": 1, "why": "p13/p14 那六个真实系统全部用了表达力强的分布，没有一个还在用 ℓ2 回归 —— 这个判断在 2025 年是对的。"}, {"q": "这一讲的两个独立问题是？", "o": ["在线与离线", "连续与离散动作", "数据量与网络容量", "表达力不足（同一状态下专家有多种做法）与复合误差（犯错后走到数据没覆盖的地方）"], "a": 3, "why": "两者会互相放大：学得差 ⇒ 更容易偏离 ⇒ 复合误差更严重。讲稿里有一句把它们接上了。"}],
+5: [{"q": "为什么 ℓ2 回归训出来的策略给出的是「数据的均值」？", "o": ["因为网络容量不够", "因为最小化 E[(a−â)²] 关于 â 的解就是 â = E[a|s]，这是损失函数本身决定的", "因为优化没有收敛", "因为学习率太大"], "a": 1, "why": "所以 ℓ2 损失不是「学了一个差的分布」，而是「根本没在学分布，只学了一个数」。"}, {"q": "绕障碍那个例子里，均值动作为什么特别糟？", "o": ["因为它方差大", "因为它不可导", "因为均值落在「直行」，而那是一个在数据里概率很低、且会撞上去的动作", "因为它超出了动作空间"], "a": 2, "why": "讲稿原话：which has low probability under the data。均值不只是「不够好」，它是一个训练数据里几乎没出现过的动作。"}, {"q": "「All the time! Esp. when data collected by multiple people」这句话说明了什么？", "o": ["多模态是示范数据的常态，单一一致的示范者反而是例外", "只有驾驶数据才有这个问题", "数据量大了就不会有这个问题", "这是一个人为构造的例子"], "a": 0, "why": "讲稿还补了一句 not just in driving。p15 那张小结图正是按「单人/多人」这个二分画的。"}, {"q": "version 0 的第 2 步「Deploy」埋下了什么问题？", "o": ["部署时网络太慢", "训练时看到的是专家访问过的状态，部署时走的是自己的状态 —— 两者不一样且会越差越远", "部署时没有奖励信号", "部署环境与训练环境不同"], "a": 1, "why": "这就是 p18 的复合误差。根子仍是 L01 p8 那条分界：动作会影响未来的观测。"}],
+8: [{"q": "p10 那条红线「Neural network expressivity is often distinct from distribution expressivity」纠正的是什么误解？", "o": ["以为扩散模型一定比 GMM 好", "以为离散动作比连续动作简单", "以为「拟合不好就加大网络」—— 而 ℓ2 的最优解是条件均值，与网络多大无关", "以为表达力越强越好"], "a": 2, "why": "一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准。瓶颈是你选的输出分布类。"}, {"q": "为什么说离散动作的 categorical 分布是「最大表达力」的？", "o": ["因为它参数最少", "因为一个 d 维概率向量能表示任何离散动作分布，一个都不漏", "因为它训练最快", "因为它是凸的"], "a": 1, "why": "所以语言模型（动作 = 下一个 token）在这个意义上从来没有表达力问题，它的困难在别处。"}, {"q": "高斯分布「不够表达」的具体失败方式是什么（讲稿说得比幻灯准）？", "o": ["它会输出一个又宽又平的高斯去覆盖更多概率质量，结果采样时常采到两个模态之间谁都不选的区域", "它会收敛到其中一个模态", "它会发散", "它的方差会趋于零"], "a": 0, "why": "这比「只学均值」更隐蔽，因为模型看起来「有不确定性」了。"}, {"q": "「离散化 + 自回归」这条路的代价是什么？", "o": ["表达力不足", "需要事先定模态个数", "分箱粒度要选（太粗丢精度、太细样本不够），而且采样是串行的（d 维要跑 d 次）", "不能用神经网络"], "a": 2, "why": "好处是继承了离散的最大表达力，而且能直接复用语言模型的架构与训练流程 —— OpenVLA、Waymo EMMA、Wayve LINGO-2 走的都是这条。"}],
+11: [{"q": "version 0 与 version 1 的关系最准确的说法是？", "o": ["v0 是 v1 在「分布类 = 固定方差高斯」时的特例 —— 真正改的不是损失，是分布类", "两者是完全不同的算法", "v1 是 v0 加了正则项", "v1 用了更大的网络"], "a": 0, "why": "固定方差高斯下 −log N(a; μ_θ(s), σ²) = ‖a−μ_θ(s)‖²/(2σ²) + 常数。这正是 p10 那条红线在算法层面的体现。"}, {"q": "p12 两组实验把「单人数据」与「多人数据」分开画，这个设计说明了什么？", "o": ["多人数据更多", "单人数据质量更高", "表达力的收益只在多模态数据上出现 —— 单人数据下简单模型并不吃亏", "diffusion 在所有情况下都更好"], "a": 2, "why": "这给了你一个诊断方法：如果强模型没比简单模型好，先去看数据是不是单模态的，而不是去调参数。"}, {"q": "p12 的纵轴是 success rate 而不是似然或损失，为什么这是对的做法？", "o": ["成功率更容易计算", "似然高不等于任务做得好 —— 替代目标（对数似然）与真实目标（任务成功）之间有一条缝，而缝的大小正是复合误差造成的", "似然不可比较", "成功率方差更小"], "a": 1, "why": "报成功率而不是报损失，是这个领域的基本规矩。"}],
+13: [{"q": "为什么自动驾驶那两个系统（Waymo EMMA、Wayve LINGO-2）都选了「离散化 + 自回归」？", "o": ["因为自动驾驶的动作是离散的", "因为扩散模型太慢", "因为自回归精度更高", "因为它们本来就是视觉-语言模型出身，动作离散化成 token 之后整条训练推理流水线一字不改就能用"], "a": 3, "why": "而机器人那边对动作精度与多峰性要求更高，扩散的表达力更划算 —— π0、Gr00t N1、Helix 都用扩散。"}, {"q": "行为克隆的两条「+」里，哪一条最常被低估？", "o": ["不需要定义奖励函数 —— 而定义奖励函数是 RL 里最难、最容易出错的一步（L08 整讲在讲它）", "不需要在线数据", "训练速度快", "不需要仿真器"], "a": 0, "why": "模仿学习用「有示范」换掉了「要定义奖励」。你不用说「什么是好的」，只要给出「好的样子」。"}, {"q": "offline 与 online 的分界线是什么？", "o": ["训练在部署前还是部署后", "有没有仿真器", "数据从哪来：offline 是数据集固定、不加自己跑出来的东西；online 是要用学到的策略产生新数据", "有没有奖励函数"], "a": 2, "why": "按这个定义，DAgger（p20）是 online 的，哪怕它每一轮内部都是监督学习。"}, {"q": "p16 那条「−」写的是 may need a lot of data for **reliable** performance，这个 reliable 指什么？", "o": ["训练过程稳定", "行为克隆大多数情况下能做得不错，但在罕见情形上不可靠 —— 而那些罕见情形恰恰是安全关键的", "结果可复现", "不同种子之间方差小"], "a": 1, "why": "这就是下半讲 p18 复合误差的入口。p25 的小结说得更狠：may need impractically large amount of data。"}],
+17: [{"q": "p18 那两张图的差别只有一条箭头，是哪一条？", "o": ["标签之间有依赖", "输入之间有依赖", "预测出来的动作会指向下一个状态 —— 输入是你自己造出来的，不是给定的", "损失函数不同"], "a": 2, "why": "这正是 L01 p8 那句 actions affect the future observations 的具体化，意味着「训练损失小」不再保证「部署表现好」。"}, {"q": "covariate shift 与 compounding errors 的因果顺序是？", "o": ["先有协变量偏移（分布不一样了），才有复合误差（它会自我加剧）", "先有复合误差，才有协变量偏移", "两者是同一件事的两个名字", "两者互不相关"], "a": 0, "why": "偏移是一个状态，复合是一个过程。讲稿描述的机制是：错误率与偏离程度互为因果，所以不是线性累积而是加速发散。"}, {"q": "上半讲的「表达力不足」和这一页的「复合误差」是什么关系？", "o": ["互不相关的两个问题", "会相乘：学得差（只学到均值）⇒ 更早偏离 ⇒ 偏离之后错得更多", "表达力够了复合误差就没了", "复合误差导致表达力不足"], "a": 1, "why": "讲稿原话：if you don't fit it well, and you learn only the mean, then you're even more likely to have these compounding errors。但后面还有一句：拟合得好也只是推迟问题。"}, {"q": "出路 2「采纠正性数据」的关键词是 corrective 而不是「更多」，为什么？", "o": ["因为纠正数据更便宜", "因为专家更擅长纠正", "要的是「当策略偏到某个状态时该怎么回来」—— 这种数据专家自己演示时根本不会产生，因为专家不会犯那个错", "因为纠正数据噪声更小"], "a": 2, "why": "所以必须先把策略跑起来、看它偏到哪，再去采 —— 这就逼着算法从 offline 变成 online。"}],
+20: [{"q": "DAgger 第 2 步里状态带撇号（s′），这个记号为什么是刻意的？", "o": ["表示它们是加了噪声的状态", "表示它们是你的策略访问的状态，不是专家的 —— 整个 DAgger 的创新就在这一个撇号上", "表示它们是下一时刻的状态", "只是排版习惯"], "a": 1, "why": "把标注的位置从「专家走过的地方」挪到「我走过的地方」，训练分布与部署分布对齐，协变量偏移就被直接消掉了。"}, {"q": "为什么「采更多专家轨迹」治不了复合误差，而 DAgger 可以？", "o": ["因为专家轨迹噪声大", "因为 DAgger 用了更好的损失函数", "因为 DAgger 训练更多轮", "因为专家轨迹永远采在 p_expert(s) 上，再多也覆盖不到你会偏到的地方 —— 而那些地方正是你需要知道怎么办的"], "a": 3, "why": "这是「更多数据」与「对的数据」的区别。DAgger 的数据恰恰采在 p_π(s) 上。"}, {"q": "DAgger 那条「−」（agent 控制时查询专家很困难）本质上是什么层面的障碍？", "o": ["人机交互层面 —— 要让人盯着回放对每一帧说出他会打多少度方向盘，这对人类非常不自然", "算法层面", "计算资源层面", "理论层面"], "a": 0, "why": "讲稿的例子很具体。标注质量会很差，而这正是 HG-DAgger 要改的东西。"}, {"q": "讲者对 DAgger 这个名字的评价是？", "o": ["很贴切", "有历史渊源", "not very descriptive，\"I think, was a bad choice\" —— 它描述的是实现细节而不是方法的要点", "来自某个人名"], "a": 2, "why": "有用的提醒：读论文碰到名字看不出方法在干什么，别怀疑自己。真正该抓的是「它和前一个方法的差别在哪一步」。"}],
+21: [{"q": "HG-DAgger 相对 DAgger 的改动，价值主要在哪一层？", "o": ["算法层 —— 用了更好的聚合方式", "人机交互层 —— 专家从「逐帧报方向盘角度」变成「看到不对就接管开车」，后者是人类天天在做的事", "理论层 —— 有更好的收敛保证", "工程层 —— 训练更快"], "a": 1, "why": "算法上两者几乎一样（都是在策略访问的状态上拿专家动作、并进去、重训）。"}, {"q": "HG-DAgger 那条「−」（很难及时发现错误）在自动驾驶场景里意味着什么？", "o": ["采到的数据质量差一点", "训练会变慢", "这是一个安全问题：讲稿明说见过安全员没能阻止更严重错误的案例", "需要更多的安全员"], "a": 2, "why": "HG-DAgger 把「什么时候该介入」完全交给了人，而人反应有延迟、注意力会漂。"}, {"q": "HG-DAgger 拿到的数据形态与 DAgger 有什么不同？", "o": ["一段连续的部分轨迹，含「怎么从错误状态恢复」的完整过程，而不只是孤立的 (s,a) 对", "更多的 (s,a) 对", "带奖励标注的数据", "只有状态没有动作"], "a": 0, "why": "恢复往往需要好几步配合，孤立的标注学不出来。"}, {"q": "p21 底部那个问题「能不能自动检测何时需要介入」本质上在问什么？", "o": ["能不能加快推理速度", "策略能不能知道自己不知道 —— 需要不确定性估计（熵高，或当前状态离训练数据远）", "能不能预测专家的动作", "能不能检测传感器故障"], "a": 1, "why": "这是这一讲离你的课题最近的一句话：你的剪枝和搜索都依赖「知道自己不知道」这个能力。"}],
+22: [{"q": "为什么自动驾驶和语言是模仿学习最先跑通的两个领域？", "o": ["因为数据维度低", "因为有大公司投入", "因为人类本来就在做这些事且可以记录 —— 数据是业务副产品，不用为训练专门采", "因为任务简单"], "a": 2, "why": "这也正是 LLM 的 SFT 阶段能做起来的前提：互联网上已经有海量「人写的文本」。"}, {"q": "动觉示教那条「人会出现在画面里」为什么是个真问题？", "o": ["会侵犯隐私", "会遮挡物体", "会增加数据量", "视觉策略会把「画面里有一只手」学成任务的一部分，部署时没有那只手就懵了 —— 这是一类虚假相关，而且来自采数据的方式"], "a": 3, "why": "它不是算法的问题，是数据采集方式造成的污染。"}, {"q": "embodiment gap 的两条里，哪一条更难？", "o": ["自由度不同 —— 外观可以靠视觉迁移、域随机化缓解，但「人有两条腿、机器狗有四条腿」连「对应的动作」都定义不出来", "外观不同", "两条一样难", "两条都可以靠更多数据解决"], "a": 0, "why": "所以 p24 的结论是一个克制的降级：不是「可以用来模仿」，是「可以用来引导探索」。"}],
+25: [{"q": "p25 把 p16 那条「−」从 a lot of data 加重成 impractically large amount of data，补上的理由是什么？", "o": ["实验数据更新了", "复合误差 —— 你要覆盖的不只是专家会去的地方，还有你可能偏到的所有地方", "模型变大了", "任务变难了"], "a": 1, "why": "这不是笔误，是在两页之间补上了理由。知道复合误差之后，才明白为什么需要的量是「不切实际」而不只是「很多」。"}, {"q": "p25 最后那条新出现的「−」是什么？", "o": ["不支持连续动作", "需要大量算力", "不提供一个「自己练着变好」的框架 —— 因为它优化的目标里只有「像不像」，没有「做得好不好」", "无法处理多模态数据"], "a": 2, "why": "这一句就是后面十七讲存在的理由。要越过专家上界，必须定义一个奖励函数然后让它自己练。"}, {"q": "「模仿学习 + 强化学习」这个组合为什么有效？", "o": ["因为两个方法都很好", "因为可以用更多数据", "因为它们的缺点恰好是对方的优点：模仿省掉大量试错（RL 最贵的部分），RL 突破专家上界（模仿的天花板）", "因为它们可以并行训练"], "a": 2, "why": "RLHF 就是这个结构：先 SFT（= 行为克隆）再 RL。这种互补性是方法能稳定组合的前提，不是碰巧。"}, {"q": "读完这一讲，判断「该用模仿还是该用 RL」的两条判据是？", "o": ["任务难度，和算力预算", "动作是连续还是离散，和状态维度", "数据量，和模型大小", "有没有现成的示范（p23 那三档），以及我需不需要超过专家（p25 那条上界）"], "a": 3, "why": "p23 的「It may not be viable to collect demos!」正是把人逼向强化学习的理由 —— 模仿学习的全部优势都建立在「有示范」这个前提上。"}]
+};
+
+var N = [
+{"r": [1, 4], "t": "开场：这一讲在整门课里是「先抄一遍」，而三个学习目标里有一个是通用技能", "star": 2, "quote": "CS 224R Imitation Learning.  Partial Recap — s_t state, a_t action, o_t observation, τ trajectory, r(s,a) reward function.  π(a_t|s_t) or π(a_t|o_{t−m:t}) — behavior, usually what we are trying to learn; can be represented using a generative model π_θ(a|s).  The plan for today — Imitation Learning: 1. Imitation learning basics  2. Learning expressive policy distributions  3. Learning from online interventions  4. Time permitting: how to collect demonstrations.  Key learning goals: how to represent distributions with neural networks; why expressive distributions matter for imitation learning; what are compounding errors and how to address them.  Topic of homework 1!", "one": "<b>模仿学习是 L01 那五族算法里的第 1 族，也是最像监督学习的那一族。</b><span class='k'>它绕开了「最大化期望回报」这个目标，直接去抄专家</span> —— <b>而这一讲真正的技术内容，是「怎么用神经网络表示一个分布」，那是一个跨场景通用的技能。</b>", "eq": "回顾（p3，与 L01 p43–44 相同，只补了一句）：\n  s_t 状态 · a_t 动作 · o_t 观测 · τ 轨迹 · r(s,a) 奖励函数\n  π(a_t|s_t) 或 π(a_t|o_{t−m:t}) —— 行为，通常就是我们要学的东西\n  **新补的一句**：can be represented using a generative model  π_θ(a|s)\n                   （策略可以用一个生成模型来表示 —— 这就是本讲的主线）\n\n────────────────────────────────────────\n今天四段（p4）：\n  1. 模仿学习基础\n  2. **学习表达力强的策略分布**        ← 本片的主体\n  3. 从在线干预中学习                  ← .b 片\n  4. 时间允许的话：怎么采集示范\n\n三个学习目标（p4）：\n  · 怎么用神经网络表示**分布**\n  · 为什么表达力对模仿学习**重要**\n  · 什么是**复合误差**，怎么处理\n\n  → 全部是 Homework 1 的内容", "pts": ["<b>p3 比 L01 的回顾页只多了一句话，而那一句正是本讲的主线</b>：<span class='k'>「can be represented using a generative model」</span>。<b>L01 把策略定义成一个条件分布 π_θ(a|s)，但没说怎么表示它</b>；<span class='w'>这一讲就在回答「怎么表示」，而答案是「用生成模型」</span>。", "<b>第一个学习目标「how to represent distributions with neural networks」是一个跨场景的通用技能，不只是模仿学习要用。</b><span class='k'>讲稿里讲者自己说这一段「in some ways, orthogonal to the main topic of the class. But it's actually very important to understand in order to get perf[ormance]」</span> —— <b>它和 RL 本身正交，但不懂它就做不出性能</b>。", "<b>模仿学习在五族算法里是第 1 族，也是唯一一族不优化期望回报的。</b><span class='w'>它做的是监督学习：给定专家的 (s,a) 对，学一个 π(a|s)</span>。<b>所以它最简单、最稳定，代价是上界等于专家水平</b> —— <span class='k'>讲稿里讲者在 .b 片那一段明说「In all of these cases, the best performance of the policy is upper bounded by the expert」</span>。", "<b>四段结构里，第 2 段（表达力）与第 3 段（复合误差）是两个独立的问题，不要混。</b><span class='k'>表达力解决的是「同一个状态下专家会有多种做法」</span>；<span class='k'>复合误差解决的是「我犯了错就会走到数据没覆盖的地方」</span>。<b>两者可以同时发生，而且会互相放大</b> —— <span class='w'>讲稿里有一句把它们接上了：「if you don't fit it well, and you learn only the mean, then you're even more likely to have these compounding errors」</span>。", "<b>注意 p4 右边那个大括号标着「Topic of homework 1!」，罩住的是全部四段。</b><span class='w'>也就是说这一讲的内容全部要动手实现</span> —— <b>而 L01 p9 的核心目标正是 implement</b>。<span class='k'>读这一讲时最好同步写代码。</span>"], "tbl": {"cap": "这一讲的两个独立问题，别混", "head": ["", "表达力不足", "<b>复合误差</b>"], "rows": [["问题是什么", "同一状态下专家有多种做法，模型只学到均值", "<b>一犯错就走到数据没覆盖的地方</b>"], ["根源", "<b>分布类不够表达</b>（高斯只能单峰）", "<b>动作会改变未来的状态分布</b>（L01 p8 那条分界）"], ["在哪几页", "p7–p16", "<b>p18–p21</b>"], ["解法", "<b>生成模型（GMM / 自回归 / 扩散）</b>", "<b>DAgger / HG-DAgger</b>"], ["算法还 offline 吗", "<b>是</b>", "<b>否 —— 要在线跑策略</b>"], ["两者的关系", "<b>学得差 ⇒ 更容易偏离 ⇒ 复合误差更严重</b>", "—"]]}, "say": "<b>讲稿里讲者对第一个学习目标的定位说得很坦率，值得逐字看：</b><br><br>「<span class='k'>So some of the key learning goals. This is, in some ways, orthogonal to the main topic of the class. But it's actually very important to understand in order to get perf[ormance]</span>…」<br><br><b>「orthogonal to the main topic」——「怎么用神经网络表示分布」确实不是强化学习特有的问题</b>，<span class='w'>它是生成模型的问题</span>。<br><br><b>但她把它放在第二讲，而且占了整讲近一半篇幅</b>，理由是后半句：<span class='k'>不懂它就拿不到性能</span>。<br><br>这个判断在 2025 年是对的 —— <b>p13/p14 那两页列的真实系统（π0、Gr00t N1、Helix、OpenVLA、Waymo EMMA、Wayve LINGO-2）全部用的是表达力强的分布</b>，<span class='w'>没有一个还在用 ℓ2 回归</span>。", "link": {"t": "你学过的对应：CS224R L01 p41（五族算法里的第 1 族，以及它为什么最像监督学习）", "href": "L01-精读.html"}, "tip": {"t": "读这一讲时手边放着 L01 的那一行公式", "v": "<b>L01 把整门课压成了一行</b>：<code>max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t r(s_t,a_t) ]</code>。<br><br><b>而模仿学习是五族里唯一<span class='k'>不碰这一行</span>的一族。</b>它不优化期望回报，它优化的是另一个完全不同的东西：<br><br><code>min_θ − 𝔼_{(s,a)∼𝒟}[ log π_θ(a|s) ]</code>（p11）<br><br><b>两个式子的差别值得逐项看</b>：<br>· 上面那个的期望对 <span class='w'>τ ∼ p_θ(τ)</span> 取 —— <b>分布依赖你的参数</b>；<br>· 下面这个的期望对 <span class='k'>(s,a) ∼ 𝒟</span> 取 —— <b>分布是固定的数据集</b>。<br><br><span class='k'>所以模仿学习是一个普通的监督学习问题</span>：i.i.d. 样本、固定分布、可导损失。<b>这就是它为什么最简单、最稳定。</b><br><br><b>但也正是这个「假装分布固定」的动作，埋下了 p18 的复合误差</b> —— <span class='w'>部署时你走的是 p_π(s) 而不是 p_expert(s)，而训练时你假装它们一样</span>。<b>整个下半讲都在为这一步付账。</b>"}},
+{"r": [5, 7], "t": "最朴素的做法，和它在两秒内就会碰到的那堵墙", "star": 5, "quote": "What is the goal of imitation learning?  Data: Given trajectories collected by an expert 𝒟 := {(s_1, a_1, . . . , s_T)} \"demonstrations\" (sampled from some unknown policy π_expert).  Example: Dataset from human drivers — Sensor readings + steering commands.  Goal: Learn a policy π_θ that performs at the level of the expert policy, by mimicking it.  Imitation learning - version 0: 0. Given demonstrations 𝒟. 1. For deterministic policy, supervised regression to the expert's actions: min_θ (1/|𝒟|) Σ_{(s,a)∈𝒟} ‖a − â‖² where â = π_θ(s).  2. Deploy learned policy π_θ.  What could go wrong?  Question: what might policy trained with ℓ2-regression do? → mean of data.  How often does this happen in practice?  All the time!  Esp. when data collected by multiple people.  How can we represent more than the mean?", "one": "<b>version 0 只有三步，而且第 1 步就是普通的监督回归。</b><span class='k'>它的毛病也只有一句话：ℓ2 回归给出的是数据的均值</span> —— <b>而当专家有多种做法时（绕障碍：左绕、右绕），均值是「直接撞上去」。</b>", "eq": "设定（p5）：\n  数据  𝒟 := { (s₁, a₁, …, s_T) }     称为 **demonstrations**（示范）\n        采样自某个**未知**的 π_expert\n  目标  学一个 π_θ，通过模仿达到专家的水平\n\n  例子：人类司机的数据集 —— 传感器读数 + 方向盘指令\n\n────────────────────────────────────────\nversion 0（p6）：\n\n  0. 给定专家采集的示范 𝒟\n  1. 对**确定性**策略，做监督回归：\n\n         min_θ  (1/|𝒟|) Σ_{(s,a)∈𝒟}  ‖ a − â ‖²,     â = π_θ(s)\n\n  2. 部署学到的 π_θ\n\n  → 这就是**行为克隆**（behavior cloning, BC）最朴素的形态。\n\n────────────────────────────────────────\n毛病（p7）：\n\n  问：用 ℓ2 回归训出来的策略会做什么？\n  答：**mean of data**（数据的均值）\n\n  为什么是均值：最小化 𝔼[‖a − â‖²] 的解是 â = 𝔼[a|s]\n\n  讲者的追问与自答：\n     How often does this happen in practice?\n     **All the time!**  Esp. when data collected by multiple people.", "pts": ["<b>「ℓ2 回归给出条件均值」是一个一行就能证的事实，值得自己推一遍。</b><span class='k'>对固定的 s，最小化 𝔼_{a∼p(a|s)}[(a − â)²] 关于 â 求导得 â = 𝔼[a|s]</span>。<b>所以 ℓ2 损失不是「学了一个差的分布」，而是「根本没在学分布，只学了一个数」。</b>", "<b>讲稿里的绕障碍例子比幻灯清楚得多</b>：<span class='w'>一辆车前面有障碍，数据里有人向左绕、有人向右绕，还有一条黑色虚线表示「直行」</span>。<span class='k'>ℓ2 训出来的确定性策略会选那个均值，而均值恰好落在「直行」—— 一个在数据里概率很低、而且会撞上去的动作。</span>", "<b>「All the time! Esp. when data collected by multiple people」这句要认真对待，它不是夸张。</b><span class='w'>只要你的示范来自多个人、或者同一个人在不同时候，多模态就是默认情况</span>。<b>单一一致的示范者反而是例外</b> —— <span class='k'>p15 那张小结图正是按这个二分画的。</span>", "<b>注意 π_expert 是「未知的」。</b><span class='k'>你拿到的是它的样本，不是它本身</span>。<b>所以模仿学习本质上是一个密度估计问题</b>：<span class='w'>从 (s,a) 样本里把条件分布 p(a|s) 估出来</span>。<b>这个视角一建立，p8–p10 那三页就顺理成章了 —— 它们讲的全是「怎么估一个条件分布」。</b>", "<b>version 0 的三步里，第 2 步「Deploy」藏着后半讲的全部问题。</b><span class='k'>训练时你看到的是专家访问过的状态，部署时你走的是自己的状态</span> —— <b>两者不一样，而且会越差越远</b>。<span class='w'>这就是 p18 的复合误差，但这一页还没碰它。</span>"], "tbl": {"cap": "version 0 的三步，以及每一步埋下的问题", "head": ["步骤", "做了什么", "<b>埋下的问题</b>", "在哪一页爆"], "rows": [["0. 给定示范 𝒟", "采样自未知的 π_expert", "<b>多个示范者 ⇒ 多模态</b>", "<b>p7</b>"], ["1. ℓ2 回归", "min ‖a − π_θ(s)‖²", "<b>解是条件均值 —— 根本没在学分布</b>", "<b>p7</b>"], ["2. 部署 π_θ", "在真实环境里跑", "<b>自己走的状态 ≠ 专家走的状态</b>", "<b>p18</b>"], ["共同的根", "—", "<b>把一个序贯问题当成了 i.i.d. 的监督学习</b>", "—"]]}, "say": "<b>讲稿里绕障碍那一段是本页最该看的，因为幻灯上只有一张图：</b><br><br>「<span class='k'>…to stay straight, is shown in the black dotted line. And then if we train a model to minimize the L2 error, then the deterministic policy will choose to take an action that's right here, which is the mean of the black distribution, which has low probability under the data.</span>」<br><br><b>「which has low probability under the data」是关键</b>：<span class='w'>均值不只是「不够好」，它是一个在训练数据里几乎没出现过的动作</span>。<br><br>接着她预判了读者的怀疑并否掉：<br><br>「<span class='k'>you might be wondering, how often does this actually happen in practice? Maybe you might think that this is a contrived example where there is variability in what people would do. It turns out that this action actually happens all the time. People and demonstrators often do things in different ways, not just in driving and not…</span>」<br><br><b>「not just in driving」—— 多模态不是驾驶特有的，是示范数据的常态。</b>", "tip": {"t": "「ℓ2 的解是条件均值」—— 三行推一遍", "v": "<b>这条事实被用了整整一讲，值得自己推一次而不是记住。</b><br><br>固定一个状态 s，专家的动作服从某个未知的 <code>p(a|s)</code>。我们要选一个常数 <code>â</code> 去最小化<br><br><code>L(â) = 𝔼_{a∼p(a|s)} [ (a − â)² ]</code><br><br>展开：<code>L(â) = 𝔼[a²] − 2â·𝔼[a] + â²</code><br>求导：<code>L'(â) = −2𝔼[a] + 2â = 0</code><br>⟹ <code>â = 𝔼[a|s]</code>　∎<br><br><b>注意这个结论里<span class='k'>没有出现任何关于模型的东西</span></b> —— 没有网络、没有参数、没有优化器。<span class='w'>它是损失函数本身的性质</span>。<br><br><b>所以「加大网络」只会让你更准确地逼近那个均值</b>，而均值本身就是错的目标。<span class='k'>这就是 p10 那条红线的数学内容。</span><br><br><b>顺带一个有用的对照</b>：换成 <code>ℓ1</code> 损失（绝对值），最优解是<span class='w'>条件中位数</span>而不是均值。<b>中位数在双峰情形下会落到其中一个峰上</b>（而不是中间），<span class='k'>所以 ℓ1 有时确实比 ℓ2 好一点</span> —— p12 那组实验的对照组用的正是 L1。<b>但它仍然只给一个点，不是分布。</b>"}, "res": {"tag": "推断", "v": "<b>「ℓ2 回归只给条件均值」这件事，在你的课题里有一个直接的对应，而且很容易踩。</b><br><br>你要从历史日志里学一个「配置 → 预期分数」的代理模型。<span class='k'>如果你用平方损失训一个回归器，你得到的是条件均值 𝔼[score | config]</span> —— <b>而这正好丢掉了你最需要的那个信息：方差</b>。<br><br><b>为什么方差对你是刚需</b>：① <span class='w'>置信区间要靠它</span>（没有方差就没有 UCB、没有淘汰判据）；② <span class='w'>LLM 评估的噪声在不同配置上差别很大</span>（有的配置稳定、有的时好时坏）；③ <b>「稳定地还行」和「偶尔很好」在实用上完全不同</b>，而均值把它们混成一个数。<br><br><b>所以你的代理模型应该输出一个分布而不是一个点</b> —— <span class='k'>最省事的是输出 μ 和 σ（高斯似然训练），再往上是分位数回归或高斯过程</span>。<b>这与本页说的「要输出分布的参数而不是一个数」是同一件事。</b>", "ref": "本讲 p6–p7；对照 CSE 541 L05 的置信半径（没有方差估计就算不出来）"}},
+{"r": [8, 10], "t": "三页讲清「怎么用神经网络表示分布」，而红线那一句是整讲最该记住的", "star": 5, "quote": "Learning distributions with neural networks — 1D discrete actions (up arrow, down arrow, press A, press B): Neural net outputs represent categorical distribution.  Maximally expressive: p(up), p(down), … parameters of distribution.  Continuous actions (next steering angle): Neural net outputs μ, σ to represent Gaussian distribution.  Not very expressive!  💡Can we use generative modeling?  autoregressive models — learning p(next word|words so far); image diffusion models — learning p(image|text description).  Our goal: learning p(action|observations).  Generative models for policies (approximating p(a|s)): Mixture of Gaussians — output μ_1, σ_1, w_1, μ_2, σ_2, w_2, …;  Discretize + Autoregressive — output p(a_{t,1}), p(a_{t,2}|â_{t,1}), p(a_{t,3}|â_{t,1:2}), …;  Diffusion — iteratively denoise.  Question: how are these different from ℓ2 loss with larger network?  Important Note: Neural network expressivity is often distinct from distribution expressivity!", "one": "<b>核心动作只有一个：让网络输出<span class='k'>分布的参数</span>，而不是一个动作。</b>离散动作这么做就够了（categorical 是<b>最大表达力</b>的）；<span class='w'>连续动作输出 μ、σ 远远不够</span>。<b>而 p10 那条红线回答了所有人的第一个疑问：把网络加大解决不了这个问题。</b>", "eq": "基本做法（p8）：神经网络输出**分布的参数**\n\n  一维离散动作（上、下、A、B）：\n      网络输出 → categorical 分布的参数 p(up), p(down), …\n      **Maximally expressive**（最大表达力）\n      —— 这个分布类能表示任何离散动作分布，一个都不漏\n\n  连续动作（下一个方向盘角度）：\n      网络输出 → μ, σ，表示一个高斯\n      **Not very expressive!**\n      —— 高斯只能单峰。碰到「左绕/右绕」会输出一个又宽又平的高斯，\n         均值仍然落在中间（讲稿：\"it'll just output a wider variance Gaussian\n         in order to try to cover more probability mass\"）\n\n────────────────────────────────────────\n三条出路（p10），全部来自生成模型（p9）：\n\n  混合高斯（GMM）\n      输出 μ₁, σ₁, w₁, μ₂, σ₂, w₂, …\n      · 简单、好训；· 模态个数要事先定\n\n  离散化 + 自回归\n      把每一维离散化，逐维预测：\n          p(a_{t,1}),  p(a_{t,2} | â_{t,1}),  p(a_{t,3} | â_{t,1:2}),  …\n      · 继承了离散的「最大表达力」；· 要选分箱粒度；· 采样是串行的\n\n  扩散（diffusion）\n      迭代去噪：从噪声出发，n = N…1 逐步去掉 ε_n\n      · 表达力最强；· 采样慢（要跑 N 步）\n\n────────────────────────────────────────\n**p10 的红线（本讲最该记住的一句）**：\n\n    Neural network expressivity is often distinct from distribution expressivity!\n    （神经网络的表达力，与分布的表达力，常常是两回事）\n\n  回答的问题：这些做法和「ℓ2 损失 + 更大的网络」有什么区别？\n  答：**没区别 —— 网络再大，ℓ2 的解仍然是条件均值。**\n      瓶颈不在网络容量，在你选的**分布类**。", "pts": ["<b>红线那句话值得单独背下来，因为它纠正的是一个非常自然的误解。</b><span class='k'>「模型拟合得不好 ⇒ 加大网络」在监督学习里常常对，在这里完全不对</span>。<b>ℓ2 损失的最优解是条件均值，这与网络有多大无关</b> —— <span class='w'>一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准</span>。<b>瓶颈是你选的输出分布类。</b>", "<b>p9 用两个大家都熟的例子把「生成模型」这件事接上了，这个类比值得留着。</b><span class='k'>自回归模型学的是 p(下一个词 | 已有的词)，图像扩散学的是 p(图像 | 文字描述)</span> —— <b>而我们要学的是 p(动作 | 观测)</b>。<span class='w'>三者在形式上是同一类问题：给定条件，输出一个分布</span>。<b>所以近十年生成模型那边积累的全部工具，这边可以直接拿来用</b> —— <span class='k'>这正是 p13/p14 那六个真实系统能在短时间内全部换代的原因。</span>", "<b>「离散动作的 categorical 是最大表达力的」这一条有点反直觉，但很重要。</b><span class='k'>离散情形下，一个 d 维的概率向量能表示任何分布，一个都不漏</span>。<b>所以语言模型（动作 = 下一个 token）在这个意义上从来没有表达力问题</b> —— <span class='w'>它的困难在别处（序列长、空间大），不在分布类。</span>", "<b>「离散化 + 自回归」这条路本质上是把连续问题变回离散问题，从而继承那个最大表达力。</b><span class='k'>代价有两个：分箱粒度要选（太粗丢精度、太细样本不够），采样是串行的（d 维要跑 d 次）</span>。<b>p13/p14 里 OpenVLA、Waymo EMMA、Wayve LINGO-2 走的都是这条</b> —— <span class='w'>因为它可以直接复用语言模型的架构与训练流程。</span>", "<b>高斯「不够表达」的具体失败方式，讲稿说得比幻灯准：它不是输出一个错的峰，而是输出一个又宽又平的分布。</b><span class='k'>「it'll just output a wider variance Gaussian in order to try to cover more probability mass」</span> —— <b>结果是采样时经常采到两个模态之间那个谁都不选的区域</b>。<span class='w'>这比「只学均值」更隐蔽，因为模型看起来「有不确定性」了。</span>", "<b>三条路的选择不是品味问题，有明确的取舍维度。</b><span class='k'>GMM：最便宜，但要事先定模态数；自回归：表达力好且能复用 LLM 栈，但采样串行；扩散：表达力最强，但每次动作要跑 N 步去噪</span>。<b>而 p13 的真实系统里三种都有人用</b> —— <span class='w'>说明还没有一个通吃的答案。</span>"], "tbl": {"cap": "三条生成模型路线：取舍在哪", "head": ["", "混合高斯 GMM", "<b>离散化 + 自回归</b>", "<b>扩散</b>"], "rows": [["表达力", "中（模态数固定）", "<b>高（继承离散的最大表达力）</b>", "<b>最高</b>"], ["要先定的超参", "<b>模态个数</b>", "<b>分箱粒度</b>", "去噪步数 N"], ["采样成本", "<b>一次前向</b>", "<b>d 次（逐维串行）</b>", "<b>N 次</b>"], ["能复用现成栈吗", "否", "<b>能 —— 直接用语言模型架构</b>", "能用图像扩散那一套"], ["p13/p14 谁在用", "（p12 的对照组）", "<b>OpenVLA · Waymo EMMA · Wayve LINGO-2</b>", "<b>π0 · Gr00t N1 · Helix</b>"], ["<b>共同点</b>", "<b>都是让网络输出「分布的参数」，而不是一个动作</b>", "—", "—"]]}, "say": "<b>讲稿把「输出分布参数」这个核心动作讲得很具体，值得完整看一遍：</b><br><br>「<span class='k'>So in the case of the deterministic policy, we had some neural network. … And we're taking as input some state, and we're outputting the mean action, the mean of a distribution. And so because it's only representing the mean it's hardly a distribution at all. And instead what we'd like to be able to do is have this neural network actually output the parameters of a distribution over action.</span>」<br><br><b>「it's hardly a distribution at all」—— 只输出均值，那根本算不上一个分布。</b><br><br>然后是那个关键的条件句：<br><br>「<span class='w'>You have a neural network outputs parameters. If the distribution class that you choose is very expressive, then you should be able to get expressive distribution as output.</span>」<br><br><b>注意 if 从句的主语是 the distribution class you choose，不是 the network</b>。<span class='k'>这就是 p10 那条红线的口语版</span> —— <b>表达力来自你选的分布类，不是来自网络。</b>", "link": {"t": "你学过的对应：CS224R L01 p39（为什么策略要随机：理由二正是「建模多样行为」）", "href": "L01-精读.html"}, "tip": {"t": "三条路怎么选：一个可以照着走的顺序", "w": true, "v": "<b>讲义把三条并排给了，但没说该先试哪个。按「代价从低到高」走，一般不会错：</b><br><br><b>① 先确认你真的需要多峰。</b>把同一个（或相近的）状态下的示范动作画一张直方图。<span class='k'>只有一个峰 ⇒ 别折腾，高斯甚至 ℓ2 就够</span>（p12 的 single human 那根柱就是这个意思）。<span class='w'>这一步最便宜，却最常被跳过。</span><br><br><b>② 真的多峰，先试混合高斯。</b>它只多输出几组 <code>(μ_i, σ_i, w_i)</code>，<span class='k'>训练代码改动最小，推理成本几乎不变</span>。<b>它的毛病是模态数要事先定</b> —— 定少了退化成单峰，定多了有些分量会塌缩（权重趋于 0 或方差趋于 0）。<br><br><b>③ 模态数说不清、或动作维度高，上离散化 + 自回归。</b><span class='w'>它的表达力不依赖于你猜对模态数</span>，而且<b>能直接复用语言模型那一整套</b>。代价是采样串行、要调分箱粒度。<br><br><b>④ 要最强的表达力、且采样成本能接受，才上扩散。</b><span class='k'>每个动作要跑 N 步去噪</span> —— <b>机器人控制频率不高时划算，高频控制时要专门做加速</b>。<br><br><b>一条实用的判据</b>：<span class='w'>如果你发现换到更强的分布类之后指标没动，几乎总是第 ① 步没做</span> —— 数据本来就是单峰的，强模型没有东西可捕捉。"}, "res": {"tag": "推断", "v": "<b>「网络表达力 ≠ 分布表达力」这条，在你的课题里有一个很值得检查的对应：你的代理模型输出的是什么？</b><br><br>如果是一个点估计（配置 → 一个分数），<span class='k'>那不管你用多大的模型，你拿到的都是条件均值</span> —— <b>而你的算法需要的是不确定性</b>。<br><br><b>三档，对应本页的三条路</b>：<br>· <span class='w'>输出 μ 和 σ</span>（高斯似然训练）—— 最便宜，够用于 UCB 型判据；<br>· <span class='w'>分位数回归 / 集成</span> —— 能表示非高斯的形状（例如「大部分时候 0.8，偶尔崩到 0.2」这种双峰）；<br>· <span class='w'>高斯过程</span> —— 自带校准的不确定性，而且在小样本下最合适（你的评估预算小，这一条很贴）。<br><br><b>双峰那个例子对 LLM workflow 可能是真实的</b>：<span class='k'>一个配置可能在大多数输入上很好、在某一类输入上系统性失败</span>。<b>用均值描述它会同时高估最坏情况、低估典型情况</b> —— ⚠ 这是我的推断，<span class='w'>你的日志里到底有没有这种双峰，要自己去量一遍分数的直方图</span>。", "ref": "本讲 p10 的红线；对照 CSE 541 L05 的置信半径"}},
+{"r": [11, 12], "t": "version 1：把平方损失换成对数似然，以及两组证明它有用的实验", "star": 4, "quote": "Imitation learning - version 1: 0. Given demonstrations collected by an expert 𝒟 := {(s_1, a_1, . . . , s_T)}.  1. Train generative model of the expert's actions — Expressive policies: min_θ −𝔼_{(s,a)∼𝒟}[log π_θ(a|s)] with expressive distribution π(·|s) — maximize the log probability of the demo actions under the policy.  2. Deploy learned policy π_θ.  Imitation learning - version 1 vs version 0: Simulated transport task (multi-human data: diffusion vs L1).  Real shirt hanging task (single human / multi human: diffusion vs GMM).  success rate vs demo dataset type.", "one": "<b>version 1 与 version 0 只差一行：<code>min ‖a − â‖²</code> 换成 <code>min −𝔼[log π_θ(a|s)]</code>。</b><span class='k'>前者是「让预测值靠近动作」，后者是「让这个动作在你的分布下概率高」</span> —— <b>而 p12 用两组真实实验说明这一行值多少。</b>", "eq": "version 1（p11）：\n\n  0. 给定专家采集的示范 𝒟\n  1. 训练专家动作的**生成模型**：\n\n         min_θ  − 𝔼_{(s,a)∼𝒟} [ log π_θ(a | s) ]\n\n     即：在表达力强的分布 π(·|s) 下，**最大化示范动作的对数概率**\n  2. 部署 π_θ\n\n────────────────────────────────────────\n两个版本的唯一差别：\n\n  version 0：  min_θ  ‖ a − π_θ(s) ‖²       「让预测值靠近这个动作」\n  version 1：  min_θ  − log π_θ(a | s)      「让这个动作在我的分布下概率高」\n\n  ⚠ 注意：高斯分布（σ 固定）下，**两者是等价的**\n     −log 𝒩(a; μ_θ(s), σ²)  =  ‖a − μ_θ(s)‖² / (2σ²) + 常数\n     → **所以 version 0 不是「另一个算法」，它是 version 1 在\n        「分布类 = 固定方差高斯」时的特例。**\n        换表达力强的分布类，才是真正的改动。\n\n────────────────────────────────────────\np12 两组实验：\n\n  模拟 transport 任务：  multi-human 数据下，**diffusion** 明显高于 **L1**\n  真实挂衬衫任务：      single human / multi human 两档，\n                        multi human 下 **diffusion** 明显高于 **GMM**\n\n  出处：diffusion-policy.cs.columbia.edu · aloha-unleashed.github.io", "pts": ["<b>最该看清的一点：version 0 不是「另一个算法」，它是 version 1 的一个特例。</b><span class='k'>固定方差的高斯下，负对数似然就等于平方误差（差一个常数因子）</span>。<b>所以「从 v0 到 v1」真正改的不是损失函数，而是分布类</b> —— <span class='w'>这正是 p10 那条红线在算法层面的体现。</span>", "<b>p12 两组实验的设计很值得学：它们都把「单人数据」与「多人数据」分开画。</b><span class='k'>真实挂衬衫那组里 single human 和 multi human 是两根并排的柱</span> —— <b>于是你能直接看到「表达力的收益只在多模态数据上出现」</b>。<span class='w'>单人数据下，简单模型并不吃亏。</span>", "<b>一个幻灯没标、但看柱状图能读出来的事：真实挂衬衫任务里 single human 那一档，两个方法都挺高。</b><span class='k'>也就是说「表达力」不是普遍收益，它是一个<b>条件</b>收益</span> —— <b>条件是数据多模态</b>。<span class='w'>这解释了为什么 p15 的小结要画成一个二分判断表，而不是一句「用扩散就对了」。</span>", "<b>这个对照也给了你一个诊断方法：如果你的表达力强的模型没比简单模型好，先去看数据是不是单模态的。</b><span class='k'>换一个更强的分布类，收益来自它能表示多峰</span>；<b>数据本来就只有一个峰，那就没有收益可拿</b>。<span class='w'>这比「调参数」要有效得多。</span>", "<b>注意 p12 的纵轴是 success rate（成功率），不是似然或损失。</b><span class='k'>这是对的做法 —— 似然高不等于任务做得好</span>。<b>模仿学习的替代目标（对数似然）与真实目标（任务成功）之间有一条缝</b>，<span class='w'>而缝的大小正是复合误差（p18）造成的</span>。<b>报成功率而不是报损失，是这个领域的基本规矩。</b>", "<b>两组实验一个是模拟、一个是真实，这个搭配也是刻意的。</b><span class='w'>模拟任务便宜、可以多跑几个种子；真实任务贵，但说服力强</span>。<b>「模拟上验证趋势 + 真机上验证可行」是机器人学习论文的标准结构</b> —— <span class='k'>值得记下来，你写实验部分时同一个结构可以照搬</span>（便宜的大规模对照 + 昂贵的小规模真实验证）。"], "tbl": {"cap": "v0 与 v1：改的其实不是损失，是分布类", "head": ["", "version 0", "<b>version 1</b>"], "rows": [["损失", "‖a − π_θ(s)‖²", "<b>−log π_θ(a|s)</b>"], ["输出", "<b>一个动作</b>", "<b>一个分布的参数</b>"], ["分布类（隐含）", "<b>固定方差高斯</b>", "<b>GMM / 自回归 / 扩散</b>"], ["两者关系", "<b>v0 是 v1 在固定方差高斯下的特例</b>", "—"], ["真正的改动", "—", "<b>换分布类，不是换损失</b>"], ["收益什么时候出现", "—", "<b>只在多模态数据上（p12 的 multi human 那根柱）</b>"]]}, "say": "<b>p12 这两组图的读法，有一件事幻灯没明说但很关键：横轴是「示范数据集的类型」，不是「方法」。</b><br><br><span class='k'>真实挂衬衫那组：single human 一根、multi human 一根，每根上有 diffusion 和 GMM 两个方法</span>。<br><br><b>所以这张图回答的不是「哪个方法更好」，而是「什么时候差别才出现」。</b><br><br><span class='w'>答案很清楚：单人数据下两者差不多，多人数据下 diffusion 拉开</span>。<br><br><b>这正好印证 p7 那句「Esp. when data collected by multiple people」</b> —— <span class='k'>多模态不是方法的问题，是数据的性质，而方法要配得上数据</span>。<br><br><b>这个教训可以一般化</b>：<span class='w'>换一个更强的模型之前，先确认你的数据里真的有那个更强的模型才能捕捉的结构</span>。没有的话，换了也白换，而且你会花很多时间调一个本来就不该有收益的东西。", "tip": {"t": "一个该自己验的等价：v0 其实就藏在 v1 里", "v": "<b>把高斯的负对数似然展开，v0 就掉出来了：</b><br><br>设 <code>π_θ(a|s) = 𝒩(a; μ_θ(s), σ²)</code>，σ 固定。则<br><br><code>−log π_θ(a|s) = ‖a − μ_θ(s)‖² / (2σ²) + log(σ√(2π))</code><br><br><span class='k'>第二项与 θ 无关，优化时是常数</span>；第一项就是平方误差除以 <code>2σ²</code>。<br><br><b>⟹ 固定方差高斯下，最大似然 ≡ 最小二乘。</b><br><br><b>所以从 v0 到 v1，真正改的不是损失函数，是你允许 π_θ 长成什么形状。</b><span class='w'>这一点如果没想清楚，很容易以为「换成对数似然就好了」而继续用高斯 —— 那什么都没变。</span><br><br><b>顺带一个有用的推论</b>：<span class='k'>如果你让网络也输出 σ（而不是固定它），那就不再等价了</span> —— 这时模型可以在「不确定的状态」上输出大方差来降低损失。<b>但 p8 说得很清楚，这仍然不够</b>：<span class='w'>碰到双峰它只会输出一个又宽又平的高斯</span>，均值仍然落在中间。"}, "res": {"tag": "推断", "v": "<b>p12 的实验设计（横轴是数据类型而不是方法）对你写实验部分有直接的借鉴价值。</b><br><br>你要论证 dominance-pruning 有用，<span class='k'>最有说服力的不是「我比 baseline 好」，而是「在什么条件下我比 baseline 好、在什么条件下不」</span>。<b>横轴放一个刻画问题难度的量，你的方法和 baseline 各画一条线</b> —— <span class='w'>两条线在哪里分开、分开多少，比一个单点的胜负有信息量得多</span>。<br><br><b>对你，横轴的候选有几个</b>：① <span class='w'>配置空间的大小 n</span>（剪枝的收益应该随 n 增大而增大）；② <span class='w'>支配关系的密度</span>（可剪的比例，这是你方法的直接驱动量）；③ <span class='w'>评估噪声水平</span>（噪声大时剪枝会不会剪错）。<br><br><b>第 ② 条最该做</b>：<span class='k'>如果你的收益确实随「可剪比例」上升，那就直接证明了收益来自剪枝而不是别的</span>。<b>而如果画出来没有这个关系，那说明你的解释是错的</b> —— 这个实验无论正负都有价值。", "ref": "本讲 p12 的实验设计；科研简报 §2"}},
+{"r": [13, 16], "t": "四页收尾：真实系统在用什么，以及 offline / online 这对定义", "star": 3, "quote": "Robotics: Imitation learning + expressive policies — Physical Intelligence π0 (diffusion), NVIDIA Gr00t N1 (diffusion), Figure Helix (diffusion), OpenVLA (discretize + autoregressive prediction).  Autonomous driving — Waymo EMMA (discretize + autoregressive), Wayve LINGO-2 (discretize + autoregressive).  Summary so far — Data from one consistent demonstrator: Unimodal policy distribution is enough.  Multimodal data, e.g. from multiple demonstrators: Need expressive generative model for policy.  Key idea: Train expressive policy class via generative modeling on dataset of demonstrations.  Algorithm is fully offline.  Definitions. offline: using only an existing dataset, no new data from learned policy.  online: using new data from learned policy.  + no need for data from policy (online data can be unsafe, expensive to collect)  + no need to define a reward function  - may need a lot of data for reliable performance", "one": "<b>p13/p14 列的六个真实系统全部用了表达力强的分布，没有一个还在用 ℓ2</b> —— <span class='k'>机器人那边偏扩散，自动驾驶那边偏「离散化 + 自回归」</span>。<b>而 p16 给出的 offline / online 这对定义，是后面整门课（尤其 L07 离线 RL）的通用语。</b>", "eq": "真实系统（p13 机器人 / p14 自动驾驶）：\n\n  Physical Intelligence π0      —— diffusion\n  NVIDIA Gr00t N1               —— diffusion\n  Figure Helix                  —— diffusion\n  OpenVLA                       —— 离散化 + 自回归\n  Waymo EMMA                    —— 离散化 + 自回归\n  Wayve LINGO-2                 —— 离散化 + 自回归\n\n  规律：**机器人偏扩散，自动驾驶偏自回归**\n       （自回归那条能直接复用语言模型的架构与训练栈，\n         而这两家本来就在做视觉-语言模型）\n\n────────────────────────────────────────\n小结（p15）的二分：\n\n  数据来自**一个一致的**示范者   →  单峰分布就够了\n  **多模态**数据（多个示范者）   →  需要表达力强的生成模型\n\n────────────────────────────────────────\n两个定义（p16，后面整门课通用）：\n\n  **offline**：只用一个已有的数据集，**不从学到的策略取新数据**\n  **online** ：用学到的策略产生的**新数据**\n\n  本讲到此为止的算法（行为克隆）是 **fully offline** 的。\n\n三条取舍（p16）：\n  + 不需要策略产生的数据（在线数据可能**不安全**、**昂贵**）\n  + **不需要定义奖励函数**\n  − 可能需要**大量**数据才能可靠", "pts": ["<b>「机器人偏扩散、自动驾驶偏自回归」这个分化有一个不难猜的原因：栈的复用。</b><span class='k'>Waymo EMMA 与 Wayve LINGO-2 都是视觉-语言模型出身</span>，<b>把动作离散化成 token 之后，整条训练与推理流水线一字不改就能用</b>。<span class='w'>而机器人那边对动作精度与多峰性要求更高，扩散的表达力更划算。</span>", "<b>p16 那两条「+」是行为克隆真正的卖点，而且第二条常被低估。</b><span class='k'>「no need to define a reward function」—— 不用定义奖励函数</span>。<b>而定义奖励函数是 RL 里最难、最容易出错的一步</b>（L08 整讲在讲这个）。<span class='w'>模仿学习用「有示范」换掉了「要定义奖励」，这是一笔很实在的交易。</span>", "<b>那条「−」也要认真读：「may need a lot of data for reliable performance」。</b><span class='k'>注意是 reliable（可靠），不是 good（好）</span>。<b>行为克隆在大多数情况下能做得不错，但在罕见情形上不可靠</b> —— <span class='w'>而那些罕见情形恰恰是安全关键的</span>。<b>这就是下半讲（p18 复合误差）的入口。</b>", "<b>offline / online 这对定义的分界线，是「数据从哪来」而不是「什么时候训练」。</b><span class='k'>offline = 数据集固定，你不往里加自己跑出来的东西</span>；<b>online = 要用学到的策略去产生新数据</b>。<span class='w'>按这个定义，DAgger（p20）是 online 的，哪怕它每一轮内部都是监督学习。</span>", "<b>p15 那张二分图是一个很好的决策表，可以直接拿来用。</b><span class='k'>先问「我的示范数据是不是来自多个来源」</span> —— <b>是，就必须上表达力强的分布；不是，简单模型就够</b>。<span class='w'>先判断数据，再选模型，而不是反过来。</span>", "<b>p16 把本讲的算法标成 fully offline，这个标签在后面会变得很重要。</b><span class='k'>整门课会反复在 offline 与 online 之间切换，而每切一次，能用的工具就换一批</span>：<b>offline 下你没法试错，只能对已有数据做文章（L07 的悲观主义）</b>；<span class='w'>online 下你能试，但每次试都要花钱、还可能不安全</span>。<b>下半讲的 DAgger 正是本讲第一次从 offline 跨到 online</b> —— <span class='k'>而跨过去的理由只有一个：offline 治不了复合误差。</span>"], "tbl": {"cap": "六个真实系统的分布类选择", "head": ["系统", "领域", "分布类", "<b>为什么是它</b>"], "rows": [["Physical Intelligence π0", "机器人", "<b>扩散</b>", "<b>动作精度与多峰性要求高</b>"], ["NVIDIA Gr00t N1", "机器人", "扩散", "同上"], ["Figure Helix", "机器人", "扩散", "同上"], ["OpenVLA", "机器人", "<b>离散化 + 自回归</b>", "<b>复用语言模型栈</b>"], ["Waymo EMMA", "自动驾驶", "离散化 + 自回归", "<b>本来就是视觉-语言模型出身</b>"], ["Wayve LINGO-2", "自动驾驶", "离散化 + 自回归", "同上"], ["<b>共同点</b>", "—", "<b>没有一个还在用 ℓ2 回归</b>", "—"]]}, "say": "<b>p16 把行为克隆的账算得很清楚，值得把三条并排再读一遍：</b><br><br>· <span class='k'>+ no need for data from policy</span>（在线数据可能不安全、昂贵）<br>· <span class='k'>+ no need to define a reward function</span><br>· <span class='w'>− may need a lot of data for reliable performance</span><br><br><b>第二条是整个模仿学习存在的理由。</b>定义奖励函数听起来简单，实际上是 RL 落地时最大的坑之一 —— <span class='w'>你写下什么，算法就极其忠实地优化什么，包括你没想到的捷径</span>。<br><br><b>模仿学习绕开了这件事：你不用说「什么是好的」，只要给出「好的样子」。</b><br><br>但代价在第三条，而且 p25 的小结把它说得更狠：<span class='k'>「may need impractically large amount of data」</span>（可能需要**不切实际**的大量数据），还加了一条这里没有的：<span class='k'>「doesn't provide a framework for improving on own (from 'practicing')」</span> —— <b>它没有给你一个「自己练着变好」的框架</b>。<span class='w'>这正是后面十七讲要补的东西。</span>", "link": {"t": "你学过的对应：CS224R L01 p12（四次作业那条「监督信号逐级减少」的线，HW1 就是这一讲）", "href": "L01-精读.html"}, "tip": {"t": "行为克隆的上界：无论你多努力，都不会超过专家", "w": true, "v": "<b>讲稿在下半讲有一句把整个模仿学习框住了：</b>「<span class='k'>In all of these cases, the best performance of the policy is upper bounded by the expert.</span>」<br><br><b>这不是实现上的限制，是目标函数决定的。</b>你优化的是「<span class='w'>让示范动作在我的分布下概率高</span>」—— <b>做到极致就是完美复刻专家，再多就没有了</b>。<span class='k'>连 DAgger（p20）也只是让你更快、更可靠地逼近那个上界，不会越过它。</span><br><br><b>而 L01 p21 的 Move 37 讲的正是相反的事</b>：<span class='w'>AlphaGo 下出了所有人类专家都没想到的一手</span>。<b>它能做到，是因为它优化的是「赢棋」这个目标，不是「像人类那样下棋」。</b><br><br><b>这就是模仿学习与强化学习最根本的分界，而且它是一个取舍不是优劣：</b><br>· <span class='k'>模仿学习</span>：有示范就行，<b>不用定义奖励</b>，上界 = 专家<br>· <span class='k'>强化学习</span>：<b>必须定义奖励</b>，但原则上<b>没有上界</b><br><br><b>所以 p25 最后那句「Many successful methods combine imitation learning and reinforcement learning!」不是客套</b> —— <span class='w'>用模仿拿到一个不错的起点（省掉大量试错），再用 RL 往上推（突破专家上界）</span>，<b>这是目前真实系统最常见的组合，RLHF 也是这个结构</b>（先 SFT 再 RL）。"}, "res": {"tag": "推断", "v": "<b>「不需要定义奖励函数」这条对你的课题是一个值得正面想一想的选项。</b><br><br>你现在的目标是「benchmark 分数 + 调用成本」—— <span class='k'>这是一个你自己写下的奖励函数</span>，<b>而它一定是不完整的</b>：<span class='w'>可读性、可维护性、对新输入的稳健性，这些你很难写成一个数</span>。<br><br><b>模仿学习的那条路会这样走</b>：收集一批人类专家手写的好 workflow，<span class='k'>学一个「什么样的配置看起来像是人会写的」的分布</span>，把它当先验或正则用。<br><br><b>这不是替代你的搜索，是给搜索加一个先验</b>：<span class='w'>在分数相近时，偏向「更像人会写的」那个</span>。<b>好处是把那些你写不进奖励函数的东西，用示范的方式带进来了。</b><br><br>⚠ <b>两个要核的前提</b>：① 你手上有没有足够多的人工 workflow 做示范（可能只有几十个，太少）；② <b>这会不会把搜索限制在人类想得到的范围内</b> —— <span class='k'>而 L01 p21 的 Move 37 说的恰恰是「超出人类预期」才是价值所在</span>。<b>这两条是真实的张力，不是可以绕开的。</b>", "ref": "本讲 p16 的三条取舍；对照 L01 p21 的 Move 37"}},
+{"r": [17, 19], "t": "复合误差：行为克隆真正的敌人，而它的根就是 L01 那条分界", "star": 5, "quote": "What can go wrong in imitation learning?  Supervised learning: Inputs x_1, x_2, x_3 independent of predicted labels ŷ.  Supervised learning of behavior: s_1 → â_1 → s_2 → â_2 → s_3 → â_3 → s_4.  Predicted actions affect next state.  Errors can lead to drift away from the data distribution!  p_expert(s) ≠ p_π(s) — states visited by expert vs states visited by learned policy π — \"covariate shift\".  Errors can then compound!  Compounding errors.  Solutions? 1. Collect A LOT of demo data & hope for the best.  2. Collect corrective behavior data.", "one": "<b>p18 把监督学习和「行为的监督学习」并排画了两张图，差别只有一条箭头</b>：<span class='k'>下面那张图里，预测出来的动作会指向下一个状态</span>。<b>这一条箭头就是全部问题的来源 —— 它正是 L01 p8 那句「actions affect the future observations」。</b>", "eq": "两张图的差别（p18）：\n\n  普通监督学习：\n      x₁   x₂   x₃        ← 输入之间互不影响\n       ↓    ↓    ↓\n      ŷ₁   ŷ₂   ŷ₃        ← **Inputs independent of predicted labels**\n\n  行为的监督学习：\n      s₁ → â₁ → s₂ → â₂ → s₃ → â₃ → s₄\n            ↑ **Predicted actions affect next state**\n\n────────────────────────────────────────\n由此产生的两个名字：\n\n  **covariate shift**（协变量偏移）\n      p_expert(s)  ≠  p_π(s)\n      └专家访问的状态分布┘  └你的策略访问的状态分布┘\n\n  **compounding errors**（复合误差）\n      犯一个小错 → 走到数据没覆盖的状态 → 在那里更可能犯错\n      → 偏得更远 → 错得更大 → …\n\n  ⚠ 注意因果顺序：**先有协变量偏移，才有复合误差。**\n     偏移是「分布不一样了」这个状态；复合是「它会自我加剧」这个过程。\n\n────────────────────────────────────────\n两条出路（p19）：\n\n  1. 采**非常多**的示范数据，然后祈祷（collect A LOT … & hope for the best）\n  2. 采**纠正性**的行为数据（collect corrective behavior data）\n       → p20 的 DAgger 与 p21 的 HG-DAgger 都是这一条", "pts": ["<b>把 p18 那两张图的差别记死：普通监督学习里输入是「给定的」，行为学习里输入是「你自己造出来的」。</b><span class='k'>这正是 L01 p8 那条分界的具体化</span> —— <b>而它意味着「训练集上损失小」这件事不再保证「部署时表现好」</b>，<span class='w'>因为部署时你根本不在训练集的分布上</span>。", "<b>复合误差的恶性循环有一个很具体的机制，讲稿说得比幻灯清楚</b>：「<span class='k'>if it's more likely to make a mistake, it might actually drift away from the distribution even more. And at that point, maybe here it's actually very far away, and it makes maybe an even bigger mistake</span>」。<b>关键是「错误率」和「偏离程度」互为因果</b>，<span class='w'>所以它不是线性累积，而是加速发散。</span>", "<b>这一页也把上半讲接上了：表达力不足会让复合误差更严重。</b>讲稿原话：<span class='k'>「if you don't fit it well, and you learn only the mean, for example, then you're even more likely to have these compounding errors」</span>。<b>学得差 ⇒ 更早偏离 ⇒ 偏离之后错得更多</b> —— <span class='w'>两个问题不是并列的，是会相乘的。</span>", "<b>出路 1「采一大堆数据然后祈祷」听起来像玩笑，但讲者没有否定它。</b>讲稿：<span class='k'>「If you have the capacity to do this, it's not a terrible solution」</span>。<b>覆盖得足够广，策略就不容易走到数据外面去</b> —— <span class='w'>这正是今天大规模机器人数据集（以及 LLM 的预训练）在做的事</span>。<b>它贵，但它有效，而且不需要任何新算法。</b>", "<b>出路 2 的关键词是 <span class='k'>corrective</span>（纠正性），不是「更多」。</b><span class='w'>要的不是更多专家轨迹，而是「当策略偏到某个状态时，该怎么回来」</span>。<b>这种数据专家自己演示时根本不会产生</b> —— 因为专家不会犯那个错。<span class='k'>所以必须先把策略跑起来、看它偏到哪，再去采 —— 这就逼着算法从 offline 变成 online。</span>"], "tbl": {"cap": "监督学习 vs 行为的监督学习：一条箭头的差别", "head": ["", "普通监督学习", "<b>行为的监督学习</b>"], "rows": [["输入从哪来", "<b>给定的数据集</b>", "<b>你自己的动作造出来的</b>"], ["输入之间", "互相独立", "<b>后一个依赖前一个的预测</b>"], ["训练损失小 ⇒ 部署好？", "<b>是（同分布）</b>", "<b>否 —— p_expert(s) ≠ p_π(s)</b>"], ["错误怎么累积", "各自独立", "<b>自我加剧（错 ⇒ 偏 ⇒ 更错）</b>"], ["名字", "—", "<b>covariate shift / compounding errors</b>"], ["能靠加大模型解决吗", "—", "<b>不能 —— 问题不在拟合，在分布</b>"]]}, "say": "<b>讲稿里复合误差那一段是本页最该看的，因为幻灯上只有两个名词和一张示意图：</b><br><br>「<span class='k'>…if it's more likely to make a mistake, it might actually drift away from the distribution even more. And at that point, maybe here it's actually very far away, and it makes maybe an even bigger mistake. So this is often referred to as compounding errors. Because they can start drifting off the distribution when you make mistakes, those mistakes can then compound as you roll out your policy.</span>」<br><br>然后她把它和监督学习的根本差别接上：<br><br>「<span class='w'>The distribution of states that are visited by your policy is actually different from the distribution of states that's visited by the expert, and this means that it differs fundamentally from super[vised learning]</span>」<br><br><b>「differs fundamentally」—— 这不是程度问题，是类别问题。</b><br><br><b>而紧接着那一句把上下半讲缝在了一起</b>：「<span class='k'>this is one of the reasons why fitting the distribution really well is very important. Because if you don't fit it well, and you learn only the mean, for example, then you're even more likely to have these compounding errors. Even if you do fit it well, you might still make mistakes and might drift off the distribution.</span>」<br><br><span class='w'>注意最后半句：拟合得好也只是推迟问题，不解决问题。</span><b>这就是为什么需要下两页的办法。</b>", "link": {"t": "你学过的对应：CS224R L01 p8（「data not i.i.d.: actions affect the future observations」，这一页是它的后果）", "href": "L01-精读.html"}, "res": {"tag": "推断", "v": "<b>协变量偏移在你的课题里有一个对应，而且你的处境比这里好 —— 这件事值得在论文里主动说出来。</b><br><br><span class='k'>这一页的问题是「我的动作改变了我将来会遇到的状态」</span>；<b>而你的配置搜索里，跑配置 A 不会改变配置 B 的真实分数</b>（L01 p18 的场景 c 不中）。<span class='w'>所以你没有「环境被我带偏了」这个问题。</span><br><br><b>但你有一个形状相似、程度轻得多的版本：选择偏倚。</b><span class='k'>你的搜索策略决定了哪些配置被评估过，于是你的日志不是配置空间的均匀样本</span> —— <b>它偏向你的算法认为好的那些</b>。<br><br><b>后果有两个</b>：① <span class='w'>用这份日志训出来的代理模型，在没搜过的区域上外推不可靠</span>（而剪枝恰恰要靠它去判断没搜过的区域）；② <span class='w'>离线比较两个搜索算法时，用其中一个的日志会偏向它</span>。<br><br><b>第 ① 条是真问题，而且和这一页同源</b>：<span class='k'>代理模型只在「你走过的地方」准，而你要用它去判断「没走过的地方」</span>。<b>标准补丁是让代理模型带不确定性，并且在外推区域给出大的不确定性</b> —— 高斯过程天然有这个性质，普通回归器没有。", "ref": "本讲 p18 的 covariate shift；对照 L01 p18 场景 c"}},
+{"r": [20, 20], "t": "DAgger：让策略自己走，再让专家在它走到的地方补答案", "star": 5, "quote": "Addressing Compounding Errors with Interventions — Collect corrective behavior data.  1. Roll out learned policy π_θ: s′_1, â_1, . . . , s′_T.  2. Query expert action at visited states: a* ∼ π_expert(·|s′).  3. Aggregate corrections with existing data: 𝒟 ← 𝒟 ∪ {(s′, a*)}.  4. Update policy: min_θ ℒ(π_θ, 𝒟).  \"dataset aggregation\" (DAgger).  + data-efficient way to learn from an expert.  - can be challenging to query expert when agent has control.  Is there another way to collect corrective data?", "one": "<b>四步，而第 2 步是全部的要害：在<span class='k'>策略自己走到的状态</span>上问专家「你会怎么做」。</b><span class='w'>这些状态专家自己演示时根本不会去</span> —— <b>因为专家不会犯那个错。所以这种数据只能这样采。</b>", "eq": "DAgger 四步（p20）：\n\n  1. 跑出学到的策略：      s′₁, â₁, …, s′_T\n                           （注意状态带撇号 —— 它们是**你的**策略访问的，不是专家的）\n  2. 在访问过的状态上查询专家动作：\n                           a* ∼ π_expert( · | s′ )\n  3. 把纠正数据并进原数据集：\n                           𝒟 ← 𝒟 ∪ { (s′, a*) }\n  4. 在并起来的数据集上更新策略：\n                           min_θ  ℒ( π_θ, 𝒟 )\n\n  然后**重复** —— 新策略会暴露新的失败模式，再采再并。\n\n────────────────────────────────────────\n名字：**dataset aggregation**（数据集聚合），缩写 DAgger\n      —— 因为你在不断「聚合」数据集\n\n取舍（p20）：\n  + 从专家学的**数据效率高**\n  − **agent 掌握控制权时，查询专家很困难**\n\n────────────────────────────────────────\n为什么它治得了复合误差（讲义没明写，是这一步的逻辑）：\n\n  复合误差的根源是  p_expert(s) ≠ p_π(s)\n  而 DAgger 的训练数据，**正是在 p_π(s) 上采的**\n  ⇒ 训练分布与部署分布对齐了，协变量偏移被直接消掉\n\n  **这就是为什么必须让策略先跑 —— 不跑就不知道 p_π(s) 长什么样。**", "pts": ["<b>第 2 步的状态带撇号（s′），这个记号是刻意的：它们是你的策略访问的状态，不是专家的。</b><span class='k'>整个 DAgger 的全部创新就在这一个撇号上</span> —— <b>把标注的位置从「专家走过的地方」挪到「我走过的地方」</b>。<span class='w'>训练分布与部署分布对齐，协变量偏移就被直接消掉了。</span>", "<b>为什么「采更多专家轨迹」解决不了，而 DAgger 可以？</b>因为专家轨迹永远采在 <code>p_expert(s)</code> 上，<span class='k'>再多也覆盖不到你会偏到的那些地方</span>。<b>而那些地方恰恰是你需要知道怎么办的地方。</b><span class='w'>这是「更多数据」与「对的数据」的区别。</span>", "<b>那条「−」是 DAgger 在实践中最大的障碍，而且障碍是人机交互层面的而不是算法层面的。</b><span class='k'>讲稿举的例子很具体：「this is what my car did on the road, what steering command should it have done instead in those scenarios?」</span> —— <b>你要让一个人盯着一段回放，对每一帧说出他会打多少度方向盘</b>。<span class='w'>这个任务对人类非常不自然，标注质量会很差。</span>", "<b>第 4 步「更新策略」有一个实现细节讲稿提了、幻灯没提：从头训还是微调。</b><span class='k'>「you could fine tune the policy, so warm start it … You could also train from scratch if you're concerned about some biases」</span> —— <b>通常微调，但担心旧数据带来的偏倚时可以从头训</b>。<span class='w'>这是一个真实的工程选择，不是无关紧要的细节。</span>", "<b>DAgger 是本讲第一次从 offline 跨到 online，而跨过去的理由只有一个：offline 治不了复合误差。</b><span class='k'>按 p16 的定义，只要你用学到的策略去产生新数据，就是 online 的</span> —— <b>哪怕 DAgger 的每一轮内部都是普通的监督学习</b>。<span class='w'>代价也随之而来：在线跑策略可能不安全、昂贵。</span>"], "tbl": {"cap": "为什么 DAgger 治得了复合误差，而「采更多示范」治不了", "head": ["", "采更多专家示范", "<b>DAgger</b>"], "rows": [["数据采在哪个分布上", "<b>p_expert(s)</b>", "<b>p_π(s) —— 你的策略真正会去的地方</b>"], ["能覆盖「偏离后的状态」吗", "<b>不能（专家不会犯那个错）</b>", "<b>能</b>"], ["协变量偏移", "<b>还在</b>", "<b>被消掉</b>"], ["offline 还是 online", "<b>offline</b>", "<b>online（必须先跑策略）</b>"], ["谁来标注", "专家自己演示（自然）", "<b>专家对你走过的状态补答案（不自然）</b>"], ["主要障碍", "数据量", "<b>查询专家的交互界面</b>"]]}, "say": "<b>讲稿里有一段关于 DAgger 这个名字的吐槽，值得记下来，因为它说明了一件事：术语不好不是你的理解问题。</b><br><br>「<span class='k'>This name has a terrible algorithm because it's not very descriptive. But it's called data set aggregation or DAgger because you're aggregating data. It's helpful to know terminology, but this, I think, was a bad choice.</span>」<br><br>（口误把 \"terrible name\" 说成了 \"terrible algorithm\"，意思很清楚。）<br><br><b>讲者当场说这个名字取得不好</b> —— <span class='w'>「dataset aggregation」描述的是实现细节（把数据并起来），而不是这个方法的要点（在策略访问的状态上标注）</span>。<br><br><b>这是一个有用的提醒</b>：<span class='k'>读论文时碰到一个名字看不出方法在干什么，别怀疑自己 —— 很多名字就是为了缩写好听而取的</span>。<b>真正该抓的是「它和前一个方法的差别在哪一步」</b>，<span class='w'>这里就是：标注的位置从 p_expert 挪到了 p_π</span>。<br><br><b>另外一个讲稿提到、幻灯没写的实现细节</b>：第 4 步更新策略时，<span class='k'>通常是在旧模型上微调（warm start），但担心偏倚时也可以从头训</span>。", "res": {"tag": "推断", "v": "<b>DAgger 的核心动作（把标注挪到「我自己会去的地方」）在你的课题里有一个很直接的对应：你的代理模型该在哪些配置上训练？</b><br><br><span class='k'>如果你用历史日志训代理模型，那它是在「以前的搜索策略访问过的配置」上训的</span>；<b>而你要用它去评估「当前搜索策略想去的配置」</b> —— <span class='w'>两者的分布不一样，这正是同一个协变量偏移</span>。<br><br><b>DAgger 式的补丁是</b>：<span class='k'>让当前策略先提出一批候选，优先真跑其中代理模型最不确定的那些，再把结果并回训练集</span>。<b>这与主动学习是同一个东西</b>，而且和你的评估预算约束天然契合 —— <span class='w'>反正你每轮只能跑有限几个，那就跑最能改进代理模型的那几个。</span><br><br><b>⚠ 但要注意一个与 DAgger 不同的地方</b>：DAgger 里「查询专家」是另一种（便宜的）信息源；<span class='k'>而你这里「真跑一次评估」和「做一次搜索决策」用的是同一个预算</span>。<b>所以你面对的是一个预算分配问题：多少次评估用来改进代理模型、多少次用来确认最终答案</b> —— <span class='w'>这正是纯探索 bandit 里「探索 vs 确认」的那个权衡（CSE 541 L09）。</span>", "ref": "本讲 p20；对照 CSE 541 L09 的纯探索预算分配"}},
+{"r": [21, 21], "t": "HG-DAgger：别问专家「你会怎么做」，让他直接接管", "star": 4, "quote": "Addressing Compounding Errors with Interventions — Collect corrective behavior data while taking full control.  1. Start to roll-out learned policy π_θ: s′_1, â_1, . . . , s′_t.  2. Expert intervenes at time t when policy makes mistake.  3. Expert provides (partial) demonstration: s′_t, a*_t, . . . , s′_T.  4. Aggregate new demos with existing data: 𝒟 ← 𝒟 ∪ {(s′_i, a*_i)}; i ≥ t.  5. Update policy: min_θ ℒ(π_θ, 𝒟).  \"human gated DAgger\".  + (much) more practical interface for providing corrections.  - can be hard to catch mistakes quickly in some application domains.  Question: could you automatically detect when intervention is needed?", "one": "<b>DAgger 要专家对着回放逐帧说「我会打多少度」，HG-DAgger 让专家直接抢过方向盘。</b><span class='k'>收集到的数据从「逐状态的标注」变成了「一段部分示范」</span> —— <b>对人类自然得多，而这就是它在工业界真正被用起来的原因。</b>", "eq": "HG-DAgger 五步（p21）：\n\n  1. 开始跑学到的策略：     s′₁, â₁, …, s′_t\n  2. **专家在 t 时刻介入**（他看出策略要出错了）\n  3. 专家给出（部分）示范： s′_t, a*_t, …, s′_T\n                            ← 从出错那一刻开始，**专家全程接管到底**\n  4. 把新示范并进数据集：   𝒟 ← 𝒟 ∪ { (s′_i, a*_i) };  i ≥ t\n  5. 更新策略\n\n  名字：**human gated DAgger**（人把关的 DAgger）\n        —— gate 指的是「由人决定什么时候切换控制权」\n\n取舍（p21）：\n  + 提供纠正的界面**实际得多**（much more practical）\n  − **某些领域里很难及时发现错误**\n\n────────────────────────────────────────\n与 DAgger 的差别，只在「谁在开车」：\n\n            DAgger                   HG-DAgger\n  控制权     策略全程开，专家只标注     **出错后专家接管**\n  专家做什么  对每个 s′ 说出 a*         **直接开**\n  数据形态    逐状态的 (s′, a*) 对      **一段连续的部分轨迹**\n  对人自然吗  **很不自然**              **自然（就是开车）**\n\n────────────────────────────────────────\np21 留给读者的问题：\n    **could you automatically detect when intervention is needed?**\n    （能不能自动检测出什么时候需要介入？）", "pts": ["<b>这个改动的全部价值在人机交互层面，不在算法层面。</b><span class='k'>算法上两者几乎一样（都是「在策略访问的状态上拿专家动作，并进去，重训」）</span>；<b>差别是专家被要求做的事</b> —— <span class='w'>「对回放逐帧报方向盘角度」vs「看到不对就接管开车」</span>。<b>后者是人类天天在做的事，前者不是。</b>", "<b>讲稿明说这就是工业界在做的事，而且连失败案例也提了。</b>「<span class='k'>This is actually something that companies do in driving where they let the policy run. They have a safety driver. And then the safety driver will take full control if it seems like the policy either doesn't know what to do, and it's like stalling, or it's starting to make a mistake.</span>」<b>紧接着是那句警告</b>：「<span class='w'>We've seen cases where safety drivers were not able to prevent a mistake that was more major.</span>」", "<b>那条「−」（很难及时发现错误）是一个安全问题，不只是数据质量问题。</b><span class='k'>HG-DAgger 把「什么时候该介入」这个判断完全交给了人</span>，<b>而人反应有延迟、注意力会漂</b>。<span class='w'>讲稿的说法是「there's downsides relying on the demonstrator to proactively prevent a huge mistake from happening」</span>。<b>在自动驾驶这类场景里，这不是「采到的数据差一点」，是「出事了」。</b>", "<b>p21 底部那个问题是这一页真正的留白，而且它的答案就是你在 bandit 那边学的东西。</b><span class='k'>「能不能自动检测出什么时候需要介入？」—— 本质上是在问「策略能不能知道自己不知道」</span>。<b>答案要靠不确定性估计</b>：<span class='w'>策略对当前状态的动作分布很平（熵高），或者当前状态离训练数据很远（OOD），就该报警</span>。", "<b>数据形态的差别也值得注意：HG-DAgger 拿到的是一段连续的部分轨迹，而不是孤立的 (s,a) 对。</b><span class='k'>这意味着你同时拿到了「怎么从错误状态恢复」的完整过程</span>，<b>而不只是「在这一个状态下该做什么」</b>。<span class='w'>恢复往往需要好几步配合，孤立的标注学不出来。</span>"], "tbl": {"cap": "DAgger vs HG-DAgger：算法几乎一样，差别全在人那一侧", "head": ["", "DAgger", "<b>HG-DAgger</b>"], "rows": [["谁在控制", "<b>策略全程控制</b>", "<b>出错后专家接管</b>"], ["专家要做什么", "<b>对每个访问过的状态说出 a*</b>", "<b>直接操作（开车 / 遥控）</b>"], ["对人自然吗", "<b>很不自然</b>", "<b>自然</b>"], ["数据形态", "孤立的 (s′, a*) 对", "<b>一段连续的部分轨迹（含恢复过程）</b>"], ["谁决定何时纠正", "每一步都要标", "<b>人决定（这就是 \"gated\"）</b>"], ["主要风险", "标注质量差", "<b>人没能及时发现 ⇒ 安全事故</b>"], ["工业界在用吗", "少", "<b>在用 —— 自动驾驶的安全员就是这个机制</b>"]]}, "say": "<b>讲稿里这一段把「为什么要改」说得很直白，而且给了一个 DAgger 行不通的具体理由：</b><br><br>「<span class='k'>…that's very hard to do. And so what we could do instead is instead of saying, for each of these actions we want to query what the expert would have done, we're actually going to let the expert take full control at some point. And so what this would look like is something where you start drifting off. The expert notices that a mistake was made, and then takes full control, for example, starts driving the car rather than letting the policy drive the car.</span>」<br><br>然后是现实对照与那句警告：<br><br>「<span class='w'>This is actually something that companies do in driving … They have a safety driver … Now, we've seen failure modes of that. We've seen cases where safety drivers were not able to prevent a mistake that was more major. And so there's downsides relying on the demonstrator to proactively prevent a huge mistake from happening. But it is a practical interface for pro[viding corrections].</span>」<br><br><b>讲者没有把 HG-DAgger 说成「更好的 DAgger」，而是「一个更实际但有新风险的交易」。</b><br><br>还有一句贯穿两页的话值得单独记：<span class='k'>「In all of these cases, the best performance of the policy is upper bounded by the expert.」</span><b>不管 DAgger 还是 HG-DAgger，上界都是专家</b> —— <span class='w'>它们让你更快、更可靠地逼近那个上界，但不会越过它。</span>", "link": {"t": "你学过的对应：CSE 541 L10 p1（「策略能不能知道自己不知道」——置信集就是这件事的形式化）", "href": "../../bandits-cse541/精读/L10-精读.html"}, "res": {"tag": "推断", "v": "<b>p21 底部那个问题「could you automatically detect when intervention is needed?」，是这一讲里离你的课题最近的一句话。</b><br><br><span class='k'>它问的是：模型能不能知道自己不知道</span> —— <b>而这正是你整条技术路线依赖的能力</b>。<span class='w'>你的剪枝要判断「这片区域不必再看」，你的搜索要判断「这个配置值得花一次评估」，两者都要先有一个可信的不确定性。</span><br><br><b>三档做法，和你读过的材料能对上</b>：<br>· <span class='w'>熵 / 预测分布的宽度</span> —— 最便宜，但在深度模型上<b>校准很差</b>（模型常常自信地错）；<br>· <span class='w'>离训练数据的距离</span> —— <b>这正是 CSE 541 L10 那个 <code>‖x‖_{V_t⁻¹}</code></b>：在信息矩阵诱导的度量下量「这个方向我测得够不够」；<br>· <span class='k'>可证的置信集</span> —— <b>最硬，而且 L10/L12 给了现成的构造</b>。<br><br><b>第二条对你最实用，而且是现成的</b>：把跑过的配置写成特征向量、累积 <code>V_t</code>，<span class='k'>新配置的 <code>‖x‖_{V_t⁻¹}</code> 大就说明「这个方向没怎么测过」</span>。<b>既能用来选下一个该评估谁，也能用来判断代理模型在哪里不可信</b> —— 一个量，两个用途。", "ref": "本讲 p21 的留白问题；CSE 541 L10 的 ‖x‖_{V_t⁻¹} 与置信集"}},
+{"r": [22, 24], "t": "示范是怎么采来的：三种界面，和一条跨不过去的差距", "star": 3, "quote": "How to collect demonstrations?  In some domains: People already collect demonstrations that can be recorded, e.g. driving cars, writing text messages.  What about robotics? — Kinesthetic teaching: + easy interface, - human visible in scene.  Remote controllers: ~ interface ease varies, can have high latency.  Puppeteering: + easy interface, - requires double hardware.  In other domains: It may not be viable to collect demos! (e.g. quadruped robot).  Can robots directly use videos of people, animals?  Embodiment gap: - difference in appearance, - difference in physical capabilities, degrees of freedom.  Hard to directly imitate human & animal data, but can potentially guide exploration.", "one": "<b>前面两页都假设「示范是现成的」，这一页问它从哪来。</b><span class='k'>有些领域里人类本来就在产生可记录的示范（开车、发短信）</span>；<b>机器人领域要专门去采，而三种采法各有各的毛病。</b><span class='w'>还有一些领域（四足机器人）根本采不了。</span>", "eq": "按「示范好不好采」把领域分成三档（p23）：\n\n  ① **人类本来就在做，而且可以记录**\n       开车（有方向盘记录）· 发短信（有文本记录）\n       → 数据近乎免费，这也是这两个领域模仿学习最先跑通的原因\n\n  ② **机器人：要专门去采**，三种界面：\n\n       动觉示教（kinesthetic teaching）—— 人直接扶着机械臂动\n           + 界面简单\n           − **人会出现在画面里**（视觉策略会学到「有只手在旁边」）\n\n       遥控器（remote controllers）\n           ~ 界面难易不一，**可能有高延迟**\n\n       傀儡操作（puppeteering）—— 操作一个小的同构装置来驱动大的\n           + 界面简单\n           − **需要双份硬件**\n\n  ③ **根本采不了**：例如四足机器人\n       （人类没有四条腿，无法演示怎么跑）\n\n────────────────────────────────────────\n能不能直接用人/动物的视频？（p24）\n\n  障碍叫 **embodiment gap**（具身差距），两条：\n     · 外观不同（appearance）\n     · **物理能力与自由度不同**（physical capabilities, degrees of freedom）\n\n  结论：**直接模仿很难，但可以用来引导探索**\n  出处：Peng, Kanazawa, Malik, Abbeel, Levine. SFV. SIGGRAPH Asia 2018", "pts": ["<b>第 ① 档「人类本来就在做」是一个很重要的分类，它解释了为什么自动驾驶和语言是模仿学习最先跑通的两个领域。</b><span class='k'>数据是业务副产品，不用为了训练而专门采</span>。<b>而这一点正是 LLM 的 SFT 阶段能做起来的前提</b> —— <span class='w'>互联网上已经有海量的「人写的文本」。</span>", "<b>动觉示教那条「人会出现在画面里」是一个很具体、很容易被忽略的污染。</b><span class='k'>视觉策略会把「画面里有一只手」学成任务的一部分</span>，<b>部署时没有那只手，策略就懵了</b>。<span class='w'>这是一类典型的虚假相关（spurious correlation）</span> —— <b>而它来自采数据的方式，不是来自算法。</b>", "<b>傀儡操作「需要双份硬件」听起来是成本问题，其实它还顺带解决了一个对应问题。</b><span class='k'>人操作的那一套和机器人那一套是同构的，所以记录下来的动作可以直接用</span> —— <b>不需要做任何重定向（retargeting）</b>。<span class='w'>这正是 ALOHA 那一类系统的设计思路（p12 引的 aloha-unleashed 就是）。</span>", "<b>embodiment gap 那两条里，第二条（自由度不同）比第一条（外观不同）难得多。</b><span class='k'>外观可以靠视觉迁移、域随机化缓解</span>；<b>而「人有两条腿、机器狗有四条腿」是没法靠表示学习绕开的</b> —— <span class='w'>你连「对应的动作」都定义不出来。</span>", "<b>p24 的结论「can potentially guide exploration」是一个很克制、也很重要的降级。</b><span class='k'>不是「可以用来模仿」，是「可以用来引导探索」</span> —— <b>把视频当成「大概往哪个方向走」的提示，而不是「照着做」的标签</b>。<span class='w'>这是模仿学习与强化学习结合的一种具体形态（p25 最后那句话）。</span>"], "tbl": {"cap": "三种机器人示范界面的取舍", "head": ["方式", "+", "−", "<b>典型问题</b>"], "rows": [["<b>动觉示教</b>", "界面简单", "<b>人出现在画面里</b>", "<b>视觉策略学到虚假相关</b>"], ["<b>遥控器</b>", "—", "<b>难易不一，可能高延迟</b>", "延迟让示范质量下降"], ["<b>傀儡操作</b>", "<b>界面简单，动作可直接用（同构）</b>", "<b>要双份硬件</b>", "成本"], ["<b>人类视频</b>", "<b>数据几乎无限</b>", "<b>embodiment gap</b>", "<b>自由度不同，无法直接对应</b>"], ["<b>根本采不了</b>", "—", "—", "<b>四足机器人 —— 人没有四条腿</b>"]]}, "say": "<b>这一页在整讲里的位置值得说一句：它排在最后，标题还写着「Time permitting」（时间允许的话）—— 但它问的是整套方法的前提。</b><br><br><span class='k'>前面所有内容都假设「𝒟 是给定的」</span>；<b>这一页说：在很多领域里，𝒟 根本不存在，或者采它比训模型贵得多。</b><br><br><b>而那个「It may not be viable to collect demos! (e.g. quadruped robot)」才是真正把人逼向强化学习的理由。</b><br><br><span class='w'>模仿学习的全部优势（不用定义奖励、稳定、简单）都建立在「有示范」这个前提上</span>。<b>前提不成立时，你别无选择，只能回到「定义一个奖励函数，然后让它自己练」</b> —— <span class='k'>那正是从下一讲（L03 策略梯度）开始的全部内容。</span><br><br><b>所以这一页虽然被标成「时间允许的话」，它其实是整门课的转场。</b>", "res": {"tag": "推断", "v": "<b>「示范从哪来」这个问题，在你的课题里有一个干净的答案，而且是你的一个优势。</b><br><br><span class='k'>人工设计的 LLM workflow 是现成的示范</span>，而且属于第 ① 档：<b>人本来就在写它们，不是为了你的研究才写的</b>。<span class='w'>各种 agent 框架的示例、论文里的 prompt 链、开源项目的配置文件，都是。</span><br><br><b>但数量是个问题，而且方向可能也有问题</b>：<br>· <span class='w'>数量</span>：可能只有几十到几百个，<b>远不够训一个表达力强的生成模型</b>；<br>· <span class='w'>方向</span>：人工 workflow 偏向「人类容易想到的结构」，<span class='k'>而 L01 p21 的 Move 37 说的恰恰是「价值在人类想不到的地方」</span>。<br><br><b>所以把它们当「示范」去模仿多半不划算，当「先验」用才合理</b>：<span class='k'>从人工 workflow 里抽出结构性的规律（哪些算子常常搭配、哪些顺序从不出现），把它编码成搜索空间的约束或初始分布</span>。<b>这既用上了人类知识，又不把搜索锁死在人类想得到的范围内。</b><br><br>⚠ 这是建议的用法，<span class='w'>你手上到底有多少可用的人工 workflow、它们的多样性如何，要自己先数一遍再决定</span>。", "ref": "本讲 p23 的三档分类；对照 L01 p21 的 Move 37"}},
+{"r": [25, 27], "t": "小结：两部分、四条取舍，和最后那句指向整门课后半的话", "star": 3, "quote": "Summary — Part 1: Train policy to mimic offline demonstrations (often referred to as behavior cloning, BC): best if policy is an expressive generative model over actions; algorithm is fully offline.  Part 2: Improve policy using online interventions (often referred to as DAgger, or HG-DAgger): requires interface for human or expert intervention; algorithm involves running policy online.  + offline BC: simple, no need for data from policy (online data can be unsafe, expensive).  + DAgger: possible path to reliable performance, more data-efficient than offline BC.  + no need to define a reward function.  - may need impractically large amount of data for reliable performance.  - doesn't provide a framework for improving on own (from \"practicing\").  Many successful methods combine imitation learning and reinforcement learning!  Next time: Start of reinforcement learning algorithms.", "one": "<b>小结把这一讲分成两部分（离线 BC + 在线干预），然后列了三条「+」两条「−」。</b><span class='k'>而最该带走的是那条新出现的「−」：它没有给你一个「自己练着变好」的框架</span> —— <b>这一句就是后面十七讲存在的理由。</b>", "eq": "两部分（p25）：\n\n  Part 1：训练策略模仿**离线**示范  —— 常称 **behavior cloning (BC)**\n      · 策略最好是一个表达力强的、动作上的生成模型\n      · 算法**完全离线**\n\n  Part 2：用**在线干预**改进策略    —— 常称 **DAgger** 或 **HG-DAgger**\n      · 需要人类/专家介入的界面\n      · 算法涉及**在线跑策略**\n\n────────────────────────────────────────\n三条「+」：\n  + **离线 BC**：简单，不需要策略产生的数据\n                 （在线数据可能不安全、昂贵）\n  + **DAgger**：通向可靠性能的一条路，比离线 BC **更省数据**\n  + **不需要定义奖励函数**\n\n两条「−」（注意与 p16 相比加重了）：\n  − 可能需要**不切实际**（impractically）大量的数据才可靠\n  − **不提供一个「自己练着变好」的框架**\n      （doesn't provide a framework for improving on own, from \"practicing\"）\n\n────────────────────────────────────────\n收尾两句：\n  **Many successful methods combine imitation learning and reinforcement learning!**\n  Next time: Start of reinforcement learning algorithms.", "pts": ["<b>那条「doesn't provide a framework for improving on own」是本讲最后、也是最重的一条。</b><span class='k'>模仿学习的上界是专家，而且它没有任何机制让你越过那个上界</span> —— <b>因为它优化的目标里根本没有「做得好不好」这件事，只有「像不像」</b>。<span class='w'>要越过去，就必须定义一个奖励函数，然后让它自己练。</span>", "<b>p25 把 p16 那条「−」加重了一个词：从 a lot of data 变成 impractically large amount of data。</b><span class='k'>这不是笔误，是在两页之间补上了复合误差这个理由</span> —— <b>知道了复合误差之后，你明白为什么需要的数据量是「不切实际」而不只是「很多」</b>：<span class='w'>你要覆盖的不只是专家会去的地方，还有你可能偏到的所有地方。</span>", "<b>「DAgger: more data-efficient than offline BC」这条对比值得停一下。</b><span class='k'>同样的数据量，采在 p_π(s) 上比采在 p_expert(s) 上更有用</span> —— <b>因为每一个标注都落在你真正会遇到的状态上</b>。<span class='w'>这是「对的数据」胜过「更多数据」的一个量化版本。</span>", "<b>最后那句「Many successful methods combine imitation learning and reinforcement learning!」描述的是今天的实际做法，不是一个展望。</b><span class='k'>RLHF 就是这个结构</span>：<b>先用示范做监督微调（SFT，= 行为克隆），再用 RL 往上推</b>。<span class='w'>机器人那边也一样：先模仿拿到一个能动的策略，再用 RL 精调。</span>", "<b>为什么这个组合有效，道理在本讲里已经齐了</b>：<span class='k'>模仿学习省掉了大量试错（RL 最贵的部分），RL 突破了专家上界（模仿学习的天花板）</span>。<b>两者的缺点恰好是对方的优点</b> —— <span class='w'>这种互补性是方法能稳定组合的前提，不是碰巧。</span>"], "tbl": {"cap": "这一讲的两部分，和它们各自没能解决的事", "head": ["", "Part 1 离线 BC", "<b>Part 2 DAgger / HG-DAgger</b>"], "rows": [["数据来自", "<b>固定的示范数据集</b>", "<b>策略跑出来的状态 + 专家纠正</b>"], ["offline / online", "<b>完全离线</b>", "<b>在线</b>"], ["治得了复合误差吗", "<b>治不了</b>", "<b>治得了</b>"], ["需要什么额外条件", "—", "<b>专家介入的界面</b>"], ["数据效率", "低（可能需要不切实际的量）", "<b>更高</b>"], ["<b>共同的天花板</b>", "<b>专家水平</b>", "<b>专家水平</b>"], ["<b>共同缺的东西</b>", "<b>没有「自己练着变好」的框架</b>", "<b>同左</b>"]]}, "say": "<b>这一讲到这里结束，而它和下一讲的交接写在最后一行：「Next time: Start of reinforcement learning algorithms.」</b><br><br><b>把两讲接起来看，逻辑是完整的：</b><br><br>· <span class='k'>L01</span> 定义了目标 <code>max_θ 𝔼_{τ∼p_θ(τ)}[Σ_t r]</code>，并列出五族算法；<br>· <span class='k'>L02</span>（本讲）讲第 1 族 —— <b>它绕开了那个目标</b>，用「像专家」替代「拿高分」；<br>· <span class='w'>代价是两条：上界 = 专家，而且需要示范</b>；<br>· <span class='k'>L03 起</span>，回到那个目标本身，开始真正优化它。<br><br><b>所以模仿学习在课程里的位置是「先给你一个能用的起点，顺便把它的局限暴露清楚」。</b><br><br><span class='w'>而它暴露出来的那两条局限，恰好是后面十七讲的两条主线</span>：<br>· <b>怎么在没有示范的情况下学</b> → L03–L06（策略梯度、AC、Q-learning）<br>· <b>奖励函数从哪来</b> → L08 奖励学习、L09 RLHF<br><br><b>读完这一讲，你应该能回答一个问题：我手上这个任务，该用模仿还是该用 RL？</b><span class='k'>判据就是 p23 那三档 ——「有没有现成的示范」，以及 p25 那条「我需不需要超过专家」。</span>", "link": {"t": "你学过的对应：CS224R L01 p41（五族算法，这一讲讲完了第 1 族，L03 开始讲第 2 族）", "href": "L01-精读.html"}, "res": {"tag": "推断", "v": "<b>「模仿打底 + RL 往上推」这个组合，对你的课题有一个很具体的落法，而且它同时回答了两个你会被问到的问题。</b><br><br><b>落法</b>：<span class='k'>用人工 workflow 作为搜索的初始分布（而不是模仿目标），再用你的支配剪枝搜索往上推</span>。<br><br><b>它回答的第一个问题：「你为什么不直接用人工设计的 workflow？」</b><span class='w'>答：我们用了 —— 作为起点。但 p25 那条说得很清楚，模仿的上界就是示范者</span>，<b>而我们的目标恰恰是找到人工设计不出来的更便宜的配置。</b><br><br><b>第二个问题：「你的搜索为什么不从零开始？」</b><span class='k'>答：因为评估预算有限。从零开始的搜索要花大量预算去重新发现人类已知的结构</span> —— <b>而那些结构是免费的</b>。<br><br><b>这个叙述的好处是它把「用人类先验」和「超过人类」放进了同一个框架，而不是二选一。</b>⚠ 要核的是：<span class='w'>你手上的人工 workflow 够不够构成一个有意义的初始分布</span>（几十个可能太少，只够做初始化点而不是分布）。", "ref": "本讲 p25 的组合那一句；对照 L01 p21 的 Move 37"}}
+];
+
+var TH = {"title": "L02 接上课题的哪一段：两个独立的毛病，和一条「什么时候该用模仿」的判据", "arc": "模仿学习是 L01 那五族算法里的第 1 族，<b>也是唯一一族不碰那行目标函数的</b>。它优化的是<code>min_θ −𝔼_{(s,a)∼𝒟}[log π_θ(a|s)]</code> —— <span class='k'>期望对固定的数据集取，不是对 p_θ(τ) 取</span>，<b>所以它就是一个普通的监督学习问题</b>：i.i.d. 样本、固定分布、可导损失。这就是它为什么最简单、最稳定。<br><br><b>而这一讲讲的是它为此付出的两笔账，两笔互相独立、但会相乘：</b><br><br>① <b>表达力不足</b>（p7–p16）—— <span class='k'>ℓ2 回归的解是条件均值</span>，而多个示范者意味着多模态，<b>均值常常是一个在数据里几乎没出现过的动作</b>（绕障碍：左绕右绕都对，平均是撞上去）。<span class='w'>解法是让网络输出<b>分布的参数</b>，而不是一个动作</span>。p10 那条红线是本讲最该记住的一句：<b>Neural network expressivity is often distinct from distribution expressivity!</b> —— 加大网络解决不了这个问题。<br><br>② <b>复合误差</b>（p18–p21）—— <span class='k'>p_expert(s) ≠ p_π(s)</span>，犯错就偏离，偏离就更容易犯错。<b>解法是把标注的位置从「专家走过的地方」挪到「我自己走过的地方」</b>（DAgger），或者干脆让专家接管（HG-DAgger）。<br><br><b>两者会相乘</b>：讲稿原话 —— <span class='w'>学得差（只学到均值）⇒ 更早偏离 ⇒ 偏离之后错得更多</span>。<br><br><b>对你的课题，这一讲最有用的是两个东西，而且都不在算法里：</b><br>· <span class='k'>「ℓ2 的解是条件均值」</span> —— 你要训一个「配置 → 预期分数」的代理模型，<b>如果用平方损失，你拿到的是均值，而你真正需要的是不确定性</b>（没有它就没有 UCB、没有淘汰判据）。<br>· <span class='k'>p21 底部那个留白问题</span>：<b>could you automatically detect when intervention is needed?</b> —— 它问的是「模型能不能知道自己不知道」，<span class='w'>而这正是你的剪枝与搜索共同依赖的那个能力</span>。CSE 541 L10 的 <code>‖x‖_{V_t⁻¹}</code> 是一个现成的答案。<br><br>⚠ <b>材料形态提醒</b>：全讲 27 页、两片都用项目标准 600，没有破例。<span class='w'>讲稿有 9754 词，`say` 格全部引原话</span> —— 这一讲里好几个关键细节只在讲稿里（绕障碍的均值为什么糟、复合误差的恶性循环机制、讲者对 DAgger 这个名字的吐槽、安全员没能阻止事故的案例、「上界永远是专家」那一句）。", "pitfalls": [{"v": "<b>以为「拟合不好就加大网络」。</b>p10 那条红线专门堵这个：<span class='k'>Neural network expressivity is often distinct from distribution expressivity!</span> —— <b>ℓ2 损失的最优解是条件均值，这与网络多大无关</b>。<span class='w'>一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准</span>。瓶颈是你选的<b>输出分布类</b>，不是容量。", "tag": "已核", "ref": "本讲 p10 的 Important Note；p6–p7 的 ℓ2 与条件均值"}, {"v": "<b>把 version 1 理解成「换了个损失函数」。</b>固定方差高斯下 <code>−log 𝒩(a; μ_θ(s), σ²) = ‖a−μ_θ(s)‖²/(2σ²) + 常数</code> —— <span class='k'>最大似然与最小二乘<b>等价</b></span>。<b>所以 v0 是 v1 在「分布类 = 固定方差高斯」时的特例</b>；<span class='w'>真正的改动是换分布类（GMM / 自回归 / 扩散），不是换损失</span>。想不清这一点，很容易「改成对数似然但继续用高斯」，那什么都没变。", "tag": "推断", "ref": "本讲 p6 与 p11 对照；等价性的推导讲义未给，是补的"}, {"v": "<b>以为表达力是普遍收益。</b>p12 两组实验都把「单人数据」与「多人数据」分开画，<span class='k'>而单人那一档两个方法差不多</span>。<b>表达力是一个<b>条件</b>收益，条件是数据多模态。</b><span class='w'>所以换强模型之前先画一张「同一状态下示范动作」的直方图</span> —— <b>只有一个峰就别折腾</b>。这也是一个诊断法：强模型没赢，通常是数据本来就单峰，不是参数没调好。", "tag": "已核", "ref": "本讲 p12 的实验设计（横轴是 demo dataset type）；p15 的二分判断表"}, {"v": "<b>把复合误差当成「模型不够好」。</b>它不是拟合问题，是<span class='k'>分布问题</span>：<code>p_expert(s) ≠ p_π(s)</code>。<b>讲稿明说「it differs fundamentally from supervised learning」</b> —— 类别不同，不是程度不同。<span class='w'>而且拟合得再好也只是推迟它</span>：「Even if you do fit it well, you might still make mistakes and might drift off the distribution」。<b>治它只有一条路：把训练数据采到 p_π(s) 上去（DAgger）。</b>", "tag": "已核", "ref": "本讲 p18；讲稿里 differs fundamentally 与 even if you do fit it well 两句"}, {"v": "<b>以为 DAgger / HG-DAgger 能让策略超过专家。</b>讲稿里有一句贯穿两页的话：<span class='k'>「In all of these cases, the best performance of the policy is upper bounded by the expert.」</span><b>它们让你更快、更可靠地逼近那个上界，但不会越过它</b> —— <span class='w'>因为优化目标里只有「像不像」，没有「做得好不好」</span>。要越过去只有定义奖励函数、让它自己练（p25 那条「doesn't provide a framework for improving on own」）。", "tag": "已核", "ref": "讲稿（p21 那一段）；本讲 p25 的两条「−」"}], "ammo": [{"q": "你的代理模型为什么要输出分布而不是一个分数？", "a": "<b>用 p6–p10 那条链正面答，而且它有一行就能推的数学支撑。</b><br><br><span class='k'>最小化 𝔼[(a−â)²] 的解是 â = 𝔼[a|s]</span> —— <b>平方损失根本不在学分布，它只学一个数</b>，而且这与网络多大无关（p10 的红线）。<br><br><b>为什么这对你是刚需，三条</b>：<br>① <span class='w'>置信区间要靠方差</span> —— 没有它就没有 UCB、没有淘汰判据（CSE 541 L06）；<br>② <span class='w'>LLM 评估的噪声在不同配置上差别很大</span>，有的稳、有的时好时坏；<br>③ <b>「稳定地还行」和「偶尔很好」在实用上完全不同</b>，均值把它们混成一个数。<br><br><b>三档做法，按代价递增</b>：输出 <code>μ, σ</code>（高斯似然训练，最省事）→ 分位数回归 / 集成（能表示双峰）→ 高斯过程（<span class='k'>小样本下最合适，而你的评估预算正好小</span>）。", "tag": "推断", "ref": "本讲 p6–p10；对照 CSE 541 L05/L06 的置信半径"}, {"q": "你怎么知道搜索该去试哪个配置？凭什么说某片区域不必再看？", "a": "<b>p21 底部那个留白问题就是这件事：<span class='k'>could you automatically detect when intervention is needed?</span> —— 模型能不能知道自己不知道。</b><br><br><b>三档，和你读过的材料能对上</b>：<br>· <span class='w'>熵 / 预测分布的宽度</span> —— 最便宜，但在深度模型上<b>校准很差</b>（模型常常自信地错）；<br>· <span class='k'>离训练数据的距离</span> —— <b>就是 CSE 541 L10 的 <code>‖x‖_{V_t⁻¹}</code></b>：在信息矩阵诱导的度量下量「这个方向我测得够不够」；<br>· <span class='k'>可证的置信集</span> —— 最硬，L10/L12 给了现成构造。<br><br><b>第二条对你最实用，而且一个量两个用途</b>：<span class='w'>把跑过的配置写成特征向量、累积 V_t，新配置的 ‖x‖_{V_t⁻¹} 大就说明这个方向没怎么测过</span> —— <b>既能选下一个该评估谁，也能判断代理模型在哪里不可信</b>。", "tag": "推断", "ref": "本讲 p21 的留白问题；CSE 541 L10 的 ‖x‖_{V_t⁻¹}"}, {"q": "你手上有人工设计的 workflow，为什么不直接模仿它们？", "a": "<b>用 p25 的上界那一条正面答：模仿的天花板就是示范者。</b><br><br><span class='k'>而你的目标恰恰是找到人工设计不出来的更便宜的配置</span> —— <b>L01 p21 的 Move 37 讲的就是这件事：价值在人类想不到的地方</b>。<span class='w'>把人工 workflow 当模仿目标，等于把搜索锁死在人类想得到的范围内。</span><br><br><b>但也别浪费它们。正确的用法是当<b>先验</b>而不是当<b>目标</b></b>：<span class='k'>从人工 workflow 里抽出结构性规律（哪些算子常搭配、哪些顺序从不出现），编码成搜索空间的约束或初始分布</span>。<br><br><b>这个叙述同时回答了两个会被问到的问题</b>：<br>· 「为什么不直接用人工设计的？」→ <span class='w'>用了，作为起点；但上界是它</span>。<br>· 「为什么不从零开始搜？」→ <span class='w'>评估预算有限，从零搜要花大量预算重新发现人类已知的结构，而那是免费的</span>。<br><br>⚠ 要先数一遍：<b>几十个人工 workflow 可能只够做初始化点，不够构成一个分布。</b>", "tag": "推断", "ref": "本讲 p23 的三档分类与 p25 的上界；对照 L01 p21"}, {"q": "你的日志能直接拿来训代理模型吗？", "a": "<b>能，但要先说清一个和这一讲同源的问题：选择偏倚。</b><br><br><span class='k'>这一讲的协变量偏移是「我的动作改变了我将来遇到的状态」</span>；<b>你没有这个问题</b> —— 跑配置 A 不改变配置 B 的真实分数（L01 p18 的场景 c 不中）。<span class='w'>这是你的一个优势，值得主动写出来：它意味着你的离线日志是可信的、可以反复利用。</span><br><br><b>但你有一个形状相似、程度轻得多的版本</b>：<span class='k'>你的搜索策略决定了哪些配置被评估过，所以日志不是配置空间的均匀样本，它偏向你的算法认为好的那些</span>。<br><br><b>两个后果</b>：① <span class='w'>代理模型在没搜过的区域上外推不可靠，而剪枝恰恰要靠它去判断没搜过的区域</span>；② <span class='w'>离线比较两个搜索算法时，用其中一个的日志会偏向它</span>。<br><br><b>第 ① 条的标准补丁就是上一条 ammo 说的</b>：<span class='k'>让代理模型带不确定性，并且在外推区域给出大的不确定性</span> —— 高斯过程天然有这个性质，普通回归器没有。", "tag": "推断", "ref": "本讲 p18 的 covariate shift；对照 L01 p18 场景 c"}], "papers": [{"t": "Chi et al., Diffusion Policy", "id": "RSS 2023（p12 引的 diffusion-policy.cs.columbia.edu）", "why": "<b>p12 左边那组实验的出处</b>，也是「用扩散模型当策略」这条路的代表作。<span class='k'>它把 p10 那条红线变成了一个实证结论</span>：<b>同样的网络、同样的数据，换一个表达力强的分布类，多模态数据上的成功率明显上去</b>。<span class='w'>p13 那三个机器人系统（π0 / Gr00t N1 / Helix）走的都是这条。</span>"}, {"t": "ALOHA Unleashed", "id": "p12 引的 aloha-unleashed.github.io", "why": "<b>p12 右边那组真实挂衬衫实验的出处。</b><span class='k'>ALOHA 这一系列的硬件设计正是 p23 说的「傀儡操作」</span> —— <b>人操作一套小的同构装置来驱动机器人，所以记录下来的动作不需要任何重定向</b>。<span class='w'>读它能顺带看到「示范界面怎么设计」这件事对数据质量的影响有多大。</span>"}, {"t": "Ross, Gordon & Bagnell, A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning", "id": "AISTATS 2011（DAgger 原始论文）", "why": "<b>p20 的出处，而且标题里那句 \"to No-Regret Online Learning\" 对你格外相关</b>：<span class='k'>它把模仿学习归约成了一个在线学习问题，从而拿到遗憾界</span>。<b>你在 CSE 541 学的那套 no-regret 工具，在这里直接变成了模仿学习的理论基础</b> —— <span class='w'>这是两门课少有的正面交汇点，值得读原文看它怎么接的。</span>"}, {"t": "Kelly et al., HG-DAgger: Interactive Imitation Learning with Human Experts", "id": "ICRA 2019", "why": "<b>p21 的出处。</b><span class='k'>它的全部贡献在人机交互那一侧</span>（让专家接管而不是逐帧标注），<b>而这恰好说明一件事：算法上的小改动，如果解决的是「人做不到」而不是「机器算不动」，收益可以很大</b>。<span class='w'>做应用研究时值得记住这个样本。</span>"}, {"t": "Peng, Kanazawa, Malik, Abbeel & Levine. SFV: Reinforcement Learning of Physical Skills from Videos", "id": "SIGGRAPH Asia 2018（p24 明引）", "why": "<b>p24 那条「embodiment gap」的出处</b>，也是「视频不能直接模仿、但可以引导探索」这个降级结论的来源。<span class='k'>它的做法正是 p25 最后那句「combine imitation learning and reinforcement learning」的一个具体形态</span>。"}, {"t": "本课 L07：离线强化学习", "id": "lecture_7（33 页）", "why": "<b>这一讲的直接下游。</b>行为克隆是「只用离线数据、不定义奖励」；<span class='k'>离线 RL 是「只用离线数据、但要定义奖励」</span> —— <b>多了奖励，于是可以超过数据里的最好水平</b>，代价是要处理分布外动作的高估。<span class='w'>两讲对照着读，「离线」这个约束到底限制了什么就清楚了。</span>"}]};
+
+(function(){
+  var PDF="../corpus/slides/02_cs224r_imitation_2025.pdf", MAX=27;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l02quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l02p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l02quiz");
+      localStorage.removeItem("l02p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

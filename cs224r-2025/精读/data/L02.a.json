@@ -1,0 +1,601 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "本片覆盖 p1–16（模仿学习基础 + 表达力强的策略分布）。整讲 27 页，技术内容密度高，全片用项目标准 600。",
+  "数据（p5）：𝒟 := {(s₁,a₁,…,s_T)}，称为 **demonstrations**，采样自某个未知的 π_expert",
+  "version 0（p6）：确定性策略，对专家动作做监督回归 min_θ (1/|𝒟|) Σ_{(s,a)∈𝒟} ‖a − â‖², 其中 â = π_θ(s)",
+  "p7 的毛病：ℓ2 回归给出的是**数据的均值**；讲者原话「How often does this happen in practice? **All the time!** Esp. when data collected by multiple people」",
+  "p8：离散动作 → 神经网络输出 categorical 分布参数，**maximally expressive**；连续动作 → 输出高斯的 μ, σ，**Not very expressive!**",
+  "p10 的三条路：混合高斯（输出 μ₁,σ₁,w₁,μ₂,σ₂,w₂,…）· 离散化 + 自回归（p(a_{t,1}), p(a_{t,2}|â_{t,1}), …）· 扩散（迭代去噪，a_t + Σ_{i=1}^n ε_i）",
+  "p10 的那句红线：**Neural network expressivity is often distinct from distribution expressivity!**",
+  "version 1（p11）：min_θ −𝔼_{(s,a)∼𝒟}[ log π_θ(a|s) ]，即在表达力强的分布下**最大化示范动作的对数概率**",
+  "p12 两组实验：模拟 transport 任务（multi-human 数据下 diffusion ≫ L1）· 真实挂衬衫任务（multi human 下 diffusion ≫ GMM）",
+  "p13 真实系统：Physical Intelligence π0（diffusion）· NVIDIA Gr00t N1（diffusion）· Figure Helix（diffusion）· OpenVLA（离散化+自回归）",
+  "p14 自动驾驶：Waymo EMMA · Wayve LINGO-2，**两个都是离散化 + 自回归**",
+  "p16 的定义：**offline** = 只用已有数据集，不从学到的策略取新数据；**online** = 用学到的策略产生的新数据",
+  "p16 的三条取舍：+ 不需要策略产生的数据（在线数据可能不安全、昂贵）· + 不需要定义奖励函数 · − 可能需要大量数据才可靠"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    4
+   ],
+   "t": "开场：这一讲在整门课里是「先抄一遍」，而三个学习目标里有一个是通用技能",
+   "star": 2,
+   "quote": "CS 224R Imitation Learning.  Partial Recap — s_t state, a_t action, o_t observation, τ trajectory, r(s,a) reward function.  π(a_t|s_t) or π(a_t|o_{t−m:t}) — behavior, usually what we are trying to learn; can be represented using a generative model π_θ(a|s).  The plan for today — Imitation Learning: 1. Imitation learning basics  2. Learning expressive policy distributions  3. Learning from online interventions  4. Time permitting: how to collect demonstrations.  Key learning goals: how to represent distributions with neural networks; why expressive distributions matter for imitation learning; what are compounding errors and how to address them.  Topic of homework 1!",
+   "one": "<b>模仿学习是 L01 那五族算法里的第 1 族，也是最像监督学习的那一族。</b><span class='k'>它绕开了「最大化期望回报」这个目标，直接去抄专家</span> —— <b>而这一讲真正的技术内容，是「怎么用神经网络表示一个分布」，那是一个跨场景通用的技能。</b>",
+   "eq": "回顾（p3，与 L01 p43–44 相同，只补了一句）：\n  s_t 状态 · a_t 动作 · o_t 观测 · τ 轨迹 · r(s,a) 奖励函数\n  π(a_t|s_t) 或 π(a_t|o_{t−m:t}) —— 行为，通常就是我们要学的东西\n  **新补的一句**：can be represented using a generative model  π_θ(a|s)\n                   （策略可以用一个生成模型来表示 —— 这就是本讲的主线）\n\n────────────────────────────────────────\n今天四段（p4）：\n  1. 模仿学习基础\n  2. **学习表达力强的策略分布**        ← 本片的主体\n  3. 从在线干预中学习                  ← .b 片\n  4. 时间允许的话：怎么采集示范\n\n三个学习目标（p4）：\n  · 怎么用神经网络表示**分布**\n  · 为什么表达力对模仿学习**重要**\n  · 什么是**复合误差**，怎么处理\n\n  → 全部是 Homework 1 的内容",
+   "pts": [
+    "<b>p3 比 L01 的回顾页只多了一句话，而那一句正是本讲的主线</b>：<span class='k'>「can be represented using a generative model」</span>。<b>L01 把策略定义成一个条件分布 π_θ(a|s)，但没说怎么表示它</b>；<span class='w'>这一讲就在回答「怎么表示」，而答案是「用生成模型」</span>。",
+    "<b>第一个学习目标「how to represent distributions with neural networks」是一个跨场景的通用技能，不只是模仿学习要用。</b><span class='k'>讲稿里讲者自己说这一段「in some ways, orthogonal to the main topic of the class. But it's actually very important to understand in order to get perf[ormance]」</span> —— <b>它和 RL 本身正交，但不懂它就做不出性能</b>。",
+    "<b>模仿学习在五族算法里是第 1 族，也是唯一一族不优化期望回报的。</b><span class='w'>它做的是监督学习：给定专家的 (s,a) 对，学一个 π(a|s)</span>。<b>所以它最简单、最稳定，代价是上界等于专家水平</b> —— <span class='k'>讲稿里讲者在 .b 片那一段明说「In all of these cases, the best performance of the policy is upper bounded by the expert」</span>。",
+    "<b>四段结构里，第 2 段（表达力）与第 3 段（复合误差）是两个独立的问题，不要混。</b><span class='k'>表达力解决的是「同一个状态下专家会有多种做法」</span>；<span class='k'>复合误差解决的是「我犯了错就会走到数据没覆盖的地方」</span>。<b>两者可以同时发生，而且会互相放大</b> —— <span class='w'>讲稿里有一句把它们接上了：「if you don't fit it well, and you learn only the mean, then you're even more likely to have these compounding errors」</span>。",
+    "<b>注意 p4 右边那个大括号标着「Topic of homework 1!」，罩住的是全部四段。</b><span class='w'>也就是说这一讲的内容全部要动手实现</span> —— <b>而 L01 p9 的核心目标正是 implement</b>。<span class='k'>读这一讲时最好同步写代码。</span>"
+   ],
+   "tbl": {
+    "cap": "这一讲的两个独立问题，别混",
+    "head": [
+     "",
+     "表达力不足",
+     "<b>复合误差</b>"
+    ],
+    "rows": [
+     [
+      "问题是什么",
+      "同一状态下专家有多种做法，模型只学到均值",
+      "<b>一犯错就走到数据没覆盖的地方</b>"
+     ],
+     [
+      "根源",
+      "<b>分布类不够表达</b>（高斯只能单峰）",
+      "<b>动作会改变未来的状态分布</b>（L01 p8 那条分界）"
+     ],
+     [
+      "在哪几页",
+      "p7–p16",
+      "<b>p18–p21</b>"
+     ],
+     [
+      "解法",
+      "<b>生成模型（GMM / 自回归 / 扩散）</b>",
+      "<b>DAgger / HG-DAgger</b>"
+     ],
+     [
+      "算法还 offline 吗",
+      "<b>是</b>",
+      "<b>否 —— 要在线跑策略</b>"
+     ],
+     [
+      "两者的关系",
+      "<b>学得差 ⇒ 更容易偏离 ⇒ 复合误差更严重</b>",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里讲者对第一个学习目标的定位说得很坦率，值得逐字看：</b><br><br>「<span class='k'>So some of the key learning goals. This is, in some ways, orthogonal to the main topic of the class. But it's actually very important to understand in order to get perf[ormance]</span>…」<br><br><b>「orthogonal to the main topic」——「怎么用神经网络表示分布」确实不是强化学习特有的问题</b>，<span class='w'>它是生成模型的问题</span>。<br><br><b>但她把它放在第二讲，而且占了整讲近一半篇幅</b>，理由是后半句：<span class='k'>不懂它就拿不到性能</span>。<br><br>这个判断在 2025 年是对的 —— <b>p13/p14 那两页列的真实系统（π0、Gr00t N1、Helix、OpenVLA、Waymo EMMA、Wayve LINGO-2）全部用的是表达力强的分布</b>，<span class='w'>没有一个还在用 ℓ2 回归</span>。",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p41（五族算法里的第 1 族，以及它为什么最像监督学习）",
+    "href": "L01-精读.html"
+   },
+   "tip": {
+    "t": "读这一讲时手边放着 L01 的那一行公式",
+    "v": "<b>L01 把整门课压成了一行</b>：<code>max_θ 𝔼_{τ∼p_θ(τ)}[ Σ_t r(s_t,a_t) ]</code>。<br><br><b>而模仿学习是五族里唯一<span class='k'>不碰这一行</span>的一族。</b>它不优化期望回报，它优化的是另一个完全不同的东西：<br><br><code>min_θ − 𝔼_{(s,a)∼𝒟}[ log π_θ(a|s) ]</code>（p11）<br><br><b>两个式子的差别值得逐项看</b>：<br>· 上面那个的期望对 <span class='w'>τ ∼ p_θ(τ)</span> 取 —— <b>分布依赖你的参数</b>；<br>· 下面这个的期望对 <span class='k'>(s,a) ∼ 𝒟</span> 取 —— <b>分布是固定的数据集</b>。<br><br><span class='k'>所以模仿学习是一个普通的监督学习问题</span>：i.i.d. 样本、固定分布、可导损失。<b>这就是它为什么最简单、最稳定。</b><br><br><b>但也正是这个「假装分布固定」的动作，埋下了 p18 的复合误差</b> —— <span class='w'>部署时你走的是 p_π(s) 而不是 p_expert(s)，而训练时你假装它们一样</span>。<b>整个下半讲都在为这一步付账。</b>"
+   }
+  },
+  {
+   "r": [
+    5,
+    7
+   ],
+   "t": "最朴素的做法，和它在两秒内就会碰到的那堵墙",
+   "star": 5,
+   "quote": "What is the goal of imitation learning?  Data: Given trajectories collected by an expert 𝒟 := {(s_1, a_1, . . . , s_T)} \"demonstrations\" (sampled from some unknown policy π_expert).  Example: Dataset from human drivers — Sensor readings + steering commands.  Goal: Learn a policy π_θ that performs at the level of the expert policy, by mimicking it.  Imitation learning - version 0: 0. Given demonstrations 𝒟. 1. For deterministic policy, supervised regression to the expert's actions: min_θ (1/|𝒟|) Σ_{(s,a)∈𝒟} ‖a − â‖² where â = π_θ(s).  2. Deploy learned policy π_θ.  What could go wrong?  Question: what might policy trained with ℓ2-regression do? → mean of data.  How often does this happen in practice?  All the time!  Esp. when data collected by multiple people.  How can we represent more than the mean?",
+   "one": "<b>version 0 只有三步，而且第 1 步就是普通的监督回归。</b><span class='k'>它的毛病也只有一句话：ℓ2 回归给出的是数据的均值</span> —— <b>而当专家有多种做法时（绕障碍：左绕、右绕），均值是「直接撞上去」。</b>",
+   "eq": "设定（p5）：\n  数据  𝒟 := { (s₁, a₁, …, s_T) }     称为 **demonstrations**（示范）\n        采样自某个**未知**的 π_expert\n  目标  学一个 π_θ，通过模仿达到专家的水平\n\n  例子：人类司机的数据集 —— 传感器读数 + 方向盘指令\n\n────────────────────────────────────────\nversion 0（p6）：\n\n  0. 给定专家采集的示范 𝒟\n  1. 对**确定性**策略，做监督回归：\n\n         min_θ  (1/|𝒟|) Σ_{(s,a)∈𝒟}  ‖ a − â ‖²,     â = π_θ(s)\n\n  2. 部署学到的 π_θ\n\n  → 这就是**行为克隆**（behavior cloning, BC）最朴素的形态。\n\n────────────────────────────────────────\n毛病（p7）：\n\n  问：用 ℓ2 回归训出来的策略会做什么？\n  答：**mean of data**（数据的均值）\n\n  为什么是均值：最小化 𝔼[‖a − â‖²] 的解是 â = 𝔼[a|s]\n\n  讲者的追问与自答：\n     How often does this happen in practice?\n     **All the time!**  Esp. when data collected by multiple people.",
+   "pts": [
+    "<b>「ℓ2 回归给出条件均值」是一个一行就能证的事实，值得自己推一遍。</b><span class='k'>对固定的 s，最小化 𝔼_{a∼p(a|s)}[(a − â)²] 关于 â 求导得 â = 𝔼[a|s]</span>。<b>所以 ℓ2 损失不是「学了一个差的分布」，而是「根本没在学分布，只学了一个数」。</b>",
+    "<b>讲稿里的绕障碍例子比幻灯清楚得多</b>：<span class='w'>一辆车前面有障碍，数据里有人向左绕、有人向右绕，还有一条黑色虚线表示「直行」</span>。<span class='k'>ℓ2 训出来的确定性策略会选那个均值，而均值恰好落在「直行」—— 一个在数据里概率很低、而且会撞上去的动作。</span>",
+    "<b>「All the time! Esp. when data collected by multiple people」这句要认真对待，它不是夸张。</b><span class='w'>只要你的示范来自多个人、或者同一个人在不同时候，多模态就是默认情况</span>。<b>单一一致的示范者反而是例外</b> —— <span class='k'>p15 那张小结图正是按这个二分画的。</span>",
+    "<b>注意 π_expert 是「未知的」。</b><span class='k'>你拿到的是它的样本，不是它本身</span>。<b>所以模仿学习本质上是一个密度估计问题</b>：<span class='w'>从 (s,a) 样本里把条件分布 p(a|s) 估出来</span>。<b>这个视角一建立，p8–p10 那三页就顺理成章了 —— 它们讲的全是「怎么估一个条件分布」。</b>",
+    "<b>version 0 的三步里，第 2 步「Deploy」藏着后半讲的全部问题。</b><span class='k'>训练时你看到的是专家访问过的状态，部署时你走的是自己的状态</span> —— <b>两者不一样，而且会越差越远</b>。<span class='w'>这就是 p18 的复合误差，但这一页还没碰它。</span>"
+   ],
+   "tbl": {
+    "cap": "version 0 的三步，以及每一步埋下的问题",
+    "head": [
+     "步骤",
+     "做了什么",
+     "<b>埋下的问题</b>",
+     "在哪一页爆"
+    ],
+    "rows": [
+     [
+      "0. 给定示范 𝒟",
+      "采样自未知的 π_expert",
+      "<b>多个示范者 ⇒ 多模态</b>",
+      "<b>p7</b>"
+     ],
+     [
+      "1. ℓ2 回归",
+      "min ‖a − π_θ(s)‖²",
+      "<b>解是条件均值 —— 根本没在学分布</b>",
+      "<b>p7</b>"
+     ],
+     [
+      "2. 部署 π_θ",
+      "在真实环境里跑",
+      "<b>自己走的状态 ≠ 专家走的状态</b>",
+      "<b>p18</b>"
+     ],
+     [
+      "共同的根",
+      "—",
+      "<b>把一个序贯问题当成了 i.i.d. 的监督学习</b>",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里绕障碍那一段是本页最该看的，因为幻灯上只有一张图：</b><br><br>「<span class='k'>…to stay straight, is shown in the black dotted line. And then if we train a model to minimize the L2 error, then the deterministic policy will choose to take an action that's right here, which is the mean of the black distribution, which has low probability under the data.</span>」<br><br><b>「which has low probability under the data」是关键</b>：<span class='w'>均值不只是「不够好」，它是一个在训练数据里几乎没出现过的动作</span>。<br><br>接着她预判了读者的怀疑并否掉：<br><br>「<span class='k'>you might be wondering, how often does this actually happen in practice? Maybe you might think that this is a contrived example where there is variability in what people would do. It turns out that this action actually happens all the time. People and demonstrators often do things in different ways, not just in driving and not…</span>」<br><br><b>「not just in driving」—— 多模态不是驾驶特有的，是示范数据的常态。</b>",
+   "tip": {
+    "t": "「ℓ2 的解是条件均值」—— 三行推一遍",
+    "v": "<b>这条事实被用了整整一讲，值得自己推一次而不是记住。</b><br><br>固定一个状态 s，专家的动作服从某个未知的 <code>p(a|s)</code>。我们要选一个常数 <code>â</code> 去最小化<br><br><code>L(â) = 𝔼_{a∼p(a|s)} [ (a − â)² ]</code><br><br>展开：<code>L(â) = 𝔼[a²] − 2â·𝔼[a] + â²</code><br>求导：<code>L'(â) = −2𝔼[a] + 2â = 0</code><br>⟹ <code>â = 𝔼[a|s]</code>　∎<br><br><b>注意这个结论里<span class='k'>没有出现任何关于模型的东西</span></b> —— 没有网络、没有参数、没有优化器。<span class='w'>它是损失函数本身的性质</span>。<br><br><b>所以「加大网络」只会让你更准确地逼近那个均值</b>，而均值本身就是错的目标。<span class='k'>这就是 p10 那条红线的数学内容。</span><br><br><b>顺带一个有用的对照</b>：换成 <code>ℓ1</code> 损失（绝对值），最优解是<span class='w'>条件中位数</span>而不是均值。<b>中位数在双峰情形下会落到其中一个峰上</b>（而不是中间），<span class='k'>所以 ℓ1 有时确实比 ℓ2 好一点</span> —— p12 那组实验的对照组用的正是 L1。<b>但它仍然只给一个点，不是分布。</b>"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「ℓ2 回归只给条件均值」这件事，在你的课题里有一个直接的对应，而且很容易踩。</b><br><br>你要从历史日志里学一个「配置 → 预期分数」的代理模型。<span class='k'>如果你用平方损失训一个回归器，你得到的是条件均值 𝔼[score | config]</span> —— <b>而这正好丢掉了你最需要的那个信息：方差</b>。<br><br><b>为什么方差对你是刚需</b>：① <span class='w'>置信区间要靠它</span>（没有方差就没有 UCB、没有淘汰判据）；② <span class='w'>LLM 评估的噪声在不同配置上差别很大</span>（有的配置稳定、有的时好时坏）；③ <b>「稳定地还行」和「偶尔很好」在实用上完全不同</b>，而均值把它们混成一个数。<br><br><b>所以你的代理模型应该输出一个分布而不是一个点</b> —— <span class='k'>最省事的是输出 μ 和 σ（高斯似然训练），再往上是分位数回归或高斯过程</span>。<b>这与本页说的「要输出分布的参数而不是一个数」是同一件事。</b>",
+    "ref": "本讲 p6–p7；对照 CSE 541 L05 的置信半径（没有方差估计就算不出来）"
+   }
+  },
+  {
+   "r": [
+    8,
+    10
+   ],
+   "t": "三页讲清「怎么用神经网络表示分布」，而红线那一句是整讲最该记住的",
+   "star": 5,
+   "quote": "Learning distributions with neural networks — 1D discrete actions (up arrow, down arrow, press A, press B): Neural net outputs represent categorical distribution.  Maximally expressive: p(up), p(down), … parameters of distribution.  Continuous actions (next steering angle): Neural net outputs μ, σ to represent Gaussian distribution.  Not very expressive!  💡Can we use generative modeling?  autoregressive models — learning p(next word|words so far); image diffusion models — learning p(image|text description).  Our goal: learning p(action|observations).  Generative models for policies (approximating p(a|s)): Mixture of Gaussians — output μ_1, σ_1, w_1, μ_2, σ_2, w_2, …;  Discretize + Autoregressive — output p(a_{t,1}), p(a_{t,2}|â_{t,1}), p(a_{t,3}|â_{t,1:2}), …;  Diffusion — iteratively denoise.  Question: how are these different from ℓ2 loss with larger network?  Important Note: Neural network expressivity is often distinct from distribution expressivity!",
+   "one": "<b>核心动作只有一个：让网络输出<span class='k'>分布的参数</span>，而不是一个动作。</b>离散动作这么做就够了（categorical 是<b>最大表达力</b>的）；<span class='w'>连续动作输出 μ、σ 远远不够</span>。<b>而 p10 那条红线回答了所有人的第一个疑问：把网络加大解决不了这个问题。</b>",
+   "eq": "基本做法（p8）：神经网络输出**分布的参数**\n\n  一维离散动作（上、下、A、B）：\n      网络输出 → categorical 分布的参数 p(up), p(down), …\n      **Maximally expressive**（最大表达力）\n      —— 这个分布类能表示任何离散动作分布，一个都不漏\n\n  连续动作（下一个方向盘角度）：\n      网络输出 → μ, σ，表示一个高斯\n      **Not very expressive!**\n      —— 高斯只能单峰。碰到「左绕/右绕」会输出一个又宽又平的高斯，\n         均值仍然落在中间（讲稿：\"it'll just output a wider variance Gaussian\n         in order to try to cover more probability mass\"）\n\n────────────────────────────────────────\n三条出路（p10），全部来自生成模型（p9）：\n\n  混合高斯（GMM）\n      输出 μ₁, σ₁, w₁, μ₂, σ₂, w₂, …\n      · 简单、好训；· 模态个数要事先定\n\n  离散化 + 自回归\n      把每一维离散化，逐维预测：\n          p(a_{t,1}),  p(a_{t,2} | â_{t,1}),  p(a_{t,3} | â_{t,1:2}),  …\n      · 继承了离散的「最大表达力」；· 要选分箱粒度；· 采样是串行的\n\n  扩散（diffusion）\n      迭代去噪：从噪声出发，n = N…1 逐步去掉 ε_n\n      · 表达力最强；· 采样慢（要跑 N 步）\n\n────────────────────────────────────────\n**p10 的红线（本讲最该记住的一句）**：\n\n    Neural network expressivity is often distinct from distribution expressivity!\n    （神经网络的表达力，与分布的表达力，常常是两回事）\n\n  回答的问题：这些做法和「ℓ2 损失 + 更大的网络」有什么区别？\n  答：**没区别 —— 网络再大，ℓ2 的解仍然是条件均值。**\n      瓶颈不在网络容量，在你选的**分布类**。",
+   "pts": [
+    "<b>红线那句话值得单独背下来，因为它纠正的是一个非常自然的误解。</b><span class='k'>「模型拟合得不好 ⇒ 加大网络」在监督学习里常常对，在这里完全不对</span>。<b>ℓ2 损失的最优解是条件均值，这与网络有多大无关</b> —— <span class='w'>一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准</span>。<b>瓶颈是你选的输出分布类。</b>",
+    "<b>p9 用两个大家都熟的例子把「生成模型」这件事接上了，这个类比值得留着。</b><span class='k'>自回归模型学的是 p(下一个词 | 已有的词)，图像扩散学的是 p(图像 | 文字描述)</span> —— <b>而我们要学的是 p(动作 | 观测)</b>。<span class='w'>三者在形式上是同一类问题：给定条件，输出一个分布</span>。<b>所以近十年生成模型那边积累的全部工具，这边可以直接拿来用</b> —— <span class='k'>这正是 p13/p14 那六个真实系统能在短时间内全部换代的原因。</span>",
+    "<b>「离散动作的 categorical 是最大表达力的」这一条有点反直觉，但很重要。</b><span class='k'>离散情形下，一个 d 维的概率向量能表示任何分布，一个都不漏</span>。<b>所以语言模型（动作 = 下一个 token）在这个意义上从来没有表达力问题</b> —— <span class='w'>它的困难在别处（序列长、空间大），不在分布类。</span>",
+    "<b>「离散化 + 自回归」这条路本质上是把连续问题变回离散问题，从而继承那个最大表达力。</b><span class='k'>代价有两个：分箱粒度要选（太粗丢精度、太细样本不够），采样是串行的（d 维要跑 d 次）</span>。<b>p13/p14 里 OpenVLA、Waymo EMMA、Wayve LINGO-2 走的都是这条</b> —— <span class='w'>因为它可以直接复用语言模型的架构与训练流程。</span>",
+    "<b>高斯「不够表达」的具体失败方式，讲稿说得比幻灯准：它不是输出一个错的峰，而是输出一个又宽又平的分布。</b><span class='k'>「it'll just output a wider variance Gaussian in order to try to cover more probability mass」</span> —— <b>结果是采样时经常采到两个模态之间那个谁都不选的区域</b>。<span class='w'>这比「只学均值」更隐蔽，因为模型看起来「有不确定性」了。</span>",
+    "<b>三条路的选择不是品味问题，有明确的取舍维度。</b><span class='k'>GMM：最便宜，但要事先定模态数；自回归：表达力好且能复用 LLM 栈，但采样串行；扩散：表达力最强，但每次动作要跑 N 步去噪</span>。<b>而 p13 的真实系统里三种都有人用</b> —— <span class='w'>说明还没有一个通吃的答案。</span>"
+   ],
+   "tbl": {
+    "cap": "三条生成模型路线：取舍在哪",
+    "head": [
+     "",
+     "混合高斯 GMM",
+     "<b>离散化 + 自回归</b>",
+     "<b>扩散</b>"
+    ],
+    "rows": [
+     [
+      "表达力",
+      "中（模态数固定）",
+      "<b>高（继承离散的最大表达力）</b>",
+      "<b>最高</b>"
+     ],
+     [
+      "要先定的超参",
+      "<b>模态个数</b>",
+      "<b>分箱粒度</b>",
+      "去噪步数 N"
+     ],
+     [
+      "采样成本",
+      "<b>一次前向</b>",
+      "<b>d 次（逐维串行）</b>",
+      "<b>N 次</b>"
+     ],
+     [
+      "能复用现成栈吗",
+      "否",
+      "<b>能 —— 直接用语言模型架构</b>",
+      "能用图像扩散那一套"
+     ],
+     [
+      "p13/p14 谁在用",
+      "（p12 的对照组）",
+      "<b>OpenVLA · Waymo EMMA · Wayve LINGO-2</b>",
+      "<b>π0 · Gr00t N1 · Helix</b>"
+     ],
+     [
+      "<b>共同点</b>",
+      "<b>都是让网络输出「分布的参数」，而不是一个动作</b>",
+      "—",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>讲稿把「输出分布参数」这个核心动作讲得很具体，值得完整看一遍：</b><br><br>「<span class='k'>So in the case of the deterministic policy, we had some neural network. … And we're taking as input some state, and we're outputting the mean action, the mean of a distribution. And so because it's only representing the mean it's hardly a distribution at all. And instead what we'd like to be able to do is have this neural network actually output the parameters of a distribution over action.</span>」<br><br><b>「it's hardly a distribution at all」—— 只输出均值，那根本算不上一个分布。</b><br><br>然后是那个关键的条件句：<br><br>「<span class='w'>You have a neural network outputs parameters. If the distribution class that you choose is very expressive, then you should be able to get expressive distribution as output.</span>」<br><br><b>注意 if 从句的主语是 the distribution class you choose，不是 the network</b>。<span class='k'>这就是 p10 那条红线的口语版</span> —— <b>表达力来自你选的分布类，不是来自网络。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p39（为什么策略要随机：理由二正是「建模多样行为」）",
+    "href": "L01-精读.html"
+   },
+   "tip": {
+    "t": "三条路怎么选：一个可以照着走的顺序",
+    "w": true,
+    "v": "<b>讲义把三条并排给了，但没说该先试哪个。按「代价从低到高」走，一般不会错：</b><br><br><b>① 先确认你真的需要多峰。</b>把同一个（或相近的）状态下的示范动作画一张直方图。<span class='k'>只有一个峰 ⇒ 别折腾，高斯甚至 ℓ2 就够</span>（p12 的 single human 那根柱就是这个意思）。<span class='w'>这一步最便宜，却最常被跳过。</span><br><br><b>② 真的多峰，先试混合高斯。</b>它只多输出几组 <code>(μ_i, σ_i, w_i)</code>，<span class='k'>训练代码改动最小，推理成本几乎不变</span>。<b>它的毛病是模态数要事先定</b> —— 定少了退化成单峰，定多了有些分量会塌缩（权重趋于 0 或方差趋于 0）。<br><br><b>③ 模态数说不清、或动作维度高，上离散化 + 自回归。</b><span class='w'>它的表达力不依赖于你猜对模态数</span>，而且<b>能直接复用语言模型那一整套</b>。代价是采样串行、要调分箱粒度。<br><br><b>④ 要最强的表达力、且采样成本能接受，才上扩散。</b><span class='k'>每个动作要跑 N 步去噪</span> —— <b>机器人控制频率不高时划算，高频控制时要专门做加速</b>。<br><br><b>一条实用的判据</b>：<span class='w'>如果你发现换到更强的分布类之后指标没动，几乎总是第 ① 步没做</span> —— 数据本来就是单峰的，强模型没有东西可捕捉。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「网络表达力 ≠ 分布表达力」这条，在你的课题里有一个很值得检查的对应：你的代理模型输出的是什么？</b><br><br>如果是一个点估计（配置 → 一个分数），<span class='k'>那不管你用多大的模型，你拿到的都是条件均值</span> —— <b>而你的算法需要的是不确定性</b>。<br><br><b>三档，对应本页的三条路</b>：<br>· <span class='w'>输出 μ 和 σ</span>（高斯似然训练）—— 最便宜，够用于 UCB 型判据；<br>· <span class='w'>分位数回归 / 集成</span> —— 能表示非高斯的形状（例如「大部分时候 0.8，偶尔崩到 0.2」这种双峰）；<br>· <span class='w'>高斯过程</span> —— 自带校准的不确定性，而且在小样本下最合适（你的评估预算小，这一条很贴）。<br><br><b>双峰那个例子对 LLM workflow 可能是真实的</b>：<span class='k'>一个配置可能在大多数输入上很好、在某一类输入上系统性失败</span>。<b>用均值描述它会同时高估最坏情况、低估典型情况</b> —— ⚠ 这是我的推断，<span class='w'>你的日志里到底有没有这种双峰，要自己去量一遍分数的直方图</span>。",
+    "ref": "本讲 p10 的红线；对照 CSE 541 L05 的置信半径"
+   }
+  },
+  {
+   "r": [
+    11,
+    12
+   ],
+   "t": "version 1：把平方损失换成对数似然，以及两组证明它有用的实验",
+   "star": 4,
+   "quote": "Imitation learning - version 1: 0. Given demonstrations collected by an expert 𝒟 := {(s_1, a_1, . . . , s_T)}.  1. Train generative model of the expert's actions — Expressive policies: min_θ −𝔼_{(s,a)∼𝒟}[log π_θ(a|s)] with expressive distribution π(·|s) — maximize the log probability of the demo actions under the policy.  2. Deploy learned policy π_θ.  Imitation learning - version 1 vs version 0: Simulated transport task (multi-human data: diffusion vs L1).  Real shirt hanging task (single human / multi human: diffusion vs GMM).  success rate vs demo dataset type.",
+   "one": "<b>version 1 与 version 0 只差一行：<code>min ‖a − â‖²</code> 换成 <code>min −𝔼[log π_θ(a|s)]</code>。</b><span class='k'>前者是「让预测值靠近动作」，后者是「让这个动作在你的分布下概率高」</span> —— <b>而 p12 用两组真实实验说明这一行值多少。</b>",
+   "eq": "version 1（p11）：\n\n  0. 给定专家采集的示范 𝒟\n  1. 训练专家动作的**生成模型**：\n\n         min_θ  − 𝔼_{(s,a)∼𝒟} [ log π_θ(a | s) ]\n\n     即：在表达力强的分布 π(·|s) 下，**最大化示范动作的对数概率**\n  2. 部署 π_θ\n\n────────────────────────────────────────\n两个版本的唯一差别：\n\n  version 0：  min_θ  ‖ a − π_θ(s) ‖²       「让预测值靠近这个动作」\n  version 1：  min_θ  − log π_θ(a | s)      「让这个动作在我的分布下概率高」\n\n  ⚠ 注意：高斯分布（σ 固定）下，**两者是等价的**\n     −log 𝒩(a; μ_θ(s), σ²)  =  ‖a − μ_θ(s)‖² / (2σ²) + 常数\n     → **所以 version 0 不是「另一个算法」，它是 version 1 在\n        「分布类 = 固定方差高斯」时的特例。**\n        换表达力强的分布类，才是真正的改动。\n\n────────────────────────────────────────\np12 两组实验：\n\n  模拟 transport 任务：  multi-human 数据下，**diffusion** 明显高于 **L1**\n  真实挂衬衫任务：      single human / multi human 两档，\n                        multi human 下 **diffusion** 明显高于 **GMM**\n\n  出处：diffusion-policy.cs.columbia.edu · aloha-unleashed.github.io",
+   "pts": [
+    "<b>最该看清的一点：version 0 不是「另一个算法」，它是 version 1 的一个特例。</b><span class='k'>固定方差的高斯下，负对数似然就等于平方误差（差一个常数因子）</span>。<b>所以「从 v0 到 v1」真正改的不是损失函数，而是分布类</b> —— <span class='w'>这正是 p10 那条红线在算法层面的体现。</span>",
+    "<b>p12 两组实验的设计很值得学：它们都把「单人数据」与「多人数据」分开画。</b><span class='k'>真实挂衬衫那组里 single human 和 multi human 是两根并排的柱</span> —— <b>于是你能直接看到「表达力的收益只在多模态数据上出现」</b>。<span class='w'>单人数据下，简单模型并不吃亏。</span>",
+    "<b>一个幻灯没标、但看柱状图能读出来的事：真实挂衬衫任务里 single human 那一档，两个方法都挺高。</b><span class='k'>也就是说「表达力」不是普遍收益，它是一个<b>条件</b>收益</span> —— <b>条件是数据多模态</b>。<span class='w'>这解释了为什么 p15 的小结要画成一个二分判断表，而不是一句「用扩散就对了」。</span>",
+    "<b>这个对照也给了你一个诊断方法：如果你的表达力强的模型没比简单模型好，先去看数据是不是单模态的。</b><span class='k'>换一个更强的分布类，收益来自它能表示多峰</span>；<b>数据本来就只有一个峰，那就没有收益可拿</b>。<span class='w'>这比「调参数」要有效得多。</span>",
+    "<b>注意 p12 的纵轴是 success rate（成功率），不是似然或损失。</b><span class='k'>这是对的做法 —— 似然高不等于任务做得好</span>。<b>模仿学习的替代目标（对数似然）与真实目标（任务成功）之间有一条缝</b>，<span class='w'>而缝的大小正是复合误差（p18）造成的</span>。<b>报成功率而不是报损失，是这个领域的基本规矩。</b>",
+    "<b>两组实验一个是模拟、一个是真实，这个搭配也是刻意的。</b><span class='w'>模拟任务便宜、可以多跑几个种子；真实任务贵，但说服力强</span>。<b>「模拟上验证趋势 + 真机上验证可行」是机器人学习论文的标准结构</b> —— <span class='k'>值得记下来，你写实验部分时同一个结构可以照搬</span>（便宜的大规模对照 + 昂贵的小规模真实验证）。"
+   ],
+   "tbl": {
+    "cap": "v0 与 v1：改的其实不是损失，是分布类",
+    "head": [
+     "",
+     "version 0",
+     "<b>version 1</b>"
+    ],
+    "rows": [
+     [
+      "损失",
+      "‖a − π_θ(s)‖²",
+      "<b>−log π_θ(a|s)</b>"
+     ],
+     [
+      "输出",
+      "<b>一个动作</b>",
+      "<b>一个分布的参数</b>"
+     ],
+     [
+      "分布类（隐含）",
+      "<b>固定方差高斯</b>",
+      "<b>GMM / 自回归 / 扩散</b>"
+     ],
+     [
+      "两者关系",
+      "<b>v0 是 v1 在固定方差高斯下的特例</b>",
+      "—"
+     ],
+     [
+      "真正的改动",
+      "—",
+      "<b>换分布类，不是换损失</b>"
+     ],
+     [
+      "收益什么时候出现",
+      "—",
+      "<b>只在多模态数据上（p12 的 multi human 那根柱）</b>"
+     ]
+    ]
+   },
+   "say": "<b>p12 这两组图的读法，有一件事幻灯没明说但很关键：横轴是「示范数据集的类型」，不是「方法」。</b><br><br><span class='k'>真实挂衬衫那组：single human 一根、multi human 一根，每根上有 diffusion 和 GMM 两个方法</span>。<br><br><b>所以这张图回答的不是「哪个方法更好」，而是「什么时候差别才出现」。</b><br><br><span class='w'>答案很清楚：单人数据下两者差不多，多人数据下 diffusion 拉开</span>。<br><br><b>这正好印证 p7 那句「Esp. when data collected by multiple people」</b> —— <span class='k'>多模态不是方法的问题，是数据的性质，而方法要配得上数据</span>。<br><br><b>这个教训可以一般化</b>：<span class='w'>换一个更强的模型之前，先确认你的数据里真的有那个更强的模型才能捕捉的结构</span>。没有的话，换了也白换，而且你会花很多时间调一个本来就不该有收益的东西。",
+   "tip": {
+    "t": "一个该自己验的等价：v0 其实就藏在 v1 里",
+    "v": "<b>把高斯的负对数似然展开，v0 就掉出来了：</b><br><br>设 <code>π_θ(a|s) = 𝒩(a; μ_θ(s), σ²)</code>，σ 固定。则<br><br><code>−log π_θ(a|s) = ‖a − μ_θ(s)‖² / (2σ²) + log(σ√(2π))</code><br><br><span class='k'>第二项与 θ 无关，优化时是常数</span>；第一项就是平方误差除以 <code>2σ²</code>。<br><br><b>⟹ 固定方差高斯下，最大似然 ≡ 最小二乘。</b><br><br><b>所以从 v0 到 v1，真正改的不是损失函数，是你允许 π_θ 长成什么形状。</b><span class='w'>这一点如果没想清楚，很容易以为「换成对数似然就好了」而继续用高斯 —— 那什么都没变。</span><br><br><b>顺带一个有用的推论</b>：<span class='k'>如果你让网络也输出 σ（而不是固定它），那就不再等价了</span> —— 这时模型可以在「不确定的状态」上输出大方差来降低损失。<b>但 p8 说得很清楚，这仍然不够</b>：<span class='w'>碰到双峰它只会输出一个又宽又平的高斯</span>，均值仍然落在中间。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>p12 的实验设计（横轴是数据类型而不是方法）对你写实验部分有直接的借鉴价值。</b><br><br>你要论证 dominance-pruning 有用，<span class='k'>最有说服力的不是「我比 baseline 好」，而是「在什么条件下我比 baseline 好、在什么条件下不」</span>。<b>横轴放一个刻画问题难度的量，你的方法和 baseline 各画一条线</b> —— <span class='w'>两条线在哪里分开、分开多少，比一个单点的胜负有信息量得多</span>。<br><br><b>对你，横轴的候选有几个</b>：① <span class='w'>配置空间的大小 n</span>（剪枝的收益应该随 n 增大而增大）；② <span class='w'>支配关系的密度</span>（可剪的比例，这是你方法的直接驱动量）；③ <span class='w'>评估噪声水平</span>（噪声大时剪枝会不会剪错）。<br><br><b>第 ② 条最该做</b>：<span class='k'>如果你的收益确实随「可剪比例」上升，那就直接证明了收益来自剪枝而不是别的</span>。<b>而如果画出来没有这个关系，那说明你的解释是错的</b> —— 这个实验无论正负都有价值。",
+    "ref": "本讲 p12 的实验设计；科研简报 §2"
+   }
+  },
+  {
+   "r": [
+    13,
+    16
+   ],
+   "t": "四页收尾：真实系统在用什么，以及 offline / online 这对定义",
+   "star": 3,
+   "quote": "Robotics: Imitation learning + expressive policies — Physical Intelligence π0 (diffusion), NVIDIA Gr00t N1 (diffusion), Figure Helix (diffusion), OpenVLA (discretize + autoregressive prediction).  Autonomous driving — Waymo EMMA (discretize + autoregressive), Wayve LINGO-2 (discretize + autoregressive).  Summary so far — Data from one consistent demonstrator: Unimodal policy distribution is enough.  Multimodal data, e.g. from multiple demonstrators: Need expressive generative model for policy.  Key idea: Train expressive policy class via generative modeling on dataset of demonstrations.  Algorithm is fully offline.  Definitions. offline: using only an existing dataset, no new data from learned policy.  online: using new data from learned policy.  + no need for data from policy (online data can be unsafe, expensive to collect)  + no need to define a reward function  - may need a lot of data for reliable performance",
+   "one": "<b>p13/p14 列的六个真实系统全部用了表达力强的分布，没有一个还在用 ℓ2</b> —— <span class='k'>机器人那边偏扩散，自动驾驶那边偏「离散化 + 自回归」</span>。<b>而 p16 给出的 offline / online 这对定义，是后面整门课（尤其 L07 离线 RL）的通用语。</b>",
+   "eq": "真实系统（p13 机器人 / p14 自动驾驶）：\n\n  Physical Intelligence π0      —— diffusion\n  NVIDIA Gr00t N1               —— diffusion\n  Figure Helix                  —— diffusion\n  OpenVLA                       —— 离散化 + 自回归\n  Waymo EMMA                    —— 离散化 + 自回归\n  Wayve LINGO-2                 —— 离散化 + 自回归\n\n  规律：**机器人偏扩散，自动驾驶偏自回归**\n       （自回归那条能直接复用语言模型的架构与训练栈，\n         而这两家本来就在做视觉-语言模型）\n\n────────────────────────────────────────\n小结（p15）的二分：\n\n  数据来自**一个一致的**示范者   →  单峰分布就够了\n  **多模态**数据（多个示范者）   →  需要表达力强的生成模型\n\n────────────────────────────────────────\n两个定义（p16，后面整门课通用）：\n\n  **offline**：只用一个已有的数据集，**不从学到的策略取新数据**\n  **online** ：用学到的策略产生的**新数据**\n\n  本讲到此为止的算法（行为克隆）是 **fully offline** 的。\n\n三条取舍（p16）：\n  + 不需要策略产生的数据（在线数据可能**不安全**、**昂贵**）\n  + **不需要定义奖励函数**\n  − 可能需要**大量**数据才能可靠",
+   "pts": [
+    "<b>「机器人偏扩散、自动驾驶偏自回归」这个分化有一个不难猜的原因：栈的复用。</b><span class='k'>Waymo EMMA 与 Wayve LINGO-2 都是视觉-语言模型出身</span>，<b>把动作离散化成 token 之后，整条训练与推理流水线一字不改就能用</b>。<span class='w'>而机器人那边对动作精度与多峰性要求更高，扩散的表达力更划算。</span>",
+    "<b>p16 那两条「+」是行为克隆真正的卖点，而且第二条常被低估。</b><span class='k'>「no need to define a reward function」—— 不用定义奖励函数</span>。<b>而定义奖励函数是 RL 里最难、最容易出错的一步</b>（L08 整讲在讲这个）。<span class='w'>模仿学习用「有示范」换掉了「要定义奖励」，这是一笔很实在的交易。</span>",
+    "<b>那条「−」也要认真读：「may need a lot of data for reliable performance」。</b><span class='k'>注意是 reliable（可靠），不是 good（好）</span>。<b>行为克隆在大多数情况下能做得不错，但在罕见情形上不可靠</b> —— <span class='w'>而那些罕见情形恰恰是安全关键的</span>。<b>这就是下半讲（p18 复合误差）的入口。</b>",
+    "<b>offline / online 这对定义的分界线，是「数据从哪来」而不是「什么时候训练」。</b><span class='k'>offline = 数据集固定，你不往里加自己跑出来的东西</span>；<b>online = 要用学到的策略去产生新数据</b>。<span class='w'>按这个定义，DAgger（p20）是 online 的，哪怕它每一轮内部都是监督学习。</span>",
+    "<b>p15 那张二分图是一个很好的决策表，可以直接拿来用。</b><span class='k'>先问「我的示范数据是不是来自多个来源」</span> —— <b>是，就必须上表达力强的分布；不是，简单模型就够</b>。<span class='w'>先判断数据，再选模型，而不是反过来。</span>",
+    "<b>p16 把本讲的算法标成 fully offline，这个标签在后面会变得很重要。</b><span class='k'>整门课会反复在 offline 与 online 之间切换，而每切一次，能用的工具就换一批</span>：<b>offline 下你没法试错，只能对已有数据做文章（L07 的悲观主义）</b>；<span class='w'>online 下你能试，但每次试都要花钱、还可能不安全</span>。<b>下半讲的 DAgger 正是本讲第一次从 offline 跨到 online</b> —— <span class='k'>而跨过去的理由只有一个：offline 治不了复合误差。</span>"
+   ],
+   "tbl": {
+    "cap": "六个真实系统的分布类选择",
+    "head": [
+     "系统",
+     "领域",
+     "分布类",
+     "<b>为什么是它</b>"
+    ],
+    "rows": [
+     [
+      "Physical Intelligence π0",
+      "机器人",
+      "<b>扩散</b>",
+      "<b>动作精度与多峰性要求高</b>"
+     ],
+     [
+      "NVIDIA Gr00t N1",
+      "机器人",
+      "扩散",
+      "同上"
+     ],
+     [
+      "Figure Helix",
+      "机器人",
+      "扩散",
+      "同上"
+     ],
+     [
+      "OpenVLA",
+      "机器人",
+      "<b>离散化 + 自回归</b>",
+      "<b>复用语言模型栈</b>"
+     ],
+     [
+      "Waymo EMMA",
+      "自动驾驶",
+      "离散化 + 自回归",
+      "<b>本来就是视觉-语言模型出身</b>"
+     ],
+     [
+      "Wayve LINGO-2",
+      "自动驾驶",
+      "离散化 + 自回归",
+      "同上"
+     ],
+     [
+      "<b>共同点</b>",
+      "—",
+      "<b>没有一个还在用 ℓ2 回归</b>",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>p16 把行为克隆的账算得很清楚，值得把三条并排再读一遍：</b><br><br>· <span class='k'>+ no need for data from policy</span>（在线数据可能不安全、昂贵）<br>· <span class='k'>+ no need to define a reward function</span><br>· <span class='w'>− may need a lot of data for reliable performance</span><br><br><b>第二条是整个模仿学习存在的理由。</b>定义奖励函数听起来简单，实际上是 RL 落地时最大的坑之一 —— <span class='w'>你写下什么，算法就极其忠实地优化什么，包括你没想到的捷径</span>。<br><br><b>模仿学习绕开了这件事：你不用说「什么是好的」，只要给出「好的样子」。</b><br><br>但代价在第三条，而且 p25 的小结把它说得更狠：<span class='k'>「may need impractically large amount of data」</span>（可能需要**不切实际**的大量数据），还加了一条这里没有的：<span class='k'>「doesn't provide a framework for improving on own (from 'practicing')」</span> —— <b>它没有给你一个「自己练着变好」的框架</b>。<span class='w'>这正是后面十七讲要补的东西。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p12（四次作业那条「监督信号逐级减少」的线，HW1 就是这一讲）",
+    "href": "L01-精读.html"
+   },
+   "tip": {
+    "t": "行为克隆的上界：无论你多努力，都不会超过专家",
+    "w": true,
+    "v": "<b>讲稿在下半讲有一句把整个模仿学习框住了：</b>「<span class='k'>In all of these cases, the best performance of the policy is upper bounded by the expert.</span>」<br><br><b>这不是实现上的限制，是目标函数决定的。</b>你优化的是「<span class='w'>让示范动作在我的分布下概率高</span>」—— <b>做到极致就是完美复刻专家，再多就没有了</b>。<span class='k'>连 DAgger（p20）也只是让你更快、更可靠地逼近那个上界，不会越过它。</span><br><br><b>而 L01 p21 的 Move 37 讲的正是相反的事</b>：<span class='w'>AlphaGo 下出了所有人类专家都没想到的一手</span>。<b>它能做到，是因为它优化的是「赢棋」这个目标，不是「像人类那样下棋」。</b><br><br><b>这就是模仿学习与强化学习最根本的分界，而且它是一个取舍不是优劣：</b><br>· <span class='k'>模仿学习</span>：有示范就行，<b>不用定义奖励</b>，上界 = 专家<br>· <span class='k'>强化学习</span>：<b>必须定义奖励</b>，但原则上<b>没有上界</b><br><br><b>所以 p25 最后那句「Many successful methods combine imitation learning and reinforcement learning!」不是客套</b> —— <span class='w'>用模仿拿到一个不错的起点（省掉大量试错），再用 RL 往上推（突破专家上界）</span>，<b>这是目前真实系统最常见的组合，RLHF 也是这个结构</b>（先 SFT 再 RL）。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「不需要定义奖励函数」这条对你的课题是一个值得正面想一想的选项。</b><br><br>你现在的目标是「benchmark 分数 + 调用成本」—— <span class='k'>这是一个你自己写下的奖励函数</span>，<b>而它一定是不完整的</b>：<span class='w'>可读性、可维护性、对新输入的稳健性，这些你很难写成一个数</span>。<br><br><b>模仿学习的那条路会这样走</b>：收集一批人类专家手写的好 workflow，<span class='k'>学一个「什么样的配置看起来像是人会写的」的分布</span>，把它当先验或正则用。<br><br><b>这不是替代你的搜索，是给搜索加一个先验</b>：<span class='w'>在分数相近时，偏向「更像人会写的」那个</span>。<b>好处是把那些你写不进奖励函数的东西，用示范的方式带进来了。</b><br><br>⚠ <b>两个要核的前提</b>：① 你手上有没有足够多的人工 workflow 做示范（可能只有几十个，太少）；② <b>这会不会把搜索限制在人类想得到的范围内</b> —— <span class='k'>而 L01 p21 的 Move 37 说的恰恰是「超出人类预期」才是价值所在</span>。<b>这两条是真实的张力，不是可以绕开的。</b>",
+    "ref": "本讲 p16 的三条取舍；对照 L01 p21 的 Move 37"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "p3 的回顾页比 L01 的回顾只多了一句话，那句是什么？",
+    "o": [
+     "策略可以用一个生成模型来表示 —— 这就是本讲的主线",
+     "奖励函数可以是随机的",
+     "马尔可夫性是必需的",
+     "轨迹长度可以是 1"
+    ],
+    "a": 0,
+    "why": "L01 把策略定义成条件分布但没说怎么表示；这一讲就在回答「怎么表示」，答案是「用生成模型」。"
+   },
+   {
+    "q": "讲者说第一个学习目标「怎么用神经网络表示分布」与课程主题的关系是？",
+    "o": [
+     "它是强化学习的核心",
+     "orthogonal to the main topic —— 与 RL 本身正交，但不懂它就拿不到性能",
+     "它只在模仿学习里有用",
+     "它是先修内容"
+    ],
+    "a": 1,
+    "why": "p13/p14 那六个真实系统全部用了表达力强的分布，没有一个还在用 ℓ2 回归 —— 这个判断在 2025 年是对的。"
+   },
+   {
+    "q": "这一讲的两个独立问题是？",
+    "o": [
+     "在线与离线",
+     "连续与离散动作",
+     "数据量与网络容量",
+     "表达力不足（同一状态下专家有多种做法）与复合误差（犯错后走到数据没覆盖的地方）"
+    ],
+    "a": 3,
+    "why": "两者会互相放大：学得差 ⇒ 更容易偏离 ⇒ 复合误差更严重。讲稿里有一句把它们接上了。"
+   }
+  ],
+  "5": [
+   {
+    "q": "为什么 ℓ2 回归训出来的策略给出的是「数据的均值」？",
+    "o": [
+     "因为网络容量不够",
+     "因为最小化 E[(a−â)²] 关于 â 的解就是 â = E[a|s]，这是损失函数本身决定的",
+     "因为优化没有收敛",
+     "因为学习率太大"
+    ],
+    "a": 1,
+    "why": "所以 ℓ2 损失不是「学了一个差的分布」，而是「根本没在学分布，只学了一个数」。"
+   },
+   {
+    "q": "绕障碍那个例子里，均值动作为什么特别糟？",
+    "o": [
+     "因为它方差大",
+     "因为它不可导",
+     "因为均值落在「直行」，而那是一个在数据里概率很低、且会撞上去的动作",
+     "因为它超出了动作空间"
+    ],
+    "a": 2,
+    "why": "讲稿原话：which has low probability under the data。均值不只是「不够好」，它是一个训练数据里几乎没出现过的动作。"
+   },
+   {
+    "q": "「All the time! Esp. when data collected by multiple people」这句话说明了什么？",
+    "o": [
+     "多模态是示范数据的常态，单一一致的示范者反而是例外",
+     "只有驾驶数据才有这个问题",
+     "数据量大了就不会有这个问题",
+     "这是一个人为构造的例子"
+    ],
+    "a": 0,
+    "why": "讲稿还补了一句 not just in driving。p15 那张小结图正是按「单人/多人」这个二分画的。"
+   },
+   {
+    "q": "version 0 的第 2 步「Deploy」埋下了什么问题？",
+    "o": [
+     "部署时网络太慢",
+     "训练时看到的是专家访问过的状态，部署时走的是自己的状态 —— 两者不一样且会越差越远",
+     "部署时没有奖励信号",
+     "部署环境与训练环境不同"
+    ],
+    "a": 1,
+    "why": "这就是 p18 的复合误差。根子仍是 L01 p8 那条分界：动作会影响未来的观测。"
+   }
+  ],
+  "8": [
+   {
+    "q": "p10 那条红线「Neural network expressivity is often distinct from distribution expressivity」纠正的是什么误解？",
+    "o": [
+     "以为扩散模型一定比 GMM 好",
+     "以为离散动作比连续动作简单",
+     "以为「拟合不好就加大网络」—— 而 ℓ2 的最优解是条件均值，与网络多大无关",
+     "以为表达力越强越好"
+    ],
+    "a": 2,
+    "why": "一个无限大的网络在 ℓ2 下仍然输出均值，只是均值算得更准。瓶颈是你选的输出分布类。"
+   },
+   {
+    "q": "为什么说离散动作的 categorical 分布是「最大表达力」的？",
+    "o": [
+     "因为它参数最少",
+     "因为一个 d 维概率向量能表示任何离散动作分布，一个都不漏",
+     "因为它训练最快",
+     "因为它是凸的"
+    ],
+    "a": 1,
+    "why": "所以语言模型（动作 = 下一个 token）在这个意义上从来没有表达力问题，它的困难在别处。"
+   },
+   {
+    "q": "高斯分布「不够表达」的具体失败方式是什么（讲稿说得比幻灯准）？",
+    "o": [
+     "它会输出一个又宽又平的高斯去覆盖更多概率质量，结果采样时常采到两个模态之间谁都不选的区域",
+     "它会收敛到其中一个模态",
+     "它会发散",
+     "它的方差会趋于零"
+    ],
+    "a": 0,
+    "why": "这比「只学均值」更隐蔽，因为模型看起来「有不确定性」了。"
+   },
+   {
+    "q": "「离散化 + 自回归」这条路的代价是什么？",
+    "o": [
+     "表达力不足",
+     "需要事先定模态个数",
+     "分箱粒度要选（太粗丢精度、太细样本不够），而且采样是串行的（d 维要跑 d 次）",
+     "不能用神经网络"
+    ],
+    "a": 2,
+    "why": "好处是继承了离散的最大表达力，而且能直接复用语言模型的架构与训练流程 —— OpenVLA、Waymo EMMA、Wayve LINGO-2 走的都是这条。"
+   }
+  ],
+  "11": [
+   {
+    "q": "version 0 与 version 1 的关系最准确的说法是？",
+    "o": [
+     "v0 是 v1 在「分布类 = 固定方差高斯」时的特例 —— 真正改的不是损失，是分布类",
+     "两者是完全不同的算法",
+     "v1 是 v0 加了正则项",
+     "v1 用了更大的网络"
+    ],
+    "a": 0,
+    "why": "固定方差高斯下 −log N(a; μ_θ(s), σ²) = ‖a−μ_θ(s)‖²/(2σ²) + 常数。这正是 p10 那条红线在算法层面的体现。"
+   },
+   {
+    "q": "p12 两组实验把「单人数据」与「多人数据」分开画，这个设计说明了什么？",
+    "o": [
+     "多人数据更多",
+     "单人数据质量更高",
+     "表达力的收益只在多模态数据上出现 —— 单人数据下简单模型并不吃亏",
+     "diffusion 在所有情况下都更好"
+    ],
+    "a": 2,
+    "why": "这给了你一个诊断方法：如果强模型没比简单模型好，先去看数据是不是单模态的，而不是去调参数。"
+   },
+   {
+    "q": "p12 的纵轴是 success rate 而不是似然或损失，为什么这是对的做法？",
+    "o": [
+     "成功率更容易计算",
+     "似然高不等于任务做得好 —— 替代目标（对数似然）与真实目标（任务成功）之间有一条缝，而缝的大小正是复合误差造成的",
+     "似然不可比较",
+     "成功率方差更小"
+    ],
+    "a": 1,
+    "why": "报成功率而不是报损失，是这个领域的基本规矩。"
+   }
+  ],
+  "13": [
+   {
+    "q": "为什么自动驾驶那两个系统（Waymo EMMA、Wayve LINGO-2）都选了「离散化 + 自回归」？",
+    "o": [
+     "因为自动驾驶的动作是离散的",
+     "因为扩散模型太慢",
+     "因为自回归精度更高",
+     "因为它们本来就是视觉-语言模型出身，动作离散化成 token 之后整条训练推理流水线一字不改就能用"
+    ],
+    "a": 3,
+    "why": "而机器人那边对动作精度与多峰性要求更高，扩散的表达力更划算 —— π0、Gr00t N1、Helix 都用扩散。"
+   },
+   {
+    "q": "行为克隆的两条「+」里，哪一条最常被低估？",
+    "o": [
+     "不需要定义奖励函数 —— 而定义奖励函数是 RL 里最难、最容易出错的一步（L08 整讲在讲它）",
+     "不需要在线数据",
+     "训练速度快",
+     "不需要仿真器"
+    ],
+    "a": 0,
+    "why": "模仿学习用「有示范」换掉了「要定义奖励」。你不用说「什么是好的」，只要给出「好的样子」。"
+   },
+   {
+    "q": "offline 与 online 的分界线是什么？",
+    "o": [
+     "训练在部署前还是部署后",
+     "有没有仿真器",
+     "数据从哪来：offline 是数据集固定、不加自己跑出来的东西；online 是要用学到的策略产生新数据",
+     "有没有奖励函数"
+    ],
+    "a": 2,
+    "why": "按这个定义，DAgger（p20）是 online 的，哪怕它每一轮内部都是监督学习。"
+   },
+   {
+    "q": "p16 那条「−」写的是 may need a lot of data for **reliable** performance，这个 reliable 指什么？",
+    "o": [
+     "训练过程稳定",
+     "行为克隆大多数情况下能做得不错，但在罕见情形上不可靠 —— 而那些罕见情形恰恰是安全关键的",
+     "结果可复现",
+     "不同种子之间方差小"
+    ],
+    "a": 1,
+    "why": "这就是下半讲 p18 复合误差的入口。p25 的小结说得更狠：may need impractically large amount of data。"
+   }
+  ]
+ }
+}
