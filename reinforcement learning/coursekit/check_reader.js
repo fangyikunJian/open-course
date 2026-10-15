@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+
+/* ⛔ 这份已停用（2026-10-04）。请改用 _kit/coursekit/check_reader.js。
+ * 这份的 4 条主题断言（含浅色 WCAG AA 对比度）已移植进 _kit 版，那边 26 条。
+ * 要强行跑：设 COURSEKIT_ALLOW_LEGACY=1。 */
+if (!process.env.COURSEKIT_ALLOW_LEGACY) {
+  process.stderr.write("\n⛔ reinforcement learning/coursekit 已停用（2026-10-04）。\n   请改用：node ../_kit/coursekit/check_reader.js <讲次>\n\n");
+  process.exit(2);
+}
 /**
  * check_reader.js —— 精读页的实测。
  *

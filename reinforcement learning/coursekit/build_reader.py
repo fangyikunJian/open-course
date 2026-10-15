@@ -1,4 +1,31 @@
 # -*- coding: utf-8 -*-
+"""⛔ 这份已停用（2026-10-04）。请改用 `_kit/coursekit/build_reader.py`。
+
+为什么停用：CS234 的 11 份精读页里，L02/L04/L06–L11 是用 `_kit` 那套建的，
+而这份只建过 L01/L03/L05 —— 两套模板差 107 行。用这份重建 `_kit` 建的页面会
+**悄悄把它们改掉**，并删掉 `.lnk`（「你学过的对应」字段的样式）。
+2026-10-04 实测犯过一次，8 个文件被改，靠 git 才看出来。
+
+`_kit` 版是这份的严格超集（多 check_link）；这份独有的 4 条主题断言
+（含浅色 WCAG AA 对比度）也已移植过去，那边 22 → 26 条。
+所以这份没有任何独有能力了，保留只为存档。
+
+要强行跑：设环境变量 COURSEKIT_ALLOW_LEGACY=1。
+"""
+import os
+import sys
+
+if not os.environ.get("COURSEKIT_ALLOW_LEGACY"):
+    # stderr 默认是 cp1252，不重设的话中文会被打成 u 转义序列而不是字。
+    # 原文件只重设了 stdout，而这段提示走的是 stderr。
+    try:
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    sys.stderr.write('\n⛔ reinforcement learning/coursekit 已停用（2026-10-04）。\n   CS234 的 11 份精读页现在统一由 _kit 构建，用这份会把它们改坏。\n\n   请改用：\n     cd "G:/open course/reinforcement learning"\n     python ../_kit/coursekit/build_reader.py <讲次>\n\n   确实要跑这份：COURSEKIT_ALLOW_LEGACY=1 再执行。\n\n')
+    raise SystemExit(2)
+
+# -*- coding: utf-8 -*-
 """生成精读页：左边是那一页课件，右边是这一页的讲解 + 自测。
 
     python coursekit/build_reader.py                  # 当前课程，全部重建

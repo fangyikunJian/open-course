@@ -18,6 +18,14 @@ import io
 import os
 import sys
 
+# 和 build_reader.py 同一个毛病：写出提示里有中文，而 Windows 默认控制台是
+# cp1252 —— 不重设就在最后那句 print 上抛 UnicodeEncodeError。实测：index.html
+# 已经写出去了，只是收尾的 print 炸掉，于是退出码非零、看着像没生成。
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _course  # noqa: E402
 

@@ -35,6 +35,11 @@ HARDCODED = {
     "#2c3c52": "--dot2",       # strip 有讲解
     "#7a3a3a": "--errdot",     # strip 错题
     "#2a3b4f": "--line2",      # .say 边框
+    # ⚠ 这一条曾经只映射、两套调色板里都**没有定义** —— 于是
+    # `.tip.w2{border-color:var(--warnline)}` 两个主题下都解析不出颜色，
+    # 警示级 tip 的红框静默失效，退回继承来的普通边框。
+    # 肉眼几乎看不出（框还在，只是不红了），26 条断言也全绿。
+    # 现在 LIGHT/DARK 都补上了定义，DARK 用回原来写死的 #4a2b2e。
     "#4a2b2e": "--warnline",   # .tip.w2 边框
     "#f4f8fd": "--ink2",       # .one 亮字
     "#c3d2e3": "--ink3",       # .why 次正文
@@ -80,7 +85,7 @@ LIGHT = """
   --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
   --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
   --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
-  --violetline:#D9CEEA;
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
   --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
   --missbg:rgba(245,243,238,.97);
   --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
@@ -100,7 +105,7 @@ DARK = """
   --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
   --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
   --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
-  --violetline:#3b2f4f;
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
   --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
   --missbg:rgba(10,14,20,.97);
   --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);

@@ -270,6 +270,84 @@ async function run(cdp, file, tag) {
      await ev("(function(){var b=document.getElementById('threadBtn');" +
               "return b?(b.hidden?'hidden':'visible'):'absent';})()"));
 
+  // ── 双主题：浅色默认 · 能切 · 记得住 · 浅色下对比度够 ──
+  // 断言只认 data-theme 属性，不认 localStorage 的键名 —— 键名是实现细节
+  // （_kit 用 theme.py 注入，CS234 原地那套用模板内建，两者键名不同）。
+  // ⚠ 正则一律用字符类 [0-9]，不用 \d：这些是**字符串里的正则**，JS 字符串
+  //   字面量会吃掉一层反斜杠，"\d" 退化成 "d"，匹配不到 "rgb(245, 243, 238)"。
+  const lum = "(function(c){var m=c.match(/[0-9]+/g);" +
+              "return m ? (+m[0]*0.299 + +m[1]*0.587 + +m[2]*0.114) : null;})";
+
+  ok("默认是浅色（没有 data-theme=dark），且背景确实是浅的",
+     (await ev("(function(){if(document.documentElement.getAttribute('data-theme')==='dark')" +
+               "return 'defaults-dark';var L=" + lum + ";" +
+               "var v=L(getComputedStyle(document.body).backgroundColor);" +
+               "return v===null ? 'no-bg' : v>200;})()")) === true,
+     await ev("getComputedStyle(document.body).backgroundColor"));
+
+  ok("点一下切到暗色，背景真的变暗",
+     (await ev("(function(){var b=document.getElementById('themeBtn');" +
+               "if(!b)return 'no-btn';b.click();var L=" + lum + ";" +
+               "return document.documentElement.getAttribute('data-theme')==='dark' && " +
+               "L(getComputedStyle(document.body).backgroundColor)<60;})()")) === true,
+     await ev("getComputedStyle(document.body).backgroundColor"));
+
+  await load();
+  ok("重新打开页面，主题选择还记得",
+     (await ev("document.documentElement.getAttribute('data-theme')")) === "dark",
+     await ev("document.documentElement.getAttribute('data-theme')"));
+
+  // 切回浅色再量对比度 —— 浅色最容易翻车的就是「暗色下够亮的字，
+  // 浅色下变成浅灰压在米色纸上」。这一条 grep 和肉眼都抓不到。
+  await ev("document.getElementById('themeBtn').click()"); await sleep(120);
+  await ev(GO(+first)); await sleep(200);
+  const contrast = JSON.parse(await ev(
+    "(function(){" +
+    "function L(c){var m=c.match(/[0-9]+/g).slice(0,3).map(function(v){" +
+    "  v=v/255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4);});" +
+    "  return 0.2126*m[0]+0.7152*m[1]+0.0722*m[2];}" +
+    "function R(fg,bg){var a=L(fg),b=L(bg);var hi=Math.max(a,b),lo=Math.min(a,b);" +
+    "  return Math.round(((hi+0.05)/(lo+0.05))*100)/100;}" +
+    "var page=getComputedStyle(document.getElementById('right')).backgroundColor;" +
+    "var g=function(sel){var e=document.querySelector(sel);return e?" +
+    "  R(getComputedStyle(e).color,page):null;};" +
+    "return JSON.stringify({正文:g('#card ul li'),一句话:g('.one')," +
+    "  讲稿:g('.say'),科研格:g('.res'),解释:g('.why'),加粗:g('#card b')});})()"));
+  console.log("      浅色对比度 " + JSON.stringify(contrast));
+  ok("浅色下正文类文字对比度全部 ≥ 4.5（WCAG AA）",
+     Object.values(contrast).every((v) => v === null || v >= 4.5), contrast);
+
+  // ── 引用了却没定义的 CSS 变量 ──
+  // 为什么要有这一条：theme.py 的 HARDCODED 表只管「写死的颜色 → 变量名」，
+  // 两套调色板里有没有这个变量，它不检查。漏一个，那条声明就静默失效 ——
+  // 浏览器不报错，框还在（退回继承来的边框），只是颜色不对了。
+  // 实测：`--warnline` 这样躺了一阵，26 条断言全绿，肉眼也看不出来。
+  // 这是最该自动抓的一类「假绿灯」，所以在这里一次把整类扫掉。
+  // 故意不用正则：`\(` 一类的转义经 heredoc 会退化（规矩 D 撞过三次），
+  // 纯 indexOf + 字符集扫描没有这个风险。
+  const cssvars = JSON.parse(await ev(
+    "(function(){" +
+    "var css=Array.prototype.map.call(document.querySelectorAll('style')," +
+    "  function(s){return s.textContent;}).join('  ');" +
+    "var idc='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';" +
+    "function nm(i){var j=i;while(j<css.length&&idc.indexOf(css.charAt(j))>=0)j++;" +
+    "  return css.slice(i,j);}" +
+    "function nxt(k){while(k<css.length&&css.charAt(k)===' ')k++;return css.charAt(k);}" +
+    "var used={},def={},p=0,n,m,c;" +
+    "while((p=css.indexOf('var(--',p))>=0){n=nm(p+4);" +
+    "  c=nxt(p+4+n.length);" +          // 有 fallback（var(--x, red)）的不算缺
+    "  if(n&&c!==',')used[n]=1; p+=6;}" +
+    "p=0;" +
+    "while((p=css.indexOf('--',p))>=0){m=nm(p);" +
+    "  if(m&&nxt(p+m.length)===':')def[m]=1; p+=2;}" +
+    "return JSON.stringify({用了:Object.keys(used).length," +
+    "  定义了:Object.keys(def).length," +
+    "  缺定义:Object.keys(used).filter(function(k){return !def[k];}).sort()});})()"));
+  console.log("      CSS 变量 用了 " + cssvars.用了 + " 个 · 定义了 " +
+              cssvars.定义了 + " 个 · 缺定义 " + cssvars.缺定义.length + " 个");
+  ok("每个被 var() 引用的 CSS 变量都真的有定义（没有静默失效的声明）",
+     cssvars.缺定义.length === 0, cssvars.缺定义);
+
   // ── 版面：题面不许比讲解正文大 ──
   await ev(GO(+first)); await sleep(200);
   const f = JSON.parse(await ev(

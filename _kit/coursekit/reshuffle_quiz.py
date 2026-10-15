@@ -17,6 +17,7 @@ import os
 import random
 import re
 import sys
+import zlib
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -133,7 +134,7 @@ def dump_opts(opts, sample):
     return "[\n" + item_indent + body + "\n" + close_indent + "]"
 
 
-def process(path, identity=False, strip_bold=True):
+def process(path, identity=False, strip_bold=True, salt=0):
     s0 = io.open(path, encoding="utf-8", newline="").read()
     spans = list(iter_questions(s0))
     out, prev, n, nbold, pos = [], 0, 0, 0, {}
@@ -146,11 +147,15 @@ def process(path, identity=False, strip_bold=True):
         # ① 清掉选项里的加粗
         clean = [BOLD.sub("", o) for o in opts] if strip_bold else list(opts)
         nbold += sum(1 for x, y in zip(opts, clean) if x != y)
-        # ② 打散。种子取自文件名 + 题在文件中的序号 => 稳定可复现
+        # ② 打散。种子取自文件名 + 题在文件中的序号 + 盐 => 稳定可复现。
+        # ⚠ 这里**不能**用 hash()：Python 的字符串 hash 每个进程都不同
+        # （2026-10-07 实测：同一字符串三次独立进程得到三个值），
+        # 于是「稳定可复现」只是注释里的一句话，实际每跑一次都是新的抽奖。
+        # zlib.crc32 是确定的，跨进程、跨版本都一样。
         idx = list(range(len(clean)))
         if not identity:
-            key = abs(hash(os.path.basename(path))) % 9973
-            random.Random(SEED * 1000 + key * 97 + n).shuffle(idx)
+            key = zlib.crc32(os.path.basename(path).encode("utf-8")) % 9973
+            random.Random(SEED * 1000 + key * 97 + n + salt * 7919).shuffle(idx)
         new_opts = [clean[i] for i in idx]
         new_ans = idx.index(ans)          # 按下标搬运，重复文本也不会搬错
         pos[new_ans] = pos.get(new_ans, 0) + 1
@@ -164,6 +169,18 @@ def process(path, identity=False, strip_bold=True):
         prev = as_b
     out.append(s0[prev:])
     return "".join(out), n, nbold, pos, s0
+
+
+def ok_spread(pos, n):
+    """打散的结果够不够散。判据与 build_reader.check_quiz_leak **逐条一致** ——
+    两边不一致的话，这里放过去的会在那边被拦，等于白打散一次。"""
+    if n >= 8:
+        for k in pos:
+            if pos[k] > n * 0.5:
+                return False
+    elif n >= 4 and len(pos) == 1:
+        return False
+    return True
 
 
 def main():
@@ -183,13 +200,28 @@ def main():
 
     tot = {}
     for f in files:
-        new, n, nbold, pos, s0 = process(f)
+        # ── 打散完必须自己合格，否则换盐重试 ──
+        # 判据与 build_reader.check_quiz_leak 一致。不自检的后果实测过：
+        # 2026-10-07 把 C13.b.json 从 3/7/6/3 打成 2/2/11/4（58% 全在 C），
+        # 而构建闸门量的是**合并后**的题集，单片的集中被稀释，一路绿灯。
+        # 「打散」这个动作本身不保证结果更好 —— 必须验。
+        for salt in range(64):
+            new, n, nbold, pos, s0 = process(f, salt=salt)
+            if ok_spread(pos, n):
+                break
+        else:
+            raise SystemExit(
+                "%s：连试 64 个盐都没打散到合格（%d 题，位置 %s）。"
+                "多半是题太少或选项数太少，手工调题比继续抽奖有用。"
+                % (os.path.basename(f), n,
+                   "/".join(str(pos.get(i, 0)) for i in range(4))))
         io.open(f, "w", encoding="utf-8", newline="").write(new)
         for k, v in pos.items():
             tot[k] = tot.get(k, 0) + v
-        print("%-12s %3d 题  清掉加粗 %d 处  位置 %s"
+        print("%-12s %3d 题  清掉加粗 %d 处  位置 %s%s"
               % (os.path.basename(f), n, nbold,
-                 "/".join(str(pos.get(i, 0)) for i in range(4))))
+                 "/".join(str(pos.get(i, 0)) for i in range(4)),
+                 "" if salt == 0 else "  （换了 %d 次盐才合格）" % salt))
     N = sum(tot.values())
     print("\n合计 %d 题，位置 A/B/C/D = %s（各占 %s）"
           % (N, "/".join(str(tot.get(i, 0)) for i in range(4)),

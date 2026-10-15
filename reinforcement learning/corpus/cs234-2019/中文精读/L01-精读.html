@@ -5,28 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CS234 第一讲 · 中文精读</title>
 <style>
-/* 浅色纸感为默认，暗色一键切换。色值沿用 ML 版 精读/theme.py（用户调过的）。
-   放映厅的片子不用这套（它们保持暗场）—— 只有阅读页要。
-   另补三个 ML 那边漏定义的变量：--warnline（.tip.w2 边框，ML 映射了却没
-   定义，浅色下警示边框会失效）、--violetline（科研格边框）、--tintamber。 */
 :root{
   --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
   --stage:#E9E6DF; --hover:#F0EDE6;
-  --line:#E3DFD6; --line2:#D2CCC0; --warnline:#D9B4B4;
-  --dot:#DDD8CE; --dot2:#B9B1A2;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
   --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
   --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
   --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
-  --okink:#0B5B43; --noink:#8F2A33;
-  --violet:#6A4BA3; --violetline:#C9BCE0; --tintviolet:rgba(106,75,163,.07);
-  --tintamber:rgba(132,88,8,.07);
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
   --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
   --missbg:rgba(245,243,238,.97);
   --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
   --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
   --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
   --scrim:rgba(58,52,42,.40);
   --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
   --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
   --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
   --bar:50px; --strip:36px;
@@ -34,22 +31,23 @@
 :root[data-theme="dark"]{
   --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
   --stage:#070a0f; --hover:#0d141c;
-  --line:#212c3c; --line2:#2a3b4f; --warnline:#4a2b2e;
-  --dot:#18212e; --dot2:#2c3c52;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
   --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
   --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
   --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
-  --okink:#d8fff4; --noink:#ffdede;
-  --violet:#B48BF5; --violetline:#3b2f4f; --tintviolet:rgba(180,139,245,.08);
-  --tintamber:rgba(242,189,99,.07);
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
   --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
   --missbg:rgba(10,14,20,.97);
   --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
   --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
   --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
   --scrim:rgba(6,9,13,.82);
   --shadow:0 10px 34px rgba(0,0,0,.55);
 }
+
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
@@ -98,7 +96,7 @@ h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
    14px，低于讲解正文 15px —— 它是引文，不是结论。 */
 .quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
   border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
-  background:linear-gradient(90deg,var(--tintamber),transparent)}
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
 .quote em{font-style:italic;color:var(--acc2)}
 .quote b{color:var(--ink2)}
 .one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
@@ -138,6 +136,14 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
 
 /* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
    tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
 .res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
   padding:11px 15px;margin:14px 0;background:var(--tintviolet);
   font-size:14px;line-height:1.72}
@@ -214,41 +220,21 @@ code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px
   #right{padding:16px 16px 30px}
 }
 
-/* ══ 浅色下的可读性与质感 ══════════════════════════════════════════
-   必须放在 <style> 末尾：同级选择器写在前面会被后面的原规则盖掉。
-   暗色靠「提亮」分层（rgba(255,255,255,.02) 那类），浅色下提亮是反的，
-   要靠**投影**分层 —— 所以这几条只在非暗色时生效。 */
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
 html{color-scheme:light dark}
 :root:not([data-theme="dark"]) #right{background:var(--bg)}
-:root:not([data-theme="dark"]) .qq,
-:root:not([data-theme="dark"]) .tip,
-:root:not([data-theme="dark"]) .say,
-:root:not([data-theme="dark"]) .res,
-:root:not([data-theme="dark"]) .tbl,
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
 :root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
 :root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
 :root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
 :root:not([data-theme="dark"]) .one{font-weight:520}
-/* .pg 是彩底上的字，浅色下底仍是 --acc2，所以字要白而不是跟 --bg 走 */
 :root:not([data-theme="dark"]) .pg{color:#fff}
 :root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
 #themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
-</style>
-<script>
-/* 主题必须在**页面绘制之前**定下来，否则存了暗色的人每次打开都会先闪一下浅色。
-   所以这一段放在 <head> 里、只碰 documentElement，不碰任何 DOM 节点
-   （此刻 body 还不存在）。按钮的接线在下面的主脚本里。
 
-   存档键**故意不带课程前缀**：file:// 下所有本地页面共用一个 origin，
-   而主题是一个跨课程的阅读偏好 —— 设一次，所有课都跟着。
-   这和自测记录的规矩正好相反（那个必须带前缀，否则两门课互相覆盖）。 */
-(function(){
-  try{
-    var t = localStorage.getItem("reader-theme");
-    if(t === "dark") document.documentElement.setAttribute("data-theme","dark");
-  }catch(e){}
-})();
-</script>
+</style>
 </head>
 <body data-key="cs234-2019-l01">
 
@@ -290,6 +276,26 @@ html{color-scheme:light dark}
 </div>
 
 <script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
 /* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
    one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
 
@@ -435,6 +441,10 @@ var TH = {"title": "L01 接上课题的哪一段：形式化是待检验的假�
         return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
       }).join("")+'</tbody></table>';
     if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
     if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
     /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
        可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
@@ -602,23 +612,6 @@ var TH = {"title": "L01 接上课题的哪一段：形式化是待检验的假�
       function(){ tp.classList.remove("on"); };
     tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
   }
-
-  /* ── 主题切换按钮。属性已由 <head> 里那段先设好，这里只负责接线与图标 ── */
-  (function(){
-    var root = document.documentElement, btn = document.getElementById("themeBtn");
-    function paint(){
-      var dark = root.getAttribute("data-theme") === "dark";
-      btn.textContent = dark ? "☀" : "☾";
-      btn.title = dark ? "切到浅色" : "切到暗色";
-    }
-    paint();
-    btn.onclick = function(){
-      var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      root.setAttribute("data-theme", next);
-      try{ localStorage.setItem("reader-theme", next); }catch(e){}
-      paint();
-    };
-  })();
 
   var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
   go(s);
