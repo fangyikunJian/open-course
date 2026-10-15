@@ -1,0 +1,507 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "页码说明：本精读的页号是**切出来的 ch13.pdf 的页号**（1–20）。书内页码 = ch13.pdf 页号 + 320，即 p1 = 书内 321。",
+  "⚠ 本章正文到 p18（文献与历史注）为止。**p19 是 Part III 篇首、p20 整页空白**，书签把它们挂在第 13 章下，与本章无关，故不作讲解——闸门允许未覆盖页留空。",
+  "⚠⚠ **本章文本层的数学符号整体错码，公式一个字都不能照抄**（与第 8 章的结论相反）：`r`=∇、`X`/`P`=Σ、`2`=∈、`!`=→、`1`=∞、`/`=∝、`✓`=θ 兼左括号、`↵`=ff 兼 α、`⌘`=η 兼右括号、`⇡`=π、`⇠`=∼、`휀` 与 ASCII 引号都是 ε、`⇣`=左括号、`◆`=右括号、`⇥`=× 兼左方括号、`⇤`=□ 兼右方括号。同一字符在正文与公式里是两个意思，**无法无歧义还原**。本章公式全部照渲染图抄录。",
+  "13.1 的硬要求：**π(a|s,θ) 必须可微**，且 ∇π(a|s,θ) 对所有 s、a、θ 存在且有限。原文：In practice, to ensure exploration we generally require that the policy never becomes deterministic (i.e., that π(a|s,θ) ∈ (0,1), for all s, a, θ).",
+  "(13.2) soft-max in action preferences：π(a|s,θ) = e^h(s,a,θ) / Σ_b e^h(s,b,θ)。(13.3) 线性偏好：h(s,a,θ) = θᵀx(s,a)。",
+  "Example 13.1 短走廊（switched actions）的三个数：ε=0.1 时两个 ε-贪心策略在起始状态的值**分别低于 −44 与 −82**；最优的「向右概率」约 **0.59**，值约 **−11.6**。⚠ 这三个数是本章唯一的定量例子，引用务必照抄。",
+  "(13.4) 分幕式性能：J(θ) ≐ v_{π_θ}(s₀)。⚠ 正文**假设不打折（γ=1）**，只有方框里的伪代码给的是一般的打折版本（故多一个 γᵗ 因子）。",
+  "(13.5) 策略梯度定理（分幕）：∇J(θ) ∝ Σ_s μ(s) Σ_a q_π(s,a) ∇π(a|s,θ)。比例常数在分幕情形是**一幕的平均长度**，在持续情形是 **1**（于是是等式）。μ 是 π 下的同策分布。",
+  "定理的要害（原文）：… provides an analytic expression for the gradient of performance with respect to the policy parameter … **that does not involve the derivative of the state distribution**.",
+  "证明里的 Pr(s→x, k, π) = 在 π 下从 s 出发 k 步后处于 x 的概率；η(s) = 在 s 上花费的期望时间步数；μ(s) = η(s)/Σ_{s′}η(s′)（第 199 页那个方框，即 Eq. 9.3）。"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    1
+   ],
+   "t": "这一章换了一件事做：不再学动作值，直接学策略",
+   "star": 3,
+   "quote": "<em>In this chapter we consider something new. So far in this book almost all the methods have been <b>action-value methods</b>; they learned the values of actions and then selected actions based on their estimated action values; <b>their policies would not even exist without the action-value estimates.</b> In this chapter we consider methods that instead learn a <b>parameterized policy</b> that can select actions <b>without consulting a value function</b>.</em><br><em>All methods that follow this general schema we call <b>policy gradient methods</b>, whether or not they also learn an approximate value function. Methods that learn approximations to <b>both</b> policy and value functions are often called <b>actor–critic methods</b> …</em>",
+   "one": "<b>前十二章都是「先学动作值、再由动作值派生策略」；这一章把策略本身参数化成 π(a|s,θ)，直接对性能 J(θ) 做梯度上升。值函数还可以用，但只是用来帮着学 θ，不再参与选动作。</b>",
+   "pts": [
+    "<b>先把这一章在全书里的位置摆清楚。</b> <span class='k'>书里说得很重：<b>那些方法的策略「离开动作值估计就根本不存在」</b>——ε-贪心、Sarsa、Q-learning 的「策略」都只是读表之后的一个 argmax 或 softmax，本身没有独立的参数。</span>这一章反过来：<b>策略有自己的参数向量 θ ∈ R^d′</b>，π(a|s,θ) = Pr{A_t = a | S_t = s, θ_t = θ}，选动作时不必查任何值函数。",
+    "<b>值函数没有被废掉，而是被降级了。</b> 原文说得很克制：<i>A value function may still be used to learn the policy parameter, but is not required for action selection.</i> <span class='k'>值函数的权重仍记作 w ∈ R^d，写成 v̂(s,w)，和第 9–12 章一脉相承。</span><b>注意这里出现了两套参数、两个维度</b>：策略的 θ 是 d′ 维，值函数的 w 是 d 维，两者互不相干——后面 13.4 和 13.5 会给它们各配一个步长。",
+    "<b>整章的骨架就是 (13.1) 这一行随机梯度上升。</b> θ_{t+1} = θ_t + α ∇̂J(θ_t)，其中 ∇̂J(θ_t) 是一个**随机估计**，它的期望近似等于性能对 θ_t 的真梯度。<span class='w'><b>请盯住这个「近似」</b>——这一章后面所有算法的差别，几乎都可以归结为「这个 ∇̂ 是怎么造出来的、它偏不偏、方差多大」。</span>REINFORCE 是无偏高方差，带基线的 REINFORCE 是无偏但方差小得多，actor–critic 则**有意引入偏差**换更低的方差。",
+    "<b>命名在这一章是有约定的，别混。</b> <span class='k'>凡是照 (13.1) 这个模子走的，一律叫<b>策略梯度方法</b>，<b>不管它学不学值函数</b>；而<b>同时</b>学策略近似和值函数近似的，常叫 <b>actor–critic</b>（actor 指学到的策略，critic 指学到的值函数，通常是状态值函数）。</span>⚠ 但 13.5 会给一条更严的界线：<b>只拿值函数当基线的不算 actor–critic，必须用它去「评判动作」（即自举）才算。</b>",
+    "<b>这一章的叙述顺序是：先分幕、后持续。</b> 分幕情形把性能定义为「起始状态在当前参数化策略下的值」（13.4 节会写成 J(θ) ≐ v_{π_θ}(s₀)）；持续情形则定义为**平均奖励率**，和 10.3 节一致。书里承诺：<i>In the end, we are able to express the algorithms for both cases in very similar terms.</i>——这个承诺在 13.6 节兑现，而且兑现得相当漂亮：<b>换掉值的定义（改用差分回报）之后，(13.5) 这条定理一字不改地继续成立。</b>",
+    "<b>⚠ 这一页的脚注比正文还值钱，别跳过。</b> 书说：<i>The lone exception is the <b>gradient bandit algorithms of Section 2.8</b>. In fact, that section goes through <b>many of the same steps</b>, in the <b>single-state bandit case</b>, as we go through here for full MDPs.</i> <span class='w'><b>翻译：第 2.8 节的梯度老虎机，就是本章在「只有一个状态」时的特例</b>——偏好 H(a)、soft-max、基线、无偏梯度估计，那一节全都走过一遍。</span>作者建议先复习 2.8 再读这一章。对你而言这条脚注有额外的分量，见右边的科研格。"
+   ],
+   "eq": "本章的通用骨架（13.1）：\n   θ_{t+1} = θ_t + α ∇̂J(θ_t)\n   其中 ∇̂J(θ_t) ∈ R^d′ 是一个**随机估计**，其期望**近似**性能对 θ_t 的梯度\n   —— 全章算法的差别，基本都在「∇̂ 怎么造、偏不偏、方差多大」上\n\n两套参数，互不相干：\n   策略   π(a|s,θ)，  θ ∈ R^d′     选动作只用它\n   值函数 v̂(s,w)，    w ∈ R^d      只用来帮着学 θ（可有可无）\n\n命名约定：\n   策略梯度方法   照 (13.1) 走的一切，**不论学不学值函数**\n   actor–critic   **同时**学策略与值函数者\n                  actor = 学到的策略，critic = 学到的值函数\n   ⚠ 13.5 节会收紧：只当基线不算 critic，必须拿去**评判动作**才算\n\n脚注 1（关键）：\n   §2.8 的梯度老虎机 = 本章在**单状态**下的特例，步骤几乎逐条对应",
+   "tbl": {
+    "head": [
+     "",
+     "动作值方法（前十二章）",
+     "策略梯度方法（本章）"
+    ],
+    "rows": [
+     [
+      "学什么",
+      "动作值 q(s,a) 或 q̂(s,a,w)",
+      "<b>策略参数 θ</b>，直接给出 π(a|s,θ)"
+     ],
+     [
+      "怎么选动作",
+      "读值表 → argmax / ε-贪心 / soft-max",
+      "<b>直接从 π(·|s,θ) 采样</b>，不查值函数"
+     ],
+     [
+      "策略能独立存在吗",
+      "<span class='w'>不能</span>——「离开动作值估计就根本不存在」",
+      "<b>能</b>，策略自带参数"
+     ],
+     [
+      "值函数的角色",
+      "唯一主角",
+      "<b>可选的配角</b>，只帮着学 θ"
+     ],
+     [
+      "更新的目标",
+      "让值估计逼近真值",
+      "<b>让性能 J(θ) 上升</b>（梯度上升）"
+     ],
+     [
+      "单状态时退化为",
+      "—",
+      "<b>§2.8 的梯度老虎机</b>（脚注 1）"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "ref": "原书 13.1 节开篇与脚注 1（逐句核对）· 简报 §5「Week 2 可加性检验」· bridge-threads [1] 多臂与上下文老虎机 · CSE 541 已建 6 讲",
+    "v": "<b>脚注 1 对你这个课题不是花絮，是一条分叉路标。</b><br><span class='k'><b>简报 §5 那条「可加性检验」如果通过</b></span>——即 Σ_h Δ_h^down 与 Acc(全强) − Acc(全弱) 在置信区间内一致——<b>那么你的问题在实质上不是 MDP，而是一组「每节点代价敏感选择」</b>，也就是（上下文）老虎机。<b>这正是脚注 1 说的那个「单状态特例」。</b><br>⇒ <b>于是本章的读法要分两种情况：</b><br><span class='k'><b>可加性成立</b></span>：你该回到 §2.8 的梯度老虎机，而不是把本章的 MDP 机器整套搬过去。本章对你的价值变成「<b>借它的论证，不借它的算法</b>」——13.1 的四条好处、13.2 的定理精神、13.4 的基线恒等式，在单状态下全都成立且更干净。<br><span class='w'><b>可加性不成立</b></span>：序贯结构是真的，本章整套可用，而且 13.6 的持续情形与 13.5 的在线增量形式都用得上。<br><b>⚠ 注意这条推断的方向：不是「先选框架再找证据」，而是「实验先行、框架后定」</b>——这和简报 §5 那句「MDP 框架必须被实验挣得，不能预设」是同一条纪律。本章恰好把两边的工具都备齐了，所以<b>读它不会押错注</b>。"
+   },
+   "link": {
+    "t": "你学过的对应：CS234 L08 精读（策略梯度 I —— 那一讲从 CS234 的角度走了同一条推导，可以对照着看两种讲法）",
+    "href": "../../cs234-2019/中文精读/L08-精读.html"
+   }
+  },
+  {
+   "r": [
+    2,
+    2
+   ],
+   "t": "怎么参数化：soft-max 偏好，外加一条容易被当成细节的硬要求",
+   "star": 3,
+   "quote": "<em>In policy gradient methods, the policy can be parameterized in <b>any way</b>, as long as π(a|s, θ) is <b>differentiable</b> with respect to its parameters, that is, as long as ∇π(a|s, θ) … <b>exists and is finite</b> for all s ∈ S, a ∈ A(s), and θ ∈ R^d′. <b>In practice, to ensure exploration we generally require that the policy never becomes deterministic</b> (i.e., that π(a|s, θ) ∈ (0, 1), for all s, a, θ).</em>",
+   "one": "<b>参数化可以随便选，只要可微。但书在同一段里加了第二条要求——策略「永远不许变成确定性的」，π(a|s,θ) 必须严格落在开区间 (0,1) 里。这一条是方法的前提，不是事后补的探索补丁。</b>",
+   "pts": [
+    "<b>第一条要求是可微，这条好理解。</b> ∇π(a|s,θ) 是 π 对 θ 各分量的偏导组成的列向量，要求它对<b>所有</b> s ∈ S、a ∈ A(s)、θ ∈ R^d′ 都<b>存在且有限</b>。<span class='k'>「有限」这两个字不是凑数：若某处导数发散，(13.1) 那一步就会把参数踢飞。</span>这也是为什么后面 13.7 节处理连续动作时，标准差要用 <b>exp(线性)</b> 而不是直接线性——既保证恒正，也让对数可微。",
+    "<b>第二条要求才是这一页真正的重点：策略永远不许变成确定性的。</b> <span class='w'><b>注意书的措辞是 “we generally require”——这是对方法的要求，不是对实现的建议。</b></span>π(a|s,θ) ∈ (0,1) 对所有 s、a、θ 成立。理由书里只给了三个字：to ensure exploration。但后果很深远：<b>整章的梯度估计都建立在「每个动作都有正概率被采到」之上</b>，一旦某个动作概率归零，它的梯度分量就永远拿不到样本。",
+    "<b>离散动作空间的标准做法：soft-max in action preferences。</b> 先给每个状态–动作对一个<b>参数化的数值偏好</b> h(s,a,θ) ∈ R，再按 (13.2) 做指数归一化。<span class='k'><b>关键在于偏好本身可以任意参数化</b></span>：可以是一个深度网络（θ 就是全部连接权重，AlphaGo 即如此，见 16.6 节），也可以简单地在特征上线性，即 (13.3) 的 h(s,a,θ) = θᵀx(s,a)。分母只是为了让每个状态下的动作概率和为 1，没有别的含义。",
+    "<b>第一条好处：soft-max 偏好可以逼近确定性策略，而 ε-贪心不能。</b> ε-贪心永远留着 ε 的概率乱走。<span class='k'><b>但书紧接着堵了一个很容易想到的反驳</b></span>：「那我对动作值做 soft-max 不就行了？」——不行。原因是<b>动作值会收敛到各自的真值，彼此相差一个有限的量</b>，于是导出的概率是某组确定的、不等于 0 或 1 的数。<b>偏好不一样：偏好不收敛到任何特定数值，它被推着去产生最优的随机策略；若最优策略恰好是确定性的，最优动作的偏好会被推到无穷高于其余动作。</b>",
+    "<b>温度参数这条路书也堵了。</b> 你当然可以在 soft-max 里加温度并随时间降温，<span class='w'><b>但书说：在实践中很难选这个下降日程，甚至连初始温度都难选——除非你对真实动作值的先验知识比你愿意假设的还多。</b></span>这是一条很实在的工程判断：<b>把「该多确定」交给参数自己学，比交给一个人工日程表要稳。</b>"
+   ],
+   "eq": "两条硬要求（13.1 节）：\n   ① 可微：∇π(a|s,θ) 对所有 s∈S, a∈A(s), θ∈R^d′ **存在且有限**\n   ② 不确定：π(a|s,θ) ∈ (0,1) 对所有 s, a, θ —— to ensure exploration\n      ⚠ 这是方法的**前提**，不是事后加的探索补丁\n\nsoft-max in action preferences（13.2）：\n                    exp( h(s,a,θ) )\n   π(a|s,θ)  ≐  ─────────────────────\n                  Σ_b exp( h(s,b,θ) )\n\n   偏好 h 可任意参数化：\n      深度网络   θ = 全部连接权重（AlphaGo，16.6 节）\n      线性(13.3) h(s,a,θ) = θᵀ x(s,a)\n\n为什么不对**动作值**做 soft-max：\n   动作值 → 收敛到各自真值 → 相差**有限** → 概率停在某组非 0/1 的数\n   偏好   → 不收敛到任何特定值 → 被推着产生**最优随机策略**\n          → 最优策略若是确定性的，最优动作偏好被推到**无穷高**",
+   "tbl": {
+    "head": [
+     "逼近确定性策略的办法",
+     "行不行",
+     "书给的理由"
+    ],
+    "rows": [
+     [
+      "ε-贪心",
+      "<span class='w'>不行</span>",
+      "永远留着 ε 概率选随机动作"
+     ],
+     [
+      "对<b>动作值</b>做 soft-max",
+      "<span class='w'>不行</span>",
+      "动作值收敛到真值、相差<b>有限</b>，概率停在某组非 0/1 的定数"
+     ],
+     [
+      "soft-max + 温度退火",
+      "<span class='w'>理论上行，实践很难</span>",
+      "下降日程甚至初始温度都难选，除非先验知识比你愿意假设的还多"
+     ],
+     [
+      "soft-max 在<b>动作偏好</b>上",
+      "<b>行</b>",
+      "偏好不收敛到特定值，被推着产生<b>最优随机策略</b>；最优若确定则偏好趋于无穷高"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "ref": "原书 13.1 节（逐句核对）· 简报 §4a「现有日志做不了 IS —— 不是方差大，是估计量不存在」· 简报 §9 动作 2「节点执行器加 propensity 采样与记录」",
+    "v": "<b>「策略永远不许变成确定性的」这一条，正好是简报 §4a 那个死结的另一面。</b><br><span class='w'><b>你现在的日志里 π_b(a|h) ∈ {0,1}</b></span>——每次运行固定模型配置，没有随机化、没有动作分布。简报的结论是：这不是「高方差的 IS」，是 <b>IS 无定义</b>（deficient support），<b>加再多数据也不会好转</b>。<br><span class='k'><b>本页给了这件事一个完全不同的理由</b></span>：书把 π ∈ (0,1) 写成<b>方法本身的前提</b>，摆在「可微」旁边作为第二条硬要求，而不是放在某个「探索技巧」小节里。<b>也就是说：在策略梯度的框架里，随机化不是为了做离线评估才加的，它本来就是策略类的一部分。</b><br>⇒ <b>这对你写作有直接用处。</b>审稿人问「为什么要给节点选择加随机化、这会不会伤害性能」时，你有两条答案而不是一条：<br>① 工具性的——没有它 OPE 的估计量不存在（简报 §4a）；<br>② <b>原理性的——策略梯度类方法对策略的标准要求就是处处非零，一个处处确定的「策略」根本不在这个类里。</b><br><b>第二条比第一条好用，因为它不把随机化说成「为了迁就估计量而付的代价」。</b>下一页的 Example 13.1 会把这条论证推得更远：有时候<b>最优策略本身就是随机的</b>。"
+   }
+  },
+  {
+   "r": [
+    3,
+    3
+   ],
+   "t": "第二条好处：能学出任意概率——而有时候最优策略本来就是随机的",
+   "star": 3,
+   "quote": "<em>In problems with significant function approximation, <b>the best approximate policy may be stochastic</b>. For example, in card games with imperfect information the optimal play is often to do two different things with specific probabilities, such as when bluffing in Poker. <b>Action-value methods have no natural way of finding stochastic optimal policies</b>, whereas policy approximating methods can, as shown in Example 13.1.</em><br><em><b>Example 13.1 Short corridor with switched actions.</b> … The problem is difficult because <b>all the states appear identical under the function approximation.</b> … An action-value method with ε-greedy action selection is forced to choose between just two policies … <b>The best probability is about 0.59, which achieves a value of about −11.6.</b></em>",
+   "one": "<b>短走廊这个例子的要害不是「动作被调换了」，而是三个状态在函数逼近下长得一模一样。一旦状态被混叠，最优策略就真的是随机的——而动作值方法连表达它的办法都没有。</b>",
+   "pts": [
+    "<b>先把这个例子的构造说清楚，它只有三个非终止状态，但设计得很刁。</b> 每步奖励 −1（照例），每个非终止状态只有两个动作：right 和 left。第一个和第三个状态里这两个动作是正常的（在第一个状态里 left 撞墙不动）；<span class='k'><b>但在第二个状态里两个动作被调换了：right 往左走，left 往右走。</b></span>",
+    "<b>真正让这个问题变难的，是下一句。</b> 书写道：<i>The problem is difficult because <b>all the states appear identical under the function approximation</b>.</i> 具体地，特征被定成 x(s, right) = [1, 0]ᵀ 与 x(s, left) = [0, 1]ᵀ，<span class='w'><b>对所有 s 都一样——特征里根本没有「我在第几个状态」这个信息。</b></span>于是策略只能在「以多大概率向右」这一个数上做文章，无法因状态而异。",
+    "<b>在这个限制下，ε-贪心被逼到只有两个选择。</b> 因为所有状态看起来相同，动作值方法学出来的只能是「处处以高概率 1 − ε/2 选 right」或者「处处以同样的高概率选 left」二者之一。ε = 0.1 时，这两个策略在起始状态的值<b>分别低于 −44 与 −82</b>。<span class='k'><b>而如果允许自由选择「向右的概率」，最好的那个概率约为 0.59，值约为 −11.6。</b></span><b>差了接近四倍。</b>",
+    "<b>把这三个数并排放，这一页的论证就完整了。</b> −44 / −82 是动作值方法在该表示下<b>能达到的上限</b>，−11.6 是<b>同一个表示</b>下随机策略能达到的值。<span class='w'><b>注意：差距不是来自「探索不够」，而是来自「表达不出来」。</b></span>动作值方法不是没找到 0.59，是它的策略类里压根没有「以 0.59 的概率向右」这个元素——ε-贪心的概率被 ε 钉死了，soft-max 的概率被动作值的真值钉死了（上一页刚论证过）。",
+    "<b>书把这条好处上升到了一般结论。</b> <i>In problems with <b>significant function approximation</b>, the best approximate policy <b>may be stochastic</b>.</i> 扑克里的诈唬被当成例子：不完全信息下，最优打法常常是「以特定概率做两件不同的事」。<span class='k'><b>而「动作值方法没有自然的办法去找随机的最优策略」是一句结论性的断言，不是这个例子的局部现象。</b></span>",
+    "<b>⚠ 一个容易读漏的因果链，值得单独点出来。</b> 最优策略之所以随机，<b>不是因为环境随机</b>（这个走廊的转移是确定的），<b>而是因为「表示」不够——状态被混叠了</b>。<span class='w'><b>换句话说：随机性是在补偿表示的不足。</b></span>这个因果方向很重要，因为它意味着：<b>如果你的策略只能看到部分信息，那么「最优策略是随机的」就不是一个需要辩护的设计选择，而是一个数学事实。</b>右边的科研格把这条直接接到你的 P2 / P3 消融上。"
+   ],
+   "eq": "Example 13.1 短走廊（switched actions）\n\n   三个非终止状态，每步奖励 −1，每状态两个动作 right / left\n   状态 1、3：动作正常（状态 1 里 left 撞墙不动）\n   状态 2  ：**两个动作调换** —— right 往左，left 往右\n\n   特征：x(s, right) = [1, 0]ᵀ ，x(s, left) = [0, 1]ᵀ ，**对所有 s 相同**\n        ⇒ 三个状态在函数逼近下**完全无法区分**\n\n   ε = 0.1 时三条线（照抄原文的数）：\n      ε-贪心 right        值 < −44\n      ε-贪心 left         值 < −82\n      最优随机策略        向右概率 ≈ **0.59**，值 ≈ **−11.6**\n\n   ⚠ 差距的来源是**表达不出来**，不是探索不够\n   ⚠ 随机性在这里**补偿的是表示的不足**，不是环境的随机",
+   "tbl": {
+    "head": [
+     "策略",
+     "在起始状态的值",
+     "为什么只能这样"
+    ],
+    "rows": [
+     [
+      "ε-贪心，处处偏 right",
+      "<span class='w'>低于 −44</span>",
+      "状态被混叠，只能处处用同一个高概率 1 − ε/2"
+     ],
+     [
+      "ε-贪心，处处偏 left",
+      "<span class='w'>低于 −82</span>",
+      "同上"
+     ],
+     [
+      "最优<b>随机</b>策略",
+      "<b>约 −11.6</b>",
+      "向右概率自由可学，最优约 <b>0.59</b>"
+     ],
+     [
+      "差距的来源",
+      "<b>表达不出来</b>",
+      "不是探索不够——策略类里没有这个元素"
+     ],
+     [
+      "随机性在补偿什么",
+      "<b>表示的不足</b>",
+      "环境转移是确定的，混叠来自特征"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "ref": "原书 Example 13.1 与 13.1 节末（三个数逐字核对）· 简报 §5「P2 vs P3 消融」· 简报 §8「难度是 query 的属性，还是 (query, 节点, 部分轨迹) 三元组的属性」",
+    "v": "<b>这一页给你的 P2 / P3 消融补上了一条你现在还没有的论证。</b><br>简报 §5 的设计是：策略只看 (query, 节点 id) 叫 P2，也看部分轨迹叫 P3；若序贯信息带来的提升不到 2 个百分点，就不要用 MDP 框架。<span class='k'><b>这是一个「要不要加信息」的判据。</b></span><b>但本页提出的是另一个问题：在你决定不加的那个表示下，最优策略长什么样？</b><br><span class='w'><b>如果 P2 表示把若干个实际上不同的决策点混叠成同一个输入</b></span>（同一个 query、同一个节点 id，但上游产出的中间结果质量不同），<b>那么按本页的论证，P2 下的最优策略可能本来就是随机的</b>——和短走廊里那三个「长得一模一样」的状态是同一回事。<br>⇒ <b>这条推断有三个可用之处：</b><br>① <b>它把「要不要随机化」从工程选择变成了表示的函数。</b>P2 下随机化可能是最优的；P3 下若混叠被解除，确定性策略也许就够了。<b>于是「P2 的最优向右概率是多少」本身就是一个可测的量，而不只是「P3 比 P2 好多少」这一个数。</b><br>② <b>它给 §4d 的穷举 oracle 表加了一个新用法。</b>你那张精确表 R(x, a₁..a_k) 可以直接算出：在 P2 表示下，最优的**随机**节点级策略值是多少、它比最优**确定性**策略好多少。<span class='k'><b>这个差值就是短走廊里 −11.6 与 −44 的类比物，而你能精确算出它。</b></span><b>书只能在一个三状态玩具上展示这件事，你能在真实管道上量出来。</b><br>③ ⚠ <b>但要诚实地预判一个可能的结果：这个差值也许很小甚至为零。</b>短走廊是被刻意设计成「动作在中间状态被调换」才造出这么大的差距的；节点保真度选择未必有这种对抗结构。<b>差值小本身也是结论——它说明 P2 够用，而且顺带支持了可加性那一侧。</b>"
+   }
+  },
+  {
+   "r": [
+    4,
+    4
+   ],
+   "t": "另外两条好处，和 13.2 开篇那个「看起来没法办」的难处",
+   "star": 2,
+   "quote": "<em>Perhaps the simplest advantage that policy parameterization may have over action-value parameterization is that <b>the policy may be a simpler function to approximate</b>. … In the latter case a policy-based method will typically <b>learn faster and yield a superior asymptotic policy</b> (as in Tetris; see Şimşek, Algórta, and Kothiyal, 2016).</em><br><em>Finally, we note that the choice of policy parameterization is sometimes a good way of <b>injecting prior knowledge</b> about the desired form of the policy into the reinforcement learning system. <b>This is often the most important reason for using a policy-based learning method.</b></em><br><em>The problem is that performance depends on both the action selections <b>and the distribution of states</b> in which those selections are made, and <b>both of these are affected by the policy parameter</b>.</em>",
+   "one": "<b>第三条好处：策略可能比动作值函数更简单，于是更好逼近。第四条：参数化本身是注入先验的入口，而书说这「常常是用策略方法最重要的理由」。然后 13.2 开篇抛出难处：性能同时取决于动作选择和状态分布，而后者怎么被 θ 影响，是环境的性质、通常未知。</b>",
+   "pts": [
+    "<b>第三条好处说得很朴素：有时候策略就是比值函数简单。</b> 书的措辞是 “Perhaps the <b>simplest</b> advantage”——不同问题里策略和动作值函数的复杂度各有高低，<span class='k'><b>当策略那一边更简单时，基于策略的方法通常学得更快、渐近策略也更好。</b></span>书给的实证是俄罗斯方块（Şimşek, Algórta, and Kothiyal, 2016）。⚠ 这是一条<b>有条件</b>的好处，不是无条件的——书明说了「For some, the action-value function is simpler」。",
+    "<b>第四条好处的分量被书自己抬得很高。</b> <i>the choice of policy parameterization is sometimes a good way of <b>injecting prior knowledge</b> about the desired form of the policy</i>，<span class='w'><b>紧接着一句：This is often the most important reason for using a policy-based learning method.</b></span><b>注意这句话的位置</b>——它压在 13.1 节的最后，是作者对整节四条好处的排序表态：前三条是技术性的，<b>第四条是实践中最常起决定作用的那条。</b>",
+    "<b>「注入先验」具体注在哪？注在 h(s,a,θ) 的形式里。</b> 上一页说过偏好可以任意参数化，<span class='k'><b>而「任意」的另一面就是「你可以把你知道的结构写进去」</b></span>：哪些特征该进 x(s,a)、哪些动作该共享参数、哪些维度该被约束。动作值方法没有这个入口——它只能逼近 q，而 q 的形状是环境定的，不是你定的。",
+    "<b>13.2 节一上来先补了一条理论好处，再抛出难处。</b> 理论好处是：<b>连续的策略参数化让动作概率随参数平滑变化</b>，<span class='w'><b>而 ε-贪心下，动作值的任意小扰动都可能让最大值换人、概率随之剧变。</b></span>正因为如此，<b>策略梯度方法能拿到比动作值方法更强的收敛保证</b>——书说得很明确：是「策略对参数依赖的连续性」使得 (13.1) 那种梯度上升成为可能。",
+    "<b>然后是本节要解决的难处，这是全章最关键的一个转折。</b> 分幕情形把性能定义为起始状态的值，即 (13.4) 的 J(θ) ≐ v_{π_θ}(s₀)（并假设每幕都从同一个非随机的 s₀ 出发，这只是记号简化）。<span class='k'><b>⚠ 正文一律假设不打折（γ = 1）</b></span>，只有方框里的伪代码给一般的打折版本——这解释了为什么后面伪代码里会多出一个 γᵗ 因子。",
+    "<b>难处本身：性能同时取决于两件事，而两件事都受 θ 影响。</b> ① <b>动作选择</b>——给定状态，θ 怎么影响动作、进而影响奖励，从参数化的知识里可以相对直接地算出来；<span class='w'><b>② 状态分布——θ 怎么影响「你会遇到哪些状态」，这是环境的函数，通常未知。</b></span><b>书把问题摆成一句反问：当梯度依赖于「策略改变对状态分布的未知影响」时，我们怎么可能估计这个梯度？</b>下一页的定理就是对这句反问的回答。"
+   ],
+   "eq": "13.1 节四条好处（按书给的顺序）：\n   ① 能逼近确定性策略        ε-贪心永远留 ε 的随机\n   ② 能学出任意概率          最优策略可能本来就随机（Example 13.1）\n   ③ 策略可能更简单          有条件！俄罗斯方块（Şimşek 等, 2016）\n   ④ **注入先验的入口**      书：often the most important reason\n\n13.2 节补的理论好处：\n   连续参数化 ⇒ 动作概率随参数**平滑**变化\n   ε-贪心     ⇒ 动作值的任意小扰动可能让最大值换人、概率**剧变**\n   ⇒ 正是这个**连续性**使 (13.1) 的梯度上升成立，收敛保证也更强\n\n分幕情形的性能（13.4）：\n   J(θ) ≐ v_{π_θ}(s₀)        每幕从同一个非随机 s₀ 出发（记号简化）\n   ⚠ 正文假设 **γ = 1**（不打折）；方框伪代码给一般打折版 ⇒ 多一个 γᵗ\n\n难处（本节要解决的）：\n   性能 = f( 动作选择 , 状态分布 )，**两者都受 θ 影响**\n      动作选择 ← θ   可从参数化直接算\n      状态分布 ← θ   **是环境的函数，通常未知**  ← 卡在这里",
+   "tbl": {
+    "head": [
+     "",
+     "受 θ 影响吗",
+     "能算吗",
+     "书的说法"
+    ],
+    "rows": [
+     [
+      "动作选择 → 奖励",
+      "<b>是</b>",
+      "<b>能</b>",
+      "can be computed in a relatively straightforward way from knowledge of the parameterization"
+     ],
+     [
+      "策略 → 状态分布",
+      "<b>是</b>",
+      "<span class='w'>不能</span>",
+      "is a function of the environment and is <b>typically unknown</b>"
+     ],
+     [
+      "⇒ 困境",
+      "—",
+      "—",
+      "梯度依赖一个未知量，怎么估？"
+     ],
+     [
+      "⇒ 出路",
+      "—",
+      "—",
+      "<b>策略梯度定理：给出的表达式不含状态分布的导数</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "ref": "原书 13.1 节末与 13.2 节开篇（逐句核对）· 简报 §4c「先做敏感度扫描，再谈 OPE」· 简报 §9 动作 3「一步偏离敏感度扫描 → 节点敏感度表」",
+    "v": "<b>第四条好处——「参数化是注入先验的入口」——正好是你第 2 周那张表的归宿。</b><br>简报 §4c 的做法是：对每个节点 j 跑「j 用 7B、其余 72B」对照「全 72B」，按准确率跌幅和 token 占比排序，<b>只保留 top k=3~4 作为随机化决策节点，其余按扫描结果钉死</b>。ESS 从 n·2⁻¹⁰ 提到 n·2⁻⁴，<b>64 倍</b>。<br><span class='k'><b>用本页的语言重述：那张敏感度表就是先验，而「钉死其余节点」就是把先验注入到策略参数化里。</b></span>你不是在策略类里加了一条约束然后道歉，<b>你是在做书说的「用策略方法最重要的那个理由」。</b><br>⇒ <b>这改变的是写法，不是做法。</b>原本「为了把 ESS 提上去，我们只随机化 4 个节点」听起来像一个被迫的妥协；<b>改成「我们把节点敏感度先验注入策略参数化，这既是 Sutton & Barto 13.1 节所说的策略方法的主要优势，也顺带把有效样本量提高了 64 倍」，</b>同一件事就从妥协变成了设计。<br><span class='w'><b>⚠ 但别把这条用过头。</b></span>书对第三条好处（策略更简单）是<b>明确加了条件</b>的——“For some, the action-value function is simpler”。<b>你的 Q̂ / 成本模型那一边恰恰可能更简单</b>（简报 §4e：成本回归预期 R² > 0.95）。所以<b>不要写成「策略方法一律更好」，那条在本章里就不成立。</b>"
+   }
+  },
+  {
+   "r": [
+    5,
+    6
+   ],
+   "t": "策略梯度定理：梯度里不含状态分布的导数",
+   "star": 3,
+   "quote": "<em>Fortunately, there is an excellent theoretical answer to this challenge in the form of the <b>policy gradient theorem</b>, which provides an analytic expression for the gradient of performance with respect to the policy parameter … <b>that does not involve the derivative of the state distribution</b>.</em><br><em>In the episodic case, <b>the constant of proportionality is the average length of an episode</b>, and in the continuing case <b>it is 1</b>, so that the relationship is actually an equality. The distribution μ here … is the <b>on-policy distribution</b> under π.</em><br><em>With just elementary calculus and re-arranging of terms, we can prove the policy gradient theorem <b>from first principles</b>.</em>",
+   "one": "<b>定理给出 ∇J(θ) ∝ Σ_s μ(s) Σ_a q_π(s,a) ∇π(a|s,θ)。右边只有三样东西：同策分布 μ、动作值 q_π、以及 π 对 θ 的梯度。上一页那个「状态分布怎么被 θ 影响」的未知量，一次都没出现。</b>",
+   "pts": [
+    "<b>先看定理本身，再看它为什么是个好消息。</b> (13.5) 说：∇J(θ) <b>∝</b> Σ_s μ(s) Σ_a q_π(s,a) ∇π(a|s,θ)。<span class='k'><b>右边三样东西：μ 是 π 下的同策分布（第 9、10 章那个），q_π 是动作值，∇π(a|s,θ) 是策略对参数的梯度。</b></span><b>前两样可以用采样拿到，第三样可以从你自己选的参数化里解析地算出来。而上一页那个「策略怎么改变状态分布」的未知量，一次都没出现。</b>",
+    "<b>「∝」这个符号在这里是有确切含义的，别当成含糊其辞。</b> 书写得很具体：<b>分幕情形下比例常数是「一幕的平均长度」，持续情形下是 1</b>（于是在持续情形里 (13.5) 其实是等式，13.6 节会用到这一点）。<span class='k'><b>而 13.3 节会说明为什么「只需要成正比」就够了：</b></span>任何比例常数都能被吸收进步长 α，而 α 本来就是任选的。<b>所以这个 ∝ 不是定理的弱点，是它的便利。</b>",
+    "<b>证明只用初等微积分，但有一个结构性的关键，值得慢读。</b> 起点是 ∇v_π(s) = ∇[Σ_a π(a|s)q_π(s,a)]（习题 3.18）。对乘积用链式法则，得到两项：<b>∇π(a|s)·q_π(s,a)</b> 和 <b>π(a|s)·∇q_π(s,a)</b>。<span class='k'><b>第一项已经是我们想要的形状，第二项需要继续展开。</b></span>",
+    "<b>第二项展开时出现了整个证明的要害。</b> 把 q_π(s,a) 按 Bellman 方程写成 Σ_{s′,r} p(s′,r|s,a)(r + v_π(s′))，然后求 ∇。<span class='w'><b>注意：p(s′,r|s,a) 是环境的动力学，它不依赖 θ——所以 ∇ 直接穿过它，落在 v_π(s′) 上。</b></span><b>这就是为什么状态分布的导数永远不会出现：∇ 在整个推导里只落在 π 上，从不落在 p 上。</b>环境的动力学从头到尾都是常数，它只负责把递归往下传一层。",
+    "<b>于是递归可以一直展开下去（unrolling），展开的结果被收成一个漂亮的形式。</b> ∇v_π(s) = Σ_{x∈S} Σ_{k=0}^∞ Pr(s→x, k, π) Σ_a ∇π(a|x) q_π(x,a)，其中 <b>Pr(s→x, k, π) 是在 π 下从 s 出发恰好 k 步后处于 x 的概率</b>。<span class='k'><b>关键观察：状态分布是从「把展开项收集起来」里长出来的，不是从「对什么东西求导」里长出来的。</b></span>",
+    "<b>最后三步把它整理成定理的样子。</b> 令 η(s) ≐ Σ_{k=0}^∞ Pr(s₀→s, k, π)，即<b>在 s 上花费的期望时间步数</b>（第 199 页那个方框）；再把 η 归一化成 μ(s) = η(s)/Σ_{s′}η(s′)，这正是第 9 章 (9.3) 的同策分布。提出来的那个公因子 Σ_{s′}η(s′) <b>就是「一幕的平均长度」</b>——<b>比例常数的来历到这里一清二楚，它不是凭空冒出来的。</b>",
+    "<b>⚠ 把这一页的意义说透：定理解决的不是「算得快」，是「算得了」。</b> 上一页的困境是：性能对 θ 的梯度看起来需要知道「θ 怎么改变状态分布」，而那是环境的性质、通常未知。<span class='w'><b>定理的回答不是「我们有办法估计那个未知量」，而是「你根本不需要它」。</b></span><b>这是一个消去，不是一个近似。</b>右边的科研格说明为什么这件事对你那个「后续节点不可交换」的难题有直接意义。"
+   ],
+   "eq": "策略梯度定理 · 分幕情形（13.5）：\n\n   ∇J(θ)  ∝  Σ_s μ(s) Σ_a q_π(s,a) ∇π(a|s,θ)\n\n   μ      = π 下的**同策分布**（第 9、10 章；见书第 199 页）\n   ∝ 的常数 = 分幕：**一幕的平均长度**；持续：**1**（于是是等式）\n   ⚠ 只需成正比就够 —— 常数可吸收进步长 α（13.3 节）\n\n证明（分幕；照 ch13.pdf p5 的方框抄）：\n\n   ∇v_π(s) = ∇[ Σ_a π(a|s) q_π(s,a) ]                         (习题 3.18)\n           = Σ_a [ ∇π(a|s) q_π(s,a) + π(a|s) ∇q_π(s,a) ]      (乘积法则)\n           = Σ_a [ ∇π(a|s) q_π(s,a)\n                   + π(a|s) ∇ Σ_{s′,r} p(s′,r|s,a)( r + v_π(s′) ) ]\n                                                   (习题 3.19 与式 3.2)\n           = Σ_a [ ∇π(a|s) q_π(s,a)\n                   + π(a|s) Σ_{s′} p(s′|s,a) ∇v_π(s′) ]       (式 3.4)\n                     ↑ p 不依赖 θ ⇒ ∇ **穿过它**，落在 v_π(s′) 上\n           = …（继续展开 unrolling）…\n           = Σ_{x∈S} Σ_{k=0}^∞ Pr(s→x, k, π) Σ_a ∇π(a|x) q_π(x,a)\n\n   其中 Pr(s→x, k, π) = π 下从 s 出发 k 步后处于 x 的概率\n\n   ∇J(θ) = ∇v_π(s₀)\n         = Σ_s ( Σ_{k=0}^∞ Pr(s₀→s, k, π) ) Σ_a ∇π(a|s) q_π(s,a)\n         = Σ_s η(s) Σ_a ∇π(a|s) q_π(s,a)                 (第 199 页方框)\n         = Σ_{s′} η(s′) · Σ_s [ η(s) / Σ_{s′} η(s′) ] Σ_a ∇π(a|s) q_π(s,a)\n         = Σ_{s′} η(s′) · Σ_s μ(s) Σ_a ∇π(a|s) q_π(s,a)        (式 9.3)\n         ∝ Σ_s μ(s) Σ_a ∇π(a|s) q_π(s,a)                      (Q.E.D.)\n           ↑ 提出来的 Σ_{s′}η(s′) **就是一幕的平均长度**\n\n   η(s) = 在 s 上花费的**期望时间步数**\n   μ(s) = η(s) / Σ_{s′} η(s′)   ← 归一化\n\n**全证明里 ∇ 只落在 π 上，从不落在 p 上** —— 这就是「不含状态分布导数」的来源",
+   "tbl": {
+    "head": [
+     "推导的每一步",
+     "∇ 落在谁身上",
+     "为什么不出事"
+    ],
+    "rows": [
+     [
+      "∇[Σ_a π q_π]",
+      "π 和 q_π",
+      "乘积法则，两项都要"
+     ],
+     [
+      "∇q_π 展开成 Bellman",
+      "<b>穿过 p，落在 v_π(s′)</b>",
+      "<b>p 是环境动力学，不依赖 θ</b>"
+     ],
+     [
+      "递归展开 unrolling",
+      "始终只落在 π 上",
+      "每层都重复上一行的结构"
+     ],
+     [
+      "收成 Σ_x Σ_k Pr(s→x,k,π)",
+      "<span class='k'>不求导，只收集</span>",
+      "<b>状态分布是被「数」出来的，不是被「求导」出来的</b>"
+     ],
+     [
+      "η 归一化成 μ",
+      "—",
+      "提出的公因子 = <b>一幕的平均长度</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "ref": "原书 13.2 节与 p325 证明方框（逐步核对渲染图）· 简报 §8「节点级分布无关风险控制：节点 h 的决策改变 h+1 的输入分布，后续节点不可交换」· 简报 §4a deficient support · bridge-threads [0] OPE / batch RL",
+    "v": "<b>这条定理正面回答了你简报 §8 里那个被标成「开放问题」的结构性难题。</b><br>你记下的原话是：<i>Learn-then-Test / conformal risk control 要求校准点与测试点可交换，但<b>节点 h 的决策改变 h+1 的输入分布，后续节点不可交换</b></i>。<span class='k'><b>这正是本页开篇那个困境的你那个版本</b></span>——策略改变了「你会遇到哪些状态」，而那个改变你没法建模。<br><span class='w'><b>定理说：求梯度不需要它。</b></span>∇ 在整个推导里只落在 π 上，从不落在转移核 p 上；状态分布 μ 是从展开项里**收集**出来的，不是**求导**出来的。<b>于是「上游决策改变下游输入分布」这件事，对梯度估计是无害的——它只影响 μ 是什么，不影响公式的形式。</b><br>⇒ <b>但要非常小心地划清这条结论的边界，否则会变成一个假的好消息：</b><br>① <b>定理救的是「优化」，不是「评估」。</b>它告诉你怎么沿着梯度走，<b>没有</b>告诉你怎么在不重跑的情况下估一个新策略的值。简报 §4a 那个 deficient support 的死结<b>一个字都没松动</b>。<br>② <b>μ 必须是 π 下的同策分布。</b>定理是**在策**的结论。你手上是旧日志，<b>一旦 π_e ≠ π_b，Σ_s μ(s) 里的 μ 就不是你能采到的那个</b>，需要离策的策略梯度（见 p18 文献注：Degris, White, and Sutton, 2012；Maei, 2018）。<span class='k'><b>这两篇值得去查——它们正好在你「只有旧数据」的处境上。</b></span><br>③ <b>可交换性那条难题仍然成立，但它是风险控制那一侧的问题，不是梯度那一侧的。</b><b>把这两件事分开写，比笼统地说「序贯依赖让一切都变难」要准确得多</b>——后者会让审稿人以为你没分清楚哪些困难是真的。"
+   },
+   "link": {
+    "t": "你学过的对应：CS234 L09 精读（策略梯度 II —— 同一条定理在 CS234 里的讲法，那一讲更侧重方差与步长，可对照）",
+    "href": "../../cs234-2019/中文精读/L09-精读.html"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "这一章和前十二章最根本的区别是什么？",
+    "o": [
+     "策略有自己的参数 θ，选动作时不必查任何值函数；前十二章的策略「离开动作值估计就根本不存在」",
+     "用了神经网络而不是表格",
+     "只处理连续动作空间",
+     "不再需要马尔可夫假设"
+    ],
+    "a": 0,
+    "why": "原文：their policies would not even exist without the action-value estimates。<span class='k'>值函数在本章没有被废掉，而是被降级成「可选的配角」——可以用来帮着学 θ，但不参与选动作。</span>"
+   },
+   {
+    "q": "书把「策略梯度方法」和「actor–critic 方法」怎么区分？",
+    "o": [
+     "凡是照 (13.1) 走的都叫策略梯度方法，不论学不学值函数；同时学策略与值函数的叫 actor–critic",
+     "策略梯度方法只能处理分幕任务",
+     "策略梯度方法用蒙特卡洛，actor–critic 用时序差分",
+     "两者是同义词"
+    ],
+    "a": 0,
+    "why": "原文：All methods that follow this general schema we call policy gradient methods, whether or not they also learn an approximate value function。<span class='w'>⚠ 但 13.5 节会把 actor–critic 的定义收紧：只拿值函数当基线不算，必须用它去评判动作（即自举）才算。</span>"
+   },
+   {
+    "q": "第 1 页脚注提到的「唯一的例外」是什么？它为什么重要？",
+    "o": [
+     "第 2.8 节的梯度老虎机——它就是本章在「只有一个状态」时的特例，步骤几乎逐条对应",
+     "第 12 章的资格迹",
+     "第 10.3 节的平均奖励",
+     "第 16 章的 AlphaGo"
+    ],
+    "a": 0,
+    "why": "原文：that section goes through many of the same steps, in the single-state bandit case, as we go through here for full MDPs。<span class='k'>作者建议先复习 2.8 节再读本章。</span>"
+   }
+  ],
+  "2": [
+   {
+    "q": "13.1 节对策略参数化提了两条要求，第二条常被当成细节读过去。它是什么？",
+    "o": [
+     "动作空间必须有限",
+     "参数必须初始化为零",
+     "必须用 soft-max 而不是别的分布",
+     "策略永远不许变成确定性的，即 π(a|s,θ) 必须严格落在 (0,1) 里"
+    ],
+    "a": 3,
+    "why": "原文：In practice, to ensure exploration we generally require that the policy never becomes deterministic。<span class='w'>注意措辞是 we generally require——这是对方法的要求，和「可微」并列，不是事后补的探索补丁。</span>"
+   },
+   {
+    "q": "书为什么说「对动作值做 soft-max」不能逼近确定性策略？",
+    "o": [
+     "因为 soft-max 在数值上不稳定",
+     "因为那样会破坏马尔可夫性",
+     "因为动作值方法不可微",
+     "因为动作值会收敛到各自的真值、彼此相差有限，于是概率停在某组非 0/1 的定数"
+    ],
+    "a": 3,
+    "why": "偏好则不同：它不收敛到任何特定数值，而是被推着去产生最优的随机策略；<span class='k'>若最优策略恰好是确定性的，最优动作的偏好会被推到无穷高于其余动作。</span>"
+   },
+   {
+    "q": "书对「soft-max 加温度退火」这条路是什么态度？",
+    "o": [
+     "理论上可行，但实践中很难选下降日程甚至初始温度，除非先验知识比你愿意假设的还多",
+     "推荐，这是标准做法",
+     "书里没有提到这条路",
+     "完全不可行，温度参数不可微"
+    ],
+    "a": 0,
+    "why": "这是一条很实在的工程判断：把「该多确定」交给参数自己学，比交给一个人工日程表要稳。"
+   }
+  ],
+  "3": [
+   {
+    "q": "Example 13.1 的短走廊里，真正让问题变难的是什么？",
+    "o": [
+     "第二个状态里两个动作被调换了",
+     "三个状态在函数逼近下长得完全一样——特征里没有「我在第几个状态」的信息",
+     "奖励是每步 −1 而不是终局奖励",
+     "状态数太多，表格放不下"
+    ],
+    "a": 1,
+    "why": "原文：The problem is difficult because all the states appear identical under the function approximation。特征被定成 x(s,right)=[1,0]ᵀ、x(s,left)=[0,1]ᵀ，<span class='k'>对所有 s 都一样。动作调换只是制造差距的手段，混叠才是病根。</span>"
+   },
+   {
+    "q": "短走廊里那三个数分别是多少？",
+    "o": [
+     "三个策略的值分别是 −20、−40、−60",
+     "两个 ε-贪心策略分别低于 −44 与 −82；最优随机策略的向右概率约 0.59、值约 −11.6",
+     "两个 ε-贪心策略分别是 −11.6 与 −44；最优值是 −82",
+     "书里只给了定性比较，没有给数"
+    ],
+    "a": 1,
+    "why": "ε = 0.1。<span class='w'>差距接近四倍，而且差距的来源是「表达不出来」而不是「探索不够」——动作值方法的策略类里压根没有「以 0.59 的概率向右」这个元素。</span>"
+   },
+   {
+    "q": "这个例子里，最优策略之所以是随机的，根本原因是什么？",
+    "o": [
+     "环境的转移是随机的",
+     "表示不够——状态被混叠了，随机性在补偿表示的不足",
+     "奖励里有噪声",
+     "ε-贪心必须保留探索"
+    ],
+    "a": 1,
+    "why": "<span class='k'>这条因果方向很重要：走廊的转移是确定的。</span>它意味着——如果你的策略只能看到部分信息，那么「最优策略是随机的」就不是一个需要辩护的设计选择，而是一个数学事实。"
+   }
+  ],
+  "4": [
+   {
+    "q": "书把 13.1 节的四条好处里哪一条抬得最高？",
+    "o": [
+     "策略参数化是注入先验知识的入口——书说这「常常是用策略方法最重要的理由」",
+     "策略可能比动作值函数更简单",
+     "能逼近确定性策略",
+     "能学出任意概率"
+    ],
+    "a": 0,
+    "why": "原文：This is often the most important reason for using a policy-based learning method。<span class='k'>它压在 13.1 节最后，是作者对四条好处的排序表态。</span>"
+   },
+   {
+    "q": "「策略可能比动作值函数更简单」这条好处，书是怎么限定的？",
+    "o": [
+     "有条件——书明说「对有些问题，动作值函数更简单」；策略更简单时才学得更快、渐近更好",
+     "无条件成立，策略方法总是更简单",
+     "只在表格情形下成立",
+     "只在连续动作空间里成立"
+    ],
+    "a": 0,
+    "why": "书给的实证是俄罗斯方块（Şimşek, Algórta, and Kothiyal, 2016）。<span class='w'>⚠ 不要把这条读成「策略方法一律更好」，那在本章里就不成立。</span>"
+   },
+   {
+    "q": "13.2 节开篇抛出的难处是什么？",
+    "o": [
+     "值函数的逼近误差无法控制",
+     "性能同时取决于动作选择和状态分布，而「策略怎么影响状态分布」是环境的函数、通常未知",
+     "动作空间太大，无法枚举",
+     "梯度可能发散"
+    ],
+    "a": 1,
+    "why": "给定状态，θ 怎么影响动作进而影响奖励，可以从参数化直接算；<span class='w'>但 θ 怎么影响「你会遇到哪些状态」，算不了。</span>下一页的定理就是对这句反问的回答。"
+   }
+  ],
+  "5": [
+   {
+    "q": "策略梯度定理最要紧的性质是什么？",
+    "o": [
+     "它保证收敛到全局最优",
+     "它不需要知道动作值 q_π",
+     "它给出的梯度表达式里不含状态分布的导数",
+     "它只在表格情形下成立"
+    ],
+    "a": 2,
+    "why": "原文：… that does not involve the derivative of the state distribution。<span class='k'>定理的回答不是「我们有办法估计那个未知量」，而是「你根本不需要它」——这是一个消去，不是一个近似。</span>"
+   },
+   {
+    "q": "证明里为什么状态分布的导数始终不出现？",
+    "o": [
+     "因为先对状态分布做了一阶近似",
+     "因为假设了状态分布与 θ 无关",
+     "因为用了重要性采样把它消掉了",
+     "因为 ∇ 在整个推导里只落在 π 上；转移核 p 不依赖 θ，∇ 直接穿过它"
+    ],
+    "a": 3,
+    "why": "状态分布是从展开项里「收集」出来的，不是从「求导」里长出来的。<span class='k'>Pr(s→x,k,π) 是数出来的概率，η(s) 是期望停留步数，μ 是 η 归一化的结果。</span>"
+   },
+   {
+    "q": "(13.5) 里的「∝」，比例常数是什么？",
+    "o": [
+     "总是 1",
+     "状态空间的大小 |S|",
+     "分幕情形是一幕的平均长度，持续情形是 1（于是关系是等式）",
+     "折扣因子 γ"
+    ],
+    "a": 2,
+    "why": "这个常数就是证明最后提出来的那个公因子 Σ_{s′}η(s′)。<span class='k'>而且只需成正比就够了——任何比例常数都能被吸收进步长 α，而 α 本来就是任选的。</span>"
+   },
+   {
+    "q": "这条定理对「用旧日志评估新策略」有没有直接帮助？",
+    "o": [
+     "有，只要把 μ 换成行为策略的分布即可",
+     "有，它正好给出了离策评估的无偏估计量",
+     "没有，因为它只在持续情形下成立",
+     "没有——它救的是「优化」不是「评估」，而且定理是在策的结论，μ 必须是 π 下的同策分布"
+    ],
+    "a": 3,
+    "why": "<span class='w'>一旦 π_e ≠ π_b，Σ_s μ(s) 里的 μ 就不是你能采到的那个。</span>需要离策的策略梯度——见本章 p18 文献注：Degris, White, and Sutton (2012)；Maei (2018)。"
+   }
+  ]
+ }
+}

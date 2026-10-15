@@ -1,0 +1,271 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "8.10 rollout 的目标：**改进 rollout 策略，而不是找最优策略**（aim is to improve upon the rollout policy; not to find an optimal policy）。",
+  "rollout 的依据是**策略改进定理**（4.2 节）：若 q_π(s,a) ≥ v_π(s)，则「在 s 改选 a、其后仍按 π」的策略不差于 π；严格不等则严格更好。",
+  "⚠ 书说它「更像异步值迭代的一步」而不是策略迭代的一步，因为**它只改当前这一个状态的动作**。",
+  "rollout 耗时取决于四件事：每个决策要评估多少动作 · 模拟轨迹要走多少步 · rollout 策略自己做一次决策多久 · 要多少条轨迹才能得到好的蒙特卡洛估值。",
+  "⚠ Tesauro &amp; Galperin (1997) 提的两个缓解办法：① 因为各次蒙特卡洛试验**相互独立**，可以在不同处理器上**并行**跑；② **截断**轨迹、用一个存好的评估函数修正被截断的回报；③ 监控模拟过程、**剪掉**那些不太可能成为最优、或其值与当前最优足够接近以致选它也没实质差别的候选动作（但他们指出这会让并行实现复杂化）。",
+  "8.11 MCTS 的四步：**Selection（选择）· Expansion（扩展，某些迭代可能跳过）· Simulation（模拟）· Backup（回传）**。",
+  "⚠ 回传时：**树外由 rollout 策略走过的那些状态和动作一律不保存值**（No values are saved for the states and actions visited by the rollout policy beyond the tree）。",
+  "MCTS 结束后选根节点动作的两种机制：取**动作值最大**的，或取**访问次数最多**的（to avoid selecting outliers）。",
+  "MCTS 让计算机围棋「从 2005 年的弱业余水平提升到 2015 年的大师级（6 段以上）」。",
+  "8.13 全书前八章方法的三个共同点：① 都在**估值函数**；② 都靠沿着实际或可能的状态轨迹**回传（backing up）**值；③ 都遵循**广义策略迭代（GPI）**。",
+  "图 8.11 的两个维度：**横轴 = 更新的宽度**（样本更新 ↔ 期望更新）；**纵轴 = 更新的深度 / 自举程度**（一步 ↔ 完整回报）。四角：TD（浅·样本）、蒙特卡洛（深·样本）、动态规划（浅·期望）、**穷举搜索（深·期望）**。",
+  "第三个维度：**同策略 vs 离策略**（书说可想象成垂直于图 8.11 纸面的那条轴）。",
+  "p33 还列了另外 8 个维度：回报的定义 · 动作值/状态值/后状态值 · 动作选择与探索 · 同步 vs 异步 · 真实 vs 模拟 · **更新的位置** · **更新的时机** · **更新的记忆（保留多久）**。",
+  "⚠ 书说「这里没提、第一篇也没覆盖的最重要的一个维度是**函数逼近**」——它是第二篇的内容。",
+  "文献注：8.3 提到 **E³（Kearns &amp; Singh 2002）与 R-max（Brafman &amp; Tennenholtz 2003）**，保证在**状态数与动作数的多项式时间**内找到近最优解；书评「这对实用算法通常太慢，但在最坏情况下多半已是能做到的最好」。",
+  "文献注：8.11 **MCTS 的中心思想由 Coulom (2006) 与 Kocsis &amp; Szepesvári (2006) 提出**；Browne 等 (2012) 是一篇优秀综述；该节的想法与写法得到 David Silver 的贡献。",
+  "⚠ p36 在 PDF 上是空页（第一篇到此结束）。"
+ ],
+ "notes": [
+  {
+   "r": [26, 26],
+   "t": "rollout 算法：目标是改进那个 rollout 策略，不是求最优",
+   "star": 3,
+   "quote": "<em>the goal of a rollout algorithm is <b>not</b> to estimate a complete optimal action-value function … Instead, they produce Monte Carlo estimates of action values <b>only for each current state</b> and for a given policy usually called the <b>rollout policy</b>.</em><br><em>In other words, <b>the aim of a rollout algorithm is to improve upon the rollout policy; not to find an optimal policy</b>.</em><br><em>In some applications, a rollout algorithm can produce good performance <b>even if the rollout policy is completely random</b>.</em><br><em>it is possible to <b>monitor</b> the Monte Carlo simulations and <b>prune away candidate actions that are unlikely to turn out to be the best</b>, or whose values are <b>close enough to that of the current best that choosing them instead would make no real difference</b>.</em>",
+   "one": "<b>rollout 就是：对当前状态的每个动作各模拟一批轨迹、取平均、挑最大。它的目标被书说得很克制——不是求最优，而是把那个 rollout 策略改进一点。</b>",
+   "pts": [
+    "<b>机制和 CS234 L16 p29 讲的「简单蒙特卡洛搜索」是同一个东西，而这里把它的理论身份说得更准。</b> <span class='k'>依据是 4.2 节的策略改进定理：若 <code>q_π(s,a) ≥ v_π(s)</code>，则「在 s 改选 a、其后仍按 π」的策略不差于 π；严格不等则严格更好</span>。<b>而模拟轨迹的平均回报正好给出 <code>q_π(s,a′)</code> 的估计。</b>",
+    "⚠️ <b>但书在这里加了一个比 CS234 更精确的限定，值得留意。</b> <em>The result is like one step of the policy-iteration algorithm … <b>though it is more like one step of asynchronous value iteration</b> … because <b>it changes the action for just the current state</b>.</em> <span class='w'>策略迭代的一步会在<b>所有</b>状态上改策略；而 rollout 只改当前这一个</span>——<b>所以它更像异步值迭代。</b>",
+    "<b>于是那句定位就很自然了</b>：<em>the aim of a rollout algorithm is to <b>improve upon the rollout policy</b>; not to find an optimal policy</em>。<span class='k'>这和 CS234 L16 p29 得出的「上限由 π 决定」是同一个结论，只是书把它直接写成了目标</span>。",
+    "<b>书里有一个很反直觉、但重要的经验观察</b>：<em>a rollout algorithm can produce good performance <b>even if the rollout policy is completely random</b></em>。<span class='w'>随机策略改进一步，居然就够用</span>——<b>Tesauro &amp; Galperin 当年对 rollout 给西洋双陆棋带来的提升「感到惊讶」。</b>",
+    "<b>但书立刻把条件补全了，这一句不能漏</b>：<em>the performance of the improved policy depends on properties of the rollout policy <b>and the ranking of actions produced by the Monte Carlo value estimates</b></em>。<span class='k'>注意是<b>排序</b>，不是估值本身准不准</span>——<b>只要排对了序，估值偏多少都无所谓。</b>",
+    "<b>而「更好的 rollout 策略是不是一定更好」，书留了一个带引用的保留</b>：<em>Intuition suggests that the better the rollout policy … the better the policy produced … <b>(but see Gelly and Silver, 2007)</b></em>。<span class='w'>直觉上成立，但有反例</span>——<b>这和 CS234 L16 p57 那条「rollout 策略越强，估的越接近 q^π 而不是 q*」是同一个张力。</b>",
+    "<b>耗时由四件事决定，列出来有助于判断可行性</b>：<span class='k'>每个决策要评估多少动作 · 模拟轨迹要走多少步 · rollout 策略自己做一次决策要多久 · 要多少条轨迹才够</span>。<b>四项相乘，就是每做一个决策的代价。</b>",
+    "⚠️ <b>而书给的三个缓解办法里，第三个几乎就是「逐次淘汰」的原型，值得逐字记。</b> ① <span class='w'>各次蒙特卡洛试验<b>相互独立</b>，可以在不同处理器上<b>并行</b>跑</span>；② <b>截断</b>轨迹、用一个存好的评估函数修正被截断的回报；③ <b>监控模拟过程、剪掉那些「不太可能成为最优」、或者「其值与当前最优足够接近、以致选它也没有实质差别」的候选动作</b>。",
+    "<b>第 ③ 条里那个「足够接近以致选它也没差别」的判据，比「它更差」这个判据聪明。</b> <span class='k'>两个动作值几乎相同时，继续花算力区分它们是没有意义的——不管选哪个结果都一样</span>。<b>这是一个「何时可以停」的判据，而不只是「谁更好」的判据。</b>",
+    "⚠️ <b>但书也点出 ① 和 ③ 是互相冲突的</b>：<em>though Tesauro and Galperin point out that this would <b>complicate a parallel implementation</b></em>。<span class='w'>剪枝要看已有结果才能决定剪谁，而并行的那些试验看到的是旧状态</span>——<b>并行与自适应剪枝天然打架。</b>",
+    "<b>最后书给了 rollout 一个很准的定位：它不算学习算法，但它用了 RL 的几乎全部性格。</b> <span class='k'>不保存长期的值或策略记忆（所以不算学习）；但它靠轨迹采样避开 DP 的穷举扫描、靠样本更新避开对分布模型的需求、并靠策略改进性质贪心地行动</span>。"
+   ],
+   "eq": "rollout 算法 = 对当前状态的每个动作各模拟一批轨迹，取平均，挑最大\n\n依据：策略改进定理（4.2 节）\n   若 q_π(s,a) ≥ v_π(s)，则「在 s 改选 a、其后仍按 π」不差于 π（严格则更好）\n   而模拟轨迹的平均回报正好估出 q_π(s,a′)\n\n⚠ 书的精确限定：这**更像异步值迭代的一步**，不是策略迭代的一步\n   —— 因为它**只改当前这一个状态**的动作\n\n⇒ 定位：**目标是改进那个 rollout 策略，不是找最优策略**\n\n经验观察：rollout 策略**完全随机**时也可能表现很好\n   ⚠ 但表现取决于 rollout 策略的性质 **和蒙特卡洛估值给出的动作排序**\n     —— 是**排序**，不是估值本身准不准\n   ⚠ 「更好的 rollout 策略一定更好」只是直觉，有反例（Gelly & Silver, 2007）\n\n耗时 = 每决策要评估多少动作 × 轨迹多少步 × rollout 策略每步多久 × 要多少条轨迹\n\n三个缓解办法（Tesauro & Galperin 1997）：\n   ① 各次试验**相互独立** ⇒ 可并行\n   ② **截断**轨迹，用存好的评估函数修正被截断的回报\n   ③ 监控模拟，**剪掉**：不太可能成为最优的候选\n                        **或其值与当前最优足够接近、选它也没实质差别**的候选\n      ⚠ ① 与 ③ 天然打架：剪枝要看已有结果，而并行试验看到的是旧状态\n\n⇒ ③ 里那个「足够接近就别再分了」是**何时可以停**的判据，\n   比「谁更差」这个判据更聪明",
+   "tbl": {
+    "head": ["", "rollout 算法", "完整的蒙特卡洛控制（第 5 章）"],
+    "rows": [
+     ["估什么", "<b>只估当前状态的各动作值</b>", "完整的 q<sub>π</sub> 或 q*"],
+     ["目标", "<b>改进 rollout 策略</b>", "找最优策略"],
+     ["结果保留吗", "<span class='w'>用完就丢</span>", "保留"],
+     ["要函数逼近吗", "<b>不要</b>（不必覆盖状态空间）", "大问题上要"],
+     ["算几步改进", "<b>一步（而且只对当前状态）</b>", "反复到收敛"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>书里那第三个缓解办法，几乎逐字写出了你该做的预算分配——而且它比我之前给你的判据更好。</b><br>原文：<em>prune away candidate actions that are unlikely to turn out to be the best, <b>or whose values are close enough to that of the current best that choosing them instead would make no real difference</b></em>。<br><span class='k'>前半句是普通的淘汰（「它大概率不是最优」）；<b>后半句是另一条、而且常被忘掉的判据</b>：<b>两个配置的 G 足够接近时，选哪个都没实质差别，于是不必再花钱区分它们</b></span>。<br><b>这条对你特别值钱，因为它给了一个<b>停止</b>判据而不只是淘汰判据。</b> <span class='w'>CS234 L16 p47 告诉你「把预算花在区间重叠的那些上」——但如果两个配置的区间重叠<b>而且它们的差距本来就小于你在乎的阈值</b>，那继续花钱是纯浪费</b>。<b>正确的规则是两条合起来</b>：<b>① 区间已完全低于领跑者 ⇒ 淘汰；② 区间虽重叠，但整个重叠区的宽度小于「你在乎的最小差距」δ<sub>实用</sub> ⇒ 也停，随便选一个</b>。<span class='k'>第二条你现在多半没有，而它能省下最后那一大段最贵的预算——因为把两个几乎一样好的配置分出胜负，恰恰是最费样本的。</span><br><b>第 ① 条（并行）也要接住，它坐实了我前面那处更正。</b> <span class='w'>书明说各次蒙特卡洛试验相互独立、可以并行；而紧接着指出<b>自适应剪枝会让并行实现复杂化</b></span>。<b>这正是我在 CSE 541 L07 里给出的那个说法：轮内全并行、轮间串行</b>——<b>现在它有书上的出处了。</b><br><b>而那句「rollout 的目标是改进 rollout 策略，不是找最优策略」，你应该直接借来写进论文。</b> <span class='k'>你的方法从 AFlow 基线出发做一步改进，天花板就是那个基线</span>——<b>与其让审稿人指出来，不如自己把它写成<b>设计目标</b></b>：<span class='w'>我们要的是「可证不劣于、且通常优于 AFlow 基线」，不是「在 2^H 上全局最优」</span>。<b>书把这个限定当成方法的定义来写，而不是当成缺陷来道歉，这个姿态值得学。</b><br>标【已核】：剪枝的两条判据、并行与剪枝的冲突、以及目标定位，均为 8.10 节原文逐句核对。",
+    "ref": "原书 8.10 节（逐句核对）· CS234 L16 p29 · p47 科研格 · CSE 541 L07 主线卡 · 简报 §4c（已核）"
+   },
+   "link": {
+    "t": "你学过的对应：CS234 L16（p29「简单蒙特卡洛搜索 = 恰好一步策略改进」——同一个算法，而本书把「更像异步值迭代的一步」这个更精确的说法补上了）",
+    "href": "../../cs234-2019/中文精读/L16-精读.html"
+   }
+  },
+  {
+   "r": [27, 29],
+   "t": "MCTS：四个步骤，和一条「什么不保存」",
+   "star": 3,
+   "quote": "<em>At its base, MCTS is a <b>rollout algorithm</b> as described above, but enhanced by the addition of a means for <b>accumulating value estimates</b> obtained from the Monte Carlo simulations in order to successively direct simulations toward more highly-rewarding trajectories.</em><br><em>MCTS is largely responsible for the improvement in computer Go <b>from a weak amateur level in 2005 to a grandmaster level (6 dan or more) in 2015</b>.</em><br><b>四步</b>：<em><b>1. Selection</b> … a tree policy … traverses the tree to select a leaf node. <b>2. Expansion</b> (on some iterations) … <b>3. Simulation</b> … with actions selected by the rollout policy. <b>4. Backup</b>. The return … is backed up to update, or to initialize, the action values attached to the edges of the tree traversed by the tree policy</em><br><em><b>No values are saved for the states and actions visited by the rollout policy beyond the tree.</b></em>",
+   "one": "<b>MCTS 就是 rollout 加一样东西：把模拟出来的估值<b>累积</b>在一棵树上，于是后面的模拟会被导向更有希望的方向。</b>",
+   "pts": [
+    "<b>书给 MCTS 的定位非常干脆：它<b>就是</b> rollout 算法，只多了一件事。</b> <span class='k'>多的那件事是「把蒙特卡洛模拟得到的估值<b>累积</b>起来，用来逐步把后续模拟导向回报更高的轨迹」</span>。<b>没有这个累积，它就退回成上一节那个 rollout。</b>",
+    "<b>成绩那句数字值得记</b>：<em>MCTS is largely responsible for the improvement in computer Go from a <b>weak amateur level in 2005</b> to a <b>grandmaster level (6 dan or more) in 2015</b></em>。<span class='w'>十年，从弱业余到六段以上</span>。<b>而书特意补了一句：它不限于博弈——「只要有一个简单到能快速多步模拟的环境模型，它对单智能体序贯决策问题也有效」。</b>",
+    "<b>四个步骤要记牢，而且每一步的「谁在做决定」不同。</b> <span class='k'><b>1. 选择</b>：从根出发，用<b>树策略</b>（依据树边上的动作值）走到一个叶节点；<b>2. 扩展</b>：某些迭代上，从选中的叶节点加一个或多个子节点（经由未探索的动作）；<b>3. 模拟</b>：从该节点起，用 <b>rollout 策略</b>跑完一整幕；<b>4. 回传</b>：把这一幕的回报回传上去，更新（或初始化）树策略这次走过的那些边上的动作值。</b>",
+    "⚠️ <b>第 4 步里有一句最容易被漏掉、而且最该记住的限定</b>：<em><b>No values are saved for the states and actions visited by the rollout policy beyond the tree.</b></em> <span class='w'>树<b>外</b>那一段走过的所有状态和动作，一个值都不存</span>。",
+    "<b>为什么这样设计？因为树外那一段的动作是由一个<b>固定而且通常很笨</b>的策略选的。</b> <span class='k'>存下它们，等于在为一个你根本不打算采用的策略建表</span>；<b>而且那部分状态多半只会被访问一次，存了也没机会复用</b>。<span class='w'>所以这不是节省内存的权宜，而是「只为有用的东西分配记忆」。</span>",
+    "<b>书把这件事上升成了一个很好的说法：MCTS 实际上在<b>增量地长出一张查找表</b>。</b> <em>by incrementally expanding the tree, MCTS effectively <b>grows a lookup table</b> to store a <b>partial</b> action-value function, with memory allocated to the estimated values of state–action pairs visited in the <b>initial segments of high-yielding sample trajectories</b></em>。<span class='k'>于是它「避开了全局逼近动作值函数这个难题，同时保留了用过去经验指导探索的好处」</span>。",
+    "<b>树内与树外用不同策略的理由，书说得比 CS234 更直白</b>：<span class='w'>树内的那些状态「我们至少对一部分动作有值估计，所以可以用一个<b>有信息的</b>策略来挑」，而这个树策略要平衡探索与利用</span>——<b>书举的例子就是 ε-贪心或 UCB。</b>",
+    "<b>最后选哪个动作，书给了两种机制，第二种值得注意。</b> <span class='k'>① 取根节点下动作值最大的；② <b>取访问次数最多的</b>——理由是 <em>to avoid selecting outliers</em></span>。<b>访问次数最多的那个，是树策略在整个搜索过程中最持续看好的；而动作值最大的那个，可能只是一次幸运的高回报。</b><span class='w'>这是一个很实际的稳健性考虑。</span>",
+    "<b>树的去留也有讲究</b>：<span class='k'>环境转移到新状态后，MCTS 重新跑——有时从一棵只有根节点的树开始，但<b>常常</b>保留上一次搜索树里「新状态的那些后代」，其余节点连同它们的动作值一并丢弃</span>。<b>这正是 8.8 节说的「全扔与全留之间是连续的」那个折中的实例。</b>"
+   ],
+   "eq": "MCTS = rollout 算法 + **把估值累积在一棵树上**\n       （没有这个累积，就退回成上一节的 rollout）\n\n成绩：计算机围棋 **2005 年弱业余 ──▶ 2015 年大师级（6 段以上）**\n      书补一句：不限于博弈 —— 只要有「简单到能快速多步模拟」的模型，\n                单智能体序贯决策问题也适用\n\n四步（每一步「谁在做决定」不同）：\n   1. **选择** Selection    从根出发，**树策略**依据树边上的动作值走到一个叶节点\n   2. **扩展** Expansion    某些迭代上，从该叶节点经未探索动作加一个或多个子节点\n   3. **模拟** Simulation   从该节点起，用 **rollout 策略** 跑完一整幕\n   4. **回传** Backup       把回报回传，更新/初始化**树策略这次走过的那些边**上的动作值\n\n⚠ 最易漏的一句：**树外由 rollout 策略走过的状态和动作，一个值都不存**\n   为什么：那一段的动作由一个固定而且通常很笨的策略选\n           存了等于为一个你不打算采用的策略建表；\n           而且那些状态多半只访问一次，存了也没机会复用\n   ⇒ 不是省内存的权宜，是「只为有用的东西分配记忆」\n\n书的提法：MCTS 在**增量地长出一张查找表**，存一个**部分**动作值函数，\n          内存只分给「高回报轨迹的**起始段**」上的 (s,a)\n   ⇒ 避开了全局逼近动作值函数这个难题，同时保留了用过去经验指导探索的好处\n\n最后选哪个动作（两种机制）：\n   ① 根节点下**动作值最大**的\n   ② **访问次数最多**的 —— 理由：**避免选到离群值**\n      （值最大的可能只是一次幸运高回报；访问最多的是全程最被看好的）\n\n树的去留：转移到新状态后常**保留新状态的那些后代**，其余连同动作值一并丢弃\n   （8.8 节说的「全扔与全留之间是连续的」的实例）",
+   "tbl": {
+    "head": ["步骤", "谁在选动作", "依据", "结果存吗"],
+    "rows": [
+     ["1 选择", "<b>树策略</b>", "树边上已有的动作值（平衡探索与利用）", "—"],
+     ["2 扩展", "—", "经由未探索的动作加子节点", "<b>新建节点</b>"],
+     ["3 模拟", "<b>rollout 策略</b>", "固定、通常很笨（如随机）", "<span class='w'>不存</span>"],
+     ["4 回传", "—", "整幕回报", "<b>只更新树策略走过的边</b>"],
+     ["最后选动作", "—", "<b>值最大</b> 或 <b>访问最多</b>（避免离群值）", "—"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「只为有用的东西分配记忆」这条设计原则，正好描述了你那张 oracle 表应该长成什么样。</b><br><span class='k'>MCTS 不为树外走过的状态存值，因为那些是笨策略走出来的、而且只会访问一次</span>。<b>你的对应：不必为那些「随机撞到的、明显不合理的」配置在表里留行</b>——<span class='w'>比如在最简单的节点上用 72B 而在最难的节点上用 7B 这类被支配的组合</span>。<b>书的说法可以直接借用：内存（在你这里是评估预算）只分给「高回报轨迹的起始段」，也就是从基线出发可达的那一小片。</b><br><b>而那个「增量地长出一张部分动作值表」的提法，恰好是你那张表的准确描述。</b> <span class='k'>你不是在逼近一个定义在全部 2^H 上的函数，你是在<b>显式地</b>为其中一小部分存精确值</b>。<b>这个区别值得在论文里说清楚</b>：<span class='w'>「部分查找表 + 精确值」比「全局函数逼近 + 估计值」在统计上干净得多——没有逼近误差，置信界只需要处理采样误差</b>。<b>这又一次是穷举 oracle 的理由，而这次有一个现成的措辞。</b><br><b>⚠ 而「取访问次数最多的而不是值最大的」这条，你应该认真考虑照搬。</b> <span class='k'>书给的理由是 <em>避免选到离群值</em></span>——<b>而这正是 L04 p42 那个最大化偏差的一个廉价解药</b>。<b>你的对应做法</b>：<span class='w'>最终汇报的配置，不取「留出集上 G 的均值最大」的那个，而取「在自助重采样里当第一名次数最多」的那个</span>。<b>两者通常一致；不一致时，后者几乎总是更稳</b>。<span class='k'>而这个量你本来就要算（L13 p32 那个诊断），只是现在它从「诊断」升格成了「选择规则」。</span><br><b>⚠ 最后一条要注意的不对称：MCTS 的树外之所以能用「很笨的随机策略」，是因为模拟免费。</b> <span class='w'>你没有免费的模拟，所以你不能在树外随便乱走</span>。<b>你的「树外」只能是成本模型能覆盖的那部分（成本可以本地外推），而准确率那一半根本没有树外——每一步都得真跑</b>。<b>这意味着 MCTS 的四步里，你能完整做的只有「选择」和「回传」；「模拟」那一步在你这里是整个方法最贵的部分，而它在围棋里几乎免费。把这个不对称写进局限，比假装能照搬整套流程诚实得多。</b>",
+    "ref": "原书 8.11 节（逐句核对）· L04 p42 · CS234 L13 p32 科研格 · CS234 L16.b p37 科研格 · 简报 §4d（已核）"
+   }
+  },
+  {
+   "r": [30, 31],
+   "t": "本章小结：三件事，和一句「唯一的区别」",
+   "star": 2,
+   "quote": "<em><b>Sample models are generally much easier to obtain than distribution models.</b></em><br><em>any of the learning methods can be converted into planning methods simply by applying them to <b>simulated</b> (model-generated) experience rather than to real experience. In this case learning and planning become even more similar; they are <b>possibly identical algorithms operating on two different sources of experience</b>.</em><br><em>Planning, acting, and model-learning interact in a <b>circular fashion</b> … each producing what the other needs to improve; <b>no other interaction among them is either required or prohibited</b>. The most natural approach is for all processes to proceed <b>asynchronously and in parallel</b>.</em>",
+   "one": "<b>小结把全章收成三句：样本模型容易得多；学习算法喂上模拟经验就成了规划算法；而规划、行动、学模型三者是循环互喂的，怎么安排都行。</b>",
+   "pts": [
+    "<b>第一句是 8.1 的回收：DP 需要分布模型（因为它用期望更新，要对所有可能的下一状态和奖励求期望），而样本模型只够做样本更新。</b> <span class='k'>书在小结里再次强调「样本模型通常容易得多」</span>——<b>一章开头和结尾各说一遍的东西，通常就是作者最想让你记住的。</b>",
+    "<b>第二句把全章的核心主张推到了最强的形式</b>：<em>they are <b>possibly identical algorithms</b> operating on two different sources of experience</em>。<span class='w'>不是「相似」，是「可能是同一个算法」</span>——<b>只是经验的来源不同。</b>",
+    "<b>而这句话的实践含义是：整合学习与规划，只要让两者<b>更新同一个估计的值函数</b>就行。</b> <span class='k'>不需要设计什么接口，不需要协调两套表示</span>——<b>Dyna 就是这么做的，而它之所以看起来「几乎平凡」，正是因为这件事本来就不需要复杂的机制。</b>",
+    "<b>第三句说的是三者的关系，而书的措辞相当自由。</b> <em>no other interaction among them is <b>either required or prohibited</b></em>。<span class='w'>规划、行动、学模型循环互喂，各自产出别人需要的东西</span>；<b>而「最自然的做法是三者异步并行」。</b>",
+    "<b>书还补了一句很务实的话</b>：<em>If the processes must share computational resources, then the division can be handled <b>almost arbitrarily</b>—by whatever organization is most convenient and efficient for the task at hand.</em> <span class='k'>算力怎么分，书明说没有原则性的答案</span>——<b>这和 Dyna-Q 里那个 n（每步规划多少次）是一个自由参数，是同一件事。</b>",
+    "<b>p31 开头那一段（8.12 的收尾）把本章的搜索控制策略又梳理了一遍，可以当作索引。</b> <span class='w'>更新越小，规划就越能增量化（最小的那一类是 Dyna 那样的一步样本更新）；而另一个重要维度是<b>更新的分布</b>，也就是搜索的焦点</span>。",
+    "<b>两种聚焦方向在这里被对称地摆了出来，这是第 8 章最好的一张索引。</b> <span class='k'><b>向后</b>：优先遍历，聚焦在「值刚变过的那些状态」的前驱上；<b>向前</b>：同策略轨迹采样，聚焦在「智能体控制环境时可能遇到的」那些状态上</span>。<b>而后者「可以让计算跳过那些与预测或控制问题无关的状态空间部分」。</b>",
+    "<b>而「向前聚焦」的最重要形式，书说就是<b>在决策时</b>做规划。</b> <span class='w'>经典的启发式搜索是一例；rollout 算法与 MCTS 是另外两例</span>——<b>后两者「受益于在线、增量、基于样本的值估计与策略改进」。</b><span class='k'>这三个名字一列出来，8.8–8.11 的位置就清楚了：它们都是「向前聚焦」这条线上的点。</span>"
+   ],
+   "tbl": {
+    "head": ["聚焦方向", "方法", "聚焦在哪", "在哪一节"],
+    "rows": [
+     ["<b>向后</b>", "优先遍历", "值刚变过的状态的<b>前驱</b>", "8.4"],
+     ["<b>向前</b>", "同策略轨迹采样 · RTDP", "<b>可能真的会遇到</b>的状态", "8.6 · 8.7"],
+     ["<b>向前（极端）</b>", "启发式搜索 · rollout · MCTS", "<b>当前状态的紧邻下游</b>", "8.9 · 8.10 · 8.11"],
+     ["⇒ 向前聚焦能做到", "<b>跳过与问题无关的那部分状态空间</b>", "—", "—"]
+    ]
+   }
+  },
+  {
+   "r": [32, 33],
+   "t": "第一篇总结：把方法摊成几个维度",
+   "star": 3,
+   "quote": "<em>All of the methods we have explored so far … have <b>three key ideas in common</b>: first, they all seek to <b>estimate value functions</b>; second, they all operate by <b>backing up values</b> along actual or possible state trajectories; and third, they all follow the general strategy of <b>generalized policy iteration (GPI)</b>.</em><br><em>The <b>horizontal</b> dimension is whether they are <b>sample updates</b> … or <b>expected updates</b> … The <b>vertical</b> dimension … corresponds to the <b>depth of updates</b>, that is, to the degree of <b>bootstrapping</b>.</em><br><em>The most important dimension <b>not</b> mentioned here … is that of <b>function approximation</b>.</em>",
+   "one": "<b>不要把强化学习记成一堆方法，要记成几个维度。图 8.11 的两条轴是：更新有多宽（样本还是期望），更新有多深（自举多少）。</b>",
+   "pts": [
+    "<b>书在这里亮明了整本书的组织方式，这段话值得记</b>：<em>we have tried to present reinforcement learning <b>not as a collection of individual methods</b>, but as a <b>coherent set of ideas cutting across methods</b>. Each idea can be viewed as a <b>dimension</b> along which methods vary.</em> <span class='k'>方法是点，维度是坐标轴——而记坐标轴比记点省力得多，也更经得起新方法的冲击。</span>",
+    "<b>三个共同点先摆出来，它们是这个空间的「地面」</b>：<span class='w'>① 都在<b>估值函数</b>；② 都靠沿着实际或可能的状态轨迹<b>回传</b>值；③ 都遵循<b>广义策略迭代</b>（维护一个近似值函数和一个近似策略，各自不断依据对方改进）</span>。<b>书说这三条「可能与任何智能模型都相关，无论人工还是自然」。</b>",
+    "<b>然后是图 8.11 的两条轴，这是全书最有名的一张图之一。</b> <span class='k'><b>横轴 = 更新的<b>宽度</b></b>：样本更新（基于一条采样轨迹）↔ 期望更新（基于可能轨迹的分布）；<b>纵轴 = 更新的<b>深度</b></b>，也就是自举的程度：一步 ↔ 完整回报</span>。",
+    "<b>四个角各坐一个方法，记住这四个角，整张图就活了。</b> <span class='w'><b>左上 = TD</b>（浅、样本）；<b>左下 = 蒙特卡洛</b>（深、样本）；<b>右上 = 动态规划</b>（浅、期望）；<b>右下 = 穷举搜索</b>（深、期望）</span>。<b>书特意说明右下角是「期望更新深到一路跑到终止状态」的极端情形。</b>",
+    "<b>而两条轴之间全是连续的，这一点比四个角更重要。</b> <span class='k'>左边那条棱上是从一步 TD 到完整回报蒙特卡洛的整个谱（中间是 n 步更新，第 12 章还会扩展成资格迹的 λ-更新）</span>；<b>右边那条棱上，介于 DP 与穷举搜索之间的是启发式搜索一类「搜到有限深度、也许有选择地搜」的方法</b>。<span class='w'>横向也有中间地带：混合期望更新与样本更新，甚至在单次更新里混合样本与分布。</span>",
+    "<b>横轴还有一个很实际的含义，书点了出来</b>：<em>Expected updates require a <b>distribution model</b>, whereas sample updates need only a <b>sample model</b>, <b>or can be done from actual experience with no model at all</b></em>。<span class='k'>所以横轴不只是「准不准」，还决定了「你需要什么」</span>——<b>而最右边那一侧要求最强的模型。</b>",
+    "<b>第三条维度是同策略 vs 离策略，书说可以想象成<b>垂直于纸面</b>的那条轴。</b> <span class='w'>前者学的是当前正在执行的那个策略的值函数；后者学的是另一个策略（通常是当前认为最好的那个）的</span>。<b>而「产生行为的策略通常与当前认为最好的不同，因为需要探索」。</b>",
+    "<b>p33 还一口气列了另外八个维度，当成一张检查表很好用。</b> <span class='k'><b>回报的定义</b>（分幕/持续，折扣/不折扣）· <b>估哪种值</b>（动作值/状态值/后状态值）· <b>动作选择与探索</b> · <b>同步 vs 异步</b> · <b>真实 vs 模拟</b> · <b>更新的位置</b> · <b>更新的时机</b> · <b>更新的记忆</b></span>。",
+    "<b>其中「更新的位置」那一条说得特别准，值得单独记</b>：<em>Model-free methods can choose <b>only among the states and state–action pairs actually encountered</b>, but <b>model-based methods can choose arbitrarily</b>.</em> <span class='w'>有没有模型，决定的不是「准不准」，而是「你能不能挑在哪里更新」</span>——<b>这是模型最根本的那个自由度。</b>",
+    "⚠️ <b>最后书自己点出了这张图缺的那一条</b>：<em>The most important dimension <b>not</b> mentioned here, and not covered in Part I, is that of <b>function approximation</b></em>。<span class='k'>从表格法到状态聚合、各种线性方法、再到各类非线性方法，是一条正交的谱</span>——<b>而第一篇的全部结论都建立在「表格」这个端点上。读第二篇之前，这一点要记牢。</b>"
+   ],
+   "eq": "整本书的组织方式：**不是方法的集合，而是横切各方法的一组维度**\n   （记坐标轴比记点省力，也更经得起新方法的冲击）\n\n三个共同点（这个空间的地面）：\n   ① 都在**估值函数**\n   ② 都靠沿实际或可能的轨迹**回传**值\n   ③ 都遵循**广义策略迭代 GPI**（近似值函数与近似策略互相改进）\n\n图 8.11 的两条轴：\n                        更新的**宽度** (width) ───▶\n                   样本更新                      期望更新\n                   （一条采样轨迹）              （可能轨迹的分布）\n   更新的       ┌──────────────────┬──────────────────┐\n   **深度**     │   **TD**         │  **动态规划**     │  一步（自举多）\n   (depth)     │                  │                  │\n     │         │   ← n 步更新 / λ-更新 的整个谱 →      │\n     ▼         │                  │                  │\n               │ **蒙特卡洛**      │ **穷举搜索**      │  完整回报（不自举）\n               └──────────────────┴──────────────────┘\n   右棱中间：启发式搜索一类（搜到有限深度，也许有选择地搜）\n   横向中间：混合期望与样本更新，甚至单次更新里混合样本与分布\n\n⚠ 横轴不只是「准不准」，还决定**你需要什么**：\n   期望更新 ⇒ 要**分布模型**\n   样本更新 ⇒ **样本模型就够**，甚至可以完全无模型、直接用真实经验\n\n第三条维度：**同策略 vs 离策略**（想象成垂直于纸面的那条轴）\n\np33 另外八个维度（当检查表用）：\n   回报的定义 · 估哪种值 · 动作选择与探索 · 同步/异步\n   真实/模拟 · **更新的位置** · **更新的时机** · **更新的记忆（保留多久）**\n\n   ⚠ 「更新的位置」最该记：\n     无模型方法**只能**在实际遇到过的 (s,a) 里挑\n     有模型方法**可以任意挑**        ← 这是模型最根本的那个自由度\n\n⚠ 这张图缺的最重要的一条：**函数逼近**（第二篇的内容）\n   第一篇的全部结论都建立在「表格」这个端点上",
+   "tbl": {
+    "head": ["", "样本更新（窄）", "期望更新（宽）"],
+    "rows": [
+     ["<b>一步（深度浅，自举多）</b>", "<b>TD</b>", "<b>动态规划</b>"],
+     ["<b>完整回报（深度深，不自举）</b>", "<b>蒙特卡洛</b>", "<b>穷举搜索</b>"],
+     ["中间地带", "n 步更新 · λ-更新（资格迹）", "启发式搜索（有限深度、可选择）"],
+     ["<b>需要什么模型</b>", "<b>样本模型，或完全不要</b>", "<span class='w'>分布模型</span>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>图 8.11 给了你一张可以直接画进论文的图——因为你那个「G 拆成两半」的论证，在这张图上是<b>两个对角</b>。</b><br><span class='k'><b>成本那一半</b>：你有分布模型（成本近乎确定、可本地精确算），而且它是<b>逐节点可加</b>的——一步就能算完，不需要走到终局</span>。<b>⇒ 它坐在图 8.11 的<b>右上角（动态规划）</b>：期望更新 + 浅。</b><br><span class='w'><b>准确率那一半</b>：你只有样本模型（必须真跑），而且它是<b>终局</b>奖励——必须整条 workflow 跑完才知道</span>。<b>⇒ 它坐在<b>左下角（蒙特卡洛）</b>：样本更新 + 深。</b><br><b>两半位于这张图的<b>对角线两端</b>——这是全书最有名的一张图，而你的两半恰好落在它距离最远的两个角上。</b> <span class='k'>这比我之前给你的任何一条理由都更有说服力，因为它是<b>可视化</b>的、而且用的是读者早就熟悉的坐标</span>。<b>一张图加一句话：「我们的目标函数的两个分量在 Sutton &amp; Barto 图 8.11 上分处对角，因此不应共用同一个估计量」——这一拳很难接。</b><br><b>而那条「更新的位置」的维度给了你另一句精准的话。</b> <span class='w'>书说：无模型方法<b>只能</b>在实际遇到过的 (s,a) 里挑，有模型方法<b>可以任意挑</b></span>。<b>翻译：没有成本模型，你只能评估你真跑过的配置；有了它，你可以在 2^H 的任何地方「挑一个位置去更新」</b>。<span class='k'>这正是成本模型买到的那个自由度，而它和「预测得准不准」是两件事</b>——<b>这个区分值得写清楚，因为它解释了为什么一个 R²=0.9 的模型仍然很有价值：它买的是<b>选择权</b>，不是精度。</b><br><b>⚠ 而那条被书点名的缺失维度是你的硬约束：函数逼近。</b> <span class='w'>第一篇的全部漂亮结论（包括本章的 Dyna、优先遍历、RTDP 的收敛定理）都建立在<b>表格</b>这个端点上</span>。<b>你的格子数（H×k 几十个）确实在表格端，这是好消息</b>（CS234 L13 已经说过）；<b>但你的成本模型是函数逼近，所以凡是涉及它的推论都已经离开了第一篇的保护范围</b>。<span class='k'>⚠ 具体地说：C08.a p4 那条「模型从不被问到没见过的地方」的免费护栏，在函数逼近下自动失效——而这一节点明了那是第二篇才处理的问题。</span><b>把这条写进局限，比默默沿用表格的结论安全得多。</b>",
+    "ref": "原书 8.13 节与图 8.11（逐条核对）· C08.a p4 科研格 · CS234 L13 · 简报 §4e §4f（已核）"
+   }
+  },
+  {
+   "r": [34, 36],
+   "t": "文献注记里值得挑出来的几条",
+   "star": 2,
+   "quote": "<b>8.3</b> — <em>The <b>E³</b> algorithm of <b>Kearns and Singh (2002)</b> and the <b>R-max</b> algorithm of <b>Brafman and Tennenholtz (2003)</b> are guaranteed to find a near-optimal solution in time <b>polynomial in the number of states and actions</b>. This is <b>usually too slow for practical algorithms</b> but is <b>probably the best that can be done in the worst case</b>.</em><br><b>8.11</b> — <em>The central ideas of MCTS were introduced by <b>Coulom (2006)</b> and by <b>Kocsis and Szepesvári (2006)</b> … <b>Browne et al. (2012)</b> is an excellent survey … <b>David Silver</b> contributed to the ideas and presentation in this section.</em>",
+   "one": "<b>文献注记一般可以跳过，但这一章的有三条值得单独挑出来：PAC 那一对算法的定位、MCTS 的真正出处、以及 Dyna 的「间接/直接」这组词从哪来。</b>",
+   "pts": [
+    "<b>第一条：8.3 节注里对 E³ 与 R-max 的定位，是一句很克制也很诚实的评价。</b> <span class='k'>两者「保证在状态数与动作数的<b>多项式</b>时间内找到近最优解」</span>；<b>而书紧接着说：<em>This is <b>usually too slow for practical algorithms</b> but is <b>probably the best that can be done in the worst case</b>.</em></b>",
+    "<b>这句话值得停一下，因为它说的是一整类理论结果的处境。</b> <span class='w'>「多项式时间」在理论上是胜利，在实践中可能毫无意义</span>——<b>而「在最坏情况下多半已是能做到的最好」这半句，解释了为什么这个差距无法靠更聪明的算法消掉</b>。<span class='k'>这和 CS234 L13 里那个「PAC 保证要求初始值设到 10¹⁰⁰」是同一种模式：定理成立，常数不可用。</span>",
+    "<b>书还点明了这两个算法的思路：把探索加成与乐观初始化推到逻辑极端</b>——<span class='w'>「所有尚未充分探索的选择一律假定能拿到最大奖励，并算出通向它们的最优路径去测试」</span>。<b>Dyna-Q+ 的 κ√τ 是这个想法的温和版本，而 E³/R-max 是它的极端版本。</b>",
+    "<b>第二条：MCTS 的中心思想出自 <b>Coulom (2006)</b> 与 <b>Kocsis &amp; Szepesvári (2006)</b>。</b> <span class='k'>后者正是 UCT 的出处</span>。<b>⚠ 这条值得记，因为 CS234 L16 与 CSE 541 的讲义都用了 UCT 却没给引文</b>——<span class='w'>要引用式子或常数时，查 Kocsis &amp; Szepesvári；要综述，查 Browne 等 (2012)</span>。",
+    "<b>书还提了一句：这一节的想法与写法得到 <b>David Silver</b> 的贡献。</b> <span class='k'>而 CS234 L16 的课件署名也是「many slides from or derived from David Silver」</span>——<b>两边的叙述如此一致，根子在这里。</b>",
+    "<b>第三条：8.2 节注说明「直接 / 间接」这组词<b>借自自适应控制文献</b>，在那边做的是同样的区分。</b> <span class='w'>而本书叫「模型学习」的那件事，在自适应控制里叫<b>系统辨识</b>（system identification）</span>。<b>知道这组对应，能让你读得懂控制那一侧的文献。</b>",
+    "<b>Dyna 架构本身出自 Sutton (1990)，而本章与下一节的结果都基于那篇报告的结果。</b> <span class='k'>把 Dyna 扩展到线性函数逼近的早期工作是 Sutton, Szepesvári, Geramifard &amp; Bowling (2008) 与 Parr 等 (2008)</span>——<b>这正好接上上一页说的那条「第一篇只讲表格」的缺口。</b>",
+    "<b>8.4 节注还澄清了一处很容易引错的地方：优先遍历是 <b>Moore &amp; Atkeson (1993)</b> 与 <b>Peng &amp; Williams (1993)</b> <b>同时且独立</b>提出的。</b> <span class='w'>而本章两个框里的结果分属两家：p170（迷宫上快 5–10 倍那组）是 Peng &amp; Williams 的，p171（杆件操纵）是 Moore &amp; Atkeson 的</span>。<b>引用时别张冠李戴。</b>",
+    "<b>8.6–7 的注把 RTDP 的证明来源拆得很清楚，值得记一下结构。</b> <span class='k'>Barto, Bradtke &amp; Singh (1995) 把 Korf (1990) 对 LRTA* 的收敛证明，与 Bertsekas (1982) 关于「无折扣随机最短路径问题上异步 DP 收敛」的结果<b>合并</b>起来，才得到本章那个定理</span>。<b>他们还认识到 Korf 的 LRTA* 本身就是一个异步 DP 算法，而且适用于随机问题（Korf 只关注确定性问题）。</b>",
+    "⚠️ <b>p36 在 PDF 上是空页——第一篇到此结束。</b> <span class='w'>下一页（原书 p217）就是第二篇「近似解法」的分隔页，不在本章的切片里。</span>"
+   ],
+   "tbl": {
+    "head": ["出处", "是什么", "为什么值得单独记"],
+    "rows": [
+     ["Kearns &amp; Singh 2002（E³）<br>Brafman &amp; Tennenholtz 2003（R-max）", "状态/动作数的<b>多项式</b>时间内找到近最优", "<b>「实践中通常太慢，但最坏情况下多半已是最好」</b>"],
+     ["<b>Coulom 2006</b><br><b>Kocsis &amp; Szepesvári 2006</b>", "<b>MCTS / UCT 的真正出处</b>", "<b>CS234 与 CSE 541 的讲义都用了却没给引文</b>"],
+     ["Browne 等 2012", "MCTS 综述", "要全景时查它"],
+     ["Sutton 1990", "Dyna 架构", "本章结果的来源"],
+     ["Moore &amp; Atkeson 1993<br>Peng &amp; Williams 1993", "优先遍历（<b>同时独立</b>提出）", "<b>两个框里的结果分属两家，别引错</b>"],
+     ["Barto, Bradtke &amp; Singh 1995", "RTDP 的收敛定理", "<b>合并了 Korf 1990 与 Bertsekas 1982</b>"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页有两条对你的写作直接有用。</b><br><b>第一条是 E³ / R-max 那句评价，它给了你一个现成的、而且是权威的措辞。</b> <span class='k'>原文：保证在状态数与动作数的多项式时间内找到近最优解，<b>而这对实用算法通常太慢，但在最坏情况下多半已是能做到的最好</b></span>。<b>当审稿人问「你的方法有没有样本复杂度保证」时，这句话给了你一个诚实而不示弱的答法的范本</b>：<span class='w'>承认最坏情况的界不实用，同时指出那不是你的方法的缺陷、而是问题本身的下界</span>。<b>⚠ 当然前提是你真的算过那个界——不能只借措辞不做功课。</b><br><b>第二条是引文本身：MCTS / UCT 出自 Coulom (2006) 与 Kocsis &amp; Szepesvári (2006)。</b> <span class='k'>我在 CSE 541 L07 的主线卡里标过「讲义未点名，标准出处应是 Kocsis &amp; Szepesvári 2006，引用前请自行核对」</span>——<b>现在核对到了，而且是 Sutton &amp; Barto 的文献注给的，可以当定论</b>。<b>那条标注的警告可以撤掉了。</b><br><b>而 E³ / R-max 那条思路本身也值得你记一下，因为它是你那个「悲观修正」的<b>反方向</b>。</b> <span class='w'>它们把「未充分探索的选择一律假定能拿最大奖励」推到极端，为的是<b>保证探索</b></span>；<b>而你要的是「未充分探索的配置一律按最差估」，为的是<b>保证上线安全</b></b>。<span class='k'>同一个「对未知处取极端值」的技巧，方向由目标决定：要探索就乐观，要交付就悲观</b>。<b>这个对照我在 CS234 L16.a p13 提过，这里有了两个具体的算法名字可以引。</b><br><b>最后一条是方法论上的：注意本章两处「同时独立提出」与「合并两个已有结果」的记载。</b> <span class='w'>优先遍历由两组人同时独立做出；RTDP 的定理是把 Korf 1990 与 Bertsekas 1982 拼起来的</span>。<b>这提醒你在写 related work 时，查清一个想法的<b>多个</b>来源——而你那个「节点级保真度指派」多半也不止一个源头。</b>",
+    "ref": "原书 8.3 / 8.11 节文献注（逐条核对）· CSE 541 L07 主线卡（此处解除了一处待核）· CS234 L16.a p13 科研格"
+   }
+  }
+ ],
+ "quiz": {
+  "26": [
+   {
+    "q": "书怎么定位 rollout 算法的目标？它为什么说这「更像异步值迭代的一步」而不是策略迭代的一步？",
+    "o": ["目标是降低方差；因为它平均了多条轨迹", "目标是找最优策略；因为它用了 max", "目标是估计 q*；因为它用蒙特卡洛", "目标是改进那个 rollout 策略、不是找最优策略；因为它只改当前这一个状态的动作，而策略迭代会在所有状态上改"],
+    "a": 3,
+    "why": "<b>这和 CS234 L16 p29 得出的「上限由 π 决定」是同一个结论，只是书把它直接写成了目标。</b><span class='k'>而经验上，rollout 策略完全随机时也可能表现很好——但表现取决于 rollout 策略的性质<b>和蒙特卡洛估值给出的动作排序</b>（是排序，不是估值准不准）。</span>"
+   },
+   {
+    "q": "Tesauro & Galperin 给的三个缓解办法里，第三个「剪枝」有两条判据。第二条是什么？为什么它特别有用？",
+    "o": ["剪掉访问次数最少的；因为数据不足", "剪掉「其值与当前最优足够接近、以致选它也没有实质差别」的；因为这是一个「何时可以停」的判据，而不只是「谁更好」的判据", "剪掉方差最大的；因为它们最不可靠", "剪掉耗时最长的；因为性价比低"],
+    "a": 1,
+    "why": "<b>两个动作值几乎相同时，继续花算力区分它们没有意义——不管选哪个结果都一样。</b><span class='w'>⚠ 而书也点出 ① 并行与 ③ 剪枝天然打架：剪枝要看已有结果，而并行的试验看到的是旧状态。</span>"
+   }
+  ],
+  "27": [
+   {
+    "q": "MCTS 相对 rollout 算法只多了一件事。是什么？",
+    "o": ["可以处理两人博弈", "把蒙特卡洛模拟得到的估值累积在一棵树上，用来逐步把后续模拟导向回报更高的轨迹 —— 没有这个累积它就退回成 rollout", "用了 UCB 代替随机", "用了神经网络估值"],
+    "a": 1,
+    "why": "成绩那句数字值得记：<b>MCTS 让计算机围棋从 2005 年的弱业余水平提升到 2015 年的大师级（6 段以上）</b>。<span class='k'>而书特意补了一句：它不限于博弈——只要有简单到能快速多步模拟的模型，单智能体序贯决策问题也适用。</span>"
+   },
+   {
+    "q": "MCTS 四步里的「回传」有一句最容易被漏掉的限定。是什么？为什么这样设计？",
+    "o": ["只回传正回报；因为负回报没信息", "树外由 rollout 策略走过的状态和动作一个值都不存；因为那段是固定而且通常很笨的策略选的，存了等于为一个你不打算采用的策略建表，而且那些状态多半只访问一次", "只回传到根节点；因为中间节点不重要", "回传时要加折扣；因为路径长度不同"],
+    "a": 1,
+    "why": "<b>书把这件事上升成了一个很好的说法</b>：MCTS 在<b>增量地长出一张查找表</b>，存一个<b>部分</b>动作值函数，内存只分给「高回报轨迹的起始段」上的 (s,a)——<span class='w'>于是它避开了全局逼近动作值函数这个难题，同时保留了用过去经验指导探索的好处。</span>"
+   },
+   {
+    "q": "MCTS 最后选根节点动作有两种机制。第二种是什么？理由是什么？",
+    "o": ["取访问次数最多的；为了避免选到离群值 —— 值最大的可能只是一次幸运高回报，访问最多的是全程最被看好的", "取最新更新的；为了用最近的信息", "取方差最小的；为了稳健", "随机选一个；为了保持探索"],
+    "a": 0,
+    "why": "<span class='k'>这是一个很实际的稳健性考虑，而且正是最大化偏差的一个廉价解药。</span>翻译到离线筛选上：最终汇报的配置，取「在自助重采样里当第一名次数最多」的，而不是「均值最大」的。"
+   }
+  ],
+  "30": [
+   {
+    "q": "本章小结把「学习」与「规划」的关系推到了最强的形式。那句话是什么？",
+    "o": ["学习是规划的近似", "它们「可能是同一个算法，只是作用在两种不同来源的经验上」—— 所以整合两者只要让它们更新同一个估计的值函数就行", "规划是学习的特例", "它们是互补的两类方法"],
+    "a": 1,
+    "why": "<b>不是「相似」，是「可能是同一个算法」。</b><span class='w'>而三者（规划、行动、学模型）循环互喂，书说「除此之外的任何交互既不被要求也不被禁止」，最自然的做法是异步并行；算力怎么分「几乎可以任意处理」。</span>"
+   },
+   {
+    "q": "本章的搜索控制策略可以按「聚焦方向」分成两类。分别是什么？",
+    "o": ["按值大小 / 按访问次数", "按深度 / 按宽度", "向后聚焦（优先遍历：聚焦在值刚变过的状态的前驱）与向前聚焦（同策略轨迹采样、RTDP、以及决策时规划：聚焦在可能真的会遇到的状态）", "按状态 / 按动作"],
+    "a": 2,
+    "why": "<b>而向前聚焦的最重要形式，书说就是在决策时做规划</b>——经典启发式搜索是一例，rollout 与 MCTS 是另外两例。<span class='k'>向前聚焦「可以让计算跳过那些与预测或控制问题无关的状态空间部分」。</span>"
+   }
+  ],
+  "32": [
+   {
+    "q": "图 8.11 的两条轴分别是什么？四个角各坐哪个方法？",
+    "o": ["横轴是时间、纵轴是空间；四角是 DP/TD/MC/Sarsa", "横轴是模型/无模型、纵轴是在线/离线；四角是四类算法", "横轴是同策略/离策略、纵轴是表格/逼近；四角是四种控制方法", "横轴是更新的宽度（样本 ↔ 期望），纵轴是更新的深度/自举程度（一步 ↔ 完整回报）；四角是 TD（浅样本）、蒙特卡洛（深样本）、动态规划（浅期望）、穷举搜索（深期望）"],
+    "a": 3,
+    "why": "<b>横轴还决定了「你需要什么」</b>：<span class='w'>期望更新要分布模型，样本更新只要样本模型、甚至可以完全无模型</span>。两轴之间全是连续的——左棱是 n 步与 λ-更新的谱，右棱中间是启发式搜索。"
+   },
+   {
+    "q": "p33 列的八个维度里，「更新的位置」那一条说了什么？",
+    "o": ["更新的位置应该随机选取", "无模型方法只能在实际遇到过的 (s,a) 里挑，而有模型方法可以任意挑 —— 这是模型最根本的那个自由度", "更新应该从值最大的状态开始", "更新的位置由折扣因子决定"],
+    "a": 1,
+    "why": "<span class='k'>有没有模型，决定的不是「准不准」，而是「你能不能挑在哪里更新」。</span>⚠ 而书自己点出这张图缺的最重要一条是<b>函数逼近</b>——第一篇的全部结论都建立在「表格」这个端点上。"
+   }
+  ],
+  "34": [
+   {
+    "q": "书怎么评价 E³ 与 R-max 这类有多项式时间保证的算法？",
+    "o": ["它们是目前最实用的方法", "保证在状态数与动作数的多项式时间内找到近最优解，而这「对实用算法通常太慢，但在最坏情况下多半已是能做到的最好」", "它们只适用于确定性环境", "它们的保证已被后来的工作推翻"],
+    "a": 1,
+    "why": "<b>后半句是关键：差距无法靠更聪明的算法消掉，因为那是问题本身的下界。</b><span class='k'>这和 CS234 L13 那个「PAC 保证要求初始值设到 10¹⁰⁰」是同一种模式：定理成立，常数不可用。</span>它们的思路是把乐观初始化推到极端。"
+   },
+   {
+    "q": "MCTS 的中心思想出自谁？这条为什么值得单独记？",
+    "o": ["Silver 等 2016；因为 AlphaGo", "Sutton & Barto 本人；因为是原创", "Coulom (2006) 与 Kocsis & Szepesvári (2006)；因为 CS234 与 CSE 541 的讲义都用了 UCT 却没给引文", "Tesauro 1997；因为 rollout"],
+    "a": 2,
+    "why": "综述见 Browne 等 (2012)。<span class='w'>书还提到这一节的想法与写法得到 David Silver 的贡献——而 CS234 L16 的课件署名也是「many slides from or derived from David Silver」，两边叙述如此一致，根子在这里。</span>"
+   }
+  ]
+ }
+}

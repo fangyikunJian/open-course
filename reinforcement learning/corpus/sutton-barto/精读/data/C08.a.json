@@ -1,0 +1,360 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "页码说明：本精读的页号是**切出来的 ch08.pdf 的页号**（1–36）。对应原书 PDF p181–216，书内页码 = 原书 PDF 页码 − 22。",
+  "⚠ 本章正文到 p30（8.12 本章小结）为止；p31–36 是 **Summary of Part I: Dimensions**，书签把它挂在第 8 章下，实为整个第一篇的总结。有意保留。",
+  "8.1 两种模型：**分布模型**（给出所有可能及其概率）vs **样本模型**（按概率抽出其中一个）。十二颗骰子之和是书里的例子。",
+  "原文：Distribution models are stronger than sample models in that they can always be used to produce samples. However, in many applications it is **much easier to obtain sample models**.",
+  "随机采样一步表格 Q-规划：① 随机选 S∈S、A∈A(S)；② 送进样本模型得 R, S'；③ 对 S,A,R,S' 做一步表格 Q 学习。收敛条件与 Q 学习对真实环境的收敛条件相同。",
+  "Dyna-Q 伪代码六步 (a)–(f)；**若去掉 (e)(f)，剩下的就是一步表格 Q 学习**。",
+  "⚠ Dyna-Q 的规划步**只从已经历过的 (s,a) 随机采样**，so the model is never queried with a pair about which it has no information。",
+  "例 8.1 Dyna 迷宫：**47 个状态**、4 个动作、γ=0.95、α=0.1、ε=0.1、30 次重复。第一幕对所有 n 都约 **1700 步**。",
+  "⇒ n=0（纯直接 RL）约 **25 幕**达到 ε-最优；n=5 约 **5 幕**；n=50 只要 **3 幕**。",
+  "例 8.2 阻塞迷宫：前 **1000 步**用右侧短路的环境，之后短路被堵、左侧开一条长路。",
+  "例 8.3 捷径迷宫：前 **3000 步**最优路在左侧，之后右侧开一条更短的路而不动原路。**普通 Dyna-Q 从未切换过去，而且从未意识到它存在**。",
+  "⚠ 原文（本章最该记住的一句）：Its model said that there was no shortcut, so **the more it planned, the less likely it was to step to the right and discover it**.",
+  "Dyna-Q+ 的探索加成：若某转移已有 τ 步没被真实试过、模型给的奖励是 r，则规划更新时**当作奖励是 r + κ√τ**（κ 为一个小量）。",
+  "⚠ 脚注：Dyna-Q+ 还改了两处 —— ① 规划步里允许考虑**从未试过**的动作；② 这类动作的初始模型设为「回到原状态、奖励 0」。",
+  "例 8.4 优先遍历（Peng &amp; Williams 1993）：迷宫上找到最优解的速度**常快 5 到 10 倍**；两者每次环境交互都至多做 n=5 次更新。",
+  "例 8.5 杆件操纵（Moore &amp; Atkeson 1993）：4 个动作、**14,400 个潜在状态**，书里说这个问题**对无优先级的方法多半太大了**。",
+  "优先遍历的队列判据：|R + γ max_a Q(S',a) − Q(S,A)| > θ 才入队，按这个量排优先级。"
+ ],
+ "notes": [
+  {
+   "r": [1, 2],
+   "t": "两种模型，和「规划」到底指什么",
+   "star": 3,
+   "quote": "<em>In this chapter we develop a <b>unified view</b> of reinforcement learning methods that <b>require a model</b> of the environment … and methods that can be used <b>without a model</b> …</em><br><em>Some models produce a description of all possibilities and their probabilities; these we call <b>distribution models</b>. Other models produce just one of the possibilities, sampled according to the probabilities; these we call <b>sample models</b>.</em><br><em><b>Distribution models are stronger</b> than sample models in that they can always be used to produce samples. However, in many applications it is <b>much easier to obtain sample models</b> than distribution models.</em><br><em>We use the term [planning] to refer to <b>any computational process that takes a model as input and produces or improves a policy</b>.</em>",
+   "one": "<b>模型分两种：给出全部可能及其概率的「分布模型」，和只抽一个出来的「样本模型」。前者更强，后者容易得多——而这个不对称决定了这一章后面的几乎所有取舍。</b>",
+   "pts": [
+    "<b>先把这一章的目标摆清楚：它要把「要模型的方法」和「不要模型的方法」合成一个视角。</b> <span class='k'>前者是动态规划、启发式搜索；后者是蒙特卡洛、时序差分</span>。<b>书里说「两者确实有真实的差别，但也有极大的相似性」</b>——<span class='w'>而相似性在于：两边的核心都是<b>计算值函数</b>，而且都是靠「看未来、算一个备份值、拿它当更新目标」。</b>",
+    "<b>分布模型与样本模型的区别，用十二颗骰子之和这个例子一下就清楚了。</b> <span class='k'><b>分布模型</b>：列出所有可能的和以及各自的概率；<b>样本模型</b>：按那个分布抽一个和出来</span>。<b>动态规划用的 <code>p(s′,r|s,a)</code> 是分布模型；第 5 章二十一点那个例子用的是样本模型。</b>",
+    "<b>而那句不对称的话是这一章的地基，值得逐字记</b>：<em>distribution models are <b>stronger</b> … however, in many applications it is <b>much easier</b> to obtain sample models</em>。<span class='w'>骰子的例子把这件事说得很具体：写个程序模拟掷骰子求和很容易，而把所有可能的和及其概率都算出来「更难、也更容易出错」</span>。",
+    "<b>把这个不对称的分量说透：它意味着「更强的工具往往拿不到」。</b> <span class='k'>你能写出模拟器的场合，远多于你能写出概率表的场合</span>。<b>所以后面 8.5 节要专门论证「样本更新在什么时候反而赢」——那一节其实是在为「只有样本模型」这个常态辩护</b>。",
+    "<b>「规划」这个词书里给了一个很宽的定义</b>：<em>any computational process that takes a <b>model</b> as input and produces or improves a <b>policy</b></em>。<span class='w'>注意它不要求「算出最优策略」，也不要求「穷举」</span>——<b>只要输入是模型、输出是更好的策略，就算规划。</b>",
+    "<b>书里顺带划了一条分界，知道一下就行：状态空间规划 vs 计划空间规划。</b> <span class='k'><b>状态空间规划</b>（本书走的这条）把规划看成在状态空间里搜一条最优路径；<b>计划空间规划</b>则在「计划」的空间里搜，算子把一个计划变成另一个计划</span>——<b>演化方法与「偏序规划」属于后者</b>。<span class='w'>书里明说后者「难以高效地用在随机序贯决策问题上」，于是不再考虑</span>。",
+    "<b>然后给出了这一章的两条核心主张，整章剩下的部分都在支撑它们</b>：<span class='k'>① <b>所有状态空间规划方法都把「算值函数」当成改进策略的关键中间步骤</b>；② <b>它们都是通过对<b>模拟经验</b>做更新/备份来算值函数的</b></span>。",
+    "<b>画成图就是：模型 → 模拟经验 → 备份 → 值 → 策略。</b> <span class='w'>而学习方法的图只差一处：它的经验来自环境而不是模型</span>。<b>这一处差别，就是这一章要反复揉开的那条缝。</b>",
+    "<b>动态规划显然符合这个结构，书里点明了怎么对应</b>：<span class='k'>DP 扫过状态空间，对每个状态生成所有可能转移的<b>分布</b>，用它算一个备份值，再更新该状态的估值</span>。<b>换句话说 DP 就是「用分布模型 + 期望更新 + 穷举顺序」的那一个特例。</b>"
+   ],
+   "eq": "两种模型（8.1）：\n   分布模型  给出**所有**可能的 (s′, r) 及其概率        例：DP 用的 p(s′,r|s,a)\n   样本模型  按那个分布**抽一个**出来                  例：第 5 章的二十一点\n\n   分布模型更**强**（总能拿来产生样本）\n   但样本模型**容易得多**（十二颗骰子：模拟容易，列全概率难且易错）\n   ⇒ 「更强的工具往往拿不到」 ⇒ 8.5 节要为「只有样本模型」辩护\n\n规划的定义（很宽）：\n   任何**以模型为输入、产出或改进策略**的计算过程\n   不要求最优，不要求穷举\n\n   状态空间规划（本书）：在状态空间里搜最优路径，值函数定义在状态上\n   计划空间规划：在「计划」的空间里搜，算子把一个计划变成另一个\n                （演化方法、偏序规划 —— 书里说难以高效用于随机序贯决策，不再考虑）\n\n本章的两条核心主张：\n   ① 所有状态空间规划都把**算值函数**当成改进策略的关键中间步骤\n   ② 它们都是靠对**模拟经验**做更新/备份来算值函数的\n\n   规划：  模型 ──▶ 模拟经验 ──▶ 备份 ──▶ 值 ──▶ 策略\n   学习：  环境 ──▶ 真实经验 ──▶ 备份 ──▶ 值 ──▶ 策略\n           └── 只差这一处：经验从哪来 ──┘",
+   "tbl": {
+    "head": ["", "分布模型", "样本模型"],
+    "rows": [
+     ["给出什么", "<b>所有可能 + 概率</b>", "<b>按概率抽出的一个</b>"],
+     ["谁在用", "动态规划（期望更新）", "蒙特卡洛 / TD（样本更新）"],
+     ["强弱", "<b>更强</b>（总能产生样本）", "较弱"],
+     ["好不好拿", "<span class='w'>难，而且容易出错</span>", "<b>容易得多</b>"],
+     ["骰子的例子", "列全所有和及其概率", "写个程序掷一次"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这个「分布 / 样本」的二分，正好把你那个 G 的两半切开——而且切得比我之前给的任何理由都更基本。</b><br><span class='k'><b>成本那一半你有分布模型</b></span>：给定一个配置，各节点调用哪个档位、大致多少 token，成本几乎是确定的、可以直接算出来（简报 §4e 的成本模型 R² &gt; 0.95）。<b>这是最强的那种模型——你甚至不需要采样，可以直接做期望更新。</b><br><span class='w'><b>准确率那一半你只有样本模型</b></span>：唯一能知道「这个配置在这条 query 上答对没有」的办法，就是真跑一次，拿回一个 0 或 1。<b>你没有、也不可能有 <code>p(答对 | 配置, query)</code> 这张表</b>——<span class='k'>如果你有，你就不需要那个 LLM 了</span>。<br><b>所以「拆成两半」又多了一条理由，而且是第八条</b>：<b>两半能拿到的<b>模型种类不同</b></b>，于是能用的更新方式不同（一边可以期望更新，一边只能样本更新）。<b>这比「量纲不同」「方差结构不同」都更根本，因为它决定了算法的形状而不只是统计量的选择。</b><br><b>而那条「分布模型更强但更难拿」的不对称，解释了你为什么不该试图去建准确率的分布模型。</b> <span class='w'>一个「预测某配置在某 query 上答对概率」的模型，本质上是在预测 LLM 的行为</span>——<b>这比原问题还难</b>。<b>正确的做法是接受它只是样本模型，然后按 8.5 节的分析去算「样本更新够不够用」。</b><br><b>⚠ 还有一条该现在就记下的：书里对「规划」的定义很宽——<b>任何以模型为输入、产出更好策略的计算过程</b>。</b> <span class='k'>按这个定义，你「用成本模型筛出预算内的候选配置」就是规划，不是什么别的东西</span>。<b>这给了你一个准确的词，而准确的词在写作里很值钱。</b>",
+    "ref": "原书 8.1 节（逐句核对）· 简报 §4e §4f（已核）· CS234 L16.a p6 科研格"
+   },
+   "link": {
+    "t": "你学过的对应：CS234 L16（「拟合一个模型就等于拥有一个模拟器」——那一讲的前半正是本节，而且补了一条本书没有的好处：奖励函数变了可以零样本重新规划）",
+    "href": "../../cs234-2019/中文精读/L16-精读.html"
+   }
+  },
+  {
+   "r": [3, 3],
+   "t": "规划与学习共享同一个内核",
+   "star": 3,
+   "quote": "<em>The heart of both learning and planning methods is the <b>estimation of value functions by backing-up update operations</b>. The difference is that whereas planning uses <b>simulated experience</b> generated by a model, learning methods use <b>real experience</b> generated by the environment.</em><br><em>In many cases <b>a learning algorithm can be substituted for the key update step of a planning method</b>. Learning methods require only experience as input, and in many cases they can be applied to simulated experience just as well as to real experience.</em><br><b>Random-sample one-step tabular Q-planning</b>: <em>Loop forever: 1. Select a state S and action A <b>at random</b>; 2. Send S, A to a <b>sample model</b>, obtain R and S′; 3. Apply <b>one-step tabular Q-learning</b> to S, A, R, S′.</em>",
+   "one": "<b>规划和学习的内核是同一个：靠备份操作去估值函数。唯一的区别是经验从模型来还是从环境来——于是任何学习算法都能当规划算法用。</b>",
+   "pts": [
+    "<b>这一页是全章最值钱的一个想法，而且它一句话就能说完</b>：<span class='k'>规划与学习用的是同一台机器，只是喂进去的经验来源不同</span>。<b>书里的措辞是「differing only in the source of their experience」。</b>",
+    "<b>推论一：任何学习算法都能变成规划算法。</b> <span class='w'>学习算法只要求输入是经验，而模拟经验也是经验</span>——<b>把 Q 学习喂上模型采出来的 <code>(S,A,R,S′)</code>，它就成了一个规划算法</b>。<span class='k'>这不是类比，是字面上的替换。</span>",
+    "<b>书里把这个替换做成了一个具体的算法，三行</b>：<b>随机采样一步表格 Q-规划</b>——① 随机选一个状态和动作；② 送进样本模型，拿回 <code>R</code> 和 <code>S′</code>；③ 对这组四元组做一步表格 Q 学习。<span class='w'>就这样循环下去</span>。",
+    "<b>而它的收敛性是「蹭」来的，这一点很漂亮</b>：<em>converges to the optimal policy <b>for the model</b> under the <b>same conditions</b> that one-step tabular Q-learning converges to the optimal policy <b>for the real environment</b></em>。<span class='k'>条件也照搬：每个 (s,a) 要被选到无穷多次，步长 α 要适当衰减</span>。<b>你不需要为规划算法重新证一遍收敛——证明是现成的。</b>",
+    "⚠️ <b>但要看清那句话里的「for the model」。</b> <span class='w'>它收敛到的是<b>模型</b>的最优策略，不是真实环境的最优策略</span>。<b>模型错了，它就精确地收敛到一个错的答案</b>——<span class='k'>而且收敛得又快又稳，一点也不会报警</span>。<b>这正是 8.3 节要处理的事。</b>",
+    "<b>推论二：所有状态空间规划方法的差别，只在三件事上。</b> 书里列得很清楚：<span class='w'><b>做哪种更新</b>、<b>按什么顺序做</b>、<b>备份出来的信息保留多久</b></span>。<b>这三条就是后面各节的纲</b>：<span class='k'>8.5 讲「哪种更新」（期望 vs 样本），8.4 与 8.6 讲「什么顺序」（优先遍历 / 轨迹采样），8.8 讲「保留多久」（背景规划 vs 决策时规划，后者算完就扔）</b>。",
+    "<b>这一页最后还抛出了本章的第二条主题，而它常被忽略：小步增量地规划。</b> <em>planning in <b>small, incremental steps</b> … enables planning to be <b>interrupted or redirected at any time</b> with little wasted computation</em>。<span class='w'>这是把规划和行动、模型学习混在一起的关键条件</span>——<b>大块的规划一旦被打断就全白费，小步的不会。</b>",
+    "<b>而书里补了一句更强的话，值得留意</b>：<em>planning in very small steps may be the <b>most efficient</b> approach <b>even on pure planning problems</b> if the problem is too large to be solved exactly</em>。<span class='k'>就算根本没有「行动」要穿插，小步规划也可能是最高效的</span>——<b>因为大问题上你本来就解不精确，那不如把算力花在最需要的地方。</b>"
+   ],
+   "eq": "同一台机器，两种经验：\n\n   学习：环境 ──▶ **真实**经验 ──┐\n                                 ├──▶ 备份更新 ──▶ 值函数 ──▶ 策略\n   规划：模型 ──▶ **模拟**经验 ──┘\n\n   ⇒ 任何学习算法都能当规划算法用（字面替换，不是类比）\n\n随机采样一步表格 Q-规划：\n   循环：① 随机选 S ∈ S, A ∈ A(S)\n         ② 送进**样本模型**，得 R, S′\n         ③ Q(S,A) ← Q(S,A) + α[ R + γ max_a Q(S′,a) − Q(S,A) ]\n\n   收敛性直接蹭 Q 学习的：条件相同（每个 (s,a) 无穷多次、α 适当衰减）\n   ⚠ 但它收敛到的是 **模型的** 最优策略，不是真实环境的\n      模型错了 ⇒ 精确收敛到一个错答案，又快又稳，不报警 ⇒ 8.3 节\n\n所有状态空间规划方法的差别只在三件事：\n   ① 做**哪种**更新        → 8.5 期望 vs 样本\n   ② 按**什么顺序**做      → 8.4 优先遍历 · 8.6 轨迹采样\n   ③ 备份信息**保留多久**  → 8.8 背景规划 vs 决策时规划（后者算完就扔）\n\n第二条主题：**小步增量**地规划\n   ⇒ 随时可被打断或改向，几乎不浪费算力（混合规划/行动/学模型的前提）\n   ⇒ 书里更强的一句：就算是**纯规划**问题，只要大到解不精确，小步也可能最高效",
+   "tbl": {
+    "head": ["差别在哪", "两端", "在哪一节讲"],
+    "rows": [
+     ["做哪种更新", "期望更新 ↔ 样本更新", "<b>8.5</b>"],
+     ["按什么顺序", "均匀撒点 ↔ <b>优先遍历 / 轨迹采样</b>", "<b>8.4 · 8.6</b>"],
+     ["保留多久", "一直留着 ↔ <b>算完就扔</b>", "<b>8.8</b>"],
+     ["经验从哪来", "真实环境（学习）↔ 模型（规划）", "<b>就这一处区别</b>"]
+    ]
+   }
+  },
+  {
+   "r": [4, 5],
+   "t": "Dyna：真实经验兵分两路",
+   "star": 3,
+   "quote": "<em>Within a planning agent, there are at least <b>two roles for real experience</b>: it can be used to <b>improve the model</b> … and it can be used to <b>directly improve the value function and policy</b> … The former we call <b>model-learning</b>, and the latter we call <b>direct reinforcement learning</b>.</em><br><em><b>Indirect methods often make fuller use of a limited amount of experience</b> and thus achieve a better policy with fewer environmental interactions. On the other hand, <b>direct methods are much simpler and are not affected by biases in the design of the model</b>.</em><br><em>We use the term <b>search control</b> to refer to the process that selects the starting states and actions for the simulated experiences.</em><br><em>The reinforcement learning method is thus the <b>“final common path”</b> for both learning and planning.</em>",
+   "one": "<b>一条真实经验有两个用处：更新模型，和直接更新值函数。Dyna 两个都做——而这两条路的优劣，正好是一场老辩论的两边。</b>",
+   "pts": [
+    "<b>Dyna 的全部结构就在那张四方框图里：经验、模型、值/策略、环境，加上四个箭头。</b> <span class='k'><b>直接 RL</b>：经验 → 值/策略；<b>模型学习</b>：经验 → 模型；<b>规划</b>：模型 → 值/策略；<b>行动</b>：策略 → 环境 → 新经验</span>。<b>书里特意点出：经验可以<b>直接</b>改进值函数，也可以<b>绕道模型</b>间接改进——后者就是规划。</b>",
+    "<b>而两条路各有各的强处，书里写得很平衡，值得逐条记。</b> <span class='w'><b>间接</b>：更充分地利用有限的经验，于是用更少的环境交互就能得到更好的策略</span>；<span class='w'><b>直接</b>：简单得多，而且<b>不受模型设计偏差的影响</b></span>。",
+    "<b>第二条里「不受模型设计偏差影响」这半句最要紧。</b> <span class='k'>直接法只看真实数据，模型建错了也伤不到它</span>；<b>而间接法的全部好处都押在「模型大体是对的」这个前提上</b>。<span class='w'>这正是 8.3 节整节在处理的风险。</span>",
+    "<b>书里接着说了一段很克制的话，而这个态度本身值得学。</b> <em>Some have argued that indirect methods are <b>always superior</b>… while others have argued that direct methods are responsible for most human and animal learning.</em> <b>而作者的立场是</b>：<em>the contrast between the alternatives in all these debates has been <b>exaggerated</b>, … more insight can be gained by recognizing the <b>similarities</b> between these two sides than by opposing them</em>。",
+    "<b>Dyna-Q 的三个零件都挑了最简单的版本，这是有意的。</b> <span class='k'>规划 = 上一页那个随机采样一步 Q-规划；直接 RL = 一步表格 Q 学习；模型学习 = 表格式，而且<b>假设环境是确定的</b></span>——<b>模型只记「上次从 (S,A) 出发得到了什么 R 和 S′」，再问就原样返回。</b>",
+    "⚠️ <b>而这里有一个极容易被漏掉、却很要紧的设计：规划时只从<b>经历过的</b> (s,a) 里采样。</b> <em>the Q-planning algorithm randomly samples only from state–action pairs that have <b>previously been experienced</b>, so <b>the model is never queried with a pair about which it has no information</b></em>。<span class='w'>模型从不被问到它一无所知的地方</span>。",
+    "<b>把这条的分量说透：它是一个免费的、结构性的护栏。</b> <span class='k'>模型最容易胡说八道的地方，正是它没见过的地方</span>；<b>而这个设计从源头上不让规划走到那里去</b>。<span class='w'>代价是完全放弃了泛化</span>——<b>表格模型本来也没有泛化可言，所以这个代价是零。换成函数逼近的模型，这条护栏就自动失效了，那时「模型被问到没见过的地方」会变成真问题。</b>",
+    "<b>书里给「选哪个 (s,a) 来模拟」这件事起了个名字：<b>搜索控制</b>（search control）。</b> <span class='k'>Dyna-Q 的搜索控制是最笨的——均匀随机</span>。<b>而 8.4 的优先遍历与 8.6 的轨迹采样，换的都只是搜索控制这一个零件</b>。",
+    "<b>最后那句话是这一节的点睛</b>：<em>the reinforcement learning method is the <b>final common path</b> for both learning and planning</em>。<span class='w'>真实经验和模拟经验最后都汇进同一个 Q 学习更新里</span>——<b>所以 Dyna 不是「两个系统拼在一起」，而是<b>一个</b>系统接了两个进料口。</b>"
+   ],
+   "eq": "Dyna 的四个箭头：\n                      ┌──▶ **模型学习** ──▶ 模型 ──▶ **规划** ──┐\n   经验 ──────────────┤                                          ├──▶ 值/策略 ──▶ 行动 ──▶ 环境 ──┐\n                      └──────────▶ **直接 RL** ──────────────────┘                                │\n        ▲                                                                                          │\n        └──────────────────────────────────────────────────────────────────────────────────────────┘\n\n两条路的优劣（书里写得很平衡）：\n   间接（绕道模型）：更充分利用有限经验 ⇒ 更少环境交互就得到更好策略\n   直接：           简单得多，而且 **不受模型设计偏差的影响**\n\nDyna-Q 的三个零件都挑最简单的：\n   规划     = 随机采样一步 Q-规划\n   直接 RL  = 一步表格 Q 学习\n   模型学习 = 表格式，**假设环境确定** —— 只记上次的 (R, S′)，再问原样返回\n\n⚠ 一个免费的护栏：规划**只从经历过的 (s,a) 采样**\n   ⇒ 模型从不被问到它一无所知的地方（模型最爱胡说的正是那里）\n   ⇒ 代价是放弃泛化，而表格模型本来就没有泛化 ⇒ 代价为零\n   ⚠ 换成函数逼近的模型，这条护栏自动失效\n\n搜索控制（search control）= 「选哪个 (s,a) 来模拟」\n   Dyna-Q：均匀随机（最笨）\n   8.4 优先遍历 / 8.6 轨迹采样：换的都只是这一个零件\n\n「最终共同通路」：真实经验与模拟经验最后汇进**同一个** Q 学习更新\n   ⇒ Dyna 不是两个系统拼起来，是一个系统接了两个进料口",
+   "tbl": {
+    "head": ["", "直接 RL", "间接（规划）"],
+    "rows": [
+     ["经验怎么用", "直接改值函数/策略", "<b>先改模型，再由模型改策略</b>"],
+     ["数据效率", "较低", "<b>更高</b>（更少交互就够）"],
+     ["简单吗", "<b>简单得多</b>", "多一层"],
+     ["受模型偏差影响吗", "<b>不受</b>", "<span class='w'>全部好处押在模型对不对上</span>"],
+     ["Dyna 的选择", "<b>两个都做</b>", "<b>两个都做</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「一条真实经验有两个用处」这句话，指出了你现在多半只用了一半。</b><br><span class='k'>你每跑一次 (query, 配置)，拿回的是一个 Acc 和一个 Cost</span>。<b>你现在用它做什么？大概率只做了<b>直接</b>那一路</b>——<span class='w'>把这个结果记进 oracle 表，用于估该配置的 G</span>。<b>而 Dyna 说还有第二路：用同一条经验去<b>改进成本模型</b></b>。<br><b>这两路的价值不同，值得分开算。</b> <span class='k'>直接那一路只对<b>这一个配置</b>有用</span>；<b>而改进成本模型那一路，对<b>所有</b>共享该节点的配置都有用</b>——<span class='w'>这正是书里说的「间接方法更充分地利用有限的经验」</span>。<b>你的经验贵（每条是美元），所以这条「一份经验两处用」的收益比在仿真环境里大得多。</b><br><b>具体该怎么做：每条真实观测都做两件事</b>——① 写进 oracle 表（直接）；② <b>把该配置各节点的实际 token 数与实际成本喂给成本模型做在线更新</b>（模型学习）。<span class='k'>第二件几乎不花钱（本地回归），却能让你对<b>没跑过</b>的配置的成本估计一起变准</b>。<br><b>⚠ 而那条「只从经历过的 (s,a) 采样」的护栏，你应该照抄，但要明确它在你这里的形状。</b> <span class='w'>Dyna 的表格模型没有泛化，所以这条护栏是免费的；而你的成本模型<b>是</b>函数逼近，它会对没见过的配置给出一个数</b>。<b>也就是说：这条护栏在你这里<b>默认是关的</b></b>。<span class='k'>要把它打开，就得自己加——比如「只在训练数据密度足够的区域里信任成本模型，密度不够就标为不可信或做悲观修正」</b>。<b>这和我在 CS234 L16.a p13 给的那条悲观修正是同一件事，而这一节解释了它为什么必要：表格模型白送的保护，函数逼近模型要自己花钱买。</b><br><b>最后，「不受模型设计偏差影响」这半句给了你一个该保留的对照组</b>：<span class='w'>报结果时，除了「用成本模型挑出来的配置」，也报一个「完全不用模型、只按实测 oracle 表挑」的版本</span>。<b>两者差多少，就是模型偏差的实测代价——而这个数审稿人一定想看。</b>",
+    "ref": "原书 8.2 节（逐句核对）· 简报 §4d §4e（已核）· CS234 L16.a p13 科研格"
+   }
+  },
+  {
+   "r": [6, 7],
+   "t": "Dyna-Q 的六行伪代码，和那个迷宫",
+   "star": 3,
+   "quote": "<b>Tabular Dyna-Q</b> — <em>(a) S ← current (nonterminal) state; (b) A ← ε-greedy(S,Q); (c) Take action A; observe R, S′; (d) Q(S,A) ← Q(S,A) + α[R + γ max<sub>a</sub>Q(S′,a) − Q(S,A)]; (e) Model(S,A) ← R, S′ (assuming deterministic environment); (f) Loop repeat <b>n</b> times: S ← random previously observed state; A ← random action previously taken in S; R, S′ ← Model(S,A); Q(S,A) ← Q(S,A) + α[…]</em><br><em><b>If (e) and (f) were omitted, the remaining algorithm would be one-step tabular Q-learning.</b></em><br><em>[Dyna Maze] The nonplanning agent took about <b>25 episodes</b> to reach (ε-)optimal performance, whereas the <b>n = 5</b> agent took about <b>five episodes</b>, and the <b>n = 50</b> agent took only <b>three episodes</b>.</em>",
+   "one": "<b>Dyna-Q 就是 Q 学习加两行：一行记模型，一行拿模型多算 n 次。而那两行把迷宫的学习从 25 幕压到 3 幕。</b>",
+   "pts": [
+    "<b>先看伪代码的结构，它比看起来还简单。</b> <span class='k'>(a)–(d) 完完全全就是一步表格 Q 学习</span>；<b>(e) 把刚发生的转移记进模型；(f) 从模型里随机挑 n 个经历过的 (s,a)，各做一次同样的 Q 更新</b>。<span class='w'>书里把这件事挑明了：去掉 (e)(f)，剩下的就是 Q 学习</span>。",
+    "<b>所以 Dyna-Q 的全部增量只有「记下来」和「多算 n 次」。</b> <span class='k'>而 n 是一个纯粹的算力旋钮</span>——<b>每次真实交互之后，你愿意多花多少本地计算</b>。<span class='w'>真实交互的次数一点没变。</span>",
+    "<b>迷宫实验的数字值得记死，因为它把「算力换数据」这件事量化了。</b> <span class='k'>47 个状态、4 个动作、γ=0.95、α=0.1、ε=0.1、30 次重复</span>。<b>第一幕对所有 n 都是约 1700 步</b>（<span class='w'>随机数种子固定，所以第一幕完全相同</span>）。<b>之后：n=0 要约 25 幕才到 ε-最优；n=5 约 5 幕；n=50 只要 3 幕。</b>",
+    "<b>注意这组对比的公平性：书里特意说 n=0 那个智能体的参数（α 和 ε）是<b>为它优化过</b>的。</b> <span class='k'>也就是说这不是「拿一个没调好的基线凑数」</span>——<b>调到最好，纯直接 RL 仍然慢一个数量级。</b>",
+    "<b>而图 8.3 解释了为什么差这么多，这个机制比数字更值得记。</b> <span class='w'>不规划时，<b>每一幕只给策略增加一步</b></span>——<b>因为只有紧挨着目标的那一步有非零值，信息每幕只能往回传一格</b>。<span class='k'>而规划时，第二幕里一张相当完整的策略已经铺开，几乎回到了起点</span>。<b>书里那句很形象：这张策略是在智能体还在起点附近晃悠的时候，由规划过程在后台建起来的。</b>",
+    "<b>把这件事翻译成一句可迁移的话</b>：<span class='w'>模型让你把<b>一次</b>真实经验的信息，传播到<b>很多</b>状态上去</span>。<b>没有模型，信息只能顺着你实际走过的路、以每幕一格的速度往回爬。</b>",
+    "⚠️ <b>但这个漂亮的结果有一个很强的前提，书里在后面才还账：模型是对的。</b> <span class='k'>这个迷宫里模型「从空白开始，填进去的全是完全正确的信息」</span>——<b>确定性环境、表格模型、没有泛化误差</b>。<span class='w'>现实中三条都不成立，而那正是下一节的题目。</span>",
+    "<b>还有一处值得留意：(f) 里挑的是「<b>随机</b>的、<b>经历过的</b>」(s,a)。</b> <b>「经历过的」是上一节说的那条护栏；「随机」则是最笨的搜索控制</b>——<span class='k'>而 8.4 一开头就会说，均匀随机通常不是最好的</span>。<b>这两个词各自对应后面的一节。</b>",
+    "<b>书里还留了一道值得想的练习（8.1）</b>：<span class='w'>不规划的方法在图 8.3 里显得特别差，是因为它是<b>一步</b>方法；第 7 章的多步自举方法会不会就能赶上 Dyna？</span><b>想一想这个问题，能帮你分清「多步」和「用模型重放」到底是不是一回事。</b>"
+   ],
+   "eq": "Tabular Dyna-Q（去掉 (e)(f) 就是一步表格 Q 学习）：\n   (a) S ← 当前非终止状态\n   (b) A ← ε-greedy(S, Q)\n   (c) 执行 A，观察 R, S′\n   (d) Q(S,A) ← Q(S,A) + α[ R + γ max_a Q(S′,a) − Q(S,A) ]      ← 直接 RL\n   (e) Model(S,A) ← R, S′                （假设环境确定）          ← 模型学习\n   (f) 重复 n 次：                                                ← 规划\n          S ← 随机挑一个**经历过的**状态\n          A ← 随机挑一个在 S 下**试过的**动作\n          R, S′ ← Model(S,A)\n          Q(S,A) ← Q(S,A) + α[ R + γ max_a Q(S′,a) − Q(S,A) ]\n\n   ⇒ 全部增量只有「记下来」+「多算 n 次」；真实交互次数**一点没变**\n   ⇒ n 是一个纯粹的**算力旋钮**\n\nDyna 迷宫（47 状态 · 4 动作 · γ=0.95 · α=0.1 · ε=0.1 · 30 次重复）：\n   第一幕对所有 n 都约 1700 步（种子固定）\n   n = 0  （纯直接 RL）  约 **25 幕** 到 ε-最优    ← 而且 α、ε 是**为它优化过**的\n   n = 5                  约 **5 幕**\n   n = 50                 只要 **3 幕**\n\n为什么差这么多（图 8.3）：\n   不规划：每一幕只给策略**增加一步**（信息每幕往回传一格）\n   规划：  第二幕里策略已几乎铺回起点 —— 在智能体还在起点附近晃悠时由后台建起\n   ⇒ 模型让**一次**经验的信息传播到**很多**状态上\n\n⚠ 前提：这个迷宫里模型「从空白开始，填进去的全是完全正确的信息」\n   确定性 + 表格 + 无泛化误差。现实三条都不成立 ⇒ 8.3 节",
+   "tbl": {
+    "head": ["n（每次真实交互后的规划步数）", "到 ε-最优要几幕", "真实交互次数", "本地算力"],
+    "rows": [
+     ["0（纯 Q 学习）", "<span class='w'>约 25 幕</span>", "基准", "最少"],
+     ["5", "<b>约 5 幕</b>", "<b>不变</b>", "×5"],
+     ["50", "<b>只要 3 幕</b>", "<b>不变</b>", "×50"],
+     ["⇒ 这是什么交易", "<b>拿本地算力换真实交互</b>", "—", "—"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>Dyna 这笔交易——拿本地算力换真实交互——正是你最需要的那笔，因为你的「真实交互」是用美元计价的。</b><br><span class='k'>迷宫实验里，n 从 0 加到 50，真实交互次数一点没变，而达到最优所需的幕数从 25 降到 3</span>。<b>翻译到你这里：每一次真实的 (query, 配置) 调用之后，你可以在本地用成本模型跑任意多次「模拟评估」，而这不花一分钱。</b><br><b>但要诚实地说清楚这笔交易在你这里只能做一半。</b> ⚠ <span class='w'>Dyna 的模拟能同时给出奖励和下一状态；而你的成本模型只能模拟<b>成本</b>那一半，准确率那一半模拟不了</span>。<b>所以你能免费重放的只有 G 的一个分量</b>。<span class='k'>这又回到 CS234 L16.a 那个「半个模拟器」的结论，而这一节让它变得可量化</span>：<b>你可以免费搜索「在成本约束下有哪些配置可行」，但「它们准确率如何」必须掏钱。</b><br><b>而图 8.3 那个机制对你有一个很具体的用法。</b> <span class='w'>不规划时信息每幕只往回传一格；规划让一次经验的信息传到很多状态</span>。<b>你的对应物是：跑一次「节点 3 用 7B」的配置，直接只告诉你那一个配置的 G</b>；<span class='k'>而如果你用它更新成本模型，那么<b>所有</b>含「节点 3 用 7B」的配置的成本估计都跟着变准</b>。<b>这就是「把一次经验传播出去」，而你现在多半没在做。</b><br><b>⚠ 最后一条警告，来自这个实验的前提。</b> <span class='w'>迷宫里模型填进去的「全是完全正确的信息」，所以 n 越大越好</span>。<b>而你的成本模型有误差，于是 n（本地模拟的强度）<b>不是</b>越大越好</b>——<span class='k'>模拟得越多，你就越被模型的错误牵着走</span>。<b>这不是我的猜测，正是下一节（8.3）整节的内容，而那一节里捷径迷宫那个例子会把这件事说到极致。</b>",
+    "ref": "原书 8.2 节与例 8.1（数字逐条核对）· CS234 L16.a p6 科研格 · 简报 §4e（已核）"
+   }
+  },
+  {
+   "r": [8, 9],
+   "t": "模型错了：乐观的错会自己暴露，悲观的错不会",
+   "star": 3,
+   "quote": "<em>In some cases, the suboptimal policy computed by planning quickly leads to the discovery and correction of the modeling error. This tends to happen when the model is <b>optimistic</b> … The planned policy attempts to exploit these opportunities and in doing so <b>discovers that they do not exist</b>.</em><br><em><b>Greater difficulties arise when the environment changes to become better than it was before</b>, and yet the formerly correct policy does not reveal the improvement. In these cases <b>the modeling error may not be detected for a long time, if ever</b>.</em><br><em>[Shortcut Maze] The regular Dyna-Q agent <b>never switched to the shortcut. In fact, it never realized that it existed.</b> Its model said that there was no shortcut, so <b>the more it planned, the less likely it was to step to the right and discover it</b>.</em>",
+   "one": "<b>模型往好里错，会被自己纠正；模型往坏里错，可能永远不会被发现——因为你照着它行动，就再也不会去那里看一眼。</b>",
+   "pts": [
+    "<b>先列清模型为什么会错，书里给了三条，而它们的性质很不一样。</b> <span class='k'>① 环境是随机的而你只看了有限样本；② 模型用了函数逼近，泛化得不好；③ <b>环境变了</b>，而新行为还没被观察到</span>。<b>前两条是估计问题，第三条是时间问题——而第三条最难办。</b>",
+    "<b>然后是这一节的核心洞见，而它的结构是不对称的。</b> <span class='w'><b>模型过于乐观</b>（预测的奖励或转移比实际更好）时，规划出来的策略会去<b>利用</b>这些机会，然后<b>发现它们不存在</b></span>——<b>错误因此很快被发现并纠正</b>。<span class='k'>乐观的错是自我暴露的。</span>",
+    "<b>阻塞迷宫（例 8.2）就是这一类，而且结果正如预期。</b> <span class='w'>前 1000 步右侧有一条短路；之后短路被堵、左侧开一条长路</span>。<b>两个智能体都在 1000 步内找到了短路；环境一变，曲线立刻变平（在障碍后面乱转、拿不到奖励），但过一阵子都找到了新开口。</b>",
+    "⚠️ <b>而反过来那一边是真正的麻烦，书里的措辞很重</b>：<em>greater difficulties arise when the environment changes to become <b>better</b> … the modeling error may <b>not be detected for a long time, if ever</b></em>。<span class='k'>环境变好了，而你那个「原本正确」的策略不会揭示这个改进。</span>",
+    "<b>捷径迷宫（例 8.3）把这件事演到了极致，这段话值得逐字记。</b> <span class='w'>前 3000 步最优路在左侧；之后右侧开了一条更短的路，<b>而原来那条路一点没动</b></span>。<b>结果：<em>The regular Dyna-Q agent <b>never switched to the shortcut. In fact, it never realized that it existed.</b></em></b>",
+    "<b>而原因那一句，是整章最该记住的一句话</b>：<em>Its model said that there was no shortcut, so <b>the more it planned, the less likely it was to step to the right and discover it</b>.</em> <span class='k'>规划得越多，发现它的可能性越小</span>——<b>这是一个正反馈，而方向是反的。</b>",
+    "<b>把这个正反馈的机制拆开看，它适用于任何「照着模型做决策」的系统。</b> <span class='k'>模型说 X 不好 → 规划据此把策略推离 X → 你再也不去 X → 没有新数据 → 模型关于 X 的判断永远不更新</span>。<b>注意每一步都是「正确」的：模型按它见过的数据推断没错，规划按模型优化也没错</b>——<span class='w'>错的是这个闭环没有留任何缺口让反例进来。</span>",
+    "<b>书里把它归到了一个熟悉的名目下，而这个归类很有启发</b>：<em>another version of the conflict between <b>exploration and exploitation</b>. In a planning context, <b>exploration means trying actions that improve the model</b>, whereas <b>exploitation means behaving in the optimal way given the current model</b>.</em>",
+    "<b>注意这组定义和老虎机那边不一样，别混。</b> <span class='k'>老虎机里探索是「试试别的臂看看奖励」；这里探索是「试试别的动作<b>来改进模型</b>」</span>——<b>目的从「拿奖励」变成了「修模型」</b>。<span class='w'>而 ε-贪心在捷径迷宫里不够用：书里说「即便用 ε-贪心策略，智能体要做出那么多探索动作才发现捷径，也是极不可能的」。</span>"
+   ],
+   "eq": "模型为什么会错（三条，性质不同）：\n   ① 环境随机 + 样本有限        估计问题\n   ② 用了函数逼近，泛化不好      估计问题\n   ③ **环境变了**，新行为还没被观察到    时间问题 ← 最难办\n\n核心的不对称：\n\n   模型**过于乐观**（预测比实际好）\n      ⇒ 规划去**利用**这些机会 ⇒ **发现它们不存在** ⇒ 很快自我纠正\n      例 8.2 阻塞迷宫：短路被堵，两个智能体都重新找到了新开口\n\n   模型**过于悲观**（环境其实变好了）\n      ⇒ 原本正确的策略**不会揭示**这个改进\n      ⇒ 错误「可能很久、甚至永远不会被发现」\n      例 8.3 捷径迷宫：Dyna-Q **从未切换，也从未意识到捷径存在**\n\n⚠ 本章最该记住的一句：\n   「它的模型说没有捷径，于是**它规划得越多，往右走去发现它的可能性就越小**」\n\n   这个反向正反馈，适用于任何「照模型做决策」的系统：\n      模型说 X 不好 ──▶ 规划把策略推离 X ──▶ 不再去 X ──▶ 没有新数据\n            ▲                                                    │\n            └────────── 模型关于 X 的判断永远不更新 ◀────────────┘\n   ⚠ 每一步都「正确」—— 错的是这个闭环没留缺口让反例进来\n\n归类（注意与老虎机的定义不同）：\n   老虎机：探索 = 试别的臂**看奖励**\n   规划里：探索 = 试别的动作**来改进模型**；利用 = 按当前模型最优地行动\n   ⚠ ε-贪心在捷径迷宫里不够用（要碰巧做出那么多探索动作，极不可能）",
+   "tbl": {
+    "head": ["模型错的方向", "会发生什么", "能自我纠正吗", "例子"],
+    "rows": [
+     ["<b>过于乐观</b>（以为更好）", "规划去利用 → <b>发现不存在</b>", "<b>能，而且快</b>", "阻塞迷宫（例 8.2）"],
+     ["<b>过于悲观</b>（实际变好了）", "策略绕开 → <b>再也不去看</b>", "<span class='w'>不能，可能永远不会</span>", "捷径迷宫（例 8.3）"],
+     ["⚠ 恶化机制", "<b>规划得越多，越发现不了</b>", "—", "<b>反向正反馈</b>"],
+     ["归到哪个名目", "探索 vs 利用", "—", "<b>但「探索」在这里指「改进模型」</b>"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>捷径迷宫那句话，是你那套「用成本模型挑配置」的做法最危险的失败模式，而且它在你的场景里比在迷宫里更容易发生。</b><br>原文：<em>Its model said that there was no shortcut, so <b>the more it planned, the less likely it was to step to the right and discover it</b>.</em><br><b>翻译到你这里</b>：<span class='k'>成本模型说「节点 3 用 72B 太贵」 → 你的筛选把含它的配置都排除 → 你再也不跑那些配置 → 成本模型关于它们的估计永远停在旧值</b>。<b>而「环境变好了」在 LLM 场景里不是罕见情形，是<b>常态</b></b>：<span class='w'>服务商降价、换了更快的推理后端、新版本模型同样质量下输出更短——每一样都会让某个配置悄悄变便宜，而你的模型不会知道。</span><br><b>⚠ 这比迷宫更糟的地方在于：迷宫里环境变化是一次性的，而 API 定价和模型版本是<b>持续</b>漂移的。</b> <span class='k'>所以这不是一个「跑一次实验」的问题，而是一个「结论会过期」的问题</span>——<b>而论文里的结论恰恰是写死的。</b><br><b>Dyna-Q+ 的修法可以直接照搬（下一页详述）</b>：<span class='w'>给每个 (节点, 档位) 记一个「上次<b>真实</b>测过是多久以前」的计数 τ，规划时给久未测过的加一个奖励加成</span>。<b>在你这里就是：定期重测那些长时间没碰过的配置，而且越久没测，越该优先重测。</b><br><b>而可以写进论文的是一条更保守、也更容易被接受的做法</b>：<span class='k'>明确报告 oracle 表的<b>采集时间窗</b>与当时的 API 价目，并声明结论绑定在那个窗口上</span>。<b>再加一个小实验：隔一段时间重测一个小子集，报告成本漂移了多少。</b><span class='w'>这个实验很便宜，却直接回应了「你的结论还成立吗」这个问题</span>——<b>而这正是本节说的那种「可能永远不会被发现」的错误唯一的解药：主动去看一眼。</b><br><b>⚠ 还有一条要分清：书里这里说的「探索」不是老虎机那个探索。</b> <span class='k'>这里探索的目的是<b>改进模型</b>，不是拿奖励</span>。<b>所以你那套「按信息价值分配预算」（CS234 L16 p47）管的是另一件事</b>：<span class='w'>那是「怎么在候选之间分配预算以尽快分出胜负」，而这里是「怎么分一点预算去验证那些你已经判了死刑的配置」</span>。<b>两者都要，而后者很容易被完全忘掉——因为按定义，它花在你认为不值得的地方。</b>",
+    "ref": "原书 8.3 节与例 8.2 / 例 8.3（逐句核对）· CS234 L16 p47 · 简报 §4e（已核）"
+   }
+  },
+  {
+   "r": [10, 10],
+   "t": "Dyna-Q+：给「很久没试过」发奖金",
+   "star": 2,
+   "quote": "<em>This agent keeps track for each state–action pair of <b>how many time steps have elapsed since the pair was last tried in a real interaction</b> with the environment. The more time that has elapsed, the greater … the chance that the dynamics of this pair has changed and that the model of it is incorrect.</em><br><em>if the modeled reward for a transition is r, and the transition has not been tried in <b>τ</b> time steps, then planning updates are done as if that transition produced a reward of <b>r + κ√τ</b>, for some small κ.</em><br><em>Of course all this testing has its cost, but in many cases … this kind of <b>computational curiosity</b> is well worth the extra exploration.</em>",
+   "one": "<b>修法很朴素：记住每个 (s,a) 多久没被真实试过，越久就在规划时给它加越多的虚拟奖励。</b>",
+   "pts": [
+    "<b>这个启发式的逻辑只有一句</b>：<span class='k'>距离上次真实试验的时间越长，这一对的动力学变过、而模型已经不对的可能性就越大</span>。<b>所以给它一点额外的吸引力，推着智能体回去看一眼。</b>",
+    "<b>形式是在<b>规划更新</b>里把奖励换成 <code>r + κ√τ</code></b>，<span class='w'>其中 τ 是「多少步没真实试过」，κ 是一个小常数</span>。<b>注意三件事</b>：<span class='k'>① 加的是<b>模拟</b>更新里的奖励，不是真实奖励；② τ 只在<b>真实</b>交互时清零，模拟多少次都不算；③ 用的是 <code>√τ</code> 不是 <code>τ</code></b>。",
+    "<b>第 ③ 点值得想一下：为什么是平方根？</b> <span class='w'>线性增长会让久未访问的地方很快压倒一切，智能体会疯狂地去巡检；而平方根让吸引力增长得温和</span>。<b>这和老虎机里 UCB 的 <code>√(ln n / n_a)</code> 是同一种「次线性增长」的直觉</b>——<span class='k'>不确定性要算进去，但不能让它主宰决策。</span>",
+    "<b>书里说这会鼓励智能体「<b>甚至去找出一长串动作</b>来完成这类测试」。</b> <span class='k'>因为加成是进规划的，而规划会把它沿着路径传播回来</span>——<b>于是「去那个很久没去的地方」本身成了一个有价值的目标，哪怕路很远。</b><span class='w'>这比 ε-贪心强的地方正在这里：ε-贪心只会随机走一步，而这个能规划出一整条「去巡检」的路线。</span>",
+    "⚠️ <b>脚注里还有两处改动，很容易漏，但它们对结果有实质影响。</b> <span class='k'>① 规划步 (f) 里<b>允许考虑从未试过的动作</b>（原版只从试过的里挑）；② 这类动作的初始模型设为「回到原状态、奖励 0」</b>。<b>也就是说 Dyna-Q+ 悄悄放弃了上一节那条「模型从不被问到没见过的地方」的护栏</b>——<span class='w'>它给没见过的地方编了一个保守的默认值，然后允许规划去那里。</span>",
+    "<b>书里对代价的表述很克制</b>：<em>all this testing has its cost, but in many cases … this kind of <b>computational curiosity</b> is well worth the extra exploration</em>。<span class='k'>「计算上的好奇心」这个说法很准</span>——<b>这是花算力和一点点真实行动，去买「我的模型还对不对」这个信息。</b>",
+    "<b>书里留的练习 8.2 值得想</b>：<span class='w'>为什么 Dyna-Q+ 在阻塞/捷径实验的<b>第一阶段</b>也更好？</span><b>（提示：第一阶段模型也是从空白开始的，而「久未试过」的加成会推着它更快地把地图填满。）</b> <b>练习 8.4 则问了一个更有意思的变体</b>：<span class='k'>把加成只用在<b>动作选择</b>里（选 <code>Q(S,a) + κ√τ(S,a)</code> 最大的），而不写进更新</span>——<b>那样加成就不会污染值估计，但也不会被规划传播。</b>"
+   ],
+   "eq": "Dyna-Q+ 的探索加成：\n   对每个 (s,a) 记 τ = 距上次**真实**试验过了多少步\n   规划更新时，把模型给的奖励 r 换成       **r + κ·sqrt(τ)**        κ 是一个小常数\n\n   ① 加的是**模拟**更新里的奖励，不是真实奖励\n   ② τ 只在**真实**交互时清零 —— 模拟多少次都不算\n   ③ 用 sqrt(τ) 不用 τ：线性会让巡检压倒一切；平方根温和\n      （同 UCB 的 sqrt(ln n / n_a)：不确定性要算，但不能主宰）\n\n   加成进了规划 ⇒ 会沿路径**传播**回来\n   ⇒ 能规划出一整条「去巡检」的路线（ε-贪心只会随机走一步）\n\n⚠ 脚注里还有两处改动（容易漏）：\n   ① 规划步允许考虑**从未试过**的动作（原版只从试过的里挑）\n   ② 这类动作的初始模型 = 「回到原状态、奖励 0」\n   ⇒ Dyna-Q+ 悄悄放弃了「模型从不被问到没见过的地方」那条护栏，\n     改成给没见过的地方编一个保守默认值\n\n书里的说法：这是一种**计算上的好奇心**（computational curiosity）\n   —— 花算力和一点真实行动，买「我的模型还对不对」这个信息",
+   "tbl": {
+    "head": ["", "ε-贪心", "Dyna-Q+ 的 κ√τ 加成"],
+    "rows": [
+     ["怎么促成探索", "随机走一步", "<b>把「久未试过」变成规划目标</b>"],
+     ["能走远吗", "<span class='w'>不能（每步独立随机）</span>", "<b>能，规划出整条巡检路线</b>"],
+     ["对准什么", "无差别", "<b>对准最可能过期的那些</b>"],
+     ["增长速度", "—", "<b>√τ（次线性，不主宰决策）</b>"],
+     ["⚠ 代价", "—", "<b>放弃了「不问没见过的」那条护栏</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了上一页那个问题一个可以直接实现的解，而且代价很容易算。</b><br><b>照搬的形式</b>：<span class='k'>给每个 (节点, 档位)——或者每个你关心的配置——记一个 τ = 距上次<b>真实</b>测量过了多久</span>（按天、或按已花的调用次数都行）。<b>定期拿出一小部分预算，优先重测 τ 最大的那些</b>。<span class='w'>这就是「计算上的好奇心」在你这里的形态，只不过你买的不是算力而是美元。</span><br><b>而 √τ 这个形状对你尤其合适，理由值得说。</b> <span class='k'>你真正担心的漂移（API 降价、模型换版）是<b>偶发</b>的，不是持续累积的</span>——<b>所以「越久没测越该测」是对的，但不该线性地越来越急迫</b>。<span class='w'>平方根正好给出这个温和的增长。</span><br><b>⚠ 但有一处必须改，否则会出错：τ 的时钟。</b> <span class='k'>书里 τ 按「时间步」计，而你的世界里「时间」有两个互不相同的尺度</span>——<b>① 你花掉的调用次数（实验进度）；② 真实的日历时间（API 定价与模型版本按它漂移）</b>。<span class='w'>这两个在迷宫里是同一个东西，在你这里不是</span>。<b>你的漂移主要由<b>日历时间</b>驱动，所以 τ 该按日历走</b>——<b>这意味着一个跑了三个月的实验，早期采的 oracle 表格子已经「旧」了，哪怕你中间一次都没动过它。</b><br><b>这给了论文一个很具体、也很容易做的实验</b>：<span class='k'>在投稿前，重测 oracle 表里最早采集的那一小批格子，报告成本与准确率各漂移了多少</span>。<b>漂移小，就证明了结论的时效性；漂移大，那本身就是一个值得报告的发现</b>——<span class='w'>「基于 LLM 成本的优化结论会随定价漂移而失效」是一个真实且有用的结论。</span><b>两种结果都能写，所以这个实验没有下行风险。</b><br><b>⚠ 最后那条脚注的教训也要接住：Dyna-Q+ 为了能去没见过的地方，放弃了「不问模型没见过的」那条护栏，改成给一个<b>保守</b>的默认值。</b> <span class='k'>你要做同样的事时，默认值的方向要选对</span>——<b>对「从没测过的配置」，成本应当按<b>上限</b>估（悲观），而不是按模型外推估。</b>",
+    "ref": "原书 8.3 节的 Dyna-Q+ 与脚注（逐句核对）· 简报 §4d §4e（已核）· CS234 L16.a p13 科研格"
+   }
+  },
+  {
+   "r": [11, 13],
+   "t": "优先遍历：从变化处倒着扫",
+   "star": 3,
+   "quote": "<em>In the Dyna agents … simulated transitions are started in state–action pairs selected <b>uniformly at random</b> … But a uniform selection is usually <b>not the best</b>.</em><br><em>In general, we want to work back not just from goal states but <b>from any state whose value has changed</b> … This general idea might be termed <b>backward focusing</b> of planning computations.</em><br><em>A queue is maintained of every state–action pair whose estimated value would change nontrivially if updated, <b>prioritized by the size of the change</b>.</em><br><em>[Example 8.4] Prioritized sweeping has been found to dramatically increase the speed at which optimal solutions are found in maze tasks, <b>often by a factor of 5 to 10</b>.</em>",
+   "one": "<b>均匀随机地选模拟起点是浪费的。该做的是从「值刚变过」的地方倒着往回扫，而且按「变化有多大」排优先级。</b>",
+   "pts": [
+    "<b>先看浪费有多严重，书里用第一个迷宫的第二幕说明。</b> <span class='k'>第二幕开始时，只有「直接通向目标」的那一个 (s,a) 有正值，其余全是零</span>。<b>于是绝大多数转移上的更新都是「从一个零值状态到另一个零值状态」——<b>毫无作用</b></b>。<span class='w'>均匀随机采样要瞎碰很多次才撞上一个有用的。</span>",
+    "<b>而书里立刻把这个直觉从「目标状态」一般化了，这一步很关键。</b> <em>we do not really want to use any methods specific to the idea of “goal state” … we want to work back not just from goal states but <b>from any state whose value has changed</b></em>。<span class='k'>目标状态只是一个方便讲直觉的特例</span>——<b>真正的判据是「值变了」。</b>",
+    "<b>倒着扫的逻辑链很直白</b>：<span class='w'>某个状态的值变了 ⇒ 唯一有用的一步更新，是那些<b>直接通向</b>它的动作 ⇒ 更新完这些，它们的前驱状态的值可能又变了 ⇒ 继续往前</span>。<b>书里给这个叫<b>后向聚焦</b>（backward focusing）。</b>",
+    "<b>但「值变了的前驱」可能很多，所以还要排序——这就是「优先」二字。</b> <span class='k'>有些状态的值变了很多，有些只变了一点点；而变得多的那些，它们的前驱也更可能变得多</span>。<b>于是按「如果更新它，值会变多少」来排队</b>。",
+    "<b>算法的形状因此是一个优先队列，三条规则</b>：<span class='w'>① 算 <code>P = |R + γ max_a Q(S′,a) − Q(S,A)|</code>，<code>P &gt; θ</code> 才入队；② 每次取队首更新；③ 更新完，对它的<b>每一个前驱</b>算同样的 P，超过阈值就入队</b>。<b>同一对若已在队中，只保留优先级高的那个。</b>",
+    "<b>效果的数字值得记：迷宫上常快 5 到 10 倍</b>（例 8.4，Peng &amp; Williams 1993）。<span class='k'>而且对比是公平的——两边每次环境交互都至多做 n=5 次更新</span>。<b>图里还显示随着格子分辨率变大（状态数从 47 一路到 6016），优势一直保持。</b>",
+    "<b>例 8.5 那个杆件操纵的数字也值得记，因为它说明了这类方法的适用规模</b>：<span class='w'>4 个动作、<b>14,400 个潜在状态</b></span>，<b>而书里的评价是「这个问题对无优先级的方法多半太大了」</b>。",
+    "⚠️ <b>但书里紧接着给优先遍历泼了冷水，这段比方法本身更值得记。</b> <em>Prioritized sweeping is just one way of distributing computations … and <b>probably not the best way</b>.</em> <span class='k'>它的一个局限是<b>用期望更新</b>，而在随机环境里期望更新会把大量算力浪费在低概率转移上</b>。<b>下一节就要论证样本更新在这种时候反而赢。</b>",
+    "<b>书里还提了一个对偶的策略，和后面几节直接相关</b>：<span class='w'><b>前向聚焦</b>（forward focusing）——按「从当前策略下常访问的状态有多容易到达」来聚焦</span>。<b>书里说「接下来几节的方法把它推到了极端形式」</b>——<span class='k'>那就是轨迹采样（8.6）、RTDP（8.7）与决策时规划（8.8 起）</span>。<b>后向聚焦与前向聚焦，是这一章安排搜索控制的两条主轴。</b>"
+   ],
+   "eq": "为什么均匀随机是浪费的（第一个迷宫的第二幕）：\n   只有「直接通向目标」的那一个 (s,a) 有正值，其余全零\n   ⇒ 绝大多数更新是「零值状态 → 零值状态」，毫无作用\n\n后向聚焦（backward focusing）：\n   不是从「目标状态」倒推 —— 目标只是方便讲直觉的特例\n   真正的判据是「**值变了**」：\n      某状态值变了 ──▶ 只有**直接通向它**的动作值得更新\n                 ──▶ 更新完，它们的前驱可能又变了 ──▶ 继续往前\n\n优先遍历（确定性环境）：\n   P = | R + γ max_a Q(S′,a) − Q(S,A) |\n   P > θ 才入队，按 P 排优先级\n   取队首更新 ⇒ 对它的**每个前驱**算同样的 P ⇒ 超阈值就入队\n   （同一对已在队中则只保留优先级高的那个）\n\n效果：迷宫上常快 **5 到 10 倍**（两边都至多 n=5 次更新/交互，对比公平）\n       杆件操纵：4 动作 · **14,400 个潜在状态** —— 书说这对无优先级方法多半太大\n\n⚠ 书里自己泼的冷水：\n   「优先遍历只是分配算力的一种方式，而且**多半不是最好的那种**」\n   局限：它用**期望更新**，随机环境里会把大量算力浪费在低概率转移上 ⇒ 8.5 节\n\n两条主轴（这一章安排搜索控制的方式）：\n   **后向聚焦**：从值变了的地方倒推            ← 8.4\n   **前向聚焦**：从当前策略常访问的地方往前    ← 8.6 轨迹采样 / 8.7 RTDP / 8.8 决策时规划\n                （书说后面几节把它推到了极端形式）",
+   "tbl": {
+    "head": ["搜索控制（选哪个 (s,a) 来模拟）", "做法", "问题 / 效果"],
+    "rows": [
+     ["Dyna-Q", "<b>均匀随机</b>（经历过的里）", "<span class='w'>大量无效更新</span>"],
+     ["<b>优先遍历</b>", "<b>从值变了的地方倒推，按变化大小排队</b>", "<b>迷宫上快 5–10 倍</b>"],
+     ["⚠ 它的局限", "用期望更新", "<span class='w'>随机环境里浪费在低概率转移上</span>"],
+     ["前向聚焦", "从当前策略常去的地方往前", "<b>8.6 / 8.7 / 8.8 的方向</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>后向聚焦在你这里有一个非常具体的用法：成本模型一更新，哪些配置的估计需要重算？</b><br><span class='k'>书里的判据是「从<b>值变了</b>的地方倒推」</span>。<b>你的对应物很干净</b>：<span class='w'>当你用新观测更新了「节点 i 用档位 f」的成本估计，需要重算的不是全部 2^H 个配置，而只是<b>含这个 (i,f) 的那些</b></b>——<b>而且该按「这个节点在该配置总成本里占多大比重」排序</b>。<span class='k'>占比大的配置，估计变动大，最该重算；占比小的，变动可以忽略。</span><br><b>这就是优先队列里那个 P，只是换了一个量</b>：<span class='w'>P = |新估计 − 旧估计| × 该节点在该配置中的权重</span>。<b>超过阈值 θ 才重算。</b> <b>在 2^H 个配置上这能把重算量砍掉几个数量级，而且逻辑是有出处的、不是随手的工程优化。</b><br><b>而那条「前向聚焦」对你可能更重要，因为它才是你真正的处境。</b> <span class='k'>后向聚焦问的是「什么变了」，前向聚焦问的是「我实际会用到哪些」</span>。<b>你的留出集 query 分布决定了哪些配置会被真正考虑</b>——<span class='w'>而在 2^H 里，绝大多数配置是任何合理策略都不会选的（比如「全用 7B 但在最简单的那个节点上用 72B」）</span>。<b>把算力和调用预算集中在「从当前最优附近可达」的那一小片，就是前向聚焦</b>，<b>而这正是你那个一步偏离扫描在做的事。</b><span class='k'>换句话说：你的扫描已经是前向聚焦了，只是没有这个名字。</span><br><b>⚠ 而书里那句自我批评你也该接住：优先遍历用期望更新，所以在随机性强的地方浪费算力。</b> <span class='w'>你的准确率那一半随机性很强（同一配置同一 query 可能这次对、下次错）</span>——<b>所以对准确率做「期望更新」式的精细重算是不划算的</b>，<span class='k'>那一半该用样本、该靠多跑几条 query 来压方差</span>。<b>而成本那一半近乎确定，期望更新完全合适。两半又一次需要不同的处理方式。</b>",
+    "ref": "原书 8.4 节与例 8.4 / 例 8.5（逐句核对）· 简报 §4c §4e（已核）· CS234 L16.b p29 科研格"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "分布模型与样本模型的区别是什么？书里为什么强调这个区别？",
+    "o": ["前者用于规划后者用于学习；因为两者目标不同", "前者更准后者更快；因为要权衡精度", "前者给出所有可能及其概率，后者只按概率抽一个；分布模型更强（总能产生样本），但样本模型容易得多 —— 这个不对称决定了本章后面几乎所有取舍", "前者是表格后者是神经网络；因为表示方式不同"],
+    "a": 2,
+    "why": "十二颗骰子之和：写程序模拟掷一次很容易，把所有可能的和及其概率都算出来「更难、也更容易出错」。<span class='k'>「更强的工具往往拿不到」——所以 8.5 节要专门为「只有样本模型」辩护。</span>"
+   },
+   {
+    "q": "书里给「规划」下的定义是什么？",
+    "o": ["在树上做前瞻搜索", "任何以模型为输入、产出或改进策略的计算过程 —— 不要求最优，也不要求穷举", "用模拟数据训练神经网络", "用动态规划求解 MDP"],
+    "a": 1,
+    "why": "<b>这个定义很宽，而宽是有用的</b>：按它，「用成本模型筛出预算内的候选配置」就是规划。<span class='w'>书里还划了状态空间规划 vs 计划空间规划的分界，后者（演化方法、偏序规划）因「难以高效用于随机序贯决策」而不再考虑。</span>"
+   }
+  ],
+  "3": [
+   {
+    "q": "规划与学习的区别，按本章的说法只有一处。是哪一处？它的推论是什么？",
+    "o": ["规划更快；推论是优先用规划", "经验从模型来还是从环境来；推论是任何学习算法都能当规划算法用（字面替换，不是类比）", "规划用期望更新；推论是需要分布模型", "规划不需要值函数；推论是可以直接优化策略"],
+    "a": 1,
+    "why": "书里的措辞是 <em>differing only in the source of their experience</em>。<b>随机采样一步表格 Q-规划就是这个替换的实例，连收敛性都直接蹭 Q 学习的</b>——<span class='w'>⚠ 但它收敛到的是「模型的」最优策略，模型错了它会又快又稳地收敛到一个错答案。</span>"
+   },
+   {
+    "q": "按本章，所有状态空间规划方法的差别只在三件事上。是哪三件？",
+    "o": ["状态数、动作数、时域长度", "做哪种更新、按什么顺序做、备份信息保留多久", "用什么模型、用什么表示、用什么损失", "学习率、折扣因子、探索率"],
+    "a": 1,
+    "why": "<b>这三条就是后面各节的纲</b>：<span class='k'>8.5 讲「哪种更新」（期望 vs 样本）；8.4 与 8.6 讲「什么顺序」（优先遍历 / 轨迹采样）；8.8 讲「保留多久」（背景规划 vs 决策时规划，后者算完就扔）。</span>"
+   }
+  ],
+  "4": [
+   {
+    "q": "一条真实经验在 Dyna 里有两个用处。分别是什么？两条路各自的强处是什么？",
+    "o": ["训练与验证；分别保证拟合与泛化", "探索与利用；分别保证覆盖与收益", "改进模型（模型学习）与直接改进值函数/策略（直接 RL）；间接法更充分利用有限经验，直接法更简单且不受模型设计偏差影响", "更新 Q 与更新 π；分别对应评估与改进"],
+    "a": 2,
+    "why": "<b>「不受模型设计偏差影响」这半句最要紧</b>：直接法只看真实数据，模型建错了也伤不到它；<span class='w'>而间接法的全部好处都押在「模型大体是对的」这个前提上——这正是 8.3 节整节在处理的风险。</span>"
+   },
+   {
+    "q": "Dyna-Q 的规划步只从「经历过的」(s,a) 采样。这个设计起什么作用？它什么时候会失效？",
+    "o": ["保证收敛；步长不衰减时失效", "模型从不被问到它一无所知的地方（模型最爱胡说的正是那里）；换成函数逼近的模型时自动失效", "避免重复；动作空间连续时失效", "节省内存；状态太多时失效"],
+    "a": 1,
+    "why": "<b>这是一个免费的、结构性的护栏</b>，代价是放弃泛化——<span class='k'>而表格模型本来就没有泛化，所以代价为零</span>。<span class='w'>⚠ 函数逼近的模型会对没见过的地方给出一个数，于是这条护栏默认是关的，要自己加回来。</span>"
+   }
+  ],
+  "6": [
+   {
+    "q": "Dyna-Q 相对一步表格 Q 学习的全部增量是什么？",
+    "o": ["只有两行：(e) 把转移记进模型，(f) 从模型里多做 n 次同样的 Q 更新 —— 真实交互次数一点没变", "用了经验回放缓冲区", "换了更好的探索策略", "用了目标网络"],
+    "a": 0,
+    "why": "书里挑明了：<em>If (e) and (f) were omitted, the remaining algorithm would be one-step tabular Q-learning</em>。<b>所以 n 是一个纯粹的算力旋钮——拿本地计算换真实交互。</b>"
+   },
+   {
+    "q": "Dyna 迷宫实验里，n=0 / 5 / 50 分别要多少幕达到 ε-最优？这个对比公平吗？",
+    "o": ["25 / 5 / 3 幕；公平，因为 n=0 的 α 与 ε 是专门为它优化过的", "50 / 10 / 5 幕；不公平，因为参数只为 n=50 调过", "25 / 15 / 10 幕；不公平，因为种子不同", "10 / 5 / 3 幕；公平，因为用了相同参数"],
+    "a": 0,
+    "why": "第一幕对所有 n 都约 1700 步（种子固定）。<b>图 8.3 解释了差距的来源</b>：<span class='w'>不规划时每一幕只给策略增加一步（信息每幕往回传一格）；规划时第二幕策略已几乎铺回起点——而那是在智能体还在起点附近晃悠时由后台建起来的。</span>"
+   }
+  ],
+  "8": [
+   {
+    "q": "模型往「乐观」方向错和往「悲观」方向错，后果为什么完全不同？",
+    "o": ["乐观的错会被自我纠正（规划去利用它、发现它不存在）；悲观的错可能永远不会被发现，因为策略绕开了那里就再也不去看", "悲观的错更容易修，因为更保守", "两者一样，都靠探索解决", "乐观的错更严重，因为会高估收益"],
+    "a": 0,
+    "why": "阻塞迷宫（变坏）两个智能体都恢复了；<b>捷径迷宫（变好）普通 Dyna-Q 从未切换，而且从未意识到捷径存在</b>。<span class='k'>书里的原因那句是整章最该记住的一句。</span>"
+   },
+   {
+    "q": "捷径迷宫里那句解释原因的话是什么？它描述的机制是什么？",
+    "o": ["探索率太低，所以碰不到", "学习率太小，所以更新太慢", "「它的模型说没有捷径，于是它规划得越多，往右走去发现它的可能性就越小」—— 一个反向的正反馈：模型说 X 不好 → 策略推离 X → 不再去 X → 没有新数据 → 判断永不更新", "折扣因子太大，所以看不到远处"],
+    "a": 2,
+    "why": "<b>注意这个闭环里每一步都是「正确」的</b>——模型按见过的数据推断没错，规划按模型优化也没错。<span class='w'>错的是这个闭环没留任何缺口让反例进来。</span>"
+   },
+   {
+    "q": "书里把这个问题归到「探索与利用」名下。但这里的「探索」和老虎机里的不是一回事，区别在哪？",
+    "o": ["这里探索的目的是改进模型，不是拿奖励；老虎机里探索是试别的臂看奖励", "这里探索指增加模拟次数", "没有区别", "这里探索指增大 ε"],
+    "a": 0,
+    "why": "<span class='k'>目的从「拿奖励」变成了「修模型」。</span>而 ε-贪心在捷径迷宫里不够用——书里说要碰巧做出那么多探索动作才发现捷径，是极不可能的。"
+   }
+  ],
+  "10": [
+   {
+    "q": "Dyna-Q+ 的探索加成是什么形式？为什么用 √τ 而不是 τ？",
+    "o": ["r + κ√τ，τ 是距上次真实试验的步数；线性增长会让巡检压倒一切，平方根让吸引力温和增长（同 UCB 的次线性直觉）", "r + κτ；因为线性最简单", "r + κ/τ；因为越久越不重要", "r × κτ；因为要按比例放大"],
+    "a": 0,
+    "why": "三个细节：<span class='w'>加的是模拟更新里的奖励；τ 只在真实交互时清零；加成进了规划所以会沿路径传播</span>——<b>于是它能规划出一整条「去巡检」的路线，而 ε-贪心只会随机走一步。</b>"
+   },
+   {
+    "q": "脚注里 Dyna-Q+ 还改了两处，容易被漏掉。是什么？代价是什么？",
+    "o": ["改了采样分布和步长；代价是方差", "改了队列阈值和优先级；代价是内存", "规划步允许考虑从未试过的动作，且这类动作的初始模型设为「回到原状态、奖励 0」；代价是放弃了「模型从不被问到没见过的地方」那条护栏", "改了学习率和折扣因子；代价是要调参"],
+    "a": 2,
+    "why": "<b>注意它给没见过的地方编了一个<b>保守</b>的默认值，然后才允许规划去那里。</b><span class='k'>方向选对了——如果默认值是乐观的，就会退回到 8.3 节那个「模型利用」的毛病。</span>"
+   }
+  ],
+  "11": [
+   {
+    "q": "优先遍历的核心思路是什么？它比「从目标状态倒推」一般在哪？",
+    "o": ["按动作价值大小排序", "从起点正着扫，按距离排序", "按状态访问频率排序", "从任何「值变了」的状态倒着往回扫，并按「若更新则值会变多少」排优先级；目标状态只是一个方便讲直觉的特例"],
+    "a": 3,
+    "why": "第二幕开始时只有通向目标的那一个 (s,a) 有正值，<span class='w'>于是绝大多数更新是「零值状态 → 零值状态」，毫无作用</span>。<b>效果：迷宫上常快 5 到 10 倍，而且对比公平（两边都至多 n=5 次更新/交互）。</b>"
+   },
+   {
+    "q": "书里自己对优先遍历泼了什么冷水？",
+    "o": ["它需要知道前驱状态，实践中很难", "它只对确定性环境有效", "它「多半不是最好的那种」方式；局限是用期望更新，随机环境里会把大量算力浪费在低概率转移上", "它的队列会无限增长"],
+    "a": 2,
+    "why": "<b>下一节（8.5）就要论证样本更新在这种时候反而赢。</b><span class='k'>书里还提了对偶的「前向聚焦」——按「从当前策略常访问的状态有多容易到达」来聚焦，而 8.6/8.7/8.8 把它推到了极端形式。</span>"
+   }
+  ]
+ }
+}
