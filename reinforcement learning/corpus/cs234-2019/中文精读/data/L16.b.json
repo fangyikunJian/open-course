@@ -1,0 +1,358 @@
+{
+ "_目标": {"密度": 400, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p31 树的规模：(|S||A|)^H —— 每一步都要展开所有下一状态与所有下一动作",
+  "实录：围棋的 H「大概在 50 到 200 之间」⇒ 除非状态空间极小，穷举 expectimax 完全不可行",
+  "p36 UCT：Q(s,a,i) = 该节点该动作的回报平均 + c·sqrt( ln n(s) / n(s,a) )",
+  "⚠ 实录明确：UCT 里那个「奖励」是**从该节点起算的整条 rollout 的回报**，不是单步转移的奖励",
+  "p39 围棋的奖励：R_t = 0 对所有 t < T；R_T = 1 若黑胜、0 若白胜 ⇒ v_π(s) = P[黑胜 | s]，v*(s) = max_{π_B} min_{π_W} v_π(s)",
+  "p40（图）实录口述：对固定对手打出若干局，胜 2 负 2 ⇒ 当前局面的值 = 1/2",
+  "p37 围棋：至少 2500 年历史 · 通常 19×19（也有 13×13、9×9）· John McCarthy 列为宏伟挑战",
+  "⚠ p37 的 check your understanding 答案是**否**：围棋的规则与奖励结构都是**已知**的，难在搜索空间极大 —— 它不是「动力学未知」那类问题",
+  "⚠ p40、p42–p45 在 PDF 上只有标题，正文是图"
+ ],
+ "notes": [
+  {
+   "r": [23, 24],
+   "t": "模型不准怎么办：两个解法各只治一种病",
+   "star": 3,
+   "quote": "<b>Planning with an Inaccurate Model</b> — <em>Performance of model-based RL is <b>limited to optimal policy for the approximate MDP</b></em> · <em>i.e. Model-based RL is <b>only as good as the estimated model</b></em> · <em>When the model is inaccurate, planning process will compute a <b>sub-optimal policy</b></em><br><em><b>Solution 1</b>: when model is wrong, use model-free RL (<b>Does this solve the issue?</b>)</em><br><em><b>Solution 2</b>: reason explicitly about <b>model uncertainty</b> (see Lectures on Exploration / Exploitation)</em>",
+   "one": "<b>模型不准，规划出来的策略就只是「那个错模型里的最优策略」。两个解法都不是通解——它们各自只治一种「错」。</b>",
+   "pts": [
+    "<b>第一句话要读准：模型基 RL 的上限是「近似 MDP 的最优策略」。</b> <span class='k'>不是「真 MDP 的近似最优策略」</span>——<b>两者差得很远</b>。<span class='w'>你把近似 MDP 解到精确最优，得到的仍然可能是真世界里的糟策略</span>。<b>误差的来源在模型里，再多的规划算力也补不回来。</b>",
+    "<b>p23 把解法 1 后面那个括号留成了问句，而这是本页的教学设计</b>：<em>when model is wrong, use model-free RL（<b>Does this solve the issue?</b>）</em>。<span class='k'>答案在实录里，而且是「不一定」</span>。",
+    "<b>实录的答案值得逐字记，因为它把「错」分了类</b>：<em>it depends <b>why</b> your model is wrong. If your model is wrong because you've picked the <b>wrong parametric class</b> or because <b>the system is not Markov</b>, you're doing Q learning that's not gonna solve your problem <b>because Q learning also assumes the world is Markov</b></em>。<span class='w'>模型自由方法并不是「没有假设」——它只是把假设藏起来了</span>。<b>Q 学习同样假设马尔可夫，所以非马尔可夫这个病它也治不了。</b>",
+    "<b>解法 2 也只治一种病，而这一点实录说得同样明确。</b> <em>it deals with the fact that you might have <b>sampling estimation error</b>. But it's still making the basic assumption that <b>your model class is correct</b></em>。<span class='k'>对不确定性做推理（L13 的 β/√N）治的是「数据不够」</span>，<b>治不了「模型类选错」</b>：<span class='w'>你把世界建模成多项分布，数据少时参数估计会偏，加置信区间能对冲；但如果世界根本不是多项分布，所有的赌注都没了</span>（<em>all bets are off</em>）。",
+    "<b>所以这两页真正要教的是一个习惯</b>：<em>it's always good to know <b>what assumptions we're making</b> in our algorithms and then <b>what forms of uncertainty we're accounting for</b></em>。<span class='k'>这两个问题不是一个问题</span>——<b>「我考虑了不确定性」从不蕴含「我考虑了所有可能的错」。</b>",
+    "<b>接下来是本页最有价值的一条，而它完全来自实录：决策只需要两两比较。</b> <em>ultimately for your decisions, we only need to decide whether <code>V(s,a₁) &gt; V(s,a₂)</code>... So you might have a <b>really bad model and still end up with a good policy</b></em>。<span class='w'>模型的值估得准不准，和它排出来的序对不对，是两件事</span>。<b>一个处处偏高 0.3 的模型，排序完全正确，决策完全正确。</b>",
+    "<b>而她紧接着给了这件事的反面，也就是本页最精彩的那个例子——而它有一个很重要的前提。</b> <span class='k'>前提是：<b>完美</b>的模型加<b>完美</b>的参数估计，足以做出好决策</span>（<em>that is sufficient to make good decisions</em>）。<b>问题出在数据受限或表达能力受限的时候</b>：<em>a model that has <b>higher predictive accuracy</b> can in fact be <b>worse</b> when you use it to make decisions</em>。",
+    "<b>泡茶的例子把机制讲透了。</b> <span class='w'>你要给厨房建模：有蒸汽、窗外是不是日落、水的温度……而要成功泡茶，你唯一需要关心的特征是「水温超过 100 度」</span>。<b>但如果你只是去拟合最大似然模型，你会花掉全部的表达能力去建模日落和蒸汽</b>——<span class='k'>于是预测精度更高的那个模型，反而没抓住做决策需要的那个特征</span>。<b>她说这是几年前做智能辅导系统时撞上的，别人也独立撞上过。</b>",
+    "<b>把这个例子和「只需要两两比较」放在一起，结论就很清楚了</b>：<span class='k'>预测精度与决策质量之间没有单调关系，而且<b>两个方向都可能</b></span>——<b>很差的模型可能给出完美决策（只要序对）；很准的模型可能给出糟糕决策（如果精度花在了无关特征上）</b>。<b>所以唯一可信的检验是端到端的：看它挑出来的东西好不好。</b>",
+    "<b>最后补一条实录里的相关取舍，它解释了「模型为什么会错」的另一半。</b> <span class='w'>如果不想要马尔可夫假设，可以把整个历史当状态——那样假设永远成立，但数据会少到估不出转移</span>。<b>这是<b>函数近似误差</b>与<b>样本估计误差</b>的取舍</b>：<span class='k'>模型表达力不够是一种错，数据不够是另一种错，而你总得在两者之间选</span>。<b>上面那两个解法各对应其中一种。</b>"
+   ],
+   "eq": "模型基 RL 的上限 = **近似 MDP 的最优策略**\n            （不是「真 MDP 的近似最优策略」—— 两者差得很远）\n\n两个解法，各治一种病：\n  解法 1  模型错就改用模型自由 RL\n          ⚠ 治不了：参数类选错 / 系统非马尔可夫\n            （因为 Q 学习**同样**假设马尔可夫 —— 模型自由不是「无假设」）\n  解法 2  对模型不确定性做推理（L13 的 β/√N）\n          ⚠ 只治**样本估计误差**，仍然假设**模型类是对的**\n            世界根本不是那个分布族 ⇒ all bets are off\n\n两种「错」的取舍（实录）：\n   条件在整个历史上  ⇒ 马尔可夫永远成立，但数据少到估不出来\n   条件在压缩的状态上 ⇒ 数据够，但可能不是马尔可夫\n   = 函数近似误差  vs  样本估计误差\n\n预测精度 与 决策质量：**没有单调关系，两个方向都可能**\n   很差的模型 → 完美决策     只要 V(s,a1) > V(s,a2) 的序对了\n   很准的模型 → 糟糕决策     精度花在无关特征上（泡茶：日落、蒸汽 vs 水温>100）\n   ⚠ 前提：**完美**模型 + **完美**参数估计 **是**足够的；\n     问题只出在数据受限或表达力受限时\n  ⇒ 唯一可信的检验是端到端的：看它挑出来的东西好不好",
+   "tbl": {
+    "head": ["「模型错了」的种类", "解法 1（改用模型自由）", "解法 2（算不确定性）"],
+    "rows": [
+     ["数据不够，参数估偏", "<span class='w'>不治</span>", "<b>治</b>"],
+     ["参数类 / 分布族选错", "<span class='w'>不治</span>", "<span class='w'>不治</span>"],
+     ["系统不是马尔可夫", "<span class='w'>不治</span>（Q 学习也假设马尔可夫）", "<span class='w'>不治</span>"],
+     ["表达力花在无关特征上", "<span class='w'>不治</span>", "<span class='w'>不治</span>"],
+     ["<b>该问的两个问题</b>", "<b>我做了什么假设</b>", "<b>我把哪种不确定性算进去了</b>"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这两页把 L13 p26 那条缝补完了，而且补的方式比我原来给的检查更锐利。</b><br>L13 p26 只说「按预测损失优化不一定最适合规划」；<span class='k'>这里给了<b>前提</b>、<b>机制</b>和<b>正确的检验</b></span>。<br><b>前提</b>：<span class='w'>完美模型 + 完美参数估计<b>是</b>足够的</span>。<b>所以「R² 高不等于决策好」不是一个总成立的命题</b>——<b>它需要数据受限或表达力受限</b>。你的成本模型 R² &gt; 0.95 且训练数据来自穷举表，<span class='k'>所以它离「完美」比大多数场景都近，这条风险对你是偏小的</span>。<b>先说这一句，是因为我在 L13 那里把它讲得过于危险了。</b><br><b>机制</b>：泡茶的例子说的是<b>表达力被无关特征吃掉</b>。<span class='w'>翻译到你这里：如果成本模型的输入里塞了很多与成本无关的 query 特征（主题、长度、领域），而成本其实主要由「调用了哪些档位、各输出多少 token」决定</span>，<b>那么模型会把容量花在拟合 query 特征上，而那部分恰好不影响配置之间的排序</b>。<b>可做的检查很直接：做一次特征消融——只用 (节点,档位) 和 token 数去预测成本，看 R² 掉多少、看挑出的配置变不变。</b><span class='k'>如果 R² 掉了但挑出的配置不变，那些 query 特征就是泡茶例子里的日落。</span><br><b>正确的检验</b>：<span class='w'>决策只需要两两比较 <code>V(s,a₁) &gt; V(s,a₂)</code></span>——<b>所以你该报的不是 R²，而是<b>成对排序准确率</b></b>：<span class='k'>随机取两个配置，模型说哪个成本低，真值同意的比例</span>。<b>这个数直接对应决策质量，而 R² 不对应</b>。更好的一步：<b>只在「真值差距小」的配置对上算这个数</b>——<span class='w'>差距大的对子谁都能排对，模型的价值全在难分的那些上</span>。<b>这是一个几行代码就能从现有 oracle 表上算出来的指标，而且它比 R² 有说服力得多。</b><br><b>⚠ 还有一条要接住：这两页说的「解法都不是通解」对你同样成立。</b> <span class='k'>你那条「数据少的格子把成本往高估」的保守修正（L16.a p13 科研格）属于解法 2，所以它只治样本估计误差</span>——<b>它治不了「成本模型的函数形式本来就不对」</b>。<b>后者只能靠实际跑一遍来发现，这又回到那张「预测 vs 真值」的散点图。</b><br>标【已核】：前提、机制、两两比较三条均为实录原话逐句核对；特征消融与成对排序指标是我据此设计的做法。",
+    "ref": "课件 p23–p24 · 实录 p23–p24（逐句核对）· L13 p26 · L16.a p13 科研格 · 简报 §4e（已核）"
+   }
+  },
+  {
+   "r": [25, 28],
+   "t": "前向搜索：只解「从现在开始」的那个子问题",
+   "star": 3,
+   "quote": "<b>Forward Search</b> — <em>Forward search algorithms select the best action by <b>lookahead</b></em> · <em>They build a search tree with the <b>current state s<sub>t</sub> at the root</b></em> · <em><b>No need to solve whole MDP, just sub-MDP starting from now</b></em><br><b>Simulation-Based Search</b> — <em>Forward search paradigm using sample-based planning</em> · <em>Simulate episodes of experience <b>from now</b> with the model</em> · <em>Apply model-free RL to simulated episodes</em><br><em>Monte-Carlo control → <b>Monte-Carlo search</b></em> · <em>Sarsa → <b>TD search</b></em>",
+   "one": "<b>不解整个 MDP，只解「从当前状态开始」的那个子 MDP。这一个限制，是后面所有做法的共同前提。</b>",
+   "pts": [
+    "<b>p26 第三行是整个后半讲的地基</b>：<em><b>No need to solve whole MDP, just sub-MDP starting from now</b></em>。<span class='k'>这正是 p12 那个伏笔的兑现</span>——<b>只要知道此刻该做什么，就不必算出整个值函数</b>。",
+    "<b>把这个限制省下的东西算一下，就知道它为什么关键。</b> <span class='w'>值迭代要对 |S| 个状态反复扫；而前向搜索只看从当前状态出发、H 步之内能到的那些状态</span>。<b>如果 H 小、或者从这里能到的地方不多，后者可能小得多</b>——<span class='k'>而且它完全不关心状态空间里那些你去不了的角落</span>。",
+    "<b>前向搜索怎么算，实录讲得很完整，这里按它还原【<b>补课</b>】（p26 在 PDF 上只有四行要点）。</b> <span class='k'>从当前状态出发，枚举所有动作；每个动作下枚举所有可能的下一状态；在每个下一状态上再枚举动作……展开 H 层后停</span>。<b>然后从叶子往回收</b>：<span class='w'>遇到动作节点取 <b>max</b>（选最好的动作），遇到状态节点取 <b>期望</b>（按模型给的转移概率加权）</span>。<b>这就是 expectimax。</b>",
+    "<b>回收的公式和贝尔曼备份是同一个东西，这一点她明确说了。</b> <code>V(a) = Σ<sub>s′</sub> P(s′|s,a)·V(s′)</code>，而 <code>V(s) = max<sub>a</sub> [ r(s,a) + V(a) ]</code>。<span class='k'>所以前向搜索不是一个新算法，它是贝尔曼备份在一棵展开的树上做一遍</span>。",
+    "⚠️ <b>而她立刻指出这是一种<b>低效</b>的动态规划，理由是本讲最该记住的一条结构性事实。</b> <em>why is it not so efficient? Because <b>there might be many states in here which are identical. And I'm not aliasing those</b>, I'm not treating them as identical</em>。<span class='w'>树里会出现大量相同的状态，而树不把它们合并</span>。",
+    "<b>把这件事说清楚：树和图的区别就在这里。</b> <span class='k'>动态规划在<b>状态</b>上做计算，同一个状态只算一次（它处理的是图）；前向搜索在<b>路径</b>上做计算，同一个状态经由不同路径到达就算多次（它处理的是树）</span>。<b>于是树的规模随 H 指数增长，而状态数不增长</b>——<b>这正是下一页那个 <code>(|S||A|)^H</code> 的来源。</b>",
+    "<b>那为什么还要用树？因为它换来了两样东西。</b> ① <span class='k'>只需要「从这里出发」的局部信息，不必覆盖整个状态空间</span>；② <b>只需要能采样的模型，不必能枚举状态</b>——<span class='w'>这对大状态空间是决定性的</span>。<b>用指数的深度换掉了对状态空间规模的依赖，这笔交易在 H 小而 |S| 巨大时非常值。</b>",
+    "<b>p27–p28 把这个框架再放松一步：别展开所有分支，只采一条轨迹。</b> <span class='k'>从当前状态出发，按某个模拟策略 π 选动作，从模型里采一个下一状态，继续，直到终止</span>。<b>这就得到一条完整的模拟轨迹和一个回报</b>。",
+    "<b>而一旦有了模拟轨迹，前十五讲的算法就全都能用上——p28 把对应关系列了出来。</b> <span class='w'>蒙特卡洛控制 → 蒙特卡洛搜索；Sarsa → TD 搜索</span>。<b>注意这个命名法里的规律</b>：<span class='k'>把一个学习算法搬到「模型采的、从当前状态出发的」数据上，就得到一个<b>搜索</b>算法</span>。<b>「学习」和「搜索」的区别不在算法，在数据从哪来。</b>",
+    "<b>这里要区分两个「采样」，否则后面会乱。</b> <span class='w'>p20 的采样式规划：从模型采数据，用来学一个<b>全局</b>的值函数或策略；p27 的基于模拟的搜索：从模型采数据，只为了决定<b>当下这一个</b>动作</span>。<b>同样的采样动作，目标不同</b>——<span class='k'>而后者算完就扔，下一步重新来</span>。"
+   ],
+   "eq": "前向搜索：以**当前状态**为根建树，只解「从现在开始」的子 MDP\n\n  回收的两种运算（= 贝尔曼备份在展开的树上做一遍）：\n     动作节点  ──▶  取 max        选最好的动作\n     状态节点  ──▶  取**期望**     按模型的转移概率加权\n  ⇒ 这叫 expectimax 树（两人零和博弈里换成 minimax）\n\n⚠ 为什么说它是「低效的动态规划」（实录）：\n     动态规划在**状态**上算 —— 同一状态只算一次（处理的是**图**）\n     前向搜索在**路径**上算 —— 同一状态经不同路径到达就算多次（处理的是**树**）\n  ⇒ 树的规模随 H 指数增长，而状态数不增长\n\n那为什么还用树？换来两样东西：\n  ① 只要「从这里出发」的局部信息，不必覆盖整个状态空间\n  ② 只要**能采样**的模型，不必能枚举状态\n  ⇒ 用指数的深度，换掉了对状态空间规模的依赖（H 小而 |S| 巨大时非常值）\n\n命名法：把学习算法搬到「模型采的、从当下出发的」数据上，就叫**搜索**\n   蒙特卡洛控制 -> 蒙特卡洛搜索      Sarsa -> TD 搜索\n   ⇒ 「学习」与「搜索」的区别不在算法，在数据从哪来\n\n⚠ 两个「采样」别混：\n   p20 采样式规划  从模型采数据 -> 学一个**全局**的值函数/策略\n   p27 模拟式搜索  从模型采数据 -> 只定**当下这一个**动作，算完就扔",
+   "tbl": {
+    "head": ["", "动态规划", "前向搜索（树）"],
+    "rows": [
+     ["在什么上做计算", "<b>状态</b>", "<b>路径</b>"],
+     ["相同状态", "<b>合并，只算一次</b>", "<span class='w'>不合并，算多次</span>"],
+     ["处理的是", "图", "<b>树</b>"],
+     ["规模", "随 |S| 增长", "<span class='w'>随 H 指数增长</span>"],
+     ["需要什么样的模型", "能枚举状态与概率", "<b>只要能采样</b>"],
+     ["什么时候划算", "|S| 小", "<b>H 小而 |S| 巨大</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「树不合并相同状态」这个选择，在你这里应该反过来——而知道课件为什么那样选，才能确信自己该这样选。</b><br><span class='k'>MCTS 不合并，理由是实现复杂度</span>（实录：<em>it becomes a lot more complicated for implementation if you wanted to treat it as a graph instead of a tree</em>），<b>而它付得起这个代价，因为围棋的状态几乎不重复</b>。<b>你的情形完全相反</b>：<span class='w'>决策点是 (节点编号, 保真度档位)，H×k 大约几十个，而且<b>高度重复</b></span>——<b>「节点 3 用 7B」在成千上万条 query 的轨迹里反复出现</b>。<b>合并它们，每个格子的样本量就乘上了 query 数；不合并，你就是在用几十个样本估一个本可以用几千个样本估的量。</b><span class='k'>所以你该当成图（表格）而不是树，而这和 L13 那条「你的格子数只有几十个，是真正的表格设定」是同一个结论，从另一个方向推出来的。</span><br><b>而「只解从现在开始的子问题」这个思路给了你一条还没用上的路。</b> <span class='w'>你现在的做法是选一个<b>全局</b>配置（或一个全局的指派策略），对所有 query 一视同仁</span>。<b>而这一页说的是另一种可能：对<b>每一条进来的 query</b>，当场做一次小搜索</b>——<span class='k'>在它自己的上下文里决定各节点的档位，算完就扔</span>。<b>两者的区别很实际</b>：<b>全局配置的优点是零推理开销、容易给保证；逐 query 搜索的优点是能利用这条 query 的具体信息</b>，<span class='w'>代价是每条 query 都要付搜索的成本，而「搜索」本身就要调 LLM——这比围棋里「在脑子里想」贵得多</span>。<br><b>⚠ 这条代价差异是本讲对你最重要的一处不对称，值得现在就记死。</b> <span class='k'>MCTS 的全部便宜建立在「模拟是免费的」上</span>：模型在本地跑，想多少次都行。<b>而你的「模拟」如果要真实调用 LLM，那就一次也不便宜</b>。<b>所以要把 MCTS 式的做法搬过来，前提是你有一个<b>不花 LLM 调用</b>的模拟器</b>——<span class='w'>成本那一半你有（成本模型），准确率那一半你没有</span>。<b>这又回到 L16.a 那个「半个模型」的结论，而它在这里变成了一个硬约束。</b><br>标【推断】：合并的论证与逐 query 搜索的取舍是我推的；格子规模与 oracle 表在简报里是【已核】。",
+    "ref": "课件 p26–p28 · 实录 p26（不合并相同状态，逐句核对）· L13 科研格 · L16.a p6 科研格 · 简报 §5（已核）"
+   }
+  },
+  {
+   "r": [29, 29],
+   "t": "简单蒙特卡洛搜索：恰好一步策略改进",
+   "star": 3,
+   "quote": "<b>Simple Monte-Carlo Search</b> — <em>Given a model M<sub>v</sub> and a <b>simulation policy π</b></em> · <em>For each action a ∈ A: simulate K episodes from current (real) state s<sub>t</sub></em> · <em>Evaluate actions by mean return: Q(s<sub>t</sub>,a) = (1/K)Σ G<sub>t</sub> → q<sub>π</sub>(s<sub>t</sub>,a)</em> · <em>Select current (real) action with maximum value: a<sub>t</sub> = argmax<sub>a</sub> Q(s<sub>t</sub>,a)</em><br><em><b>This is essentially doing 1 step of policy improvement</b></em>",
+   "one": "<b>对每个动作各采 K 条轨迹、取平均、挑最大。最后那行说得很准：这<b>恰好</b>是一步策略改进。</b>",
+   "pts": [
+    "<b>算法本身三行就讲完，但最后那行注释才是重点。</b> <span class='k'>对每个动作 a，从真实状态 <code>s_t</code> 出发、先走 a、之后一律按模拟策略 π 走到底，采 K 条，平均回报就是 <code>Q(s_t,a)</code></span>。<b>实录把这件事的画面说得很好</b>：<em>I'm really in state s_t, and then <b>in my brain</b>, I think about doing a₁, and then I do lots of roll outs from that under my policy π</em>。",
+    "<b>为什么「恰好一步策略改进」？因为这个 Q 的定义就是一步策略改进的定义。</b> <span class='w'><code>Q(s_t,a)</code> 估的是 <code>q_π(s_t,a)</code>——「先做 a，然后<b>一直按 π</b>」的值</span>；<b>而在它上面取 argmax，正是策略改进定理里那一步</b>。<span class='k'>多一步也没有，少一步也不行。</span>",
+    "<b>于是这个方法的上限立刻就定了，而这是本页最该记住的推论。</b> <span class='w'>它的好坏完全由模拟策略 π 决定</span>——<b>π 是随机策略，你就只比随机策略好一点点</b>；<b>π 是个高手，你就比高手好一点点</b>。<span class='k'>它不会自己变强，因为 π 在整个过程中一个字都没变。</span>",
+    "<b>这就直接提出了下一页那个问题</b>：<em>whether or not we can actually do better than one step of policy improvement, because <b>how do we get these simulation policies?</b></em> <span class='w'>一步改进听起来便宜，可它预设了你已经有一个不错的 π——而那正是你本来要解决的问题</span>。<b>循环就在这里：要一个好策略，先得有一个好策略。</b>",
+    "<b>把它和策略迭代对一下，关系就清楚了。</b> <span class='k'>策略迭代是「评估 → 改进 → 评估 → 改进」反复到收敛；这里只做了一轮，而且评估是靠采样做的</span>。<b>所以简单蒙特卡洛搜索 = 策略迭代的一轮，用模拟器代替解析求解</b>。<b>MCTS 要做的，就是在同一个计算预算内把这一轮变成多轮。</b>",
+    "<b>还有一个实现上的细节值得注意：K 条轨迹是<b>每个动作</b> K 条，总共 <code>|A|·K</code> 条。</b> <span class='w'>而这些预算是平均分配的——哪怕某个动作第一条轨迹就显示它糟得没救，它仍然会拿到剩下的 K−1 条</span>。<b>这个浪费正是 MCTS 要修的第一件事</b>：<span class='k'>把算力集中到看起来有希望的那些分支上</span>。",
+    "<b>最后一点容易忽略：这个方法只改进<b>当前这一个状态</b>的动作。</b> <span class='k'>它不产出策略，只产出一个动作</span>。<b>下一步到了新状态，整个过程从头再来</b>——<span class='w'>而且上一轮算出来的东西基本都扔掉了</span>。<b>这是「只解从现在开始的子问题」的代价，也是它能便宜的原因。</b>"
+   ],
+   "eq": "简单蒙特卡洛搜索：\n   for 每个动作 a:\n       从真实状态 s_t 出发，先走 a，之后一律按模拟策略 π 走到底，采 K 条\n       Q(s_t, a) = (1/K) Σ G_t   ──▶  q_π(s_t, a)\n   a_t = argmax_a Q(s_t, a)\n\n为什么「**恰好**一步策略改进」：\n   Q 估的是 q_π(s_t,a) = 「先做 a，然后**一直按 π**」\n   在它上面取 argmax = 策略改进定理里那一步。多一步没有，少一步不行。\n\n⇒ 上限由 π 决定：π 随机 ⇒ 只比随机好一点；π 是高手 ⇒ 只比高手好一点\n   它**不会自己变强**，因为 π 全程没变\n\n⇒ 循环：要一个好策略，先得有一个好策略  ← 下一页要破的就是这个\n\n两处浪费（MCTS 要修的）：\n  ① 预算平均分配：某动作第一条就显示没救，仍然拿到剩下的 K−1 条\n  ② 只产出**一个动作**，不产出策略；下一步从头再来，上一轮基本全扔",
+   "tbl": {
+    "head": ["", "简单蒙特卡洛搜索", "策略迭代"],
+    "rows": [
+     ["做几轮改进", "<b>恰好一轮</b>", "反复到收敛"],
+     ["评估怎么做", "<b>采样（模拟器）</b>", "解析求解 / 迭代"],
+     ["上限", "<span class='w'>由模拟策略 π 定</span>", "最优策略"],
+     ["产出", "<b>一个动作</b>", "一个策略"],
+     ["预算怎么分", "<span class='w'>各动作平均分</span>", "—"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页就是你那个「一步偏离扫描」的理论身份，而知道它叫什么，能让你准确说出它能做到什么、做不到什么。</b><br><span class='k'>你的扫描是：从 AFlow 搜出来的基线配置出发，每次只改<b>一个</b>节点的档位，看 G 怎么变</span>。<b>把 π 取成「基线配置」，这一页的算法就逐字变成你的扫描</b>：<span class='w'>先在一个节点上偏离（= 先做动作 a），其余节点一律按基线（= 之后按 π），测 G（= 采样估 q_π），挑最好的（= argmax）</span>。<b>所以你做的是<b>恰好一步策略改进</b>，而这个说法有出处、有定理、有已知的性质。</b><br><b>立刻得到两条可以写进论文的结论。</b> ① <b>保证</b>：<span class='k'>策略改进定理说，一步改进<b>不会变差</b></span>——<b>所以「扫描挑出来的配置不劣于 AFlow 基线」是有依据的，不是经验观察</b>（⚠ 前提是 G 估得准，而这就是置信下界那一节的事）。② <b>上限</b>：<span class='w'>一步改进的上限由基线决定</span>——<b>AFlow 基线差，扫描的结果也只能比它好一点</b>。<b>这正面回答了「为什么不直接搜整个 2^H 空间」：因为我们做的是有保证的一步改进，而不是无保证的全局搜索。</b><br><b>而这一页的「循环」也正是你的处境，说出来反而显得清醒</b>：<span class='k'>要一个好的指派策略，先得有一个好的基线</span>。<b>你的基线是 AFlow 给的，所以你站在它的肩膀上——这是优点，也是天花板。</b><br><b>⚠ 那两处浪费你都有，而第一处有现成的解法。</b> <span class='w'>预算平均分配：你给每个「一步偏离」的候选都跑同样多的 query</span>。<b>而按 L12 的做法，应该<b>逐步淘汰</b></b>——<span class='k'>某个偏离在前若干条 query 上已经明显更差，就不必跑完</span>。<b>这能把扫描的 LLM 调用省掉一大截，而且省下来的预算可以用在难分的那几对上</b>（接 p47 那条「该花算力在哪」）。<br><b>最后一条：要突破一步改进的上限，就得像 MCTS 那样做多轮——把这一轮挑出来的配置当新基线，再扫一遍。</b> <span class='w'>⚠ 但那时 L04 p42 的最大化偏差会累积</span>：<b>每一轮都在同一批数据上取 argmax，几轮之后虚高会很严重</b>。<b>多轮扫描必须每轮换一批 query，这是能不能做多轮的决定性条件。</b><br>标【推断】：身份对应与多轮的警告是我推的；一步偏离扫描与逐步淘汰在简报／L12 里是【已核】。",
+    "ref": "课件 p29 · 实录 p29 · 简报 §4c（已核）· L12（逐次淘汰）· L04 p42"
+   }
+  },
+  {
+   "r": [30, 31],
+   "t": "Expectimax 树：正确，但叶子数是 (|S||A|)^H",
+   "star": 2,
+   "quote": "<b>Expectimax Tree</b> — <em><b>Can we do better than 1 step of policy improvement?</b></em> · <em>If have a MDP model M<sub>v</sub>, can compute <b>optimal</b> q(s,a) values for current state by constructing an expectimax tree</em> · <em>Limitations: Size of tree scales as <b>(|S||A|)<sup>H</sup></b></em>",
+   "one": "<b>想突破一步改进，就把整棵树展开——这样算出来的是真正的最优值。代价是树的规模按 (|S||A|)^H 走。</b>",
+   "pts": [
+    "<b>这两页是同一帧的两次覆盖，而被盖住的恰好是答案：那个 <code>?</code> 揭晓成 <code>(|S||A|)^H</code>。</b> <span class='k'>先想清楚为什么是这个式子</span>：<b>每一层你要枚举所有动作（乘 |A|），对每个动作要枚举所有可能的下一状态（乘 |S|）</b>，<span class='w'>H 层下来就是 <code>(|S||A|)^H</code></span>。",
+    "<b>注意它和一步改进的关系：这是同一条路走到底。</b> <span class='k'>一步改进只展开一层（而且下一层用 π 代替枚举）；expectimax 展开全部 H 层、每层都取 max</span>。<b>于是它给出的是<b>近似模型下的真正最优</b> <code>q*</code>，不再依赖任何模拟策略</b>——<span class='w'>那个「循环」被破掉了</span>。<b>代价就是这个指数。</b>",
+    "<b>实录给了围棋的数字，把「不可行」变成具体的。</b> <em>if you think of something like AlphaGo, that are playing for a number of time steps before someone wins or loses, this <b>H might be somewhere between 50 to 200</b></em>。<span class='k'>H=50 时，哪怕 |S||A| 只有 2，叶子数也是 2^50</span>——<b>而围棋的 |S||A| 是天文数字。</b>",
+    "<b>她的结论下得很干脆</b>：<em>if you have anything larger than an extremely small state space like one, then this is <b>not gonna be feasible</b></em>。<span class='w'>「比 1 大一点」都不行</span>——<b>这不是「慢」，是根本做不动。</b>",
+    "<b>于是这两页其实是在把问题框死，而框死之后出路只有一条。</b> <span class='k'>一步改进：便宜，但上限由 π 定；全展开：最优，但指数不可行</span>。<b>两端都不可用，所以必须有中间地带</b>——<span class='w'>而「中间地带」的具体形状，就是下一页的 MCTS</span>。",
+    "<b>再补一句对这个指数的理解，它解释了 MCTS 为什么有机会。</b> <span class='k'>这个指数来自「<b>所有</b>动作 × <b>所有</b>下一状态」这两个「所有」</span>。<b>而其中大部分分支是没必要展开的</b>：<span class='w'>有些走法一眼就输，再往下算多少步都不会改变结论</span>。<b>指数增长是「无差别对待所有分支」的代价，不是问题本身的代价。</b>",
+    "<b>实录把这个判断说得很具体，而它就是 MCTS 的全部直觉</b>：<em>some of these might be clear <b>very early, with very little amounts of rollouts</b>, that these are ways you would <b>never</b> want to play Go, because you're going to immediately lose. And so then you don't need to bother continuing to spend a lot of computational effort fleshing out that tree</em>。"
+   ],
+   "eq": "Expectimax 树：展开全部 H 层，每层动作节点取 max、状态节点取期望\n   ⇒ 给出**近似模型下的真正最优** q*，不依赖任何模拟策略（「循环」被破掉）\n   ⇒ 代价：叶子数 **(|S||A|)^H**\n       每层：枚举所有动作（×|A|）× 枚举所有下一状态（×|S|）\n\n围棋的 H（实录）：**50 到 200**     而 |S||A| 是天文数字\n   ⇒ 她的结论：状态空间只要「比 1 大一点」就不可行\n\n两端都不可用：\n   一步改进      便宜，但上限由 π 定\n   全展开        最优，但指数不可行\n   ⇒ 必须有中间地带 = MCTS\n\n而指数来自两个「**所有**」：所有动作 × 所有下一状态\n   大部分分支没必要展开 —— 有些走法一眼就输，再算多少步也不改结论\n   ⇒ 指数增长是「无差别对待所有分支」的代价，不是问题本身的代价",
+   "tbl": {
+    "head": ["", "一步策略改进", "Expectimax 全展开"],
+    "rows": [
+     ["展开几层", "<b>一层</b>", "<b>全部 H 层</b>"],
+     ["下面怎么估", "按模拟策略 π 走到底", "<b>继续枚举并取 max</b>"],
+     ["算出来的是", "q<sub>π</sub>", "<b>q*（近似模型下）</b>"],
+     ["依赖 π 吗", "<span class='w'>完全依赖</span>", "<b>不依赖</b>"],
+     ["规模", "|A|·K 条轨迹", "<span class='w'>(|S||A|)<sup>H</sup></span>"]
+    ]
+   }
+  },
+  {
+   "r": [32, 33],
+   "t": "MCTS：故意长成偏的一棵树",
+   "star": 3,
+   "quote": "<b>Monte-Carlo Tree Search (MCTS)</b> — <em>Build a search tree rooted at the current state s<sub>t</sub></em> · <em><b>Iteratively</b> construct and update tree by performing K simulation episodes starting from the root state</em><br><em>Simulating an episode involves <b>two phases (in-tree, out-of-tree)</b></em> · <em><b>Tree policy</b>: pick actions for tree nodes to maximize Q(S,A)</em> · <em><b>Roll out policy</b>: e.g. pick actions <b>randomly</b>, or another policy</em><br><em>To evaluate node i at (s,a), <b>average over all rewards received from that node onwards</b> across simulated episodes in which this tree node was reached</em> · <em>Under mild conditions, converges to the optimal search tree, Q → q*</em>",
+   "one": "<b>不展开整棵树，而是反复从根出发采轨迹，让树在「看起来有希望」的方向上长得更深。树因此是偏的——而这正是设计目的。</b>",
+   "pts": [
+    "<b>核心机制一句话：反复从根出发采完整轨迹，每采一条就把树长出一点。</b> <span class='k'>第一条轨迹和基于模拟的搜索一模一样（只采一条路）；但第二条、第三条会落到不同的分支上，于是树慢慢被填出来</span>。<b>实录说了极限情形</b>：<em>in the limit, you will fill in the entire expectimax tree. It's just that <b>in practice you almost never will</b></em>。",
+    "<b>两个阶段的分工是本页最要紧的结构，要分清。</b> <span class='w'><b>树内</b>（in-tree）：已经有统计数据的节点，用<b>树策略</b>选动作——目标是最大化 Q，也就是往有希望的方向走</span>；<span class='w'><b>树外</b>（out-of-tree）：走到了一个没见过的节点，往下就没有统计可用了，改用<b>rollout 策略</b>——最朴素的版本就是<b>随机</b>走到底</span>。",
+    "<b>为什么要分成两段？因为两段解决的是两个不同的问题。</b> <span class='k'>树内的问题是「该把算力花在哪个分支」——这需要已有的统计；树外的问题是「这个新节点大概值多少」——这只需要一个粗糙但无偏的估计</span>。<b>随机 rollout 正好满足第二个要求：它很粗糙，但它不系统性地偏向谁。</b>",
+    "<b>p33 那个 Q 的定义要读仔细，它比看起来简单。</b> <span class='w'>节点 i 的值 = 所有经过 i 的模拟轨迹中，<b>从 i 往后</b>拿到的回报的平均</span>。<b>注意三件事</b>：<span class='k'>① 是「往后」，不含到达 i 之前的奖励；② 是简单平均，不是加权；③ 分母是 <code>N(i)</code>，这个节点被访问过的次数</b>。",
+    "⚠️ <b>而实录指出这个定义「应该让人觉得有点怪」，这句话值得停一下。</b> <em>This should seem a little bit weird, because <b>we're not talking about maxes anymore</b>, and we're not considering explicitly the expectation over states in a formal way, <b>we're just gonna average</b></em>。<span class='w'>expectimax 里明明是动作取 max、状态取期望，怎么这里全变成平均了？</span>",
+    "<b>她给的理由很精巧，是本讲最值得理解的一步。</b> <em>the reason why this is okay is because we're gonna <b>sample actions in a way such that over time, we're gonna sample actions that look better much more</b>, and so we expect that eventually the distribution of data is gonna converge to the true Q</em>。<span class='k'>max 没有消失，它被搬进了<b>采样分布</b>里</span>——<b>因为树策略越来越倾向于选最好的动作，所以「平均」自动逼近「最大」。</b>",
+    "<b>把这件事说得更清楚一点，因为它是 MCTS 全部优雅之处。</b> <span class='w'>如果采样是均匀的，平均就是期望，和 max 差很远</span>；<b>但如果采样概率随着「这个动作看起来多好」而集中，那么在极限下几乎所有样本都来自最好的那个动作，平均值就趋于最大值</b>。<span class='k'>于是你不需要在回收时显式取 max，采样过程已经替你做了</span>——<b>这也解释了为什么 p33 敢说「在温和条件下收敛到最优搜索树」。</b>",
+    "<b>另一个该记的点来自实录：k 条 rollout 用的策略是<b>各不相同</b>的，而且是故意的。</b> <em>generally, the policy will be <b>different for each of the k roll outs</b>, and that's <b>on purpose</b> so that you can hopefully get to a better policy</em>。<span class='w'>这是它和简单蒙特卡洛搜索的根本区别</span>：<b>后者固定 π、只做一步改进；前者每条轨迹都在用更新过的统计，所以能逐步变强。</b>",
+    "<b>最后两条实操细节，实录里顺带提到，但都挺重要。</b> ① <span class='k'>算完一步之后，<b>整棵树通常就扔掉</b></span>（<em>it may then throw that whole tree away</em>）——<b>下一个真实状态来了，从头建</b>；② <span class='w'>在线设定下还可以在每步之间<b>重新训练模型</b></span>，<b>然后用新模型重跑 MCTS</b>。<b>「学模型 → 规划 → 行动 → 收数据 → 再学模型」这个大回路，到这里才真正闭合。</b>"
+   ],
+   "eq": "MCTS：反复从根采完整轨迹，每条轨迹让树长出一点\n\n  两个阶段：\n    树内 in-tree    有统计数据 ──▶ **树策略**：最大化 Q，往有希望的方向走\n    树外 out-of-tree 没见过的节点 ──▶ **rollout 策略**：最朴素就是**随机**走到底\n    （两段解决两个问题：该把算力花在哪  vs  这个新节点大概值多少）\n\n  节点 i 的值 = 所有经过 i 的轨迹中，**从 i 往后**拿到的回报的**简单平均**\n       ① 往后，不含到达 i 之前的奖励   ② 简单平均   ③ 分母是 N(i)\n\n⚠ 「全是平均，max 哪去了？」——**max 被搬进了采样分布里**：\n     均匀采样      ⇒ 平均 = 期望，离 max 很远\n     集中采样      ⇒ 树策略越来越偏向最好的动作\n                    ⇒ 极限下几乎所有样本都来自最好的动作\n                    ⇒ 平均  自动趋于  最大\n   所以回收时不必显式取 max —— 采样过程已经替你做了\n   这也是 p33 敢说「温和条件下 Q -> q*」的根据\n\n与简单蒙特卡洛搜索的根本区别：\n   后者固定 π，只做一步改进\n   前者 k 条 rollout 各用**不同**的策略（故意的）⇒ 能逐步变强\n\n两条实操细节（实录）：\n   ① 算完一步，**整棵树通常扔掉**，下一个真实状态来了从头建\n   ② 在线设定下可在每步之间**重新训练模型**，再重跑 MCTS\n      ⇒ 「学模型 -> 规划 -> 行动 -> 收数据 -> 再学模型」到这里闭合",
+   "tbl": {
+    "head": ["", "树内（tree policy）", "树外（rollout policy）"],
+    "rows": [
+     ["什么时候用", "节点已有统计数据", "<b>走到没见过的节点之后</b>"],
+     ["目标", "<b>最大化 Q</b>（往有希望处走）", "给出一个粗糙的值估计"],
+     ["典型做法", "<b>UCT</b>（下一页）", "<b>随机</b>，或一个学好的策略"],
+     ["要解决的问题", "算力该花在哪个分支", "这个新节点大概值多少"],
+     ["对偏差的要求", "刻意偏向好动作", "<b>不系统性偏向谁</b>"]
+    ]
+   }
+  },
+  {
+   "r": [34, 36],
+   "t": "UCT：把每个节点当成一个独立的老虎机",
+   "star": 3,
+   "quote": "<b>Upper Confidence Tree (UCT) Search</b> — <em>How to select what action to take during a simulated episode?</em><br><em>UCT: borrow idea from <b>bandit literature</b> and treat <b>each node</b> where can select actions as a <b>multi-armed bandit</b> problem</em><br><em>Q(s,a,i) = (1/N(s,a,i))·Σ<sub>k</sub>Σ<sub>u</sub> 1(i∈epi.k)·G<sub>k</sub>(s,a,i) + c·√( ln n(s) / n(s,a) )</em><br><em>For simplicity can treat <b>each state node as a separate MAB</b></em> · <em>This implies that the policy used to simulate episodes <b>can change across each episode</b></em>",
+   "one": "<b>树策略就用 L12 那个 UCB：每个节点当成一个独立的老虎机，摇臂的回报是从这个节点起算的整条 rollout。</b>",
+   "pts": [
+    "<b>式子和 L12 的 UCB 一模一样，换的只是「臂」和「回报」的定义。</b> <span class='k'>臂 = 在这个节点可选的动作；回报 = <b>从这个节点起算的整条 rollout 的回报</b></span>。<b>实录把第二点点得很明确</b>：<em>what is the reward for this bandit? We are gonna treat it as essentially the <b>full roll out from that node</b></em>。",
+    "<b>这一点必须和 TD 区分开，否则会误解整个机制。</b> <em>It's <b>not like TD</b> in the sense that we're doing this <b>per node</b></em>。<span class='w'>TD 用的是「单步奖励 + 下一状态的估值」；UCT 用的是「这条路一直走到底拿到的回报」</span>。<b>所以 UCT 是蒙特卡洛式的——没有自举，也就没有自举带来的偏差</b>，<span class='k'>代价是方差大、而且必须走到终止才拿得到一个数</span>。",
+    "<b>那个 <code>c·√(ln n(s)/n(s,a))</code> 的作用和 L12 完全相同：没怎么试过的动作，加成大。</b> <span class='k'>于是树策略会在「现在看起来好」和「还不太了解」之间权衡</span>。<b>实录给的直觉是</b>：<em>if you had an <b>oracle</b> that could tell you what the optimal policy was, then you would <b>only need to fill in that part of the tree</b></em>——<span class='w'>没有先知，就用「目前看起来好」当代用品</span>。",
+    "<b>最后一行那句话的分量很容易被漏掉</b>：<em>the policy used to simulate episodes <b>can change across each episode</b></em>。<span class='k'>每采一条轨迹，计数就变了，于是下一条轨迹在同一个节点上可能选不同的动作</span>。<b>这正是上一页说的「k 条 rollout 的策略各不相同」的来源</b>——<b>策略不是被显式更新的，它是被<b>计数</b>隐式推着变的。</b>",
+    "⚠️ <b>而这里有一条实录才讲、而且是本讲最该记住的结构性事实：同一个 (s,a) 出现在树的不同位置，计数<b>不合并</b>。</b> <em>you might have s₁,a₁ appear in this part of the graph and s₁,a₁ appear over here, and <b>we're not combining their counts. We're treating every node as if it's totally distinct</b></em>。",
+    "<b>而她给的理由很诚实，也很重要：这不是因为合并不对，是因为合并麻烦。</b> <em>Even though often the model we'll be using to simulate <b>will be Markov</b>... it's mostly that <b>it becomes a lot more complicated for implementation</b> if you wanted to treat it as a graph instead of a tree</em>。<span class='w'>模型是马尔可夫的，所以合并在统计上是<b>合法</b>的、而且会让每个格子的样本量变大</span>——<b>放弃它纯粹是工程上的权衡。</b>",
+    "<b>把这个权衡的代价算清楚：不合并意味着你在浪费样本。</b> <span class='k'>同一个 <code>(s,a)</code> 在树里出现 m 次，每次各自从零开始积累统计，而本可以共享</span>。<b>在状态几乎不重复的问题上（围棋的局面），这个浪费接近于零；在状态高度重复的问题上，这个浪费是巨大的</b>——<span class='w'>而后者正是「该用图而不是树」的判据</span>。",
+    "<b>还有一条简化要注意：p36 说「为简单起见，可以把每个状态节点当成一个独立的老虎机」。</b> <span class='k'>「独立」在这里是一个明显不成立的假设</span>——<b>不同节点的值当然相关（它们在同一棵树上，共享下游结构）</b>。<span class='w'>而把它们当独立，就意味着 UCB 的那套遗憾界在这里并不严格适用</span>。<b>这是又一处「定理的前提没人遵守」，和 L13 p13 那个「只用前 m 个样本」是同一个模式。</b>",
+    "<b>最后，p34–p36 是同一帧的三次覆盖，这个顺序本身是教学设计</b>：<span class='k'>先只问「怎么选动作」，再说「借老虎机的想法」，最后才给式子</span>。<b>问题先于答案——而这个问题（在模拟里该怎么选动作）在 p47 会被重新拷问一遍，答案还会反转。</b>"
+   ],
+   "eq": "UCT = L12 的 UCB，换掉「臂」和「回报」的定义：\n\n   臂    = 在这个节点可选的动作\n   回报  = **从这个节点起算的整条 rollout 的回报**（不是单步奖励！）\n\n   Q(s,a,i) = (从 i 起算的 rollout 回报的平均)  +  c·sqrt( ln n(s) / n(s,a) )\n                                                 └ 没怎么试过的，加成大 ┘\n\n⚠ 与 TD 的区别：TD = 单步奖励 + 下一状态估值（有自举）\n                UCT = 走到底的整条回报（蒙特卡洛式，无自举）\n                ⇒ 无自举偏差，代价是方差大、必须走到终止\n\n⚠ 同一个 (s,a) 出现在树的不同位置，计数**不合并**（实录）\n   理由不是「合并不对」，而是「合并麻烦」：\n     模型是马尔可夫的 ⇒ 合并在统计上**合法**，而且会让样本量变大\n     放弃它纯粹是工程权衡\n   代价：同一 (s,a) 出现 m 次就各自从零积累统计\n     状态几乎不重复（围棋局面）⇒ 浪费 ≈ 0\n     状态高度重复            ⇒ 浪费巨大 ⇐ **该用图而不是树的判据**\n\n⚠ p36 那句「为简单起见，每个状态节点当成独立老虎机」：\n   「独立」明显不成立（同一棵树，共享下游结构）\n   ⇒ UCB 的遗憾界在这里并不严格适用（同 L13 p13「定理前提没人遵守」）",
+   "tbl": {
+    "head": ["", "L12 的 UCB（老虎机）", "UCT（树）"],
+    "rows": [
+     ["臂是什么", "一个动作", "<b>某节点上的一个动作</b>"],
+     ["回报是什么", "单次奖励", "<b>从该节点起算的整条 rollout</b>"],
+     ["加成项", "c·√(ln n / n<sub>a</sub>)", "<b>同一个式子</b>"],
+     ["臂之间独立吗", "是（假设）", "<span class='w'>不是，但当成是</span>"],
+     ["相同 (s,a) 合并计数吗", "—", "<span class='w'>不合并（工程权衡）</span>"],
+     ["有遗憾界吗", "<b>有</b>", "<span class='w'>前提不成立，不严格适用</span>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>UCT 里「臂是节点上的动作、而回报是整条 rollout」这个设定，和你的问题是逐项对应的——包括它最难的那一处。</b><br><span class='k'>你的臂 = (节点 i, 档位 f)；你的回报 = 整条 workflow 跑完的 <code>G</code></span>。<b>于是你面对的正是 UCT 面对的那个信用分配问题</b>：<span class='w'>一条 rollout 只给出一个数，而这个数是沿途<b>所有</b>节点的档位共同造成的</span>。<b>UCT 的解法是「不分配」——把整条回报同时记到路径上每个节点的账上，靠大量 rollout 让噪声平均掉。</b><br><b>这个解法对你成立吗？要分两半看，而答案不一样。</b> <span class='k'><b>成本那一半可以精确分配</b>：每个节点的调用成本是单独可测的，不需要靠平均去猜</span>。<span class='w'><b>准确率那一半不能</b>：它是终局的、整条链共同决定的，只能用 UCT 这种「整条回报记到每个节点」的办法</span>。<b>这是「拆成两半」的第七个理由，而且它第一次给出了<b>算法上</b>的差别而不只是统计上的</b>：<b>成本那一半用精确分摊，准确率那一半用 UCT 式的平均。</b><br><b>而「同一个 (s,a) 不合并计数」这条，你应该明确地反着做，理由这一页也给了。</b> <span class='k'>实录说得很清楚：模型是马尔可夫的，所以合并是<b>合法</b>的，放弃它只是因为实现麻烦</span>。<b>你的格子只有 H×k 几十个、而且每条 query 都会经过它们</b>——<span class='w'>合并之后每个格子的样本量乘以 query 数</span>。<b>所以你拿到的是 UCT 放弃掉的那份统计强度，而且几乎没有实现代价</b>（你的「树」只有 H 层、每层 k 个选择）。<b>写论文时这一句值得明说：我们把 MCTS 为工程便利而放弃的状态合并拿回来了，因为我们的决策空间小到可以查表。</b><br><b>⚠ 但要接住它的代价：合并等于断言「节点 i 的档位效果与路径无关」。</b> <span class='w'>如果前面节点用了 7B 导致输入质量下降，节点 i 用 72B 的边际收益可能完全不同</span>——<b>那就是节点间交互，合并会把它抹平</b>。<b>而这正好是 L16.a p18 那个可加性实验要测的东西</b>：<span class='k'>可加性成立 ⇒ 合并是对的；不成立 ⇒ 合并会系统性地偏，那时就该像 UCT 一样按路径分开记</span>。<b>两页指向同一个实验，而这个实验的结论决定了你该用表还是用树。</b><br>标【推断】：对应关系与合并的论证是我推的；节点级指派与格子规模在简报里是【已核】。",
+    "ref": "课件 p34–p36 · 实录 p36（回报是整条 rollout、不合并计数，逐句核对）· L16.a p18 科研格 · 简报 §4f §5（已核）"
+   }
+  },
+  {
+   "r": [37, 40],
+   "t": "围棋：规则是已知的，难在搜索空间",
+   "star": 2,
+   "quote": "<b>Case Study: the Game of Go</b> — <em>Go is <b>2500 years old</b> · Hardest classic board game · Grand challenge task (<b>John McCarthy</b>) · <b>Traditional game-tree search has failed in Go</b></em><br><em><b>Check your understanding</b>: does playing Go involve learning to make decisions in a world where <b>dynamics and reward model are unknown</b>?</em><br><b>Position Evaluation in Go</b> — <em>R<sub>t</sub> = 0 for all non-terminal steps t &lt; T · R<sub>T</sub> = 1 if Black wins, 0 if White wins</em> · <em>v<sub>π</sub>(s) = P[Black wins | S=s]</em> · <em>v*(s) = max<sub>π<sub>B</sub></sub> min<sub>π<sub>W</sub></sub> v<sub>π</sub>(s)</em>",
+   "one": "<b>p37 那个问题的答案是「否」——围棋的规则和奖励结构都是已知的。它难在搜索空间极大，不在动力学未知。</b>",
+   "pts": [
+    "⚠️ <b>p37 的 check your understanding 很容易答错，而答错会误解整个 AlphaGo 故事。</b> <span class='w'>实录的答案是否</span>：<em>this does <b>not</b> involve decision-making in the case where the dynamics and reward model are unknown, <b>but the rules of Go are known. The reward structure is known</b>, but it's an <b>incredibly large search space</b></em>。",
+    "<b>把这件事说清楚：围棋是一个<b>规划</b>问题，不是一个<b>学习</b>问题。</b> <span class='k'>你完全知道落子之后棋盘会变成什么样（转移是确定的、已知的），也完全知道终局怎么判（奖励已知）</span>。<b>所以这里一个「模型」都不用学</b>——<span class='w'>而本讲前半讲的全是怎么学模型</span>。<b>围棋用到的是本讲的后半：有了（给定的）模型之后怎么规划。</b>",
+    "<b>这个区分值得记牢，因为它影响你怎么读整个深度 RL 的成绩单。</b> <span class='k'>围棋的成功是「规划 + 搜索 + 函数近似」的成功，不是「从未知动力学中学习」的成功</span>。<b>而机器人、医疗、教育这些场景的难点恰恰在后者</b>——<span class='w'>所以「AlphaGo 都解决了，这个应该也行」这种推理是不成立的</span>。<b>两者难的地方不是同一个地方。</b>",
+    "<b>p37 还有一行值得注意</b>：<em><b>traditional game-tree search has failed in Go</b></em>。<span class='k'>而国际象棋恰恰是被传统树搜索（加剪枝、加人工评估函数）攻克的</span>。<b>区别在分支因子和「局面好坏难不难评」</b>：<span class='w'>围棋分支因子大一个量级，而且没人写得出好的手工评估函数</span>。<b>MCTS 正好绕开了第二个困难——它不需要评估函数，它用 rollout 的结果代替评估。</b>",
+    "<b>p39 的奖励设计是极端稀疏的，而这一点对理解自我对弈很关键。</b> <code>R_t = 0</code> 对所有非终止步；<code>R_T = 1</code> 黑胜、<code>0</code> 白胜。<span class='k'>于是整局棋只有最后一个数，中间几百步没有任何信号</span>。<b>实录强调这是「极其稀疏」的</b>：<b>你必须一路下完才知道谁赢了。</b>",
+    "<b>而值函数在这个设计下有一个特别漂亮的解释。</b> <code>v_π(s) = E[R_T|s] = P[黑胜|s]</code>——<span class='w'>因为奖励是 0/1，期望就等于概率</span>。<b>所以「这个局面值多少」字面上就是「黑方在这个局面下的胜率」</b>。<span class='k'>这个解释让值函数变得极其直观，也是围棋适合做这类研究的一个原因。</span>",
+    "<b>p39 最后一行把两人博弈的结构摆了出来</b>：<code>v*(s) = max<sub>π_B</sub> min<sub>π_W</sub> v_π(s)</code>。<span class='k'>黑方最大化、白方最小化</span>——<b>于是树从 expectimax 变成 <b>minimax</b></b>，<span class='w'>状态节点上取的不再是期望，而是对手的最小化</span>。<b>除此之外整套机制一个字不改。</b>",
+    "<b>还有一条实录提到的性质，解释了为什么围棋是有限时域</b>：<em>it's a finite game because there's a <b>finite number of places to put stones</b> on the board. So it's a <b>finite horizon</b></em>。<span class='k'>于是不需要折扣因子，H 是有界的（虽然 50–200 已经足够大了）</span>。",
+    "⚠️ <b>p40 在 PDF 上只有标题，内容是图。</b> 实录把它口述了，这里按口述还原【<b>补课</b>】：<span class='w'>从当前局面出发，对一个<b>固定</b>对手把棋打完若干局；假设赢了两局输了两局，那么当前局面的值就是 <code>1/2</code></span>。<b>就这么简单——蒙特卡洛评估在围棋里就是「多下几局数一数」。</b>",
+    "<b>注意「固定对手」这个前提，它是下一节自我对弈要打破的东西。</b> <span class='k'>对固定对手的胜率，只说明你相对那个对手有多好</span>——<b>而 <code>v*</code> 的定义里白方是要<b>最小化</b>你的值的</b>。<span class='w'>打固定的弱对手，估出来的值会系统性偏高</span>。<b>这个缺口怎么补，是 p41 之后的事。</b>"
+   ],
+   "eq": "⚠ p37 的答案是**否**：围棋的动力学与奖励模型都**已知**\n   落子之后棋盘变成什么样 —— 确定且已知\n   终局怎么判         —— 已知\n   ⇒ 围棋是**规划**问题，不是**学习**问题\n   ⇒ 本讲前半（学模型）在围棋上用不上；用上的是后半（有模型后怎么规划）\n\n   推论：「AlphaGo 都解决了，机器人/医疗应该也行」—— 不成立\n        那些场景难的是动力学未知，不是搜索空间大\n\np37：传统博弈树搜索在围棋上**失败**了（而国际象棋正是被它攻克的）\n     区别：分支因子大一个量级 + 没人写得出好的手工评估函数\n     ⇒ MCTS 绕开第二个困难 —— 它用 rollout 的结果代替评估函数\n\np39 奖励（极端稀疏）：R_t = 0 对所有 t < T；R_T = 1 黑胜 / 0 白胜\n     ⇒ v_π(s) = E[R_T | s] = **P[黑胜 | s]**     0/1 奖励下期望 = 概率\n        「局面值多少」字面上就是「黑方胜率」\n     ⇒ v*(s) = max_{π_B} min_{π_W} v_π(s)\n        两人零和 ⇒ 树从 expectimax 变 **minimax**（状态节点取 min 而非期望）\n        除此之外整套机制一个字不改\n\n有限时域：棋盘上落子的位置有限 ⇒ 游戏必然终止，不需要折扣因子\n\np40（图，按实录还原）：对**固定**对手打若干局，胜 2 负 2 ⇒ 当前局面值 = 1/2\n   ⚠ 「固定对手」是个缺口：v* 里白方要**最小化**你的值\n      打固定的弱对手，估出来的值会系统性偏高 ⇐ 自我对弈要补的正是这个",
+   "tbl": {
+    "head": ["", "围棋", "机器人 / 医疗 / 教育"],
+    "rows": [
+     ["动力学已知吗", "<b>已知</b>（规则）", "<span class='w'>未知</span>"],
+     ["奖励已知吗", "<b>已知</b>（谁占地多）", "<span class='w'>常常也未知</span>"],
+     ["难在哪", "<b>搜索空间极大</b>", "<b>动力学未知 + 数据贵</b>"],
+     ["用本讲的哪一半", "<b>后半（规划）</b>", "<b>前半（学模型）</b>"],
+     ["能无限次模拟吗", "<b>能（免费）</b>", "<span class='w'>不能</span>"],
+     ["⇒ 结论", "—", "<b>「围棋都行了」推不出这些也行</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页那个「规划 vs 学习」的区分，正好把你的问题切成两半，而且切在一个很有用的地方。</b><br><span class='k'><b>像围棋的那一半（已知、可免费模拟）</b>：workflow 的结构是已知的（AFlow 搜出来的 DAG）、各档位的单价是已知的、token 数与成本的关系是近乎确定的</span>。<b>所以「这个配置要花多少钱」这件事你可以在本地精确算，一次 API 调用都不用</b>——<span class='w'>这一半是纯规划问题</span>。<br><span class='w'><b>像医疗的那一半（未知、模拟要花钱）</b>：「这个配置在这条 query 上答对吗」，这个只能真跑</span>。<b>没有任何本地模型能可靠地替代它</b>（否则你就不需要那个 LLM 了）。<br><b>而这个切分给了你一个很具体的算法形状。</b> <span class='k'>先在成本那一半做纯规划</span>：<b>在给定预算下枚举所有可行的档位组合——这一步免费，可以穷举到底</b>；<span class='w'>然后只对筛出来的那一小批候选花真实调用去测准确率</span>。<b>这比「在 2^H 上均匀撒点」高效得多，而且理由是结构性的：一半的问题你有免费的模拟器，另一半没有。</b><br><b>再提一条这一页给的警告，它对你的实验设计直接有用：固定对手会让估值偏高。</b> <span class='k'>你的「对手」是 query 分布</span>——<b>如果你一直在同一批 query 上调方法，估出来的 G 会系统性偏高，就像一直打同一个弱对手</b>。<span class='w'>而围棋的解法（自我对弈）在你这里没有直接对应物</span>，<b>最接近的做法是<b>把 query 分难度分层，并在最难的那一层上也报结果</b></b>——<span class='k'>平均 G 好看而难题全错，是这个指标最容易藏住的失败</span>。<br><b>⚠ 最后，那条「AlphaGo 都行了，这个应该也行」的推理不成立，对你是一条提醒而不只是常识。</b> <span class='w'>任何从 AlphaGo/MCTS 借来的做法，都隐含假设「模拟免费」</span>。<b>你每次引用这类方法时，都该先问一句：我这里的模拟要不要花 LLM 调用？</b><span class='k'>要花，那条方法的复杂度分析就全部失效</span>——<b>它算的是「多少次模拟」，而你付的是「多少美元」。</b>",
+    "ref": "课件 p37 · p39 · 实录 p37 · p40（逐句核对）· 简报 §2 §4e（已核）· L16.b p26 科研格"
+   }
+  }
+ ],
+ "quiz": {
+  "23": [
+   {
+    "q": "p23 问「模型错了就改用模型自由 RL，这能解决问题吗」。答案是什么？",
+    "o": ["不一定 —— 取决于模型为什么错。如果是参数类选错或系统非马尔可夫，Q 学习同样假设马尔可夫，治不了", "能，只要数据足够", "能，模型自由不需要模型", "不能，模型自由永远更差"],
+    "a": 0,
+    "why": "<span class='k'>模型自由方法并不是「没有假设」，它只是把假设藏起来了。</span>而解法 2（算模型不确定性）也只治<b>样本估计误差</b>，仍然假设模型类是对的——世界根本不是那个分布族，<em>all bets are off</em>。"
+   },
+   {
+    "q": "泡茶的例子说明了什么？它的前提是什么？",
+    "o": ["马尔可夫假设总是错的", "模型越准决策越好", "数据或表达力受限时，预测精度更高的模型可能决策更差（容量花在日落和蒸汽上，而决策只需要水温>100）；前提是完美模型加完美参数估计本身是足够的", "决策不需要模型"],
+    "a": 2,
+    "why": "<b>这个前提很重要，不能漏掉</b>：她明说完美模型 + 完美参数估计<b>是</b>足够做好决策的。<span class='w'>所以「R² 高不等于决策好」不是一个总成立的命题，它需要数据受限或表达力受限。</span>"
+   },
+   {
+    "q": "实录里有一条关于决策的观察，它意味着该用什么指标代替预测精度？",
+    "o": ["用 AUC", "决策只需要判断 V(s,a1) > V(s,a2)，所以该报成对排序准确率而不是 R²", "用最大似然", "用交叉熵"],
+    "a": 1,
+    "why": "<em>you might have a really bad model and still end up with a good policy</em>——<b>一个处处偏高 0.3 的模型排序完全正确</b>。<span class='k'>更好的一步：只在「真值差距小」的配置对上算这个数，因为差距大的对子谁都能排对。</span>"
+   }
+  ],
+  "25": [
+   {
+    "q": "为什么说前向搜索是一种「低效的动态规划」？",
+    "o": ["因为它只展开一层", "因为树里会出现大量相同的状态，而树不合并它们 —— 动态规划在状态上算（图），前向搜索在路径上算（树）", "因为它需要马尔可夫假设", "因为它要采样"],
+    "a": 1,
+    "why": "<b>这正是下一页 (|S||A|)^H 的来源</b>：树的规模随 H 指数增长，而状态数不增长。<span class='w'>那为什么还用树？因为它只要「从这里出发」的局部信息，而且只要能采样的模型、不必能枚举状态。</span>"
+   },
+   {
+    "q": "p28 说「蒙特卡洛控制 → 蒙特卡洛搜索、Sarsa → TD 搜索」。这个命名法里的规律是什么？",
+    "o": ["搜索只用于博弈", "搜索算法不需要值函数", "把一个学习算法搬到「模型采的、从当下出发的」数据上，就得到一个搜索算法 —— 区别不在算法，在数据从哪来", "搜索算法都更快"],
+    "a": 2,
+    "why": "⚠ 但要分清两个「采样」：<span class='k'>p20 的采样式规划是从模型采数据去学一个<b>全局</b>的值函数；p27 的模拟式搜索只为了定<b>当下这一个</b>动作，算完就扔。</span>"
+   }
+  ],
+  "29": [
+   {
+    "q": "为什么说简单蒙特卡洛搜索「恰好」是一步策略改进？",
+    "o": ["因为它估的 Q 就是 q_π（先做 a、之后一直按 π），而在 q_π 上取 argmax 正是策略改进定理的那一步", "因为它只看一步奖励", "因为它只采一条轨迹", "因为它用了折扣因子"],
+    "a": 0,
+    "why": "<b>于是它的上限立刻就定了：完全由模拟策略 π 决定。</b><span class='w'>π 随机就只比随机好一点，π 是高手就只比高手好一点——它不会自己变强，因为 π 全程没变。</span>这就逼出了下一页那个「怎么突破一步」的问题。"
+   },
+   {
+    "q": "这个方法有两处浪费，MCTS 要修的第一处是哪个？",
+    "o": ["轨迹太长", "没有用折扣", "预算平均分配 —— 某个动作第一条轨迹就显示它没救，仍然会拿到剩下的 K−1 条", "没有存储模型"],
+    "a": 2,
+    "why": "MCTS 的全部直觉就是把算力集中到看起来有希望的分支上。<span class='k'>第二处浪费是：它只产出一个动作而非一个策略，下一步从头再来，上一轮的计算基本全扔。</span>"
+   }
+  ],
+  "30": [
+   {
+    "q": "树的规模 (|S||A|)^H 里那个指数是怎么来的？而它说明了什么？",
+    "o": ["来自状态空间大小；说明要压缩状态", "每层枚举所有动作（×|A|）再枚举所有下一状态（×|S|），H 层相乘；而这个指数来自两个「所有」—— 说明它是「无差别对待所有分支」的代价，不是问题本身的代价", "来自采样噪声；说明要多采样", "来自折扣因子；说明要调 γ"],
+    "a": 1,
+    "why": "<b>这个区分就是 MCTS 的机会所在。</b>实录：<em>有些走法一眼就输，再往下算多少步都不会改变结论</em>——<span class='w'>围棋的 H 在 50 到 200 之间，她说状态空间只要「比 1 大一点」就不可行</span>。"
+   }
+  ],
+  "32": [
+   {
+    "q": "MCTS 评估节点时「只做简单平均」，既不取 max 也不显式求期望。为什么这样也行？",
+    "o": ["因为 max 被搬进了采样分布里 —— 树策略越来越偏向好动作，极限下几乎所有样本都来自最好的动作，于是平均自动趋于最大", "因为平均比 max 更稳健", "因为 rollout 是随机的", "因为模型是马尔可夫的"],
+    "a": 0,
+    "why": "<b>这是 MCTS 最优雅的一步。</b>实录说这个定义「应该让人觉得有点怪」，然后给出了理由。<span class='k'>采样过程替你做了 max，所以回收时不必显式取——这也是它敢说「温和条件下 Q → q*」的根据。</span>"
+   },
+   {
+    "q": "树内用树策略、树外用 rollout 策略。这两段各自要解决什么问题？",
+    "o": ["树内要快，树外要准", "两段其实是同一件事", "树内要决定「算力该花在哪个分支」（需要已有统计）；树外要给出「这个新节点大概值多少」（只需粗糙但不偏向谁的估计）", "树内要探索，树外要利用"],
+    "a": 2,
+    "why": "<b>随机 rollout 正好满足第二个要求：很粗糙，但不系统性偏向谁。</b><span class='w'>而 k 条 rollout 用的策略各不相同，这是故意的——后者是它区别于简单蒙特卡洛搜索、能逐步变强的原因。</span>"
+   }
+  ],
+  "34": [
+   {
+    "q": "UCT 里那个「老虎机的奖励」是什么？",
+    "o": ["下一状态的估值", "从该节点起算的整条 rollout 的回报 —— 所以它是蒙特卡洛式的，不像 TD 那样自举", "节点的访问次数", "单步转移的奖励"],
+    "a": 1,
+    "why": "实录明确：<em>It's not like TD in the sense that we're doing this per node</em>。<span class='k'>没有自举就没有自举偏差，代价是方差大、而且必须走到终止才拿得到一个数。</span>"
+   },
+   {
+    "q": "同一个 (s,a) 出现在树的不同位置，UCT 不合并它们的计数。实录给的理由是什么？",
+    "o": ["因为马尔可夫假设不成立", "因为计数会溢出", "因为合并实现起来麻烦 —— 模型是马尔可夫的，所以合并其实是合法的、而且会让样本量变大", "因为合并在统计上不正确"],
+    "a": 2,
+    "why": "<b>这是一个纯工程权衡，而不是统计上的必然。</b><span class='w'>状态几乎不重复时（围棋局面）浪费接近零；状态高度重复时浪费巨大</span>——<b>而后者正是「该用图而不是树」的判据。</b>"
+   },
+   {
+    "q": "p36 说「为简单起见，可以把每个状态节点当成一个独立的老虎机」。这句话有什么问题？",
+    "o": ["「独立」明显不成立（同一棵树上的节点共享下游结构），所以 UCB 的遗憾界在这里并不严格适用", "应该当成高斯过程", "应该用汤普森采样", "没有问题"],
+    "a": 0,
+    "why": "<span class='k'>这是又一处「定理的前提没人遵守」，和 L13 p13 那个「证明要求只用前 m 个样本、而实践中我们用全部数据」是同一个模式。</span>记住这类缝，比记住定理本身更有用。"
+   }
+  ],
+  "37": [
+   {
+    "q": "p37 问：下围棋属于「动力学与奖励模型未知」那类决策问题吗？",
+    "o": ["否 —— 围棋的规则与奖励结构都是已知的，它难在搜索空间极大", "是，棋局变化无法预测", "是，因为对手的策略未知", "否，因为它是有限时域"],
+    "a": 0,
+    "why": "<b>所以围棋是规划问题，不是学习问题</b>：本讲前半（学模型）在围棋上用不上，用上的是后半（有模型后怎么规划）。<span class='w'>推论很重要：「AlphaGo 都解决了，机器人/医疗应该也行」不成立——两者难的不是同一个地方。</span>"
+   },
+   {
+    "q": "围棋的奖励是 R_T = 1 黑胜 / 0 白胜，中间全是 0。这个设计让值函数有什么漂亮的解释？",
+    "o": ["值函数等于分支因子", "值函数等于剩余步数", "0/1 奖励下期望等于概率，所以「局面值多少」字面上就是「黑方在这个局面下的胜率」", "值函数等于占地面积"],
+    "a": 2,
+    "why": "<span class='k'>这个解释让值函数极其直观，也是围棋适合做这类研究的一个原因。</span>而两人零和使 v*(s) = max_{π_B} min_{π_W} v_π(s)——<b>树从 expectimax 变成 minimax，状态节点取 min 而非期望，除此之外整套机制一个字不改。</b>"
+   },
+   {
+    "q": "p40 的蒙特卡洛评估是对一个「固定对手」打若干局数胜率。这个前提有什么缺口？",
+    "o": ["固定对手下棋太慢", "没有缺口", "v* 的定义里白方是要最小化你的值的；打固定的弱对手，估出来的值会系统性偏高", "固定对手会导致过拟合棋盘大小"],
+    "a": 2,
+    "why": "<b>这个缺口怎么补，是 p41 之后自我对弈要回答的。</b><span class='w'>而它对任何「在固定测试集上反复调方法」的做法都是同一条警告——估出来的表现会系统性偏高。</span>"
+   }
+  ]
+ }
+}

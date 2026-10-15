@@ -1,0 +1,495 @@
+{
+ "_目标": {
+  "密度": 400,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "玩具例子三条臂：手术 θ1=.95 · 绑扎 θ2=.9 · 什么都不做 θ3=.1（课件明说是编的，不是医学建议）",
+  "UCB1：a_t = argmax_a [ Q̂(a) + sqrt(2 log t / N_t(a)) ]（Auer, Cesa-Bianchi, Fischer 2002）",
+  "UCB 遗憾定理：lim_{t→∞} L_t ≤ 8 log t · Σ_{a: Δa>0} 1/Δa",
+  "p17 三种遗憾：贪心 线性 · 固定 ε 线性 · 衰减 ε 对数",
+  "历史：区间估计思想最早是 Kaelbling 1993（MIT），当时没有形式证明，先有实证后有理论"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    2
+   ],
+   "t": "这一讲在整条线里的位置",
+   "star": 2,
+   "quote": "<b>Class Structure</b> — <em>Last time</em>: Fast Learning (Bandits and regret) · <em>This time</em>: Fast Learning (<b>Bayesian bandits to MDPs</b>) · <em>Next time</em>: Fast Learning",
+   "one": "<b>L11–L13 是同一讲的三段。上一讲立了老虎机与遗憾，这一讲从频率派换到贝叶斯，再把整套搬回 MDP。</b>",
+   "pts": [
+    "<b>「Fast Learning」这个名字值得留意：它换掉了评价标准。</b> 前十讲问的是「最终能不能学到最优」，这三讲问的是「<span class='k'>要花多少次尝试才学到</span>」。<b>同一个算法在两套标准下的排名可以完全不同</b>——ε-贪心最终也收敛，但它的遗憾是线性的。",
+    "<b>这一讲的跨度是本课最大的一讲之一</b>：从频率派的置信上界，到贝叶斯的后验采样，再到 MDP 上的 PAC 保证。<span class='w'>三段各有各的记号体系</span>，中间不换口径容易串。",
+    "<b>p1 的脚注说本讲部分幻灯来自 David Silver</b>。L01 的第三部分也是（交互回路那一段）。<b>遇到和 Silver 课程记号一致的页面，可以互相参照。</b>",
+    "<b>为什么「要花多少次」这个问题到第十一讲才正式处理？</b> 因为前面十讲在建工具：没有值函数、没有策略梯度，就没法谈「学得快不快」。<span class='k'>而一旦工具齐了，样本效率立刻变成最要紧的问题</span>——真实系统里你付的是数据的钱，不是算力的钱。",
+    "<b>这三讲的另一条暗线是「保证的类型在变」。</b> L11 给的是频率派遗憾界；本讲引入贝叶斯遗憾与 PAC；L13 会把 PAC 搬到 MDP 上并承认它在深度网络上还不成立。<b>读的时候留意每个定理前面挂着什么假设</b>——假设换了，结论之间就不可比。"
+   ],
+   "tbl": {
+    "head": [
+     "讲",
+     "设定",
+     "主要内容"
+    ],
+    "rows": [
+     [
+      "L11",
+      "老虎机",
+      "遗憾的定义、UCB、下界"
+     ],
+     [
+      "<b>L12（本讲）</b>",
+      "老虎机 → MDP",
+      "<b>贝叶斯老虎机 · 概率匹配 · PAC · MBIE-EB</b>"
+     ],
+     [
+      "L13",
+      "MDP",
+      "把探索证成定理，以及它在深度网络上还不成立"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "读法",
+    "v": "本讲 61 页跨度很大，建议分三段读：<b>p1–p17 频率派的乐观</b>（本片）、<b>p18–p44 贝叶斯与 Thompson 采样</b>、<b>p45–p61 PAC 与 MDP</b>。三段各有各的记号体系，<span class='w'>中间不换口径容易串</span>——尤其「遗憾」在三段里分别指频率派遗憾、贝叶斯遗憾、和被 PAC 替换掉的那个量。"
+   }
+  },
+  {
+   "r": [
+    3,
+    4
+   ],
+   "t": "三个维度：设定 · 框架 · 做法",
+   "star": 3,
+   "quote": "<b>Settings, Frameworks &amp; Approaches</b><br><em>Settings</em>: Bandits (single decisions), MDPs<br><em>Frameworks</em>: evaluation criteria for formally assessing the quality of a RL algorithm<br><em>Approaches</em>: Classes of algorithms for achieving particular evaluation criteria",
+   "one": "<b>这一页是本讲唯一的骨架：设定（在哪做）× 框架（用什么尺子量）× 做法（怎么做）。三者可以自由组合。</b>",
+   "pts": [
+    "<b>把这三个维度拆开，是本讲最值钱的结构性贡献。</b> 很多人把「UCB」和「对数遗憾」当成一回事——<span class='k'>其实前者是做法，后者是框架</span>。同一个做法（乐观）可以用遗憾量，也可以用 PAC 量，<b>两把尺子给出的结论不一样</b>（p47–p48 会并排算一次）。",
+    "<b>「框架」这个词在这里特指<b>评价标准</b>，不是算法框架。</b> 本讲给了三把尺子：<br>① <b>频率派遗憾</b>——假设存在一组真实但未知的参数；<br>② <b>贝叶斯遗憾</b>——假设参数本身有先验，对先验再取一次期望；<br>③ <b>PAC</b>——不加总损失，而是<span class='k'>数「犯大错的次数」</span>。",
+    "<b>做法这边本讲给两类</b>：<b>不确定下的乐观</b>（UCB、乐观初始化、MBIE-EB）与<b>概率匹配</b>（Thompson 采样）。<b>两类做法 × 三把尺子，本讲几乎把这张表填满了。</b>",
+    "⚠️ <b>p4 的目录就是这张表的展开</b>，六节：老虎机回顾 → 乐观 → 贝叶斯老虎机与贝叶斯遗憾 → 概率匹配 → PAC → MDP。<b>读不下去时回到这张表，问「现在在哪一格」。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "维度",
+     "本讲涉及的取值",
+     "出现在"
+    ],
+    "rows": [
+     [
+      "<b>设定</b>",
+      "老虎机（单步决策）· MDP",
+      "p5–p48 · p50–p61"
+     ],
+     [
+      "<b>框架</b>（尺子）",
+      "频率派遗憾 · <b>贝叶斯遗憾</b> · <b>PAC</b>",
+      "p6 · p26 · p46"
+     ],
+     [
+      "<b>做法</b>",
+      "乐观（UCB / 乐观初始化 / MBIE-EB）· <b>概率匹配</b>（Thompson）",
+      "p8 · p17 · p55 · p28"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这张三维表直接适用于你的课题，而且填出来会发现你一直只用了其中一格。</b><br><b>设定</b>：你的问题是<b>上下文老虎机</b>（p43 会正式出现）——上下文是 query，臂是保真度配置，而你的选择<span class='k'>不改变下一个 query 是什么</span>。这比完整 MDP 弱，但那是好消息：弱设定有更紧的界。<br><b>框架</b>：你现在隐含用的是「点估计最大化」，<b>既不是遗憾也不是 PAC</b>。而你真正要的陈述是「上线后不更差」——那在形状上更接近 <b>PAC</b>（数大错的次数）而不是遗憾（把所有损失加起来）。p46 会把这个区别讲透，<b>那一页值得专门停一下</b>。<br><b>做法</b>：你现在既不乐观也不概率匹配——<b>AFlow 的选择规则是 top-k + Boltzmann 混合均匀</b>（λ=0.2, α=0.4），<span class='w'>没有访问计数、没有置信上界</span>。这在本讲的分类里属于「按分数软贪心」，离这两类都有距离。<br>所以这一页给你的不是某个算法，是<b>一张可以自查的表</b>：我在哪个设定、用哪把尺子、属于哪类做法。三格都填清楚，论文的形式化那一节就写出来了。<br><br><b>补一条可以直接用的</b>：这三格填清楚之后，「我们的方法属于哪一类」这个问题就有了标准答法。你的方法在<b>做法</b>这一格目前是空的——既不乐观也不概率匹配。<span class='k'>而这未必是缺点：离线一次性评估本来就不需要探索策略</span>。真正需要填这一格的，是你决定「下一批跑哪些配置」的时候（主动实验设计）。<b>所以这张表也告诉你：如果一直是一次性全评估，本讲的算法你一个都不需要；一旦改成迭代选取，它们立刻全部相关。</b>这个分界值得在论文里写明，否则审稿人会问「你为什么不用 UCB/Thompson」。",
+    "ref": "课件 p3–p4 · 简报 §2（AFlow 选择规则，已核：Algorithm 1 / Appendix A.6 行 28–42）"
+   }
+  },
+  {
+   "r": [
+    5,
+    6
+   ],
+   "t": "回顾：老虎机与遗憾",
+   "star": 2,
+   "quote": "<b>Multi-armed bandit</b> is a tuple (A, R) — A: known set of m actions · <em>R<sub>a</sub>(r) = P[r|a] is an unknown probability distribution over rewards</em><br><b>Regret</b>: Q(a) = E[r|a] · V* = max<sub>a</sub> Q(a) · <em>l<sub>t</sub> = E[V* − Q(a<sub>t</sub>)]</em> · <em>L<sub>t</sub> = E[Σ<sub>τ=1</sub><sup>t</sup> V* − Q(a<sub>τ</sub>)]</em><br><em>Maximize cumulative reward ⟺ minimize total regret</em>",
+   "one": "<b>臂是已知的，奖励分布是未知的。遗憾 = 每一步「本可以拿到的最好」减去「实际拿到的」，加起来。</b>",
+   "pts": [
+    "<b>注意哪一半已知、哪一半未知</b>：动作集合 A <span class='k'>已知</span>（你知道有哪些臂），奖励分布 R <span class='k'>未知</span>。<b>这是老虎机问题的全部不确定性来源</b>——没有状态转移要学，没有长期后果要算。",
+    "<b>遗憾的定义里 V* 是「事后才知道的最优」</b>。你在跑的时候不知道它，但<b>分析时用它当基准</b>。这是一种「事后诸葛亮」式的评价，但它恰恰是公平的：它问的是「你比一个知道答案的人差多少」。",
+    "<b>最后一行那个等价很重要</b>：<em>Maximize cumulative reward ⟺ minimize total regret</em>。因为 V*·t 是常数，所以最大化累积奖励和最小化累积遗憾<b>是同一个问题</b>。<span class='k'>用遗憾而不用奖励，是因为遗憾的尺度与问题无关</span>——它让不同问题上的算法可以比较。",
+    "⚠️ <b>遗憾是对「步」求和的，这个细节在 p46 会变成关键</b>：把一千次小错加起来，和犯一次大错，可能得到同样的遗憾值。<b>而这两件事在实际中完全不同。</b>",
+    "<b>老虎机把 RL 的四要素砍掉了一个（L01 p14）</b>：没有延迟后果。剩下优化、探索、泛化三格。<span class='k'>所以它不是「简化版 RL」，是「抽掉一个维度的 RL」</span>——而抽掉的恰好是让分析变难的那一个，于是能证出很紧的界。",
+    "<b>「遗憾」这个译名容易让人以为它是算法要最小化的目标函数。</b> 不是——<b>算法看不到 V*，也算不出 l<sub>t</sub></b>。遗憾只是分析者事后用来评价算法的量。<span class='w'>任何在运行时用到 V* 的「算法」都是作弊</span>。",
+    "<b>这一页的 Q(a) 和前十讲的 Q(s,a) 是同一个东西去掉状态</b>。老虎机只有一个（隐含的）状态，所以 Q 只依赖动作。<b>到 p43 的上下文老虎机，状态会以「上下文」的形式回来，但它是外生的——你的动作不改变它。</b>"
+   ],
+   "tbl": {
+    "head": [
+     "符号",
+     "含义",
+     "已知吗"
+    ],
+    "rows": [
+     [
+      "A（m 条臂）",
+      "动作集合",
+      "<b>已知</b>"
+     ],
+     [
+      "R<sub>a</sub>(r)",
+      "臂 a 的奖励分布",
+      "<span class='w'>未知</span>"
+     ],
+     [
+      "Q(a) = E[r\\|a]",
+      "臂 a 的真实均值",
+      "<span class='w'>未知</span>，要估"
+     ],
+     [
+      "V* = max<sub>a</sub> Q(a)",
+      "最优臂的均值",
+      "<span class='w'>未知</span>，只用于分析"
+     ],
+     [
+      "L<sub>t</sub>",
+      "到 t 为止的总遗憾",
+      "分析量，不是算法用的"
+     ]
+    ]
+   },
+   "say": "讲稿里她提醒过一句对推导要紧的话：UCB 的上界用 Hoeffding 不等式算出来，<em>because remember each of our samples from the arms is iid, because they're all coming from the same parametric distribution, which is unknown and we're given these samples</em>。<b>i.i.d. 是这套做法的前提</b>，不是技术细节——数据一旦有相关性，上界就不再是上界。"
+  },
+  {
+   "r": [
+    7,
+    9
+   ],
+   "t": "乐观：UCB 与它的遗憾定理",
+   "star": 3,
+   "quote": "<b>Approach: Optimism Under Uncertainty</b> — Estimate an upper confidence U<sub>t</sub>(a) such that <em>Q(a) ≤ U<sub>t</sub>(a) with high probability</em> · This depends on <b>N<sub>t</sub>(a)</b>, the number of times a has been selected · <em>a<sub>t</sub> = argmax<sub>a</sub> U<sub>t</sub>(a)</em><br><b>UCB1</b>: <em>a<sub>t</sub> = argmax<sub>a</sub> [ Q̂(a) + √(2 log t / N<sub>t</sub>(a)) ]</em><br><b>Theorem</b>: <em>lim<sub>t→∞</sub> L<sub>t</sub> ≤ 8 log t Σ<sub>a|Δ<sub>a</sub>&gt;0</sub> (1/Δ<sub>a</sub>)</em>",
+   "one": "<b>给每条臂算一个「高概率不会低估」的上界，然后贪心地选上界最大的那条。</b>",
+   "pts": [
+    "<b>这个式子的两项各管一件事</b>：<code>Q̂(a)</code> 是<b>利用</b>（目前看起来多好），<code>√(2 log t / N<sub>t</sub>(a))</code> 是<b>探索</b>（有多不确定）。<span class='k'>不确定项随 N 下降、随 t 上升</span>——试得越多越确定，时间越久越该再看一眼。",
+    "<b>为什么探索项要随 t 增长？</b> 因为总步数越多，你越能承担一次试错；而且一条很久没碰的臂，它的估计相对别人已经「过时」了。<b>log t 这个增长速度是算出来的，不是调出来的</b>——它正好让总遗憾是对数的。",
+    "<b>定理里的 Δ<sub>a</sub> = V* − Q(a) 是「差距」。</b> 遗憾与 <code>Σ 1/Δ<sub>a</sub></code> 成正比，于是有一个反直觉的结论：<span class='w'>差距越小的臂越贵</span>——因为要花很多次尝试才分辨得出来。<b>而差距很大的坏臂反而便宜，几下就排除了。</b>",
+    "<b>最要紧的一点藏在定理和算法的对比里</b>：<b>算法本身不需要知道 Δ<sub>a</sub></b>（式子里只有 Q̂ 和 N），<span class='k'>但遗憾的大小由 Δ<sub>a</sub> 决定</span>。这叫「依赖差距的界」。<b>同一个算法，在不同难度的问题上自动给出不同的保证，而你不用告诉它难度是多少。</b>",
+    "⚠️ <b>「高概率不会低估」是这整套做法的根基</b>。如果上界其实是错的（真值超出了它），乐观就失效了。所以 UCB 的推导靠的是 Hoeffding 不等式，而它要求<b>样本独立同分布</b>——讲稿里她专门强调了这一点。",
+    "<b>「高概率」这三个字是有代价的，课件没展开。</b> UCB1 里的常数 2 对应某个固定的失败概率；要更高的置信就要更大的常数，<span class='k'>而更大的常数意味着更多探索、更大的常数项遗憾</span>。<b>置信水平是一个可调的旋钮，不是免费的。</b>",
+    "<b>定理写的是 <code>lim<sub>t→∞</sub></code>，这是渐近结论。</b> 有限步下还有常数项和低阶项，它们在 t 不大时可能主导。<span class='w'>「对数遗憾」不保证前一百步表现好</span>——实践中 UCB 的早期表现常常不如 Thompson 采样，p42 会提到这一点。"
+   ],
+   "eq": "UCB1：  a_t = argmax_a [ Q̂(a) + sqrt( 2 log t / N_t(a) ) ]\n                      └─ 利用 ─┘   └──── 探索 ────┘\n\n遗憾：  lim_{t→∞} L_t ≤ 8 log t · Σ_{a: Δ_a>0} 1/Δ_a     其中 Δ_a = V* − Q(a)\n\n算法不需要知道 Δ_a，但遗憾由 Δ_a 决定",
+   "tbl": {
+    "head": [
+     "",
+     "随 N<sub>t</sub>(a) 增加",
+     "随 t 增加",
+     "作用"
+    ],
+    "rows": [
+     [
+      "Q̂(a)",
+      "更准",
+      "—",
+      "利用"
+     ],
+     [
+      "√(2 log t / N<sub>t</sub>(a))",
+      "<b>下降</b>",
+      "<b>上升</b>",
+      "探索"
+     ],
+     [
+      "合计上界",
+      "向真值收紧",
+      "略放宽",
+      "乐观"
+     ]
+    ]
+   },
+   "say": "她把这一套的来历讲了一段课件上没有的：区间估计最早是 <b>Leslie Kaelbling 1993</b>（MIT）提的，<em>she didn't do formal proofs of this being a good idea, but she did it for Markov decision processes, and they found that it was a very good idea in terms of empirical performance, and then a lot of people went around and did the theoretical analysis</em>。她顺带感慨了一句：<em>it's interesting often about which area ends up being more advanced whether it's the empirical side or the theoretical side</em>。<b>这件事先有实证、后有理论，隔了十几年。</b>",
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页是「AFlow 不是 UCT」这个论断的落脚点——你需要指着 UCB 的定义说它缺了什么。</b><br>UCB 的构成是 <code>点估计 + 随 N 下降的不确定项</code>，而 <b>AFlow 的选择规则</b>是：把已评估的 workflow 按分数排序取 top-k（k=3），再从混合分布采样 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，λ=0.2、α=0.4。<br><span class='w'>没有访问计数，没有置信上界，没有 expectimax/minimax 回传</span>；它的「Backpropagation」只是把 (parent, modification, avgScore) 追加进父节点的经验日志。<br><b>所以它在本讲的分类里既不是乐观也不是概率匹配，而是「按分数的 Boltzmann 软贪心 + 均匀混合」</b>——结构上更接近 ε-贪心（p17 会给它线性遗憾），而不是 UCB。<br><b>这一点你有资格说，因为你复现过。</b> 而且带上 Algorithm 1 的行号（Appendix A.6 行 28–42）精确指出来，本身就是加分项；跟着原文叫它 MCTS，懂 RL 的审稿人会记账。<br><b>正确叫法</b>：Boltzmann-greedy selection，或 LLM-guided evolutionary search。<br>另外注意 UCB 推导依赖的 <b>i.i.d. 假设</b>在你这里要小心：同一条 query 上重复评估不是独立的（同一个 LLM、同一个提示），<span class='k'>而跨 query 才接近独立</span>。",
+    "ref": "课件 p8–p9 · 简报 §2（已核，AFlow Algorithm 1 / Appendix A.6 行 28–42）"
+   },
+   "tip": {
+    "t": "记号",
+    "v": "本讲三把尺子的符号要分清：<code>L<sub>t</sub></code> 是<b>频率派</b>总遗憾（假设存在真实参数 θ）；p26 的 <code>BayesRegret</code> 在它外面<b>再对 θ 的先验取一次期望</b>；p46 的 PAC 则<b>完全不加总</b>，只数「偏离最优超过 ε 的步数」。<span class='w'>三者量的是不同的东西，数值之间没有换算关系</span>。"
+   }
+  },
+  {
+   "r": [
+    10,
+    15
+   ],
+   "t": "玩具例子：三条臂上跑一遍 UCB",
+   "star": 3,
+   "quote": "<b>Toy Example: Ways to Treat Broken Toes</b> — True (unknown): <em>surgery θ₁=.95 · buddy taping θ₂=.9 · doing nothing θ₃=.1</em><br>① <em>Sample each arm once</em>: a₁ get +1 ⇒ Q̂(a₁)=1 · a₂ get +1 ⇒ Q̂(a₂)=1 · a₃ get 0 ⇒ Q̂(a₃)=0<br>② <em>Set t=3, compute UCB(a) = Q̂(a) + √(2 log t / N<sub>t</sub>(a))</em><br>p14 <b>Check Your Understanding</b>: <em>Assume ties are evenly split. Prob of each arm if using ε-greedy (ε=0.1)? If using UCB?</em><br><em><sup>1</sup>This is a made up example. This is not medical advice.</em>",
+   "one": "<b>三条臂：手术 .95、绑扎 .9、什么都不做 .1。前两条差距很小，第三条明显坏——这个设计是为了让两种困难同时出现。</b>",
+   "pts": [
+    "<b>三个数字是精心选的，不是随手写的。</b> <code>θ₁=.95</code> 与 <code>θ₂=.9</code> 只差 0.05，<span class='k'>要很多次采样才分得清</span>；而 <code>θ₃=.1</code> 与最优差 0.85，<b>几下就该被排除</b>。按 p9 的定理，前者贡献 <code>1/0.05 = 20</code>，后者只贡献 <code>1/0.85 ≈ 1.18</code>——<b>难分辨的那一对才是遗憾的主要来源</b>。",
+    "<b>第一步「每条臂各采一次」不是可选项，是必需的</b>：<code>N<sub>t</sub>(a)=0</code> 时探索项要除以零。<b>所有 UCB 类算法都从这一步开始。</b>",
+    "<b>伯努利奖励让这个例子可以手算，但也暴露了小样本的问题</b>：a₁ 拉一次得 1，<code>Q̂(a₁)=1.0</code>——<span class='w'>比真值 .95 还高</span>。a₂ 同样得 1，于是 <code>Q̂(a₁)=Q̂(a₂)=1</code>，<b>两条臂在点估计上完全无法区分</b>。这正是只看点估计不够的直观演示。",
+    "<b>算一遍 t=3 时的 UCB（三条臂 N 都是 1，log 3 = 1.0986）</b>：<br><code>探索项 = √(2 × 1.0986 / 1) = 1.4823</code>，三条臂相同。<br>于是 <code>UCB(a₁) = UCB(a₂) = 2.4823</code>，<code>UCB(a₃) = 1.4823</code>。<br><span class='k'>探索项相同时，UCB 退化成按点估计比较</span>——此刻 a₁ 与 a₂ 并列，a₃ 明显落后。",
+    "<b>p14 那道题的答案值得单独记，它把两种做法的差别摊开了</b>：<br><b>ε-贪心（ε=0.1，三条臂）</b>：贪心项在 a₁/a₂ 之间平分 0.9，各得 0.45；再加上随机探索的 <code>ε/m = 0.0333</code>。<br>⇒ <code>P(a₁)=P(a₂)=0.4833</code>，<b><code>P(a₃)=0.0333</code></b>。<br><b>UCB</b>：只选上界最大的，a₁/a₂ 并列平分。<br>⇒ <code>P(a₁)=P(a₂)=0.5</code>，<b><code>P(a₃) = 恰好 0</code></b>。",
+    "<b>这个「恰好 0」是本页最该带走的东西。</b> ε-贪心<span class='w'>永远</span>给明显坏的臂 3.33% 的概率——不管你已经多确信它坏。<b>UCB 一旦确信某条臂连上界都够不着，就再也不碰它</b>。这就是 p17 为什么说固定 ε 的遗憾是线性的：那 3.33% 乘以 T，是一笔<b>不随学习下降</b>的固定支出。",
+    "<b>往下走一步，能看到探索项真的在起作用。</b> 选 a₁ 并得到奖励 1 之后：<code>N(a₁)=2</code>，t=4。<br><code>UCB(a₁) = 1 + √(2 log 4 / 2) = 2.1774</code>（探索项被 N=2 压小了）<br><code>UCB(a₂) = 1 + √(2 log 4 / 1) = 2.6651</code>（没被碰过，探索项大）<br>⇒ <b>这一轮转去选 a₂</b>。<span class='k'>注意两条臂的点估计完全相同（都是 1），是探索项决定了去碰谁</span>——这正是 UCB 与纯贪心的分野。",
+    "<b>p15 把遗憾逐行列出来</b>：选 a₁ 遗憾 0，选 a₂ 遗憾 <b>0.05</b>，选 a₃ 遗憾 <b>0.85</b>。这张表在 p41（对比 Thompson 采样）和 p47–p48（对比 PAC）会被反复用到，<b>所以这三个数要记住</b>。",
+    "⚠️ <b>课件自己加了脚注：这是编的例子，不是医学建议。</b> 这类脚注在本课里出现过几次，都是在提醒<b>别把教学设定当事实引用</b>。",
+    "<b>最后留一个可以自己验的练习</b>：如果第一轮 a₁ 不幸得了 0（概率 0.05），<code>Q̂(a₁)=0</code>，而 a₂、a₃ 照旧。此时 <code>UCB(a₁)=1.4823</code>、<code>UCB(a₂)=2.4823</code>、<code>UCB(a₃)=1.4823</code>——<b>最优臂和最差臂的上界一模一样</b>。<span class='w'>但 UCB 不会就此放弃 a₁</span>：随着 a₂ 被反复选中，它的探索项掉下去，a₁ 的相对位置会回升。<b>这就是上界做法「错一次不会死」的具体机制</b>——对照 p16 的下界做法，那里错一次就永远回不来了。"
+   ],
+   "tbl": {
+    "head": [
+     "轮次",
+     "状态",
+     "UCB(a₁)",
+     "UCB(a₂)",
+     "UCB(a₃)",
+     "选谁"
+    ],
+    "rows": [
+     [
+      "① 各采一次",
+      "Q̂=(1,1,0) N=(1,1,1)",
+      "—",
+      "—",
+      "—",
+      "三条各一次"
+     ],
+     [
+      "② t=3",
+      "N=(1,1,1)",
+      "<b>2.4823</b>",
+      "<b>2.4823</b>",
+      "1.4823",
+      "a₁/a₂ 平分<br><span class='w'>a₃ 概率恰好 0</span>"
+     ],
+     [
+      "③ t=4（选了 a₁ 得 1）",
+      "N=(2,1,1)",
+      "2.1774",
+      "<b>2.6651</b>",
+      "1.6651",
+      "<b>转去选 a₂</b>"
+     ],
+     [
+      "④ t=5（a₂ 也得 1）",
+      "N=(2,2,1)",
+      "<b>2.2686</b>",
+      "<b>2.2686</b>",
+      "1.7941",
+      "a₁/a₂ 再并列"
+     ]
+    ]
+   },
+   "eq": "t=3 时：探索项 = sqrt(2 · log 3 / 1) = sqrt(2 · 1.0986) = 1.4823（三臂相同）\n\np14 的答案：\n  ε-贪心(ε=0.1, m=3)：P(a1)=P(a2)=0.9×0.5 + 0.1/3 = 0.4833，P(a3) = 0.1/3 = 0.0333\n  UCB            ：P(a1)=P(a2)=0.5，                P(a3) = 恰好 0",
+   "say": "她在这组例子里反复强调的是「<b>探索项在替你做决定</b>」：两条臂的点估计一模一样时，是 N 的差别把你推去碰没碰过的那条。<b>这件事在纯贪心里根本不会发生</b>——点估计相同时它只能随便挑一个，而那个「随便」没有方向。"
+  },
+  {
+   "r": [
+    16,
+    16
+   ],
+   "t": "检验题：为什么必须用上界，不能用下界",
+   "star": 3,
+   "quote": "<b>Check Your Understanding</b> — <em>An alternative would be to always select the arm with the highest <b>lower</b> bound</em><br><em>Why can this yield <b>linear</b> regret?</em> · Consider a two arm case for simplicity",
+   "one": "<b>按下界贪心会被确认偏误锁死：你永远不会去碰那条「看起来不行」的臂，于是永远不会发现它其实更好。</b>",
+   "pts": [
+    "<b>两臂情形想清楚就够了。</b> 设 a₁ 真实更好但目前估计低、区间宽；a₂ 真实稍差但已经试了很多次、区间窄所以下界高。按下界贪心 ⇒ 选 a₂。",
+    "<b>关键在于选了 a₂ 之后发生了什么</b>：你又多了一个关于 a₂ 的样本，<span class='k'>它的估计更准、区间更窄、下界更高</span>。<b>于是下一轮还是选 a₂。</b> 而 a₁ 的区间一直不变——<span class='w'>因为你从不碰它，就永远拿不到否定自己的证据</span>。",
+    "<b>这就是确认偏误的字面机制</b>：选择决定了你能看到什么，而你看到的又强化了原来的选择。<b>每一步都损失 Δ₁，T 步就是 T·Δ₁——线性遗憾。</b>",
+    "<b>反过来看上界为什么有效</b>：选了一条臂之后，它的上界会<b>下降</b>（估计变准，乐观被削掉）。<span class='k'>所以乐观是自我纠正的</span>——选得越多越不乐观，最终让位给别人。<b>「乐观」在这里不是态度，是一种会自己修正的记账方式。</b>",
+    "⚠️ <b>这一条在本课之外同样成立，而且很常见</b>：任何「按当前最佳点估计贪心」的流程都有这个毛病，因为点估计不含不确定性，<b>于是没有任何力量推动你去碰没试过的选项</b>。",
+    "<b>这一页还顺带解释了「乐观」为什么是个好名字。</b> 乐观不是「假设结果会好」，而是<b>在不确定的方向上多给一点额度，然后让数据把它收回去</b>。<span class='k'>收回去这一步才是关键</span>——下界做法缺的正是它：它给确定的方向多给额度，而确定只会越来越确定。"
+   ],
+   "tbl": {
+    "head": [
+     "按什么贪心",
+     "选中后那条臂的指标怎么变",
+     "有没有自我纠正",
+     "遗憾"
+    ],
+    "rows": [
+     [
+      "<b>上界</b>",
+      "<b>下降</b>（乐观被削掉）",
+      "<b>有</b>",
+      "对数"
+     ],
+     [
+      "<b>下界</b>",
+      "<b>上升</b>（更确定⇒下界更高）",
+      "<span class='w'>没有，自我强化</span>",
+      "<b>线性</b>"
+     ],
+     [
+      "点估计（纯贪心）",
+      "不含不确定性，没有推力",
+      "没有",
+      "<b>线性</b>"
+     ]
+    ]
+   },
+   "say": "这一题她让学生当堂讨论，然后复述了一位同学的答案：<em>if you select a2, you're gonna continue to get towards the mean … you're gonna get <b>confirmation bias</b>, a2 is gonna continue to look good, and you're never gonna select a1. So we're never gonna get information that <b>allows us to disprove our hypothesis</b>, and we're never gonna learn what the true optimal mean is.</em><b>「拿不到能否证自己假设的信息」——这句话是整页的核心。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>你的配置选择目前就是「按点估计贪心」，也就是上表最后一行。</b><br>`max_config Ĝ(config)` 里没有任何不确定性项：一个配置只要估出来的 G 高就被选，<span class='w'>而「估得准不准」完全不进入比较</span>。于是跑得多的配置和只跑过几次的配置被同等对待。<br><b>这在你的设定下的具体后果有两层，而且方向相反，要分开看</b>：<br><b>① 离线选择阶段</b>——你不是在线逐步决策，所以不会出现这一页说的「永远不碰 a₁」那种锁死（你的候选是一次性全评估的）。<span class='k'>所以确认偏误这一条对你不直接成立</span>，这里不要套用。<br><b>② 但「点估计不含不确定性」这件事仍然咬你</b>，只是换了个形式：它变成 <b>L04 p42 的最大化偏差</b>——在 2187 个带噪声的估计里取最大，选出来的那个系统性虚高。<b>同一个病根（比较时丢掉了不确定性），在线表现为锁死，离线表现为虚高。</b><br><b>③ 如果你改成「迭代式地决定下一个跑哪个配置」</b>（而不是一次性全评估），那么这一页就直接成立了，而且 L06 p53 的 oracle 实验说过顺序能带来指数级差别。<b>那时你需要的恰恰是一个上界而不是点估计</b>——这是把本讲搬进你的实验设计的入口。<br>标【推断】：三层区分是我按你的设定推的；最大化偏差与 oracle 顺序在对应讲里是原课内容。",
+    "ref": "课件 p16 · L04 p42–p43 科研格 · L06 p53 科研格"
+   },
+   "tip": {
+    "t": "记这一条",
+    "v": "把这一页的结论记成一句可迁移的话：<b>任何「按当前最佳点估计贪心」的流程，都没有自我纠正的力量。</b>因为点估计里不含不确定性，<span class='k'>于是没有任何东西推动你去碰没试过的选项</span>。补救只有两类：给不确定的方向加额度（乐观），或按「它是最优的概率」抽样（概率匹配，p28）。"
+   }
+  },
+  {
+   "r": [
+    17,
+    17
+   ],
+   "t": "乐观初始化，与三种做法的遗憾",
+   "star": 3,
+   "quote": "<b>Greedy Bandit Algorithms and Optimistic Initialization</b><br><em>Pretend already observed one pull of each arm, and saw some optimistic reward · Average these fake pulls and rewards in when computing average empirical reward</em><br>Comparing regret results: <em>Greedy: <b>Linear</b> total regret · Constant ε-greedy: <b>Linear</b> · Decaying ε-greedy: <b>Logarithmic</b></em>",
+   "one": "<b>最省事的乐观：假装每条臂都已经拉过一次，而且结果好得离谱。然后照常贪心。</b>",
+   "pts": [
+    "<b>做法简单到可以一句话说完</b>：把 <code>Q̂</code> 初始化成一个很大的值（讲稿里她说「一百万、一万亿都行」），然后<b>把这些假数据当真数据一起平均</b>。于是没试过的臂看起来最好，自然会被先试；试过之后真实奖励把那个假值稀释下去。",
+    "<b>它和 UCB 的关键差别：乐观只给一次，不随时间补充。</b> UCB 的探索项随 <code>log t</code> 增长，<span class='k'>所以它会周期性地回头再看</span>；乐观初始化的那点乐观用完就没了。<b>这就是为什么它没有保证</b>——课件在 p53 还会再说一次。",
+    "<b>三种遗憾的对比是这一页最该记住的</b>：<b>纯贪心线性</b>（根本不探索）、<b>固定 ε 也是线性</b>（永远以固定比例乱试，错误率不降）、<b>只有衰减 ε 才是对数</b>。<span class='w'>「加了随机就算探索」是错的</span>——固定 ε 加了随机，遗憾仍然线性。",
+    "<b>为什么固定 ε 是线性？</b> 因为每一步都有 ε 的概率选一条随机臂，其中大部分是坏臂。<code>T</code> 步下来期望损失 <code>≈ ε·T·(平均差距)</code>——<b>与 T 成正比</b>。不管你学得多准，这部分损失都不会减少。",
+    "⚠️ <b>衰减 ε 要衰减得「刚刚好」才拿得到对数遗憾</b>：太快则探索不足（可能锁死），太慢则仍有线性项。<b>而衰减速率需要知道问题的难度（差距），这正是 UCB 不需要的东西。</b>",
+    "<b>把三种做法按「探索从哪来」归一下类，会更好记</b>：<br><b>乐观初始化</b>——探索来自一个<b>一次性的假先验</b>，会被真实数据稀释掉；<br><b>ε-贪心</b>——探索来自<b>外加的随机性</b>，与你学到了什么无关；<br><b>UCB</b>——探索来自<b>不确定性本身</b>，随证据自动调节。<br><span class='k'>只有第三种是「有方向的」探索</span>：它知道该去碰哪条臂，而不只是「碰点别的」。"
+   ],
+   "tbl": {
+    "head": [
+     "做法",
+     "总遗憾",
+     "为什么"
+    ],
+    "rows": [
+     [
+      "纯贪心",
+      "<b>线性</b>",
+      "不探索，可能永远锁在坏臂上"
+     ],
+     [
+      "固定 ε-贪心",
+      "<b>线性</b>",
+      "每步固定比例乱试，<span class='w'>这部分损失不随学习下降</span>"
+     ],
+     [
+      "衰减 ε-贪心",
+      "对数",
+      "探索逐步减少；但<b>衰减速率要知道差距</b>"
+     ],
+     [
+      "<b>UCB</b>",
+      "对数",
+      "不确定项自动调节，<b>不需要知道差距</b>"
+     ],
+     [
+      "乐观初始化",
+      "<span class='w'>没有保证</span>",
+      "乐观用完就没了，不随 t 补充（p53）"
+     ]
+    ]
+   },
+   "say": "她把乐观初始化讲得很直白：<em>just initialize all your values at like a million or something like that … you pretend you pull each of your arms once you've got a million, you've got a trillion, and then after that you just average in all your empirical rewards. So this actually can work fairly well in a lot of cases</em>。<b>「实践里常常够用，但没有保证」——这是本讲对它的定调</b>，p53 会原样重复一次。"
+  }
+ ],
+ "quiz": {
+  "3": [
+   {
+    "q": "课件把「设定 / 框架 / 做法」三者分开，最直接的好处是？",
+    "o": [
+     "便于记忆算法名字",
+     "区分有模型与无模型",
+     "同一个做法可以用不同的尺子量，而两把尺子的结论可能不同",
+     "说明 UCB 优于 Thompson 采样"
+    ],
+    "a": 2,
+    "why": "「UCB」是做法，「对数遗憾」是框架，两者常被当成一回事。p47–p48 会把同一组数据分别用遗憾和 PAC 量一次，<b>排名不一样</b>。本讲给了三把尺子：频率派遗憾、贝叶斯遗憾、PAC。"
+   }
+  ],
+  "7": [
+   {
+    "q": "UCB1 的遗憾界是 8 log t · Σ 1/Δ<sub>a</sub>。关于 Δ<sub>a</sub> 最值得注意的一点是？",
+    "o": [
+     "Δ<sub>a</sub> 越大遗憾越大",
+     "Δ<sub>a</sub> 必须大于 1",
+     "算法不需要知道 Δ<sub>a</sub>，但遗憾的大小由它决定",
+     "算法需要先估出 Δ<sub>a</sub> 才能运行"
+    ],
+    "a": 2,
+    "why": "UCB 的式子里只有 Q̂ 和 N，没有 Δ。这叫<b>依赖差距的界</b>——同一个算法在不同难度的问题上自动给出不同保证，而你不用告诉它难度。另外第三项说反了：遗憾正比于 <b>1/Δ</b>，所以<b>差距越小越贵</b>。"
+   },
+   {
+    "q": "探索项 √(2 log t / N<sub>t</sub>(a)) 为什么要含 log t？",
+    "o": [
+     "总步数越多越能承担试错，且久未碰的臂其估计相对过时；这个速度正好让总遗憾是对数的",
+     "为了避免除以零",
+     "因为 Hoeffding 不等式要求",
+     "为了让式子有量纲"
+    ],
+    "a": 0,
+    "why": "避免除零的是「先把每条臂各采一次」。log t 这个增长速度是<b>算出来的不是调出来的</b>——它正好让总遗憾是对数的。不确定项随 N 下降、随 t 上升，两个方向各管一件事。"
+   }
+  ],
+  "10": [
+   {
+    "q": "玩具例子里三条臂（.95 / .9 / .1）中，哪一条对总遗憾的贡献最大？",
+    "o": [
+     "θ=.95 那条",
+     "三条一样",
+     "θ=.1 那条，因为它最差",
+     "θ=.9 那条，因为差距只有 0.05，1/Δ = 20"
+    ],
+    "a": 3,
+    "why": "按定理遗憾正比于 1/Δ：绑扎臂贡献 1/0.05 = 20，什么都不做那条只贡献 1/0.85 ≈ 1.18。<b>难分辨的那一对才是遗憾的主要来源</b>，明显坏的臂几下就排除了。"
+   }
+  ],
+  "16": [
+   {
+    "q": "按「下界最高」贪心为什么会导致线性遗憾？",
+    "o": [
+     "下界可能为负",
+     "选中后那条臂的下界会继续上升，自我强化；你永远拿不到能否证自己假设的信息",
+     "下界需要知道差距",
+     "下界计算量太大"
+    ],
+    "a": 1,
+    "why": "她复述的学生答案：<em>you're never gonna get information that allows us to disprove our hypothesis</em>。反过来<b>上界是自我纠正的</b>——选中后估计变准、乐观被削掉、上界下降，最终让位给别人。"
+   },
+   {
+    "q": "这一页说的「确认偏误锁死」，在你的离线配置选择里成不成立？",
+    "o": [
+     "成立，你会永远锁在第一个好配置上",
+     "无法判断",
+     "成立，因为 AFlow 用了 Boltzmann",
+     "不直接成立——候选是一次性全评估的，没有「选择决定下次看到什么」这个回路"
+    ],
+    "a": 3,
+    "why": "离线一次性评估时没有那个自我强化回路。<b>但同一个病根（比较时丢掉不确定性）换了形式咬你</b>：变成 L04 p42 的最大化偏差——2187 个带噪声的估计里取最大，选出来的系统性虚高。<b>若改成迭代式决定「下一个跑哪个」，这一页就直接成立了</b>，那时你要的正是上界而非点估计。"
+   }
+  ],
+  "17": [
+   {
+    "q": "固定 ε 的 ε-贪心，总遗憾是？",
+    "o": [
+     "线性",
+     "取决于 ε 的大小",
+     "对数",
+     "常数"
+    ],
+    "a": 0,
+    "why": "每步有 ε 概率随机选臂，期望损失约 ε·T·(平均差距)，<b>与 T 成正比</b>，且不随学习下降。<span class='w'>「加了随机就算探索」是错的</span>——只有<b>衰减</b> ε 才拿得到对数遗憾，而衰减速率需要知道差距，这恰是 UCB 不需要的。"
+   },
+   {
+    "q": "乐观初始化与 UCB 的关键差别是？",
+    "o": [
+     "乐观初始化更快",
+     "乐观只给一次、用完就没了；UCB 的探索项随 log t 增长，会周期性回头再看",
+     "两者等价",
+     "乐观初始化需要模型"
+    ],
+    "a": 1,
+    "why": "这正是乐观初始化<b>没有保证</b>的原因，课件 p53 会再说一次。她的说法是「实践里常常够用」——<em>this actually can work fairly well in a lot of cases</em>，但那不是定理。"
+   }
+  ]
+ }
+}

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS234 第十二讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs234-2019-l12">
+
+<div id="bar">
+  <h1>CS234 第十二讲 · <span>从频率派到贝叶斯，从老虎机回到 MDP</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 61</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../slides/lecture12_postclass.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs234-2019</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/中文精读/L12-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+3: [{"q": "课件把「设定 / 框架 / 做法」三者分开，最直接的好处是？", "o": ["便于记忆算法名字", "区分有模型与无模型", "同一个做法可以用不同的尺子量，而两把尺子的结论可能不同", "说明 UCB 优于 Thompson 采样"], "a": 2, "why": "「UCB」是做法，「对数遗憾」是框架，两者常被当成一回事。p47–p48 会把同一组数据分别用遗憾和 PAC 量一次，<b>排名不一样</b>。本讲给了三把尺子：频率派遗憾、贝叶斯遗憾、PAC。"}],
+7: [{"q": "UCB1 的遗憾界是 8 log t · Σ 1/Δ<sub>a</sub>。关于 Δ<sub>a</sub> 最值得注意的一点是？", "o": ["Δ<sub>a</sub> 越大遗憾越大", "Δ<sub>a</sub> 必须大于 1", "算法不需要知道 Δ<sub>a</sub>，但遗憾的大小由它决定", "算法需要先估出 Δ<sub>a</sub> 才能运行"], "a": 2, "why": "UCB 的式子里只有 Q̂ 和 N，没有 Δ。这叫<b>依赖差距的界</b>——同一个算法在不同难度的问题上自动给出不同保证，而你不用告诉它难度。另外第三项说反了：遗憾正比于 <b>1/Δ</b>，所以<b>差距越小越贵</b>。"}, {"q": "探索项 √(2 log t / N<sub>t</sub>(a)) 为什么要含 log t？", "o": ["总步数越多越能承担试错，且久未碰的臂其估计相对过时；这个速度正好让总遗憾是对数的", "为了避免除以零", "因为 Hoeffding 不等式要求", "为了让式子有量纲"], "a": 0, "why": "避免除零的是「先把每条臂各采一次」。log t 这个增长速度是<b>算出来的不是调出来的</b>——它正好让总遗憾是对数的。不确定项随 N 下降、随 t 上升，两个方向各管一件事。"}],
+10: [{"q": "玩具例子里三条臂（.95 / .9 / .1）中，哪一条对总遗憾的贡献最大？", "o": ["θ=.95 那条", "三条一样", "θ=.1 那条，因为它最差", "θ=.9 那条，因为差距只有 0.05，1/Δ = 20"], "a": 3, "why": "按定理遗憾正比于 1/Δ：绑扎臂贡献 1/0.05 = 20，什么都不做那条只贡献 1/0.85 ≈ 1.18。<b>难分辨的那一对才是遗憾的主要来源</b>，明显坏的臂几下就排除了。"}],
+16: [{"q": "按「下界最高」贪心为什么会导致线性遗憾？", "o": ["下界可能为负", "选中后那条臂的下界会继续上升，自我强化；你永远拿不到能否证自己假设的信息", "下界需要知道差距", "下界计算量太大"], "a": 1, "why": "她复述的学生答案：<em>you're never gonna get information that allows us to disprove our hypothesis</em>。反过来<b>上界是自我纠正的</b>——选中后估计变准、乐观被削掉、上界下降，最终让位给别人。"}, {"q": "这一页说的「确认偏误锁死」，在你的离线配置选择里成不成立？", "o": ["成立，你会永远锁在第一个好配置上", "无法判断", "成立，因为 AFlow 用了 Boltzmann", "不直接成立——候选是一次性全评估的，没有「选择决定下次看到什么」这个回路"], "a": 3, "why": "离线一次性评估时没有那个自我强化回路。<b>但同一个病根（比较时丢掉不确定性）换了形式咬你</b>：变成 L04 p42 的最大化偏差——2187 个带噪声的估计里取最大，选出来的系统性虚高。<b>若改成迭代式决定「下一个跑哪个」，这一页就直接成立了</b>，那时你要的正是上界而非点估计。"}],
+17: [{"q": "固定 ε 的 ε-贪心，总遗憾是？", "o": ["线性", "取决于 ε 的大小", "对数", "常数"], "a": 0, "why": "每步有 ε 概率随机选臂，期望损失约 ε·T·(平均差距)，<b>与 T 成正比</b>，且不随学习下降。<span class='w'>「加了随机就算探索」是错的</span>——只有<b>衰减</b> ε 才拿得到对数遗憾，而衰减速率需要知道差距，这恰是 UCB 不需要的。"}, {"q": "乐观初始化与 UCB 的关键差别是？", "o": ["乐观初始化更快", "乐观只给一次、用完就没了；UCB 的探索项随 log t 增长，会周期性回头再看", "两者等价", "乐观初始化需要模型"], "a": 1, "why": "这正是乐观初始化<b>没有保证</b>的原因，课件 p53 会再说一次。她的说法是「实践里常常够用」——<em>this actually can work fairly well in a lot of cases</em>，但那不是定理。"}],
+18: [{"q": "贝叶斯老虎机相对前半讲那套，做了什么交易？", "o": ["只适用于伯努利奖励", "用更多计算换更低遗憾", "用「说出事先相信什么」换更快收敛，但先验错了会被带偏", "放弃了理论保证"], "a": 2, "why": "课件原文：<em>Better performance <b>if prior knowledge is accurate</b></em>。前半讲的 UCB 几乎不作假设（只要奖励有界），假设少是优点，代价是用不上已有知识。"}],
+20: [{"q": "「共轭」在实践中最直接的价值是？", "o": ["允许使用非指数族分布", "让先验更准确", "保证后验收敛到真值", "贝叶斯更新那个积分不用算了，只需改几个参数"], "a": 3, "why": "一般情形下分母是对参数的整个积分，多维就不可行。共轭让更新退化成加法，<b>于是老虎机算法能跑得飞快</b>。注意共轭是数学便利，不是对世界的描述——选 Beta 不是因为相信真参数服从 Beta。"}],
+24: [{"q": "Beta 分布的 α、β 为什么被叫做「伪计数」？", "o": ["因为它们是估计出来的，不精确", "因为更新规则就是「见到 1 则 α 加一，见到 0 则 β 加一」，与真实计数同量纲同加法，只是初值不为 0", "因为它们可以取小数", "因为它们需要归一化"], "a": 1, "why": "<b>没有任何优化过程，只有计数</b>——它们不是拟合出来的参数。Beta(1,1) 等于「假装已见过一次成功一次失败」，恰好是均匀分布。先验强度因此可以数出来：Beta(10,10) 相当于 20 个假样本。"}, {"q": "某条臂拉一次得 1。UCB 的点估计与 Beta(1,1) 先验下的后验均值分别是？", "o": ["都是 0.667", "UCB 给 1.0；贝叶斯给 2/3 ≈ 0.667", "都是 1.0", "UCB 给 0.5；贝叶斯给 1.0"], "a": 1, "why": "Q̂ = 成功数/拉的次数 = 1.0；而 Beta(1,1)→Beta(2,1)，均值 α/(α+β) = 2/3。<b>先验起到了收缩作用，自动防住小样本的极端估计</b>——这正好对冲在大量候选里取最大时的虚高。"}],
+26: [{"q": "贝叶斯遗憾与频率派遗憾的差别是？", "o": ["贝叶斯遗憾不需要知道 V*", "多了最外层对参数先验的期望：问的是「在这一类问题上平均如何」而非「在这个问题上如何」", "贝叶斯遗憾只适用于共轭先验", "两者等价"], "a": 1, "why": "内层式子完全相同，差别只有 E<sub>θ∼p<sub>θ</sub></sub> 这一层。于是频率派保证<b>更强</b>（对所有 θ 成立），贝叶斯是平均意义。<span class='w'>报告贝叶斯遗憾必须把所用先验一起报</span>，否则这个数没有意义。"}],
+27: [{"q": "概率匹配为什么「自动带有乐观」？", "o": ["因为它初始化很大", "因为它用了 UCB 作为子程序", "因为后验宽的臂「碰巧是最优」的概率更高", "因为它取后验的高分位数"], "a": 2, "why": "课件原文：<em>uncertain actions have higher probability of being max</em>。这与 UCB 的乐观方式不同——<b>UCB 把不确定性压成一个数（分位数），概率匹配保留整个形状</b>。取高分位数那个是 Bayesian UCB。"}],
+29: [{"q": "Thompson 采样为什么恰好实现了概率匹配？", "o": ["因为「a 是最优的概率」可以写成一个期望，而一次采样就是对它的无偏实现", "因为后验收敛到真值", "因为 Beta 是共轭的", "因为它每轮都更新后验"], "a": 0, "why": "p30 那行等式：P[a 最优] = E<sub>R|h</sub>[1(a = argmax Q)]。<b>你不需要知道那个概率是多少，只需要按那个概率行动</b>——采样天然做到了。这就是课件说「相当不可思议」的原因。"}],
+31: [{"q": "TS 的第一轮三条臂后验完全相同（都是 Beta(1,1)），结果选中了最差的 a₃。这说明什么？", "o": ["Beta(1,1) 是错误的先验选择", "TS 有缺陷，应该先采样每条臂", "应该改用 UCB", "后验相同时第一次选谁纯看抽样运气；但错一次后后验立刻收紧，代价很快被收回"], "a": 3, "why": "a₃ 返回 0 后后验变 Beta(1,2)，均值从 0.5 掉到 0.333，往后很难再抽出高值（p38 抽到 0.1，p39 抽到 0.4）。<b>对照 UCB：它必须把每条臂都试一遍（N=0 会除零），TS 不必</b>——代价是可能漏掉某条臂（例子里 a₂ 从未被碰过）。"}, {"q": "p39 列的先验是 Beta(2,1)/Beta(1,1)/Beta(1,2)，而结论是 Beta(4,1)。这里有什么问题？", "o": ["采样值写错了", "结论算错了，应该是 Beta(3,1)", "没有问题", "先验行是从 p38 复制未更新；要得到 Beta(4,1)，先验应为 Beta(3,1)"], "a": 3, "why": "p38 结束时 a₁ 已是 Beta(3,1)，再加一次成功才得 Beta(4,1)。<b>这是课件的「同图复制未更新」笔误</b>，本课件出现过几次同类问题。遇到前后对不上时以<b>能推得通的那一侧</b>为准，并把差异标出来。"}],
+40: [{"q": "前五步里乐观累计遗憾 0.95、TS 累计 0.85。这张表最值得注意的是？", "o": ["TS 更优，应优先选用", "两者总量接近，但错误的形状完全不同：乐观是多次小错，TS 是一次大错后再不犯", "乐观必然更差", "五步足以判定优劣"], "a": 1, "why": "<b>这正是 p46 要引入 PAC 框架的理由</b>——遗憾把所有损失加起来，于是「一次大错」和「多次小错」可能得到同样的数，而真实场景里这两件事完全不同。五步太短不能下结论。"}],
+42: [{"q": "「乐观的界更紧，但实证上 TS 常常更好」——这两句矛盾吗？", "o": ["矛盾，取决于 T 的大小", "不矛盾，因为两者用了不同的先验", "不矛盾：「界更紧」说的是已证明的上界离真实表现更近，不等于真实表现更好", "矛盾，必有一句错"], "a": 2, "why": "<span class='w'>一个算法可以表现很好但界很松</span>——那只说明还没证出好的界。而且 p44 补充：换到<b>贝叶斯遗憾</b>这把尺子，两者的界就齐平了。<b>「谁的界更紧」必须先问「用哪把尺子」。</b>"}, {"q": "先验可能不准时，讲稿给的折中路线是？", "o": ["PAC-Bayesian：先验好时像贝叶斯，先验错时退回频率派式的保证", "改用纯频率派方法", "多跑几个种子", "增大先验的方差"], "a": 0, "why": "她的原话：<em>you'd like to be like Bayesian if your prior is really good, and PAC if it turns out that your prior's wrong</em>。这是课件上没有、只在实录里的内容。"}],
+43: [{"q": "上下文老虎机与 MDP 的分界线是？", "o": ["上下文老虎机没有状态", "上下文老虎机的奖励是二值的", "上下文是外生的（iid 采样），你的动作不改变下一个上下文", "上下文老虎机不需要探索"], "a": 2, "why": "课件原文：<em>context sampled iid each step</em>。她的例子：<em>how you treat the current patient doesn't impact the next patient, but the patient characteristics can affect which arm is best</em>。<b>有状态，但动作不改变状态分布</b>——所以不需要功劳分配。"}, {"q": "把你的课题套进上下文老虎机，有一个前提必须先验证。是什么？", "o": ["query 必须是 iid 采样的", "必须用 Beta 先验", "奖励必须是二值的", "节点效应必须可加——否则 H 个节点不能拆成 H 个独立的单步决策问题"], "a": 3, "why": "上下文老虎机要求<b>单步决策</b>，而 workflow 有 H 个节点。只有可加性检验通过，才能拆开；否则它仍是序贯的。<b>这和 L11 p16 指向的是同一个实验。</b>（query 的 iid 性是成立的，那不是待验证的前提。）"}, {"q": "讲稿补充说 TS 在哪种情形下比 UCB 更稳健？", "o": ["奖励有界时", "臂的数量很多时", "先验不准时", "结果延迟时"], "a": 3, "why": "<em>It also can be more robust when your outcomes are delayed</em>。机制：UCB 是确定性的，结果没回来前上界不变、会反复选同一条臂；<b>TS 每轮重新抽样，自动把等待期分散到多条臂上</b>。你的奖励正是终局才出现，所以这条直接相关。"}],
+45: [{"q": "PAC 框架相对遗憾，换掉的是什么？", "o": ["只适用于老虎机", "不把损失加总，而是数「超出 ε 的错」的个数", "要求算法必须收敛", "换成了贝叶斯视角"], "a": 1, "why": "课件的动机句：<em>could be making lots of little mistakes or infrequent large ones</em>。两种情形总遗憾可以相同，但真实场景里不是一回事。PAC 的三个旋钮 ε（多差算错）、δ（允许多大概率失手）、N（最多犯几次）<b>缺一不可</b>。"}, {"q": "PAC 定义里要求 N 是问题参数的「多项式」。去掉这个限定会怎样？", "o": ["定义仍然成立，只是界更松", "保证会退化成「它最终会收敛」这种废话", "需要更大的 δ", "算法会变慢"], "a": 1, "why": "<b>任何算法最终都会学会，问题从来是「要多久」。</b>把多项式换成指数，这个陈述就没有内容了。注意这个限定是实质性的，不是修辞。"}],
+47: [{"q": "ε=0.05 时，乐观拉 a₂（真值 0.90、最优 0.95）算不算「大错」？", "o": ["取决于 δ", "算，因为有 0.05 的遗憾", "不算：0.90 ≥ 0.95 − 0.05，恰好卡在 ε-最优的边界上", "算，因为 a₂ 不是最优臂"], "a": 2, "why": "<b>有遗憾不等于算错</b>——这正是 PAC 与遗憾的分野。于是乐观的唯一大错是第三步拉 a₃。把 ε 调到 0.04，0.90 &lt; 0.91，那两次 a₂ 就都变成大错了，<span class='w'>结论翻转</span>。"}, {"q": "这个例子里两把尺子给出的裁决是？", "o": ["两者都说乐观更好", "PAC 说 TS 更好，遗憾说打平", "遗憾说 TS 更好（0.85 vs 0.95），PAC 说打平（各 1 次大错）", "两者都说 TS 更好"], "a": 2, "why": "<b>两个结论都正确，因为量的不是同一个东西。</b>本讲前后出现四次这个现象：频率派遗憾下乐观界更紧、贝叶斯遗憾下齐平、实证上 TS 更好、PAC 下这个例子打平。<b>读到「A 优于 B」时第一反应应是「用什么尺子量的」。</b>"}],
+49: [{"q": "从老虎机搬到 MDP，探索变难的根本原因是？", "o": ["状态空间更大", "想多访问某个状态，得先学会怎么走到那里——探索本身成了规划问题", "奖励是延迟的", "需要折扣因子"], "a": 1, "why": "老虎机里你随时可以拉任何一条臂；MDP 里 N(s,a) 要数的状态<b>是你自己走到的</b>。另外乐观的对象也变了：从「每条臂的均值」变成「转移模型与奖励模型」，而模型的不确定性会沿时间传播。"}],
+52: [{"q": "为什么 r<sub>max</sub>/(1−γ) 保证是乐观的？", "o": ["因为 γ<1", "它是每步都拿 r_max 的折扣和，即任何策略回报的绝对上限", "因为它由 Hoeffding 不等式给出", "因为它是经验平均的上界"], "a": 1, "why": "r_max(1 + γ + γ² + ⋯) = r_max/(1−γ)。真实 Q 不可能超过它。<b>但这是「无信息」的乐观</b>——对所有 (s,a) 一视同仁，只能推动「什么都试一遍」，不能告诉你该先试什么。"}, {"q": "Even-Dar &amp; Mansour 证明乐观初始化的 Q-learning 是 PAC 的，前提是什么？", "o": ["必须用 ε-贪心", "初始值要是 r_max/((1−γ)·Π α_i)——α<1 相乘做分母，这个数随 T 指数增长", "学习率要足够小", "状态空间要有限"], "a": 1, "why": "α=0.1、T=100 时分母是 10⁻¹⁰⁰，初始值要到 10¹⁰⁰ 量级。<b>所以「能 PAC」和「可用」在这里被劈开了</b>。看到「某方法被证明是 PAC 的」，要追问前提里的常数有多大。"}],
+55: [{"q": "MBIE-EB 的更新式里，哪一项是本讲新增的？", "o": ["R̂(s,a) 的计数估计", "Q̃ 的初始化", "γ Σ T̂ max Q̃ 的 Bellman 回溯", "β/√n_sa(s,a) 的探索加成"], "a": 3, "why": "前两项合起来就是 <b>L03 p48 的确定性等价</b>（估出模型再做 DP）。只有探索加成是新的。而加成的 1/√N 形状与 UCB 同源——<b>均值估计的误差按 1/√N 收缩</b>（Hoeffding）。"}, {"q": "β = (1/(1−γ))·√(0.5 ln(2|S||A|m/δ)) 里的 ln(2|S||A|m/δ) 来自什么？", "o": ["值迭代的收敛速率", "折扣因子的几何级数", "联合界：要让保证对所有 (s,a) 同时成立", "Bellman 算子的压缩性"], "a": 2, "why": "状态动作越多越要保守，δ 越小 β 越大。而前面那个 <b>1/(1−γ) 是有效时域</b>——误差会沿时间累积，时域越长越要保守。两个成分各管一件事。"}],
+57: [{"q": "ε-贪心（固定 ε）是 PAC 的吗？", "o": ["不是：大错次数随步数线性增长，不可能被多项式 N 封住", "是，只要 ε 足够小", "是，但需要衰减 ε", "取决于状态空间大小"], "a": 0, "why": "<b>PAC 是一个有区分力的二元资格，不是所有算法都能拿到</b>——这和遗憾不同（任何算法都有一个遗憾值，可能很大）。纯贪心也不是 PAC（可能永远锁死）。"}, {"q": "p59 给的是「充分条件」而不是又一个算法。这样做的价值是？", "o": ["任何满足这组条件的算法都是 PAC 的——把一次性的证明变成了可复用的模板", "可以避免使用乐观", "条件比算法更容易证明", "条件适用于所有 MDP"], "a": 0, "why": "Strehl、Li、Littman 2006 的这组条件后来被很多算法照着设计。<b>另外注意：「多项式」只保证不是指数，但 |S|³|A|/(ε³(1−γ)⁶) 也是多项式</b>——实用性要看具体幂次，那是 L13 的事。"}]
+};
+
+var N = [
+{"r": [1, 2], "t": "这一讲在整条线里的位置", "star": 2, "quote": "<b>Class Structure</b> — <em>Last time</em>: Fast Learning (Bandits and regret) · <em>This time</em>: Fast Learning (<b>Bayesian bandits to MDPs</b>) · <em>Next time</em>: Fast Learning", "one": "<b>L11–L13 是同一讲的三段。上一讲立了老虎机与遗憾，这一讲从频率派换到贝叶斯，再把整套搬回 MDP。</b>", "pts": ["<b>「Fast Learning」这个名字值得留意：它换掉了评价标准。</b> 前十讲问的是「最终能不能学到最优」，这三讲问的是「<span class='k'>要花多少次尝试才学到</span>」。<b>同一个算法在两套标准下的排名可以完全不同</b>——ε-贪心最终也收敛，但它的遗憾是线性的。", "<b>这一讲的跨度是本课最大的一讲之一</b>：从频率派的置信上界，到贝叶斯的后验采样，再到 MDP 上的 PAC 保证。<span class='w'>三段各有各的记号体系</span>，中间不换口径容易串。", "<b>p1 的脚注说本讲部分幻灯来自 David Silver</b>。L01 的第三部分也是（交互回路那一段）。<b>遇到和 Silver 课程记号一致的页面，可以互相参照。</b>", "<b>为什么「要花多少次」这个问题到第十一讲才正式处理？</b> 因为前面十讲在建工具：没有值函数、没有策略梯度，就没法谈「学得快不快」。<span class='k'>而一旦工具齐了，样本效率立刻变成最要紧的问题</span>——真实系统里你付的是数据的钱，不是算力的钱。", "<b>这三讲的另一条暗线是「保证的类型在变」。</b> L11 给的是频率派遗憾界；本讲引入贝叶斯遗憾与 PAC；L13 会把 PAC 搬到 MDP 上并承认它在深度网络上还不成立。<b>读的时候留意每个定理前面挂着什么假设</b>——假设换了，结论之间就不可比。"], "tbl": {"head": ["讲", "设定", "主要内容"], "rows": [["L11", "老虎机", "遗憾的定义、UCB、下界"], ["<b>L12（本讲）</b>", "老虎机 → MDP", "<b>贝叶斯老虎机 · 概率匹配 · PAC · MBIE-EB</b>"], ["L13", "MDP", "把探索证成定理，以及它在深度网络上还不成立"]]}, "tip": {"t": "读法", "v": "本讲 61 页跨度很大，建议分三段读：<b>p1–p17 频率派的乐观</b>（本片）、<b>p18–p44 贝叶斯与 Thompson 采样</b>、<b>p45–p61 PAC 与 MDP</b>。三段各有各的记号体系，<span class='w'>中间不换口径容易串</span>——尤其「遗憾」在三段里分别指频率派遗憾、贝叶斯遗憾、和被 PAC 替换掉的那个量。"}},
+{"r": [3, 4], "t": "三个维度：设定 · 框架 · 做法", "star": 3, "quote": "<b>Settings, Frameworks &amp; Approaches</b><br><em>Settings</em>: Bandits (single decisions), MDPs<br><em>Frameworks</em>: evaluation criteria for formally assessing the quality of a RL algorithm<br><em>Approaches</em>: Classes of algorithms for achieving particular evaluation criteria", "one": "<b>这一页是本讲唯一的骨架：设定（在哪做）× 框架（用什么尺子量）× 做法（怎么做）。三者可以自由组合。</b>", "pts": ["<b>把这三个维度拆开，是本讲最值钱的结构性贡献。</b> 很多人把「UCB」和「对数遗憾」当成一回事——<span class='k'>其实前者是做法，后者是框架</span>。同一个做法（乐观）可以用遗憾量，也可以用 PAC 量，<b>两把尺子给出的结论不一样</b>（p47–p48 会并排算一次）。", "<b>「框架」这个词在这里特指<b>评价标准</b>，不是算法框架。</b> 本讲给了三把尺子：<br>① <b>频率派遗憾</b>——假设存在一组真实但未知的参数；<br>② <b>贝叶斯遗憾</b>——假设参数本身有先验，对先验再取一次期望；<br>③ <b>PAC</b>——不加总损失，而是<span class='k'>数「犯大错的次数」</span>。", "<b>做法这边本讲给两类</b>：<b>不确定下的乐观</b>（UCB、乐观初始化、MBIE-EB）与<b>概率匹配</b>（Thompson 采样）。<b>两类做法 × 三把尺子，本讲几乎把这张表填满了。</b>", "⚠️ <b>p4 的目录就是这张表的展开</b>，六节：老虎机回顾 → 乐观 → 贝叶斯老虎机与贝叶斯遗憾 → 概率匹配 → PAC → MDP。<b>读不下去时回到这张表，问「现在在哪一格」。</b>"], "tbl": {"head": ["维度", "本讲涉及的取值", "出现在"], "rows": [["<b>设定</b>", "老虎机（单步决策）· MDP", "p5–p48 · p50–p61"], ["<b>框架</b>（尺子）", "频率派遗憾 · <b>贝叶斯遗憾</b> · <b>PAC</b>", "p6 · p26 · p46"], ["<b>做法</b>", "乐观（UCB / 乐观初始化 / MBIE-EB）· <b>概率匹配</b>（Thompson）", "p8 · p17 · p55 · p28"]]}, "res": {"tag": "推断", "v": "<b>这张三维表直接适用于你的课题，而且填出来会发现你一直只用了其中一格。</b><br><b>设定</b>：你的问题是<b>上下文老虎机</b>（p43 会正式出现）——上下文是 query，臂是保真度配置，而你的选择<span class='k'>不改变下一个 query 是什么</span>。这比完整 MDP 弱，但那是好消息：弱设定有更紧的界。<br><b>框架</b>：你现在隐含用的是「点估计最大化」，<b>既不是遗憾也不是 PAC</b>。而你真正要的陈述是「上线后不更差」——那在形状上更接近 <b>PAC</b>（数大错的次数）而不是遗憾（把所有损失加起来）。p46 会把这个区别讲透，<b>那一页值得专门停一下</b>。<br><b>做法</b>：你现在既不乐观也不概率匹配——<b>AFlow 的选择规则是 top-k + Boltzmann 混合均匀</b>（λ=0.2, α=0.4），<span class='w'>没有访问计数、没有置信上界</span>。这在本讲的分类里属于「按分数软贪心」，离这两类都有距离。<br>所以这一页给你的不是某个算法，是<b>一张可以自查的表</b>：我在哪个设定、用哪把尺子、属于哪类做法。三格都填清楚，论文的形式化那一节就写出来了。<br><br><b>补一条可以直接用的</b>：这三格填清楚之后，「我们的方法属于哪一类」这个问题就有了标准答法。你的方法在<b>做法</b>这一格目前是空的——既不乐观也不概率匹配。<span class='k'>而这未必是缺点：离线一次性评估本来就不需要探索策略</span>。真正需要填这一格的，是你决定「下一批跑哪些配置」的时候（主动实验设计）。<b>所以这张表也告诉你：如果一直是一次性全评估，本讲的算法你一个都不需要；一旦改成迭代选取，它们立刻全部相关。</b>这个分界值得在论文里写明，否则审稿人会问「你为什么不用 UCB/Thompson」。", "ref": "课件 p3–p4 · 简报 §2（AFlow 选择规则，已核：Algorithm 1 / Appendix A.6 行 28–42）"}},
+{"r": [5, 6], "t": "回顾：老虎机与遗憾", "star": 2, "quote": "<b>Multi-armed bandit</b> is a tuple (A, R) — A: known set of m actions · <em>R<sub>a</sub>(r) = P[r|a] is an unknown probability distribution over rewards</em><br><b>Regret</b>: Q(a) = E[r|a] · V* = max<sub>a</sub> Q(a) · <em>l<sub>t</sub> = E[V* − Q(a<sub>t</sub>)]</em> · <em>L<sub>t</sub> = E[Σ<sub>τ=1</sub><sup>t</sup> V* − Q(a<sub>τ</sub>)]</em><br><em>Maximize cumulative reward ⟺ minimize total regret</em>", "one": "<b>臂是已知的，奖励分布是未知的。遗憾 = 每一步「本可以拿到的最好」减去「实际拿到的」，加起来。</b>", "pts": ["<b>注意哪一半已知、哪一半未知</b>：动作集合 A <span class='k'>已知</span>（你知道有哪些臂），奖励分布 R <span class='k'>未知</span>。<b>这是老虎机问题的全部不确定性来源</b>——没有状态转移要学，没有长期后果要算。", "<b>遗憾的定义里 V* 是「事后才知道的最优」</b>。你在跑的时候不知道它，但<b>分析时用它当基准</b>。这是一种「事后诸葛亮」式的评价，但它恰恰是公平的：它问的是「你比一个知道答案的人差多少」。", "<b>最后一行那个等价很重要</b>：<em>Maximize cumulative reward ⟺ minimize total regret</em>。因为 V*·t 是常数，所以最大化累积奖励和最小化累积遗憾<b>是同一个问题</b>。<span class='k'>用遗憾而不用奖励，是因为遗憾的尺度与问题无关</span>——它让不同问题上的算法可以比较。", "⚠️ <b>遗憾是对「步」求和的，这个细节在 p46 会变成关键</b>：把一千次小错加起来，和犯一次大错，可能得到同样的遗憾值。<b>而这两件事在实际中完全不同。</b>", "<b>老虎机把 RL 的四要素砍掉了一个（L01 p14）</b>：没有延迟后果。剩下优化、探索、泛化三格。<span class='k'>所以它不是「简化版 RL」，是「抽掉一个维度的 RL」</span>——而抽掉的恰好是让分析变难的那一个，于是能证出很紧的界。", "<b>「遗憾」这个译名容易让人以为它是算法要最小化的目标函数。</b> 不是——<b>算法看不到 V*，也算不出 l<sub>t</sub></b>。遗憾只是分析者事后用来评价算法的量。<span class='w'>任何在运行时用到 V* 的「算法」都是作弊</span>。", "<b>这一页的 Q(a) 和前十讲的 Q(s,a) 是同一个东西去掉状态</b>。老虎机只有一个（隐含的）状态，所以 Q 只依赖动作。<b>到 p43 的上下文老虎机，状态会以「上下文」的形式回来，但它是外生的——你的动作不改变它。</b>"], "tbl": {"head": ["符号", "含义", "已知吗"], "rows": [["A（m 条臂）", "动作集合", "<b>已知</b>"], ["R<sub>a</sub>(r)", "臂 a 的奖励分布", "<span class='w'>未知</span>"], ["Q(a) = E[r\\|a]", "臂 a 的真实均值", "<span class='w'>未知</span>，要估"], ["V* = max<sub>a</sub> Q(a)", "最优臂的均值", "<span class='w'>未知</span>，只用于分析"], ["L<sub>t</sub>", "到 t 为止的总遗憾", "分析量，不是算法用的"]]}, "say": "讲稿里她提醒过一句对推导要紧的话：UCB 的上界用 Hoeffding 不等式算出来，<em>because remember each of our samples from the arms is iid, because they're all coming from the same parametric distribution, which is unknown and we're given these samples</em>。<b>i.i.d. 是这套做法的前提</b>，不是技术细节——数据一旦有相关性，上界就不再是上界。"},
+{"r": [7, 9], "t": "乐观：UCB 与它的遗憾定理", "star": 3, "quote": "<b>Approach: Optimism Under Uncertainty</b> — Estimate an upper confidence U<sub>t</sub>(a) such that <em>Q(a) ≤ U<sub>t</sub>(a) with high probability</em> · This depends on <b>N<sub>t</sub>(a)</b>, the number of times a has been selected · <em>a<sub>t</sub> = argmax<sub>a</sub> U<sub>t</sub>(a)</em><br><b>UCB1</b>: <em>a<sub>t</sub> = argmax<sub>a</sub> [ Q̂(a) + √(2 log t / N<sub>t</sub>(a)) ]</em><br><b>Theorem</b>: <em>lim<sub>t→∞</sub> L<sub>t</sub> ≤ 8 log t Σ<sub>a|Δ<sub>a</sub>&gt;0</sub> (1/Δ<sub>a</sub>)</em>", "one": "<b>给每条臂算一个「高概率不会低估」的上界，然后贪心地选上界最大的那条。</b>", "pts": ["<b>这个式子的两项各管一件事</b>：<code>Q̂(a)</code> 是<b>利用</b>（目前看起来多好），<code>√(2 log t / N<sub>t</sub>(a))</code> 是<b>探索</b>（有多不确定）。<span class='k'>不确定项随 N 下降、随 t 上升</span>——试得越多越确定，时间越久越该再看一眼。", "<b>为什么探索项要随 t 增长？</b> 因为总步数越多，你越能承担一次试错；而且一条很久没碰的臂，它的估计相对别人已经「过时」了。<b>log t 这个增长速度是算出来的，不是调出来的</b>——它正好让总遗憾是对数的。", "<b>定理里的 Δ<sub>a</sub> = V* − Q(a) 是「差距」。</b> 遗憾与 <code>Σ 1/Δ<sub>a</sub></code> 成正比，于是有一个反直觉的结论：<span class='w'>差距越小的臂越贵</span>——因为要花很多次尝试才分辨得出来。<b>而差距很大的坏臂反而便宜，几下就排除了。</b>", "<b>最要紧的一点藏在定理和算法的对比里</b>：<b>算法本身不需要知道 Δ<sub>a</sub></b>（式子里只有 Q̂ 和 N），<span class='k'>但遗憾的大小由 Δ<sub>a</sub> 决定</span>。这叫「依赖差距的界」。<b>同一个算法，在不同难度的问题上自动给出不同的保证，而你不用告诉它难度是多少。</b>", "⚠️ <b>「高概率不会低估」是这整套做法的根基</b>。如果上界其实是错的（真值超出了它），乐观就失效了。所以 UCB 的推导靠的是 Hoeffding 不等式，而它要求<b>样本独立同分布</b>——讲稿里她专门强调了这一点。", "<b>「高概率」这三个字是有代价的，课件没展开。</b> UCB1 里的常数 2 对应某个固定的失败概率；要更高的置信就要更大的常数，<span class='k'>而更大的常数意味着更多探索、更大的常数项遗憾</span>。<b>置信水平是一个可调的旋钮，不是免费的。</b>", "<b>定理写的是 <code>lim<sub>t→∞</sub></code>，这是渐近结论。</b> 有限步下还有常数项和低阶项，它们在 t 不大时可能主导。<span class='w'>「对数遗憾」不保证前一百步表现好</span>——实践中 UCB 的早期表现常常不如 Thompson 采样，p42 会提到这一点。"], "eq": "UCB1：  a_t = argmax_a [ Q̂(a) + sqrt( 2 log t / N_t(a) ) ]\n                      └─ 利用 ─┘   └──── 探索 ────┘\n\n遗憾：  lim_{t→∞} L_t ≤ 8 log t · Σ_{a: Δ_a>0} 1/Δ_a     其中 Δ_a = V* − Q(a)\n\n算法不需要知道 Δ_a，但遗憾由 Δ_a 决定", "tbl": {"head": ["", "随 N<sub>t</sub>(a) 增加", "随 t 增加", "作用"], "rows": [["Q̂(a)", "更准", "—", "利用"], ["√(2 log t / N<sub>t</sub>(a))", "<b>下降</b>", "<b>上升</b>", "探索"], ["合计上界", "向真值收紧", "略放宽", "乐观"]]}, "say": "她把这一套的来历讲了一段课件上没有的：区间估计最早是 <b>Leslie Kaelbling 1993</b>（MIT）提的，<em>she didn't do formal proofs of this being a good idea, but she did it for Markov decision processes, and they found that it was a very good idea in terms of empirical performance, and then a lot of people went around and did the theoretical analysis</em>。她顺带感慨了一句：<em>it's interesting often about which area ends up being more advanced whether it's the empirical side or the theoretical side</em>。<b>这件事先有实证、后有理论，隔了十几年。</b>", "res": {"tag": "已核", "v": "<b>这一页是「AFlow 不是 UCT」这个论断的落脚点——你需要指着 UCB 的定义说它缺了什么。</b><br>UCB 的构成是 <code>点估计 + 随 N 下降的不确定项</code>，而 <b>AFlow 的选择规则</b>是：把已评估的 workflow 按分数排序取 top-k（k=3），再从混合分布采样 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，λ=0.2、α=0.4。<br><span class='w'>没有访问计数，没有置信上界，没有 expectimax/minimax 回传</span>；它的「Backpropagation」只是把 (parent, modification, avgScore) 追加进父节点的经验日志。<br><b>所以它在本讲的分类里既不是乐观也不是概率匹配，而是「按分数的 Boltzmann 软贪心 + 均匀混合」</b>——结构上更接近 ε-贪心（p17 会给它线性遗憾），而不是 UCB。<br><b>这一点你有资格说，因为你复现过。</b> 而且带上 Algorithm 1 的行号（Appendix A.6 行 28–42）精确指出来，本身就是加分项；跟着原文叫它 MCTS，懂 RL 的审稿人会记账。<br><b>正确叫法</b>：Boltzmann-greedy selection，或 LLM-guided evolutionary search。<br>另外注意 UCB 推导依赖的 <b>i.i.d. 假设</b>在你这里要小心：同一条 query 上重复评估不是独立的（同一个 LLM、同一个提示），<span class='k'>而跨 query 才接近独立</span>。", "ref": "课件 p8–p9 · 简报 §2（已核，AFlow Algorithm 1 / Appendix A.6 行 28–42）"}, "tip": {"t": "记号", "v": "本讲三把尺子的符号要分清：<code>L<sub>t</sub></code> 是<b>频率派</b>总遗憾（假设存在真实参数 θ）；p26 的 <code>BayesRegret</code> 在它外面<b>再对 θ 的先验取一次期望</b>；p46 的 PAC 则<b>完全不加总</b>，只数「偏离最优超过 ε 的步数」。<span class='w'>三者量的是不同的东西，数值之间没有换算关系</span>。"}},
+{"r": [10, 15], "t": "玩具例子：三条臂上跑一遍 UCB", "star": 3, "quote": "<b>Toy Example: Ways to Treat Broken Toes</b> — True (unknown): <em>surgery θ₁=.95 · buddy taping θ₂=.9 · doing nothing θ₃=.1</em><br>① <em>Sample each arm once</em>: a₁ get +1 ⇒ Q̂(a₁)=1 · a₂ get +1 ⇒ Q̂(a₂)=1 · a₃ get 0 ⇒ Q̂(a₃)=0<br>② <em>Set t=3, compute UCB(a) = Q̂(a) + √(2 log t / N<sub>t</sub>(a))</em><br>p14 <b>Check Your Understanding</b>: <em>Assume ties are evenly split. Prob of each arm if using ε-greedy (ε=0.1)? If using UCB?</em><br><em><sup>1</sup>This is a made up example. This is not medical advice.</em>", "one": "<b>三条臂：手术 .95、绑扎 .9、什么都不做 .1。前两条差距很小，第三条明显坏——这个设计是为了让两种困难同时出现。</b>", "pts": ["<b>三个数字是精心选的，不是随手写的。</b> <code>θ₁=.95</code> 与 <code>θ₂=.9</code> 只差 0.05，<span class='k'>要很多次采样才分得清</span>；而 <code>θ₃=.1</code> 与最优差 0.85，<b>几下就该被排除</b>。按 p9 的定理，前者贡献 <code>1/0.05 = 20</code>，后者只贡献 <code>1/0.85 ≈ 1.18</code>——<b>难分辨的那一对才是遗憾的主要来源</b>。", "<b>第一步「每条臂各采一次」不是可选项，是必需的</b>：<code>N<sub>t</sub>(a)=0</code> 时探索项要除以零。<b>所有 UCB 类算法都从这一步开始。</b>", "<b>伯努利奖励让这个例子可以手算，但也暴露了小样本的问题</b>：a₁ 拉一次得 1，<code>Q̂(a₁)=1.0</code>——<span class='w'>比真值 .95 还高</span>。a₂ 同样得 1，于是 <code>Q̂(a₁)=Q̂(a₂)=1</code>，<b>两条臂在点估计上完全无法区分</b>。这正是只看点估计不够的直观演示。", "<b>算一遍 t=3 时的 UCB（三条臂 N 都是 1，log 3 = 1.0986）</b>：<br><code>探索项 = √(2 × 1.0986 / 1) = 1.4823</code>，三条臂相同。<br>于是 <code>UCB(a₁) = UCB(a₂) = 2.4823</code>，<code>UCB(a₃) = 1.4823</code>。<br><span class='k'>探索项相同时，UCB 退化成按点估计比较</span>——此刻 a₁ 与 a₂ 并列，a₃ 明显落后。", "<b>p14 那道题的答案值得单独记，它把两种做法的差别摊开了</b>：<br><b>ε-贪心（ε=0.1，三条臂）</b>：贪心项在 a₁/a₂ 之间平分 0.9，各得 0.45；再加上随机探索的 <code>ε/m = 0.0333</code>。<br>⇒ <code>P(a₁)=P(a₂)=0.4833</code>，<b><code>P(a₃)=0.0333</code></b>。<br><b>UCB</b>：只选上界最大的，a₁/a₂ 并列平分。<br>⇒ <code>P(a₁)=P(a₂)=0.5</code>，<b><code>P(a₃) = 恰好 0</code></b>。", "<b>这个「恰好 0」是本页最该带走的东西。</b> ε-贪心<span class='w'>永远</span>给明显坏的臂 3.33% 的概率——不管你已经多确信它坏。<b>UCB 一旦确信某条臂连上界都够不着，就再也不碰它</b>。这就是 p17 为什么说固定 ε 的遗憾是线性的：那 3.33% 乘以 T，是一笔<b>不随学习下降</b>的固定支出。", "<b>往下走一步，能看到探索项真的在起作用。</b> 选 a₁ 并得到奖励 1 之后：<code>N(a₁)=2</code>，t=4。<br><code>UCB(a₁) = 1 + √(2 log 4 / 2) = 2.1774</code>（探索项被 N=2 压小了）<br><code>UCB(a₂) = 1 + √(2 log 4 / 1) = 2.6651</code>（没被碰过，探索项大）<br>⇒ <b>这一轮转去选 a₂</b>。<span class='k'>注意两条臂的点估计完全相同（都是 1），是探索项决定了去碰谁</span>——这正是 UCB 与纯贪心的分野。", "<b>p15 把遗憾逐行列出来</b>：选 a₁ 遗憾 0，选 a₂ 遗憾 <b>0.05</b>，选 a₃ 遗憾 <b>0.85</b>。这张表在 p41（对比 Thompson 采样）和 p47–p48（对比 PAC）会被反复用到，<b>所以这三个数要记住</b>。", "⚠️ <b>课件自己加了脚注：这是编的例子，不是医学建议。</b> 这类脚注在本课里出现过几次，都是在提醒<b>别把教学设定当事实引用</b>。", "<b>最后留一个可以自己验的练习</b>：如果第一轮 a₁ 不幸得了 0（概率 0.05），<code>Q̂(a₁)=0</code>，而 a₂、a₃ 照旧。此时 <code>UCB(a₁)=1.4823</code>、<code>UCB(a₂)=2.4823</code>、<code>UCB(a₃)=1.4823</code>——<b>最优臂和最差臂的上界一模一样</b>。<span class='w'>但 UCB 不会就此放弃 a₁</span>：随着 a₂ 被反复选中，它的探索项掉下去，a₁ 的相对位置会回升。<b>这就是上界做法「错一次不会死」的具体机制</b>——对照 p16 的下界做法，那里错一次就永远回不来了。"], "tbl": {"head": ["轮次", "状态", "UCB(a₁)", "UCB(a₂)", "UCB(a₃)", "选谁"], "rows": [["① 各采一次", "Q̂=(1,1,0) N=(1,1,1)", "—", "—", "—", "三条各一次"], ["② t=3", "N=(1,1,1)", "<b>2.4823</b>", "<b>2.4823</b>", "1.4823", "a₁/a₂ 平分<br><span class='w'>a₃ 概率恰好 0</span>"], ["③ t=4（选了 a₁ 得 1）", "N=(2,1,1)", "2.1774", "<b>2.6651</b>", "1.6651", "<b>转去选 a₂</b>"], ["④ t=5（a₂ 也得 1）", "N=(2,2,1)", "<b>2.2686</b>", "<b>2.2686</b>", "1.7941", "a₁/a₂ 再并列"]]}, "eq": "t=3 时：探索项 = sqrt(2 · log 3 / 1) = sqrt(2 · 1.0986) = 1.4823（三臂相同）\n\np14 的答案：\n  ε-贪心(ε=0.1, m=3)：P(a1)=P(a2)=0.9×0.5 + 0.1/3 = 0.4833，P(a3) = 0.1/3 = 0.0333\n  UCB            ：P(a1)=P(a2)=0.5，                P(a3) = 恰好 0", "say": "她在这组例子里反复强调的是「<b>探索项在替你做决定</b>」：两条臂的点估计一模一样时，是 N 的差别把你推去碰没碰过的那条。<b>这件事在纯贪心里根本不会发生</b>——点估计相同时它只能随便挑一个，而那个「随便」没有方向。"},
+{"r": [16, 16], "t": "检验题：为什么必须用上界，不能用下界", "star": 3, "quote": "<b>Check Your Understanding</b> — <em>An alternative would be to always select the arm with the highest <b>lower</b> bound</em><br><em>Why can this yield <b>linear</b> regret?</em> · Consider a two arm case for simplicity", "one": "<b>按下界贪心会被确认偏误锁死：你永远不会去碰那条「看起来不行」的臂，于是永远不会发现它其实更好。</b>", "pts": ["<b>两臂情形想清楚就够了。</b> 设 a₁ 真实更好但目前估计低、区间宽；a₂ 真实稍差但已经试了很多次、区间窄所以下界高。按下界贪心 ⇒ 选 a₂。", "<b>关键在于选了 a₂ 之后发生了什么</b>：你又多了一个关于 a₂ 的样本，<span class='k'>它的估计更准、区间更窄、下界更高</span>。<b>于是下一轮还是选 a₂。</b> 而 a₁ 的区间一直不变——<span class='w'>因为你从不碰它，就永远拿不到否定自己的证据</span>。", "<b>这就是确认偏误的字面机制</b>：选择决定了你能看到什么，而你看到的又强化了原来的选择。<b>每一步都损失 Δ₁，T 步就是 T·Δ₁——线性遗憾。</b>", "<b>反过来看上界为什么有效</b>：选了一条臂之后，它的上界会<b>下降</b>（估计变准，乐观被削掉）。<span class='k'>所以乐观是自我纠正的</span>——选得越多越不乐观，最终让位给别人。<b>「乐观」在这里不是态度，是一种会自己修正的记账方式。</b>", "⚠️ <b>这一条在本课之外同样成立，而且很常见</b>：任何「按当前最佳点估计贪心」的流程都有这个毛病，因为点估计不含不确定性，<b>于是没有任何力量推动你去碰没试过的选项</b>。", "<b>这一页还顺带解释了「乐观」为什么是个好名字。</b> 乐观不是「假设结果会好」，而是<b>在不确定的方向上多给一点额度，然后让数据把它收回去</b>。<span class='k'>收回去这一步才是关键</span>——下界做法缺的正是它：它给确定的方向多给额度，而确定只会越来越确定。"], "tbl": {"head": ["按什么贪心", "选中后那条臂的指标怎么变", "有没有自我纠正", "遗憾"], "rows": [["<b>上界</b>", "<b>下降</b>（乐观被削掉）", "<b>有</b>", "对数"], ["<b>下界</b>", "<b>上升</b>（更确定⇒下界更高）", "<span class='w'>没有，自我强化</span>", "<b>线性</b>"], ["点估计（纯贪心）", "不含不确定性，没有推力", "没有", "<b>线性</b>"]]}, "say": "这一题她让学生当堂讨论，然后复述了一位同学的答案：<em>if you select a2, you're gonna continue to get towards the mean … you're gonna get <b>confirmation bias</b>, a2 is gonna continue to look good, and you're never gonna select a1. So we're never gonna get information that <b>allows us to disprove our hypothesis</b>, and we're never gonna learn what the true optimal mean is.</em><b>「拿不到能否证自己假设的信息」——这句话是整页的核心。</b>", "res": {"tag": "推断", "v": "<b>你的配置选择目前就是「按点估计贪心」，也就是上表最后一行。</b><br>`max_config Ĝ(config)` 里没有任何不确定性项：一个配置只要估出来的 G 高就被选，<span class='w'>而「估得准不准」完全不进入比较</span>。于是跑得多的配置和只跑过几次的配置被同等对待。<br><b>这在你的设定下的具体后果有两层，而且方向相反，要分开看</b>：<br><b>① 离线选择阶段</b>——你不是在线逐步决策，所以不会出现这一页说的「永远不碰 a₁」那种锁死（你的候选是一次性全评估的）。<span class='k'>所以确认偏误这一条对你不直接成立</span>，这里不要套用。<br><b>② 但「点估计不含不确定性」这件事仍然咬你</b>，只是换了个形式：它变成 <b>L04 p42 的最大化偏差</b>——在 2187 个带噪声的估计里取最大，选出来的那个系统性虚高。<b>同一个病根（比较时丢掉了不确定性），在线表现为锁死，离线表现为虚高。</b><br><b>③ 如果你改成「迭代式地决定下一个跑哪个配置」</b>（而不是一次性全评估），那么这一页就直接成立了，而且 L06 p53 的 oracle 实验说过顺序能带来指数级差别。<b>那时你需要的恰恰是一个上界而不是点估计</b>——这是把本讲搬进你的实验设计的入口。<br>标【推断】：三层区分是我按你的设定推的；最大化偏差与 oracle 顺序在对应讲里是原课内容。", "ref": "课件 p16 · L04 p42–p43 科研格 · L06 p53 科研格"}, "tip": {"t": "记这一条", "v": "把这一页的结论记成一句可迁移的话：<b>任何「按当前最佳点估计贪心」的流程，都没有自我纠正的力量。</b>因为点估计里不含不确定性，<span class='k'>于是没有任何东西推动你去碰没试过的选项</span>。补救只有两类：给不确定的方向加额度（乐观），或按「它是最优的概率」抽样（概率匹配，p28）。"}},
+{"r": [17, 17], "t": "乐观初始化，与三种做法的遗憾", "star": 3, "quote": "<b>Greedy Bandit Algorithms and Optimistic Initialization</b><br><em>Pretend already observed one pull of each arm, and saw some optimistic reward · Average these fake pulls and rewards in when computing average empirical reward</em><br>Comparing regret results: <em>Greedy: <b>Linear</b> total regret · Constant ε-greedy: <b>Linear</b> · Decaying ε-greedy: <b>Logarithmic</b></em>", "one": "<b>最省事的乐观：假装每条臂都已经拉过一次，而且结果好得离谱。然后照常贪心。</b>", "pts": ["<b>做法简单到可以一句话说完</b>：把 <code>Q̂</code> 初始化成一个很大的值（讲稿里她说「一百万、一万亿都行」），然后<b>把这些假数据当真数据一起平均</b>。于是没试过的臂看起来最好，自然会被先试；试过之后真实奖励把那个假值稀释下去。", "<b>它和 UCB 的关键差别：乐观只给一次，不随时间补充。</b> UCB 的探索项随 <code>log t</code> 增长，<span class='k'>所以它会周期性地回头再看</span>；乐观初始化的那点乐观用完就没了。<b>这就是为什么它没有保证</b>——课件在 p53 还会再说一次。", "<b>三种遗憾的对比是这一页最该记住的</b>：<b>纯贪心线性</b>（根本不探索）、<b>固定 ε 也是线性</b>（永远以固定比例乱试，错误率不降）、<b>只有衰减 ε 才是对数</b>。<span class='w'>「加了随机就算探索」是错的</span>——固定 ε 加了随机，遗憾仍然线性。", "<b>为什么固定 ε 是线性？</b> 因为每一步都有 ε 的概率选一条随机臂，其中大部分是坏臂。<code>T</code> 步下来期望损失 <code>≈ ε·T·(平均差距)</code>——<b>与 T 成正比</b>。不管你学得多准，这部分损失都不会减少。", "⚠️ <b>衰减 ε 要衰减得「刚刚好」才拿得到对数遗憾</b>：太快则探索不足（可能锁死），太慢则仍有线性项。<b>而衰减速率需要知道问题的难度（差距），这正是 UCB 不需要的东西。</b>", "<b>把三种做法按「探索从哪来」归一下类，会更好记</b>：<br><b>乐观初始化</b>——探索来自一个<b>一次性的假先验</b>，会被真实数据稀释掉；<br><b>ε-贪心</b>——探索来自<b>外加的随机性</b>，与你学到了什么无关；<br><b>UCB</b>——探索来自<b>不确定性本身</b>，随证据自动调节。<br><span class='k'>只有第三种是「有方向的」探索</span>：它知道该去碰哪条臂，而不只是「碰点别的」。"], "tbl": {"head": ["做法", "总遗憾", "为什么"], "rows": [["纯贪心", "<b>线性</b>", "不探索，可能永远锁在坏臂上"], ["固定 ε-贪心", "<b>线性</b>", "每步固定比例乱试，<span class='w'>这部分损失不随学习下降</span>"], ["衰减 ε-贪心", "对数", "探索逐步减少；但<b>衰减速率要知道差距</b>"], ["<b>UCB</b>", "对数", "不确定项自动调节，<b>不需要知道差距</b>"], ["乐观初始化", "<span class='w'>没有保证</span>", "乐观用完就没了，不随 t 补充（p53）"]]}, "say": "她把乐观初始化讲得很直白：<em>just initialize all your values at like a million or something like that … you pretend you pull each of your arms once you've got a million, you've got a trillion, and then after that you just average in all your empirical rewards. So this actually can work fairly well in a lot of cases</em>。<b>「实践里常常够用，但没有保证」——这是本讲对它的定调</b>，p53 会原样重复一次。"},
+{"r": [18, 19], "t": "贝叶斯老虎机：开始用先验", "star": 3, "quote": "<b>Bayesian Bandits</b> — <em>So far we have made <b>no assumptions</b> about the reward distribution R, except bounds on rewards</em><br><em>Bayesian bandits exploit <b>prior knowledge</b> of rewards, p[R] · They compute posterior p[R | h<sub>t</sub>] · Use posterior to guide exploration</em>: Bayesian UCB · <b>Probability matching (Thompson Sampling)</b><br><em><b>Better performance if prior knowledge is accurate</b></em>", "one": "<b>前面那套对奖励分布不作任何假设，只要求有界。贝叶斯这一支反过来：主动引入先验，换取更好的表现——前提是先验要准。</b>", "pts": ["<b>第一句是在给前半讲定性：UCB 几乎什么都不假设。</b> 它只要奖励有界（Hoeffding 要用到），不管奖励是伯努利、高斯还是别的什么。<span class='k'>假设少是优点，代价是不能利用你已有的知识</span>。", "<b>贝叶斯这一支做的交易很清楚</b>：拿「我愿意说出我事先相信什么」去换「更快收敛」。<b>课件最后一句把条件写明了：<em>better performance <span class='w'>if prior knowledge is accurate</span></em></b>——先验错了会反过来伤你。", "<b>后验 <code>p[R | h<sub>t</sub>]</code> 比点估计多携带了一样东西：不确定性的<b>形状</b>。</b> UCB 用一个标量（置信半径）概括不确定性；后验给的是整个分布。<span class='k'>有了形状，就可以做 UCB 做不到的事——比如按「它是最优的概率」来选</span>，那就是 p28 的概率匹配。", "<b>课件列了两种用后验的方式，本讲只展开第二种。</b> <b>贝叶斯 UCB</b>：从后验里取一个高分位数当上界（思路和频率派 UCB 一样，只是上界的来源换了）。<b>概率匹配 / Thompson 采样</b>：p28–p30 整段。", "⚠️ <b>注意「贝叶斯」在这里换掉的不只是算法，还有评价标准。</b> p26 会引入<b>贝叶斯遗憾</b>——它对参数的先验再取一次期望。<span class='w'>频率派遗憾与贝叶斯遗憾不是同一个数</span>，两者之间没有换算关系。", "<b>还有一条课件没明说但很实际：先验从哪来？</b> 三种常见来源——<b>历史数据</b>（跑过的类似任务）、<b>领域知识</b>（这个动作大概率没用）、<b>保守默认</b>（Beta(1,1) 这种「什么都不知道」）。<span class='k'>第三种其实是在说「我不想用先验」</span>，而它也确实能用——<b>均匀先验下的 TS 仍然达到 Lai–Robbins 下界</b>（p42）。<span class='w'>所以「贝叶斯方法需要好先验才能用」是个误解</span>：好先验让它更快，但没有先验它也不坏。"], "tbl": {"head": ["", "频率派（p5–p17）", "贝叶斯（p19 起）"], "rows": [["对奖励分布的假设", "<b>几乎没有</b>（只要有界）", "<b>要给先验 p[R]</b>"], ["不确定性的表示", "一个标量（置信半径）", "<b>整个后验分布</b>"], ["先验准时", "用不上", "<b>收敛更快</b>"], ["先验错时", "不受影响", "<span class='w'>会被带偏</span>"], ["评价尺子", "频率派遗憾", "贝叶斯遗憾（p26）"], ["典型算法", "UCB1 · 乐观初始化", "<b>Bayesian UCB · Thompson 采样</b>"]]}},
+{"r": [20, 23], "t": "贝叶斯推断复习，以及「共轭」为什么要紧", "star": 3, "quote": "<b>Bayesian Inference</b> — start with a prior over the unknown parameters · update using Bayes Rule<br><em>p(φ<sub>i</sub>|r<sub>i1</sub>) = p(r<sub>i1</sub>|φ<sub>i</sub>)p(φ<sub>i</sub>) / ∫<sub>φ<sub>i</sub></sub> p(r<sub>i1</sub>|φ<sub>i</sub>)p(φ<sub>i</sub>)dφ<sub>i</sub></em><br><em>In general computing this update may be <b>tricky</b> · But sometimes can be done <b>analytically</b></em><br><b>Conjugate</b>: <em>If the parametric representation of the prior and posterior is the same, the prior and model are called conjugate</em>", "one": "<b>贝叶斯更新的分母是一个积分，一般算不动。共轭的意思是：这个积分有闭式解，而且更新后还是同一族分布。</b>", "pts": ["<b>先看那个公式的麻烦在哪</b>：分子好算（似然 × 先验），<span class='w'>分母是对参数的整个积分</span>。参数一维还好，多维就是维数灾难。<b>这是贝叶斯方法在实践中最大的工程障碍</b>，不是哲学问题。", "<b>共轭把这件事变成了算术。</b> 如果先验和后验属于同一族，那么更新就退化成<b>改几个参数</b>，积分根本不用算。<span class='k'>于是「更新一次后验」从数值积分变成了加法</span>——这就是老虎机算法能跑得飞快的原因。", "<b>「同一族」这个限定是关键，别读成「同一个分布」。</b> Beta(1,1) 更新后变成 Beta(1,2)——分布变了，但<b>还是 Beta</b>。所以你永远只需要存两个数。", "<b>课件提了一句「指数族有共轭先验」。</b> 这是一个相当大的类：伯努利、二项、泊松、指数、高斯（已知方差）都在里面。<b>老虎机文献里绝大多数可解析的例子，都是在指数族上做的。</b>", "⚠️ <b>共轭是一种数学上的便利，不是对世界的描述。</b> 选 Beta 当先验不是因为相信「真实的参数服从 Beta 分布」，<span class='k'>而是因为它和伯努利配对时算得动</span>。<b>先验的形状是建模决定，共轭是实现考虑——两件事要分开</b>。", "<b>为什么分母那个积分在实践中这么致命？</b> 因为它要对<b>参数空间</b>积分。一条臂一个参数还好；一旦参数是高维的（比如用神经网络参数化奖励），<span class='w'>这个积分既算不出闭式也数值做不动</span>。<b>深度 RL 里的贝叶斯方法之所以难，根子在这一行。</b>", "<b>共轭的代价也要说清楚：它限制了你能表达的先验。</b> 伯努利配 Beta，你就只能用 Beta 形状的先验。<span class='k'>如果你的真实信念是双峰的（比如「这个配置要么很好要么很差」），Beta 装不下</span>。<b>共轭买到了速度，卖掉了表达力。</b>", "<b>绕开共轭的办法本课不讲，但值得知道名字</b>：马尔可夫链蒙特卡洛（MCMC）直接从后验采样；变分推断用一个可算的分布去近似后验。<b>两者都放弃了精确，换取对任意先验的支持。</b><span class='k'>而 Thompson 采样只需要「能从后验采样」这一条</span>——所以它和 MCMC 天然配合，不一定要共轭。", "⚠️ <b>一个容易混的点：共轭是「先验与后验同族」，不是「先验与似然同族」。</b> Beta 和伯努利是完全不同的分布——Beta 是连续的、定义在 [0,1] 上，伯努利是离散的。<b>共轭说的是「Beta 先验 + 伯努利似然 ⇒ Beta 后验」这个闭合性。</b>", "<b>把这四页压成一条可操作的判断</b>：遇到一个贝叶斯方法，先问<b>「它的后验更新是闭式的吗」</b>。<span class='k'>是 ⇒ 可以实时跑，适合在线决策</span>；<span class='w'>否 ⇒ 要么离线批量算，要么用近似（MCMC / 变分），要么换方法</span>。<b>本讲后面的 Thompson 采样之所以能每轮都跑，全靠这个「是」。</b>"], "eq": "贝叶斯更新的三件事，按代价排：\n\n  1. 分子 = 似然 × 先验           便宜，总能算\n  2. 分母 = ∫ 似然 × 先验 dφ      贵，一般算不动\n  3. 归一化后得到后验             —\n\n共轭让 2 和 3 消失：先验与后验同族，更新退化成改参数\n  Beta(α,β) + 伯努利观测 r  ⇒  Beta(α+r, β+1−r)\n\n绕开共轭的两条路（本课不讲）：\n  MCMC   —— 直接从后验采样，精确但慢\n  变分推断 —— 用可算的分布近似后验，快但有近似误差\n  （Thompson 采样只需要「能从后验采样」，所以和 MCMC 天然配合）", "tbl": {"head": ["", "一般情形", "共轭情形"], "rows": [["更新一次的代价", "<span class='w'>数值积分</span>", "<b>改几个数</b>"], ["需要存什么", "整个后验（可能要网格或采样）", "<b>几个参数</b>"], ["伯努利的例子", "—", "Beta(α,β) → Beta(α′,β′)"], ["适用范围", "任意", "指数族及其共轭"]]}, "tip": {"t": "读法", "v": "这四页是复习页，但别跳。<b>整个贝叶斯老虎机能不能跑，全看「更新一次要多少代价」</b>，而那由共轭与否决定。<span class='k'>读懂这四页，p29 的 Thompson 采样为什么能实时跑就不用再解释了</span>。"}},
+{"r": [24, 25], "t": "伯努利 + Beta：伪计数", "star": 3, "quote": "<b>Bayesian Inference: Bernoulli</b> — reward is binary {0,1} from Bernoulli(θ) · <em>E.g. advertisement click through rate, patient treatment succeeds/fails</em><br><em>The <b>Beta(α, β)</b> distribution is conjugate for the Bernoulli</em> · <em>p(θ|α,β) = θ<sup>α−1</sup>(1−θ)<sup>β−1</sup> Γ(α+β)/(Γ(α)Γ(β))</em><br><b><em>After observing r ∈ {0,1}, updated posterior is Beta(r + α, 1 − r + β)</em></b>", "one": "<b>更新规则简单到一句话：看到 1 就 α 加一，看到 0 就 β 加一。</b>", "pts": ["<b>把更新规则拆开看</b>：<code>Beta(r+α, 1−r+β)</code>。r=1 时变成 <code>Beta(α+1, β)</code>；r=0 时变成 <code>Beta(α, β+1)</code>。<span class='k'>所以 α 在数成功次数，β 在数失败次数</span>。", "<b>这就是为什么 α、β 被叫做「伪计数」（pseudo-counts）。</b> 它们和真实计数是同一个量纲、同一种加法，<b>唯一的差别是初始值不为 0</b>。<span class='w'>它们不是拟合出来的参数</span>——没有任何优化过程，只有计数。", "<b>先验 Beta(1,1) 等于「假装已经见过一次成功和一次失败」</b>，它恰好是 [0,1] 上的均匀分布。<b>Beta(1,1) 是「我什么都不知道」的标准写法。</b>", "<b>伪计数让先验的强度变得可量化</b>：Beta(1,1) 相当于 2 个假样本，Beta(10,10) 相当于 20 个——<span class='k'>后者要用 20 个真样本才能把它推动同样的幅度</span>。<b>所以「先验有多强」不是修辞，是一个可以数出来的数。</b>", "<b>后验均值有个好记的闭式</b>：<code>E[θ] = α/(α+β)</code>。Beta(1,1) 给 0.5；观察到一次成功变成 Beta(2,1)，均值 2/3 ≈ 0.667——<b>不是 1</b>。<span class='k'>对比 p11 的 UCB：那里拉一次得 1，点估计直接就是 1.0</span>。<b>先验在这里起到了收缩的作用，自动防住了小样本的极端估计。</b>", "⚠️ <b>课件给的两个例子（广告点击率、治疗成功/失败）都是伯努利的典型场景</b>：结果二值、重复多次、各次近似独立。<b>不满足这三条时，Beta–伯努利这一套就不适用。</b>", "<b>最后提醒一个在你自己实现时很容易踩的坑：先验要按「臂」分别维护，不是全局一个。</b> 每条臂有自己的 (α,β)，<span class='w'>共享参数就等于假设所有臂的奖励率相同</span>，那整个老虎机问题就没有了。<b>这听起来显然，但在代码里把 α、β 写成标量而不是数组，是这类实现最常见的 bug。</b>"], "eq": "Beta(α, β) 的更新：\n  观察到 r = 1  ⇒  Beta(α+1, β)      （α 数成功）\n  观察到 r = 0  ⇒  Beta(α, β+1)      （β 数失败）\n\n后验均值 E[θ] = α / (α + β)\n\nBeta(1,1) = [0,1] 上的均匀分布 = 「什么都不知道」", "tbl": {"head": ["状态", "Beta(α,β)", "后验均值 α/(α+β)", "相当于几个样本"], "rows": [["初始（均匀先验）", "Beta(1,1)", "0.500", "2 个假样本"], ["观察到一次成功", "Beta(2,1)", "<b>0.667</b>（不是 1）", "3"], ["再成功一次", "Beta(3,1)", "0.750", "4"], ["观察到一次失败", "Beta(1,2)", "0.333", "3"], ["强先验", "Beta(10,10)", "0.500", "<b>20 个假样本</b>"]]}, "res": {"tag": "推断", "v": "<b>伪计数这件事在你的问题上是直接可用的，而且比它看起来更有用。</b><br>你对每个「节点 × 保真度档位」的组合，天然有一个成败计数（这条 query 最终答对没有）。<span class='k'>于是每个组合都能挂一个 Beta(α,β)</span>，而且更新是加法，几乎零成本。<br><b>三件它能立刻给你的东西</b>：<br><b>① 一个可量化的「数据够不够」判据。</b> L04 p23 那格说过，GLIE 的条件一要求每个组合出现足够多次，而「足够多次」可以直接数。<b>用 Beta 的话这个数有了意义</b>：<code>α+β</code> 就是该组合的有效样本量，<span class='w'>最小的那一格决定了你最弱的一环</span>。<br><b>② 自动的收缩，防住小样本虚高。</b> 某个组合碰巧跑了 3 条 query 全对，点估计给 1.0；Beta(1,1) 先验下后验均值是 <code>4/5 = 0.8</code>。<b>这正好对冲 L04 p42 的最大化偏差——在 2187 个候选里取最大时，虚高的那些多半是样本少的那些</b>，而收缩按样本量自动调节力度，不用你手工设阈值。<br><b>③ 先验强度可以写进论文。</b> 「我们用 Beta(1,1)」等价于「我们注入了 2 个假样本的先验」，<b>这是一个可审计的陈述</b>，比「我们做了平滑」清楚得多。<br>⚠️ <b>但别把它当成解决方案的全部</b>：Beta–伯努利要求各次独立，而<span class='w'>同一条 query 上的重复评估不独立</span>（同一个 LLM、同一个提示）。按 query 聚合、跨 query 才接近独立 —— 这一条和 L12.a p8 那格说的是同一件事。<br>标【推断】：三条用法是我按你的设定推的；最大化偏差与 GLIE 条件在对应讲里是原课内容。", "ref": "课件 p24–p25 · L04 p42–p43 科研格（最大化偏差）· L04 p23 科研格（GLIE 条件一）"}},
+{"r": [26, 26], "t": "第二把尺子：贝叶斯遗憾", "star": 3, "quote": "<b>Framework: Regret and Bayesian Regret</b><br><em>Frequentist regret assumes a true (unknown) set of parameters</em>: <em>Regret(A,T;θ) = Σ<sub>t=1</sub><sup>T</sup> E[Q(a*) − Q(a<sub>t</sub>)]</em><br><em>Bayesian regret assumes there is a <b>prior over parameters</b></em>: <em>BayesRegret(A,T) = E<sub>θ∼p<sub>θ</sub></sub>[ Σ<sub>t=1</sub><sup>T</sup> E[Q(a*) − Q(a<sub>t</sub>) | θ] ]</em>", "one": "<b>两者的差别只有最外面那一层期望：频率派固定一组真参数；贝叶斯对参数本身的先验再平均一次。</b>", "pts": ["<b>把两个式子叠起来看，差别一目了然</b>：贝叶斯遗憾就是在频率派遗憾外面套了一个 <code>E<sub>θ∼p<sub>θ</sub></sub></code>。<span class='k'>内层完全相同</span>。", "<b>这个差别的实际含义：你在对什么取平均。</b> 频率派问「在<b>这个</b>问题上你表现如何」——而且要对最坏的那个 θ 也成立；贝叶斯问「在<b>你相信会遇到的那一类</b>问题上，平均而言你表现如何」。", "<b>于是两把尺子会给出不同的排名，而且不是谁对谁错。</b> 一个算法可以贝叶斯遗憾很低（在典型问题上很好）但频率派遗憾很差（在某个特定的坏 θ 上很糟）。<span class='w'>贝叶斯遗憾低不保证你手上这个具体问题被解决</span>。", "<b>反过来，频率派的保证更强但也更悲观</b>：它必须对所有 θ 成立，于是常数会被最难的那个 θ 撑大。<b>这就是为什么 p42 说「乐观的界更紧，但实证上 TS 常常更好」</b>——两句话量的是不同的东西。", "⚠️ <b>贝叶斯遗憾的值依赖于你选的先验。</b> 换一个先验，同一个算法的贝叶斯遗憾就变了。<span class='k'>所以报告贝叶斯遗憾时必须把先验一起报</span>，否则这个数没有意义。", "<b>一个实践上的提醒：这两把尺子常常被混着用而不自知。</b> 论文里写「我们的方法遗憾更低」时，如果用的是模拟实验、参数从某个分布里随机生成，<span class='k'>那量的其实是贝叶斯遗憾</span>（对参数分布取了平均）；而如果是在固定的几个 benchmark 上比，量的更接近频率派遗憾。<b>两者给出的排名可以不同，所以报告时要说清楚参数是怎么来的。</b>"], "eq": "频率派：  Regret(A,T;θ) = Σ_t E[ Q(a*) − Q(a_t) ]          ← 固定一个真 θ\n\n贝叶斯：  BayesRegret(A,T) = E_{θ∼p_θ}[ Σ_t E[ Q(a*) − Q(a_t) | θ ] ]\n                            └── 多的只有这一层期望 ──┘", "tbl": {"head": ["", "频率派遗憾", "贝叶斯遗憾"], "rows": [["假设", "存在一组真实但未知的 θ", "<b>θ 本身服从先验 p<sub>θ</sub></b>"], ["问的问题", "在<b>这个</b>问题上表现如何", "在<b>这一类</b>问题上平均如何"], ["保证的强度", "<b>更强</b>（对所有 θ）", "较弱（平均意义）"], ["常数项", "被最难的 θ 撑大", "按先验加权，通常更小"], ["报告时必须附带", "—", "<span class='w'>所用的先验</span>"]]}, "tip": {"t": "记号", "v": "两个式子只差最外层一个期望，但它们的下标约定不同，容易看花：频率派写 <code>Regret(A,T;θ)</code>——<b>θ 在分号后面，表示它是给定的参数</b>；贝叶斯写 <code>BayesRegret(A,T)</code>——<span class='k'>θ 已经被积掉了，不出现在参数位上</span>。<b>看到分号后面有没有 θ，就知道是哪一把尺子。</b>"}},
+{"r": [27, 28], "t": "概率匹配：按「它是最优的概率」来选", "star": 3, "quote": "<b>Approach: Probability Matching</b> — <em>selects action a according to the probability that a is the optimal action</em><br><em>π(a | h<sub>t</sub>) = P[ Q(a) &gt; Q(a′), ∀a′ ≠ a | h<sub>t</sub> ]</em><br><em>Probability matching is <b>optimistic in the face of uncertainty</b>: uncertain actions have higher probability of being max</em><br><em>Can be <b>difficult to compute</b> probability that an action is optimal analytically from posterior</em> · <em><b>Somewhat incredibly, a simple approach implements probability matching</b></em>", "one": "<b>想法本身极其自然：按「这条臂是最优的概率」去选它。难的是这个概率算不出来。</b>", "pts": ["<b>这个规则读起来像是一句废话，但它其实做了一件很精确的事。</b> 它不是按均值排序，也不是按上界排序，<span class='k'>而是按「在当前的不确定性下，它恰好是最优的那个」的概率来分配选择次数</span>。", "<b>为什么它自动带有乐观？</b> 课件给了一句解释：<em>uncertain actions have higher probability of being max</em>。<b>一条估计均值中等但后验很宽的臂，它「碰巧是最优」的概率，可能高过一条均值略高但后验很窄的臂。</b>", "<b>这是一种与 UCB 不同的乐观。</b> UCB 取后验的某个<b>高分位数</b>当代表，是一个确定性的、保守的代表值；概率匹配按整个后验的<b>形状</b>分配概率。<span class='k'>UCB 把不确定性压成一个数，概率匹配保留了它的全貌</span>。", "<b>但这一页以一个坏消息结束</b>：<em>can be difficult to compute analytically</em>。那个概率是一个多重积分——要对所有臂的后验联合积分，算「a 大过其余所有」的概率。<b>三条臂还能数值做，臂一多就不可行。</b>", "<b>然后课件用了一个很少见的措辞：<em>Somewhat incredibly, a simple approach implements probability matching</em>。</b> <span class='w'>「相当不可思议地」</span>——本课件里这种语气出现得极少。<b>下一页揭晓：那个简单做法就是「从后验里抽一个样本，当它是真的」。</b>", "<b>概率匹配这个名字来自心理学。</b> 人在重复选择任务里常常表现出「按奖励概率的比例去选」而不是「总选最优的那个」——这在心理学里叫 probability matching，<span class='k'>长期被当成人类的一种非理性</span>。<b>有意思的是，在需要探索的环境里它反而是对的</b>：总选当前最优会锁死（p16），按概率分配反而能持续获取信息。"], "tbl": {"head": ["做法", "用后验的哪一部分", "乐观从哪来"], "rows": [["点估计贪心", "<b>均值</b>", "<span class='w'>没有</span>"], ["UCB", "<b>一个高分位数</b>", "分位数取得高"], ["<b>概率匹配</b>", "<b>整个形状</b>", "<b>不确定的臂更可能恰好是最大</b>"], ["Bayesian UCB", "<b>一个高分位数</b>（来自后验）", "分位数取得高，但用的是贝叶斯后验"]]}},
+{"r": [29, 30], "t": "Thompson 采样：抽一个样本当真", "star": 3, "quote": "<b>Thompson Sampling</b><br>1: Initialize prior over each arm a, p(R<sub>a</sub>)<br>3: <em>For each arm a <b>sample</b> a reward distribution R<sub>a</sub> from posterior</em><br>4: Compute Q(a) = E[R<sub>a</sub>] · 5: <em>a<sub>t</sub> = argmax<sub>a</sub> Q(a)</em> · 6: Observe reward r · 7: <em>Update posterior p(R<sub>a</sub>|r) using Bayes law</em><br><b>TS Implements Probability Matching</b>: <em>π(a|h<sub>t</sub>) = P[Q(a) &gt; Q(a′), ∀a′] = E<sub>R|h<sub>t</sub></sub>[ 1(a = argmax<sub>a</sub> Q(a)) ]</em>", "one": "<b>从每条臂的后验里各抽一个样本，当成真值，然后贪心。就这样——而它恰好等于概率匹配。</b>", "pts": ["<b>算法只有一个非平凡的动作：第 3 行的「采样」。</b> 不是取均值、不是取分位数，而是<span class='k'>从后验里随机抽一个</span>。抽完之后就当它是真的，照常贪心选最大。", "<b>为什么这恰好实现了概率匹配？p30 那一行等式给了证明的全部内容</b>：<br><code>P[a 是最优] = E<sub>R|h</sub>[ 1(a = argmax Q) ]</code><br>右边是一个<b>期望</b>，而<span class='k'>期望可以用采样来估</span>——抽一次样、看谁最大，这就是对那个指示函数的一次无偏抽样。<b>所以「抽样后贪心」被选中的频率，正好等于「它是最优」的概率。</b>", "<b>这个论证的漂亮之处在于：它把一个算不动的积分，换成了一次采样。</b> 你不需要知道那个概率是多少，<b>你只需要按那个概率行动</b>——而采样天然做到了这一点。<span class='w'>这就是上一页说「相当不可思议」的原因</span>。", "<b>一个实践上的后果：Thompson 采样是随机算法。</b> 同样的历史，跑两次可能选不同的臂。<b>而 UCB 是确定性的</b>（除了打平）。<span class='k'>这个差别在复现实验时要注意</span>——TS 的结果必须报多个种子。", "<b>它的年份值得记一下：1929 年。</b> 比 UCB（2002）早七十多年，比整个强化学习领域都早。<b>它被冷落了几十年，直到 2010 年前后才因为实证表现被重新发现</b>——p43 那篇就是转折点之一。", "<b>实现上有一个细节值得注意：第 4 行 <code>Q(a) = E[R<sub>a</sub>]</code> 取的是「抽到的那个分布」的均值</b>，不是后验的均值。<span class='w'>两者完全不同</span>——后者是确定的（就是 α/(α+β)），前者每轮都在变。<b>伯努利情形下抽到的 θ 本身就是均值，所以这一步看不出区别</b>；换成别的奖励分布（比如高斯）时，这个区别就要紧了。", "<b>把三类做法并排收一下，本讲前两节就齐了</b>：<b>点估计贪心</b>——用后验均值，没有探索，会锁死（p16）；<b>UCB / Bayesian UCB</b>——用一个高分位数，探索力度由置信水平这个<b>外部参数</b>决定；<b>Thompson 采样</b>——用整个后验抽样，<span class='k'>探索力度就是后验宽度，没有外部参数</span>。<b>第三种之所以在实践中好用，很大一部分原因是它没有需要调的旋钮。</b>"], "eq": "Thompson 采样（每一轮）：\n  1. 对每条臂 a，从后验 p(R_a | h) 中抽一个样本\n  2. 用抽到的样本算 Q(a)，选 argmax\n  3. 观察奖励，更新那条臂的后验\n\n为什么等于概率匹配：\n  P[a 是最优] = E_{R|h}[ 1(a = argmax Q) ]\n                └── 期望可以用一次采样来实现 ──┘"},
+{"r": [31, 39], "t": "玩具例子：Thompson 采样逐步跑一遍", "star": 3, "quote": "<b>Toy Example: Thompson Sampling</b> — Surgery θ₁=.95 / Taping θ₂=.9 / Nothing θ₃=.1 · prior <em>θ<sub>i</sub> ∼ Beta(1,1)</em><br>① <em>Per arm, sample θ: <b>0.3, 0.5, 0.6</b></em> ② <em>Select a<sub>t</sub> = argmax θ = <b>3</b></em> ③ <em>Observe outcome: <b>0</b></em> ④⑤⑥ <em>New posterior p(θ(a₃)) = <b>Beta(1,2)</b></em><br>p38 <em>Beta(2,1), Beta(1,1), Beta(1,2) → sample <b>0.71, 0.65, 0.1</b> → select <b>a₁</b> → observe <b>1</b> → <b>Beta(3,1)</b></em><br>p39 <em>sample <b>0.75, 0.45, 0.4</b> → select <b>a₁</b> → observe <b>1</b> → <b>Beta(4,1)</b></em>", "one": "<b>九页跑了四轮。第一轮抽样运气不好选中了最差的臂，但它只错了这一次。</b>", "pts": ["<b>第一轮是这个例子最有教学价值的一步。</b> 三条臂的后验完全相同（都是 Beta(1,1)），<span class='k'>所以第一次选谁纯粹看抽样运气</span>。抽到 (0.3, 0.5, 0.6) ⇒ 选了 <b>a₃</b>——真值只有 0.1 的那条，<b>这一步的遗憾是 0.85</b>。", "<b>但错一次的代价立刻被收回了。</b> a₃ 返回 0，后验变成 Beta(1,2)，均值从 0.5 掉到 0.333。<b>往后它要再抽出一个高值就难多了</b>——p38 那轮 a₃ 抽到 0.1，p39 抽到 0.4，都没再威胁到 a₁。", "<b>对照 UCB 的头三步（p15）：乐观是 a₁ a₂ a₃，TS 是 a₃ a₁ a₁。</b> <span class='k'>UCB 必须把每条臂都试一遍</span>（否则 N=0 除零）；<b>TS 不必</b>——它靠抽样碰运气，可能一开始就撞上好的，也可能像这里一样撞上坏的。", "<b>后面几轮展示了后验是怎么「锁定」的</b>：a₁ 连得两次 1，从 Beta(1,1) 走到 Beta(2,1) 再到 Beta(3,1)、Beta(4,1)，<b>后验均值 0.5 → 0.667 → 0.75 → 0.8</b>，而且分布越来越集中。<span class='k'>集中之后抽出的样本就稳定地高，于是它被持续选中</span>。", "<b>注意 a₂ 一直是 Beta(1,1)，从没被碰过。</b> 这是 TS 和 UCB 的又一个差别：<span class='w'>TS 不保证每条臂都被试</span>。如果 a₂ 其实更好（真值 0.9，确实很接近 0.95），TS 要靠后续抽样把它抽出来才会发现。<b>这是随机性带来的风险，也是它为什么需要跑多个种子。</b>", "⚠️ <b>p39 的先验行是从 p38 复制过来没改的。</b> 它仍写着 <code>Beta(2,1), Beta(1,1), Beta(1,2)</code>，但那一轮的结论是 <code>Beta(4,1)</code>——<span class='w'>要从 Beta(3,1) 加一次成功才得到 Beta(4,1)</span>。所以 p39 的先验应为 <b>Beta(3,1), Beta(1,1), Beta(1,2)</b>。<b>这是课件的笔误，不是你算错了。</b>", "<b>把后验的演化单独列一遍，能看出 TS 的「探索力度」是怎么自动变化的。</b> a₁ 从 Beta(1,1) 走到 Beta(4,1)，<span class='k'>均值 0.5 → 0.667 → 0.75 → 0.8，同时分布越来越窄</span>。窄意味着抽出的样本稳定地高，于是它被持续选中——<b>「锁定」不是算法里的某个开关，是后验收紧的自然结果</b>。", "<b>这里可以算一个很能说明问题的数：例子结束时，下一轮各臂被选中的概率是多少？</b><br>此时三条臂的后验是 <code>Beta(4,1)</code>、<code>Beta(1,1)</code>、<code>Beta(1,2)</code>。TS 选中某条臂的概率就是「它抽到的样本最大」的概率，数值积分（40 万次采样）得：<br><b>a₁ ≈ 76.0%　a₂ ≈ 19.1%　a₃ ≈ 4.8%</b>", "<b>这三个数把 TS 的性格说清楚了。</b> <span class='k'>a₂ 一次都没被拉过，却仍有 19% 的机会</span>——因为它的后验还是最宽的 Beta(1,1)，抽出高值的可能不小。<b>对照 ε-贪心：它给每条非贪心臂固定的 3.33%，与「我对它有多不确定」完全无关。</b>而 a₃ 已经被试过一次且失败，概率降到 4.8%。", "<b>所以 TS 的探索力度是「按不确定性分配」的，而且不需要任何额外参数。</b> 没有 ε，没有置信水平，没有探索系数——<span class='k'>后验的宽度本身就是探索力度</span>。<b>这是它和 ε-贪心最本质的差别，比「随机 vs 确定」更根本。</b>", "<b>回到那个风险：a₂ 的真值是 0.90，离最优的 0.95 只差 0.05。</b> 如果 TS 一直不碰它，这个差距永远发现不了。<b>但上面那 19% 就是它每轮的机会</b>——<span class='w'>期望约 5 轮就会被抽中一次</span>。而一旦被抽中并表现好，它的后验也会向上收紧。<b>「可能漏掉」是单轮的事，不是长期的事。</b>", "<b>最后一点值得对照 p16 想一想</b>：那里说按下界贪心会被确认偏误锁死。<b>TS 为什么不会？</b> 因为没碰过的臂后验最宽，<span class='k'>而宽后验给的是「更可能抽出极端高值」</span>——于是它天然有一个指向未知的推力。<b>这和 UCB 的上界是同一件事的两种实现。</b>", "<b>再把「抽样后贪心」这个动作换个角度看，会更直观。</b> 每一轮你其实是在问：<span class='k'>「如果世界恰好长成我现在抽到的这个样子，哪条臂最好？」</span>然后按那个答案行动。<b>抽一次 = 在你的信念里采一个「可能的世界」，然后在那个世界里做最优决策。</b>这个说法也解释了为什么它叫「后验采样」（posterior sampling）——p44 用的就是这个名字。", "<b>这个视角还解释了 TS 为什么不需要显式的探索项。</b> 在「可能的世界」里，<b>不确定的臂在某些世界里确实是最好的</b>——它们被选中，不是因为算法额外奖励了它们，<span class='k'>而是因为它们真的有可能最好，而你按这个可能性的比例去试</span>。", "<b>和 p40 的对照序列合起来读，能看出两种算法的「错误预算」花在哪</b>：乐观把预算摊开，<b>保证每条臂都被看过</b>（前 m 步固定）；TS 把预算随机花，<b>可能一开始就浪费在最差的臂上</b>（这里就是），也可能一次都不浪费。<span class='w'>前者的最坏情况更可控，后者的平均情况更好</span>——这正是 p42 那个「界更紧 vs 实证更好」的微观来源。"], "tbl": {"head": ["轮", "各臂后验", "抽到的 θ", "选谁", "结果", "更新为"], "rows": [["①", "Beta(1,1) ×3", "0.3 / 0.5 / <b>0.6</b>", "<b>a₃</b>", "0", "a₃ → Beta(1,2)"], ["…", "（p35–37 中间步）", "—", "a₁", "1", "a₁ → Beta(2,1)"], ["p38", "Beta(2,1)/Beta(1,1)/Beta(1,2)", "<b>0.71</b> / 0.65 / 0.1", "<b>a₁</b>", "1", "a₁ → Beta(3,1)"], ["p39", "<span class='w'>课件写 Beta(2,1)…（笔误，应为 Beta(3,1)）</span>", "<b>0.75</b> / 0.45 / 0.4", "<b>a₁</b>", "1", "a₁ → <b>Beta(4,1)</b>"], ["<b>结束时</b>", "Beta(4,1)/Beta(1,1)/Beta(1,2)", "后验均值 .800/.500/.333", "下一轮概率<br><b>76.0% / 19.1% / 4.8%</b>", "—", "—"]]}, "tip": {"t": "记号", "v": "本课 13 讲共统计出 <b>165 条记号陷阱</b>。p39 的先验行这一处属于「同图复制未更新」，是本课件里出现过几次的同类问题（L03 的 p21–p22 也有一处把「every visit」写成了「first visits」）。<b>遇到前后对不上时，以能推得通的那一侧为准，并把差异标出来</b>——不要默默修好，否则下次看课件还会再困惑一次。"}, "eq": "例子结束时的后验与下一轮选中概率（40 万次采样数值积分）：\n\n  臂   后验        后验均值   下一轮被 TS 选中\n  a1   Beta(4,1)    0.800      76.0%\n  a2   Beta(1,1)    0.500      19.1%   ← 一次都没拉过，靠「后验最宽」拿到机会\n  a3   Beta(1,2)    0.333       4.8%   ← 试过一次失败，概率被压下去\n\n对照：ε-贪心(ε=0.1) 给每条非贪心臂固定 3.33%，与不确定性无关", "say": "这九页她是一步一步在黑板上推的，重点反复落在<b>「抽样这一步在替代什么」</b>：它替代的是 p28 那个算不动的积分。<span class='k'>你不需要知道「a 是最优」的概率是多少，只需要按那个概率行动</span>——而抽一次样恰好做到了这件事。<b>这是本讲里唯一一处课件用了「相当不可思议」这种措辞的地方</b>（p28 末行），值得停一下体会。", "res": {"tag": "推断", "v": "<b>这个例子里「a₂ 一次都没被拉过」的情形，在你的问题上是常态而不是意外。</b><br>你有 2187 个候选配置（L02 p30：k=3, H=7），而留出集只有 200–300 条 query。<span class='w'>绝大多数配置的样本数是个位数，很多是 0</span>。按上面那套算，一个从未试过的配置后验仍是 Beta(1,1)，<b>而它「碰巧最优」的概率并不小</b>。<br><b>这给了你两条可以立刻用的东西</b>：<br><b>① 一个比「点估计最大」更诚实的排序方式。</b> 与其报 <code>argmax Ĝ</code>，不如报<b>每个配置「是最优」的后验概率</b>。前者把 2187 个噪声估计里最高的那个当成答案（L04 p42 的最大化偏差）；后者<span class='k'>自动把样本少的配置的不确定性算进去</span>，不会因为跑了三条 query 全对就把它排到第一。<br><b>② 一个「下一批该跑什么」的分配规则。</b> 如果你要迭代地花预算，按「是最优的概率」分配 query 预算，就是 Thompson 采样在你这里的直接形态——<b>而且它不需要任何额外参数</b>（没有 ε、没有置信水平，后验宽度本身就是探索力度）。<br>⚠️ <b>但别直接套伯努利–Beta</b>：你的奖励不是单纯二值的，而是 <code>G = Acc − λ·Cost</code>。<span class='w'>Acc 那一半是二值的（答对没有），Cost 那一半是连续的</span>。按 L03/L05 一路下来的结论，<b>这两半本来就该分开建模</b>——Acc 用 Beta–伯努利，Cost 用回归（它近乎确定，R² &gt; 0.95）。<b>所以「每个配置挂一个 Beta」只适用于准确率那一半</b>，合成 G 时要把两边的不确定性分别传播。<br>标【推断】：三条用法是我按你的设定推的；最大化偏差、两半拆分在对应讲里是原课内容与简报已核项。", "ref": "课件 p31–p39 · L04 p42–p43 科研格 · L02 p30 科研格（2187 个候选）· 简报 §4e（两半拆分，已核）"}},
+{"r": [40, 41], "t": "并排比一次：序列与遗憾", "star": 3, "quote": "<b>Thompson Sampling vs Optimism</b> — Surgery θ₁=.95 / Taping θ₂=.9 / Nothing θ₃=.1<br>前五步序列：<em>Optimism <b>a₁ a₂ a₃ a₁ a₂</b> · TS <b>a₃ a₁ a₁ a₁ a₁</b> · Optimal 恒为 a₁</em><br>前五步遗憾：<em>Optimism <b>0 / 0.05 / 0.85 / 0 / 0.05</b> · TS <b>0.85 / 0 / 0 / 0 / 0</b></em>", "one": "<b>五步下来，乐观累计遗憾 0.95，Thompson 采样 0.85。两者犯的错完全不同：一个摊开来反复小错，一个一次性大错然后再不犯。</b>", "pts": ["<b>先把两列加起来</b>：乐观 <code>0+0.05+0.85+0+0.05 = <b>0.95</b></code>；TS <code>0.85+0+0+0+0 = <b>0.85</b></code>。<span class='k'>这五步里 TS 略胜，但差距很小，而且这是单次运行的结果</span>——换个随机种子可能反过来。", "<b>更值得看的是错误的<b>形状</b>而不是总量。</b> 乐观的错散布在前五步里（第 2、3、5 步各错一次）；<b>TS 只在第一步错，而且错得很大，之后全对</b>。<span class='w'>两者的累计遗憾差不多，但「体验」完全不同</span>。", "<b>这个差别正是 p46 要引入 PAC 框架的理由。</b> 遗憾把所有损失加起来，于是「一次大错」和「多次小错」可能得到同样的数。<b>而在真实场景里这两件事完全不同</b>——给一个病人做了明显错误的处置，和给五个病人做了略次优的处置，不是一回事。", "<b>乐观必须把每条臂都试一遍，这是它前三步的结构性代价。</b> <code>N(a)=0</code> 时探索项除零，所以头 m 步固定用来采样。<span class='k'>臂一多，这个开场代价就线性增长</span>。TS 没有这个开场，但它也因此可能漏掉某条臂（例子里 a₂ 从未被碰过）。", "⚠️ <b>五步太短，不能据此下结论。</b> 这张表的作用是展示<b>两种错误形态</b>，不是比较两个算法的优劣。真正的比较在 p42 和 p44。", "<b>把这张表的两种错误形态换成一句能带走的话</b>：<b>乐观是「系统地把每种可能性都付一次学费」，TS 是「按你认为它值的概率下注」。</b><span class='k'>前者的学费可预测，后者的学费有方差</span>。", "<b>这也解释了为什么 TS 必须报多个种子而 UCB 不必。</b> 同一组真参数、同一段历史，TS 跑两次可能给出完全不同的序列——<span class='w'>单次运行的遗憾不是一个有意义的量</span>。而上面这张表恰恰是单次运行的，所以它只能用来看形态，不能用来排名。"], "tbl": {"head": ["步", "乐观选", "乐观遗憾", "TS 选", "TS 遗憾"], "rows": [["1", "a₁", "0", "<b>a₃</b>", "<b>0.85</b>"], ["2", "a₂", "0.05", "a₁", "0"], ["3", "<b>a₃</b>", "<b>0.85</b>", "a₁", "0"], ["4", "a₁", "0", "a₁", "0"], ["5", "a₂", "0.05", "a₁", "0"], ["<b>合计</b>", "—", "<b>0.95</b>", "—", "<b>0.85</b>"]]}, "tip": {"t": "读法", "v": "这张表只能用来看<b>错误的形态</b>，不能用来排名：五步太短，而且 TS 是随机算法，<span class='w'>单次运行的遗憾不是有意义的量</span>。真正的比较在 p42（实证 vs 理论界）与 p44（同一把尺子下齐平）。"}},
+{"r": [42, 42], "t": "理论与实证给出了不同的排名", "star": 3, "quote": "<b>Thompson sampling implements probability matching</b><br><em>Thompson sampling (<b>1929</b>) achieves Lai and Robbins lower bound</em><br><em><b>Bounds for optimism are tighter than for Thompson sampling</b></em><br><em>But <b>empirically Thompson sampling can be extremely effective</b></em>", "one": "<b>三句话摆了一个矛盾：TS 达到了理论下界，但它的界比乐观松，而实证上它常常更好。</b>", "pts": ["<b>第一句是最强的那种结论：达到下界。</b> Lai–Robbins 下界说的是「任何算法在这类问题上至少要付多少遗憾」。<span class='k'>达到下界意味着渐近意义上无法再改进</span>——这是算法能拿到的最高评价。", "<b>第二句看起来和第一句矛盾，其实不是。</b> 「界更紧」说的是<b>已证明的上界</b>离真实表现更近，不是真实表现更好。<span class='w'>一个算法可以表现很好但界很松</span>——那只说明我们还没证出好的界，不说明算法差。", "<b>第三句把实证摆了出来，而且用词很重：<em>extremely effective</em>。</b> 这与 p42 第二句合起来是本讲最值得记住的方法论提醒：<b>「界更紧」和「表现更好」是两件事</b>，混为一谈会选错算法。", "<b>1929 这个年份值得停一下。</b> Thompson 在 1929 年提出它，当时还没有强化学习这个领域。<b>它被冷落了七十多年</b>，直到 2010 年前后一批实证工作（p43 那篇是代表）才让它重新成为主流。<span class='k'>这和 p8 那段 Kaelbling 1993 的故事是同一个模式</span>——实证先行，理论追认。", "<b>怎么选？本讲没有直接给答案，但线索是齐的</b>：先验可信、要实证表现 ⇒ TS；要最强的最坏情况保证、或先验不可信 ⇒ 乐观。<b>讲稿里她还提到了折中路线</b>（见下方）。", "<b>这一页还藏着一条关于「怎么读文献」的提醒。</b> 看到「算法 A 的界比算法 B 紧」时，要连着问三个问题：<b>① 用的是哪把尺子？</b>（频率派 / 贝叶斯 / PAC）<b>② 是渐近还是有限步？</b>（p9 的 lim 提醒）<b>③ 常数差多少？</b>（p44 的「忽略常数」）<span class='w'>三个问题不问清，两个界之间没有可比性</span>。"], "tbl": {"head": ["", "乐观 / UCB", "Thompson 采样"], "rows": [["理论上界", "<b>更紧</b>", "较松"], ["是否达到 Lai–Robbins 下界", "是", "<b>是</b>"], ["实证表现", "好", "<b>常常更好</b>"], ["是否随机", "确定性（除打平）", "<b>随机</b>，要报多种子"], ["需要先验", "不需要", "<b>需要</b>"], ["年份", "2002（UCB1）", "<b>1929</b>"]]}, "say": "讲稿里她给了一条课件上没有的折中路线：<em>I think often you probably would want to start with Thompson sampling, but you would like to be <b>robust to your prior</b>. And so some work that tries to combine these ideas is known as <b>PAC-Bayesian</b> … you'd like to be like Bayesian if your prior is really good, and PAC if it turns out that your prior's wrong.</em><b>「先验好的时候像贝叶斯，先验错的时候像频率派」——这正是先验有风险时的标准答法。</b>", "tip": {"t": "记这一条", "v": "<b>「界更紧」≠「表现更好」。</b> 界是我们<b>证出来</b>的上界，表现是算法<b>实际</b>的样子。<span class='w'>界松只说明我们还没证出好的界</span>。本讲给了一个干净的例子：乐观的频率派界更紧（p42），但换到贝叶斯遗憾两者齐平（p44），而实证上 TS 常常更好（p42）。<b>三句话都对，因为量的不是同一个东西。</b>"}},
+{"r": [43, 43], "t": "上下文老虎机：新闻推荐那篇", "star": 3, "quote": "<b>Thompson Sampling for News Article Recommendation</b> (Chapelle and Li, 2010)<br><em><b>Contextual bandit</b>: input context which impacts reward of each arm, context sampled <b>iid</b> each step</em><br><em>Arms = articles · Reward = click (+1) on article (Q(a) = click through rate)</em>", "one": "<b>上下文老虎机：每轮先看到一个上下文，再选臂；上下文影响哪条臂最好，但你的选择不影响下一个上下文。</b>", "pts": ["<b>定义里最要紧的是最后半句：<em>context sampled iid each step</em>。</b> <span class='k'>上下文是外生的</span>——它不受你的动作影响。<b>这一条就是上下文老虎机与 MDP 的全部分界</b>：有状态，但动作不改变状态分布。", "<b>她在课上用的例子很清楚</b>：<em>how you treat the current patient doesn't impact the next patient that comes along, but the patient characteristics can affect which arm is best</em>。<b>病人特征是上下文，治疗方案是臂，而你治了这个病人不影响下一个病人是谁。</b>", "<b>这篇的分量在于它改变了领域的看法。</b> 她的说法是 <em>one of the papers that I think sort of changed a lot of people's minds about Bayesian and bandits and also Thompson sampling being a good idea</em>——<b>在真实的新闻推荐数据上，TS 打败了 UCB 和其它一批算法</b>。", "<b>还有一条她特意补的、课件上没有的性质</b>：<em>It also can be more robust when your <b>outcomes are delayed</b>. So this happens a lot often in real cases.</em><span class='k'>结果延迟时 TS 比 UCB 更稳健</span>。<b>原因可以这样理解</b>：UCB 是确定性的，在结果回来之前它会反复选同一条臂（因为上界没变）；TS 每轮重新抽样，<b>天然会把这段等待期分散到多条臂上</b>。", "⚠️ <b>上下文老虎机不是「简化的 MDP」，它是另一类问题。</b> 它有状态但没有状态转移，所以既不能用纯老虎机的分析（有上下文），也不需要 MDP 的全套机器（没有延迟后果）。<b>它有自己的一套界。</b>"], "tbl": {"head": ["", "多臂老虎机", "<b>上下文老虎机</b>", "MDP"], "rows": [["有上下文/状态吗", "没有", "<b>有</b>", "有"], ["动作影响下一个状态吗", "—", "<b>不影响（iid）</b>", "<b>影响</b>"], ["要功劳分配吗", "不要", "<b>不要</b>", "要"], ["例子", "三种治疗方案", "<b>病人特征 → 治疗方案</b>", "多阶段疗程"]]}, "res": {"tag": "推断", "v": "<b>这一页是你课题最贴切的形式化，而且它带着一个现成的、部署过的先例。</b><br>对应关系几乎是逐项的：<b>上下文 = query</b>（及其特征）、<b>臂 = 保真度配置</b>、<b>奖励 = 这条 query 最终答对与否（以及成本）</b>。而最关键的那一条也成立：<span class='k'>你对这条 query 用了什么配置，不影响下一条 query 是什么</span> —— query 是从数据集里 iid 抽的。<br><b>所以「这是不是 MDP」那个争论，在这一页有了第三个答案</b>：它既不是无上下文的老虎机（query 特征显然影响哪个配置最好），也不必是 MDP（配置不改变 query 分布）。<b>上下文老虎机是那个刚好合身的框</b>，而它有自己完整的理论。<br>⚠️ <b>但有一处必须说清楚，否则就是套错了框</b>：上下文老虎机要求<b>单步决策</b>，而你的 workflow 有 H 个节点。<span class='w'>只有当节点效应可加（可加性检验通过）时，H 个节点才能拆成 H 个独立的上下文老虎机问题</span>；否则它仍是序贯的。<b>所以这一页能不能用，取决于那个检验</b> —— 这和 L11 p16 指向的是同一个实验。<br><b>一条可以直接拿走的实证线索</b>：她补充说 TS 在<b>结果延迟</b>时比 UCB 更稳健。<span class='k'>你的奖励正是终局才出现</span>（整条 workflow 跑完才知道对不对），所以这条直接相关。机制是：UCB 确定性，结果没回来之前上界不变、会反复选同一条臂；TS 每轮重新抽样，自动把等待期分散开。<br><b>Chapelle &amp; Li 2010 值得读</b>，它是「TS 在真实系统上打败 UCB」这个论断的出处，引用它比自己论证有力。<br>标【推断】：对应关系与可加性那个前提是我推的；「结果延迟时更稳健」来自讲稿实录（她的原话）。", "ref": "课件 p43 + 讲稿实录 · L11 p16 科研格（可加性检验）· Chapelle &amp; Li 2010"}, "tip": {"t": "记这一条", "v": "判断一个问题是不是上下文老虎机，只问一句：<b>我的动作会不会改变下一个上下文的分布？</b><span class='k'>不会 ⇒ 上下文老虎机</span>（有状态但无转移，不需要功劳分配）；<span class='w'>会 ⇒ MDP</span>。<b>很多被当成 RL 做的问题其实是前者</b>——推荐、广告、路由、以及按 query 选配置。"}},
+{"r": [44, 44], "t": "贝叶斯遗憾界：和 UCB 一样", "star": 2, "quote": "<b>Bayesian Regret Bounds for Thompson Sampling</b><br><em>BayesRegret(TS, T) = E<sub>θ∼p<sub>θ</sub></sub>[ Σ<sub>t=1</sub><sup>T</sup> Q(a*) − Q(a<sub>t</sub>) | θ ]</em><br><em><b>Posterior sampling has the same (ignoring constants) regret bounds as UCB</b></em>", "one": "<b>在贝叶斯遗憾这把尺子下，Thompson 采样和 UCB 的界是一样的（忽略常数）。</b>", "pts": ["<b>这一页收束了 p42 那个表面矛盾。</b> p42 说「乐观的界更紧」——那是在<b>频率派</b>遗憾下说的；<span class='k'>换到贝叶斯遗憾这把尺子，两者就齐平了</span>。<b>所以「谁的界更紧」这个问题，必须先问「用哪把尺子」。</b>", "<b>「忽略常数」这四个字不是客套。</b> 两个算法的渐近阶相同，但常数可能差好几倍，<b>而有限步下常数常常是主导项</b>。p9 那个「lim<sub>t→∞</sub>」的提醒在这里同样适用。", "<b>把本讲的尺子-做法矩阵填完整</b>：频率派遗憾下乐观更紧；贝叶斯遗憾下两者齐平；实证上 TS 常更好；<b>而 p46 要引入的第三把尺子（PAC）又会给出不同的视角</b>。<span class='w'>四种说法都对，因为它们量的不是同一个东西</span>。", "<b>「后验采样」（posterior sampling）是 Thompson 采样在理论文献里更常见的名字。</b> 两个名字指同一个算法：<span class='k'>Thompson 是发明人，posterior sampling 是机制描述</span>。<b>搜文献时两个词都要试</b>——理论侧的贝叶斯遗憾结果多半挂在后一个名字下。"], "tbl": {"head": ["用哪把尺子", "乐观 / UCB", "Thompson 采样"], "rows": [["频率派遗憾", "<b>界更紧</b>", "较松"], ["<b>贝叶斯遗憾</b>", "—", "<b>与 UCB 相同</b>（忽略常数）"], ["实证表现", "好", "<b>常常更好</b>"], ["PAC（p46）", "见 p47–p48", "见 p47–p48"]]}},
+{"r": [45, 46], "t": "第三把尺子：PAC —— 数大错的个数", "star": 3, "quote": "<b>Framework: Probably Approximately Correct</b><br><em>Theoretical regret bounds specify how regret grows with T</em> · <em><b>Could be making lots of little mistakes or infrequent large ones</b></em> · <em>May care about bounding the <b>number of non-small errors</b></em><br><em>PAC results state that the algorithm will choose an action a whose value is <b>ε-optimal</b> (Q(a) ≥ Q(a*) − ε) with probability at least <b>1 − δ</b> on all but a <b>polynomial</b> number of steps</em><br><em>Most PAC algorithms based on optimism or Thompson sampling</em>", "one": "<b>遗憾把所有损失加起来，于是分不清「很多次小错」和「少数几次大错」。PAC 换了个问法：数一数你犯了几次「不算小」的错。</b>", "pts": ["<b>这一页的第二行是整个 PAC 框架的动机，而且它是一句大白话</b>：<em>could be making lots of little mistakes or infrequent large ones</em>。<span class='k'>两种情形的总遗憾可以完全相同</span>，但在真实场景里它们不是一回事——<b>给五个病人略次优的处置，和给一个病人明显错误的处置，不该算成同一回事</b>。", "<b>PAC 的定义里有三个独立的旋钮，缺一不可</b>：<br><code>ε</code>——<b>多差才算「错」</b>（容忍带宽）；<br><code>δ</code>——<b>允许以多大概率失手</b>（置信水平）；<br><code>N</code>——<b>最多允许犯几次</b>（而且要求它是问题参数的多项式）。<span class='w'>三个旋钮都不定，「PAC」这个词就是空的</span>。", "<b>「除了多项式步数之外的所有步」这个措辞要读准。</b> 它不说「前 N 步在学、之后都对」——<b>那 N 步可以散布在任何地方</b>。它说的是：不好的步数总共不超过 N，至于什么时候犯不管。", "<b>「多项式」这个限定是实质性的，不是修辞。</b> 如果 N 可以是指数的，那这个保证就没有内容——<span class='k'>任何算法最终都会学会，问题从来是「要多久」</span>。<b>把「多项式」换成「指数」，PAC 就退化成「它最终会收敛」这种废话。</b>", "<b>最后一行是一句很实用的概括</b>：<em>most PAC algorithms based on optimism or Thompson sampling</em>。<span class='k'>三把尺子虽然不同，拿到结果的做法却是同一批</span>——这也是 p3 那张「框架 × 做法」表的意思：两者可以自由组合。"], "eq": "PAC：以概率 ≥ 1−δ，除了至多 N 步之外，每一步选的动作都满足\n\n        Q(a_t)  ≥  Q(a*) − ε\n                       └─ ε 以内就不算错 ─┘\n\n   且 N 是问题参数（动作数、ε、δ…）的**多项式**\n\n对照遗憾：Σ_t [Q(a*) − Q(a_t)]  —— 把所有损失加起来，不区分大小", "tbl": {"head": ["", "遗憾", "PAC"], "rows": [["量什么", "<b>损失的总和</b>", "<b>「不算小」的错的个数</b>"], ["区分大错/小错吗", "<span class='w'>不区分</span>（都加进去）", "<b>区分</b>（ε 以内不计）"], ["需要额外给的参数", "无", "<b>ε 和 δ</b>"], ["「好」的形式", "总遗憾增长慢（如 log T）", "N 是多项式"], ["什么时候更合适", "在意累计代价", "<b>在意「别犯明显的错」</b>"]]}, "res": {"tag": "推断", "v": "<b>你要的那句话——「上线之后不会更差」——在形状上是 PAC，不是遗憾。</b><br>遗憾问的是「累计起来你比最优差多少」，<span class='w'>它允许你用很多次小的次优去换一次大的收益</span>；而你要向人保证的是<b>「不会出现明显更差的情形」</b>，这正是「数大错的个数」。<br><b>三个旋钮在你这里都有自然的含义</b>：<br><code>ε</code> = <b>你愿意容忍的 G 的下降幅度</b>。这个数要你自己定，而且定下来就要写进论文——<span class='k'>它不是技术参数，是和使用者的约定</span>。<br><code>δ</code> = 允许这个保证失效的概率，对应置信水平。<br><code>N</code> = 允许出现多少条「明显更差」的 query。<br><b>这个三元组比「平均 G 提升了 x%」有力得多</b>，因为后者可以被少数几条灾难性失败藏在平均值里。<br>⚠️ <b>但有一处要诚实</b>：课件这里的 PAC 是<b>在线</b>学习的框架（「除了 N 步之外的每一步」），而你是<b>离线一次性选配置</b>。<span class='w'>直接套用会错位</span>——你没有「步」。<b>搬过来时要改口径</b>：把「步」换成「query」，于是陈述变成「在留出集上，至多 N 条 query 的 G 比最优配置差超过 ε，置信度 1−δ」。<b>这个形式是可以直接从 oracle 表上验证的</b>，不需要任何估计量。<br>标【推断】：口径转换是我做的；PAC 定义本身是原课内容。", "ref": "课件 p46 原文 · 简报 §4d（oracle 表，已核）"}},
+{"r": [47, 48], "t": "同一组数据，两把尺子给出不同裁决", "star": 3, "quote": "<b>Toy Example: PAC and Regret</b> — <em>Let ε = 0.05</em> · <em>W/in ε = I(Q(a<sub>t</sub>) ≥ Q(a*) − ε)</em><br>乐观：遗憾 <em>0 / 0.05 / <b>0.85</b> / 0 / 0.05</em>，ε 内 <em>Y / Y / <b>N</b> / Y / Y</em><br>TS：遗憾 <em><b>0.85</b> / 0 / 0 / 0 / 0</em>，ε 内 <em><b>N</b> / Y / Y / Y / Y</em>", "one": "<b>遗憾说 TS 更好（0.85 对 0.95）；PAC 说打平（各犯一次大错）。两把尺子，两个答案。</b>", "pts": ["<b>先算清楚为什么会这样，关键在 a₂ 那几步。</b> a₂ 的真值是 <code>0.90</code>，最优是 <code>0.95</code>，<span class='k'>而 ε 取 0.05</span>。于是 <code>Q(a₂) = 0.90 ≥ 0.95 − 0.05 = 0.90</code>——<b>恰好卡在边界上，算作「ε-最优」</b>。", "<b>所以乐观那两次拉 a₂：有遗憾（各 0.05），但不算错。</b> 它唯一的「大错」是第三步拉了 a₃（遗憾 0.85，明显超出 ε）。<b>TS 的唯一大错在第一步，同样是拉了 a₃。</b>", "<b>于是两把尺子给出不同排序</b>：<br>按<b>遗憾</b>：TS（0.85）优于乐观（0.95）；<br>按 <b>PAC</b>（ε=0.05）：<b>打平</b>，各 1 次。<br><span class='w'>两个结论都正确，因为它们量的不是同一个东西</span>。", "<b>这个例子还暴露了 PAC 的一个脆弱处：它对 ε 的取值敏感。</b> 把 ε 调到 0.04，<code>0.90 &lt; 0.95 − 0.04 = 0.91</code>，<b>乐观那两次 a₂ 就都变成「大错」了，于是乐观 3 次、TS 1 次，TS 大胜</b>。<span class='k'>ε 稍微一动，结论就翻</span>。", "<b>所以报告 PAC 结果时必须把 ε 和 δ 写出来，而且要说明为什么取这个值。</b> <b>「我们的方法是 PAC 的」这句话本身没有信息量</b>——三个旋钮不给，它可以适配任何结果。", "⚠️ <b>五步样本太小，这张表的作用是演示口径差异，不是比较算法。</b> 而且 TS 是随机的，单次运行不具代表性（p40 已提醒过一次）。", "<b>还有一个比「哪把尺子」更深的问题，这个例子逼着你面对：ε 该取多少？</b> 本例取 0.05 恰好让 a₂ 卡在边界上——<span class='w'>这不是巧合，是课件故意设计的</span>。<b>它在演示 ε 不是技术参数，而是一个关于「多差算差」的实质判断</b>，而这个判断必须由问题本身来定，不能由算法来定。<span class='k'>在医疗例子里，0.05 的疗效差距算不算「可接受」，是临床问题不是统计问题。</span>"], "tbl": {"head": ["步", "乐观选", "遗憾", "ε 内?", "TS 选", "遗憾", "ε 内?"], "rows": [["1", "a₁", "0", "Y", "<b>a₃</b>", "<b>0.85</b>", "<span class='w'>N</span>"], ["2", "a₂", "0.05", "<b>Y</b>（恰好卡边界）", "a₁", "0", "Y"], ["3", "<b>a₃</b>", "<b>0.85</b>", "<span class='w'>N</span>", "a₁", "0", "Y"], ["4", "a₁", "0", "Y", "a₁", "0", "Y"], ["5", "a₂", "0.05", "<b>Y</b>", "a₁", "0", "Y"], ["<b>合计</b>", "—", "<b>0.95</b>", "<b>1 次大错</b>", "—", "<b>0.85</b>", "<b>1 次大错</b>"]]}, "tip": {"t": "记这一条", "v": "<b>换一把尺子，排名可以翻。</b> 本讲前后出现过四次这个现象：频率派遗憾下乐观界更紧（p42）、贝叶斯遗憾下两者齐平（p44）、实证上 TS 更好（p42）、PAC 下这个例子打平（p48）。<span class='k'>四句话都对</span>。<b>所以读到「A 优于 B」时，第一反应应该是「用什么尺子量的」。</b>"}},
+{"r": [49, 51], "t": "搬回 MDP：同一套框架与做法", "star": 2, "quote": "<b>Fast RL in Markov Decision Processes</b> — <em>Very similar set of frameworks and approaches are relevant for fast learning in reinforcement learning</em><br><em>Frameworks</em>: Regret · Bayesian regret · <b>Probably approximately correct (PAC)</b><br><em>Approaches</em>: <b>Optimism under uncertainty</b> · Probability matching / Thompson sampling", "one": "<b>从老虎机搬到 MDP，框架和做法一个都不换——换的只有「难在哪」。</b>", "pts": ["<b>这一页其实是 p3 那张表的回声</b>：设定从「老虎机」换成「MDP」，而框架（三把尺子）与做法（两类）原封不动。<span class='k'>这正是把它们拆成三个维度的价值</span>——换设定时不用重建整套词汇。", "<b>但难度变了，而且变在一个很具体的地方：乐观要乐观在什么上。</b> 老虎机里你只需要对<b>每条臂的均值</b>乐观；MDP 里你要对<b>转移模型和奖励模型</b>乐观，<span class='w'>而模型的不确定性会沿着时间传播</span>——一步的乐观会影响后面所有步的估值。", "<b>第二个变化是「访问计数」的含义。</b> 老虎机里 <code>N(a)</code> 是拉臂次数；MDP 里要数 <code>N(s,a)</code>，<b>而状态是你自己走到的</b>——<span class='k'>想多访问某个状态，得先学会怎么走到那里</span>。<b>这是 MDP 探索比老虎机难的根本原因</b>：探索本身成了一个规划问题。", "<b>课件接下来分两条路走</b>：先讲<b>无模型</b>的乐观初始化（p52–53，简单但几乎没有保证），再讲<b>有模型</b>的乐观（p54–p59，复杂但可证）。<b>两条路的分野和 L03 的「无模型 vs 确定性等价」是同一个分野。</b>", "<b>再补一个 MDP 比老虎机难的地方，课件没明说但很要紧：你不能重复同一个「实验」。</b> 老虎机里想再拉一次 a₂，拉就是了；<span class='w'>MDP 里想再试一次 (s,a)，你得先回到 s</span>——而回到 s 本身可能要走很多步，甚至回不去（单向的状态）。<b>于是「采样」这个动作的成本在 MDP 里是不均匀的。</b>", "<b>这也解释了为什么 MDP 的探索算法几乎都是「有模型」的。</b> 要规划出「怎么走到那个没去过的状态」，<span class='k'>你必须先有一个转移模型</span>——哪怕是粗糙的估计。<b>纯无模型的方法（p52–53）在这件事上无能为力，这正是它们拿不到保证的结构性原因。</b>", "<b>p50 与 p51 是同一页的两阶段</b>（p51 多了底部一行 <em>Framework: Probably approximately correct</em>），不是两页新内容。"], "tbl": {"head": ["", "老虎机", "MDP"], "rows": [["对什么乐观", "每条臂的<b>均值</b>", "<b>转移模型与奖励模型</b>"], ["计数对象", "N(a)", "<b>N(s,a)</b>"], ["能否直接多试某个选项", "能（随时拉那条臂）", "<span class='w'>不能</span>——要先会走到那个状态"], ["不确定性如何扩散", "不扩散", "<b>沿时间传播</b>"], ["框架与做法", "三把尺子 × 两类做法", "<b>完全相同</b>"]]}},
+{"r": [52, 53], "t": "无模型的乐观初始化：好用，但保证要付天价", "star": 3, "quote": "<b>Optimistic Initialization: Model-Free RL</b> — Initialize Q(s,a) optimistically, e.g. <em>r<sub>max</sub>/(1−γ)</em> where <em>r<sub>max</sub> = max<sub>a</sub> max<sub>s</sub> R(s,a)</em><br><em><b>Check your understanding: why is that value guaranteed to be optimistic?</b></em><br><em>In general the above have <b>no guarantees</b> on performance, but may work better than greedy or ε-greedy</em><br><em><b>Even-Dar and Mansour (NeurIPS 2002)</b>: if initialize V(s) = r<sub>max</sub>/((1−γ)·Π<sub>i=1</sub><sup>T</sup>α<sub>i</sub>) … then greedy-only Q-learning is <b>PAC</b></em><br><em><b>Jin, Allen-Zhu, Bubeck, Jordan (NeurIPS 2018)</b>: (much less) optimistically initialized Q-learning has good (though not tightest) regret bounds</em>", "one": "<b>把 Q 初始化成「最好的可能值」，然后照常跑。做法简单，实践里常常够用——但要拿到 PAC 保证，初始值得大到不现实。</b>", "pts": ["<b>先回答课件那道检验题：为什么 <code>r<sub>max</sub>/(1−γ)</code> 一定是乐观的？</b> 因为它是<span class='k'>任何策略在任何状态下能拿到的回报上限</span>——每一步都拿到最大奖励 <code>r<sub>max</sub></code>，折扣和就是 <code>r<sub>max</sub>(1 + γ + γ² + ⋯) = r<sub>max</sub>/(1−γ)</code>。<b>真实的 Q 不可能超过它。</b>", "<b>这个上界是「无信息」的乐观</b>：它对所有 (s,a) 一视同仁，不区分哪个更有希望。<span class='w'>所以它只能推动你「什么都试一遍」</span>，而不能告诉你该先试什么。这和 UCB 的「按不确定性分配」有本质差别。", "<b>课件的定性很直白：<em>no guarantees on performance, but may work better than greedy or ε-greedy</em>。</b> <b>这和 p17 对老虎机版乐观初始化的定性一模一样</b>——两处用了同样的措辞，不是巧合。", "<b>Even-Dar &amp; Mansour 那一行才是这一页真正的内容，而它说的是个坏消息。</b> 要让「只贪心的 Q-learning」变成 PAC，初始值必须是 <code>r<sub>max</sub>/((1−γ)·Π<sub>i=1</sub><sup>T</sup> α<sub>i</sub>)</code>。<span class='k'>学习率 α &lt; 1，T 个相乘是个极小的数，做分母就把整体撑成天文数字</span>——<b>α=0.1、T=100 时，分母是 10⁻¹⁰⁰，初始值要到 10¹⁰⁰ 量级</b>。", "<b>所以这一行的真实含义是：乐观初始化在理论上「能」PAC，但代价是一个不可实现的初始值。</b> <span class='w'>「能」和「可用」在这里被劈开了</span>。<b>这是本讲最该带走的一条怀疑</b>：看到「某方法被证明是 PAC 的」，要追问前提里的常数有多大。", "<b>最后一行给了个相对好的消息</b>：Jin 等人 2018 证明「乐观得少得多」的 Q-learning 也有不错的遗憾界——<b>但课件自己加了限定 <em>though not tightest</em></b>。", "<b>这一页和 L12.a p17 是同一件事在两个设定下的重复，对照着记很省力</b>：老虎机版的乐观初始化「没有保证但常常够用」；MDP 版同样是<em>no guarantees on performance, but may work better than greedy or ε-greedy</em>。<b>两处用了几乎一样的措辞</b>。<span class='k'>原因也一样：一次性的乐观会被数据稀释掉，不随时间补充</span>——而 UCB 的 log t 和 MBIE-EB 的 β/√N 都是会持续补充的。"], "eq": "为什么 r_max/(1−γ) 一定乐观：\n   每步都拿 r_max  ⇒  r_max(1 + γ + γ² + ⋯) = r_max/(1−γ)\n   这是回报的绝对上限，真实 Q 不可能超过\n\nEven-Dar & Mansour 的 PAC 条件：\n   V(s) = r_max / ( (1−γ) · Π_{i=1}^T α_i )\n                        └── α<1，T 个相乘 → 极小 ──┘\n   做分母 ⇒ 初始值随 T 指数增长（α=0.1, T=100 时约 10^100）", "tbl": {"head": ["做法", "初始值", "有保证吗", "实用吗"], "rows": [["朴素乐观初始化", "r<sub>max</sub>/(1−γ)", "<span class='w'>没有</span>", "<b>常常够用</b>"], ["Even-Dar &amp; Mansour", "r<sub>max</sub>/((1−γ)Π α<sub>i</sub>)", "<b>PAC</b>", "<span class='w'>初始值天文数字</span>"], ["Jin 等 2018", "「乐观得少得多」", "有遗憾界", "较实用，但<b>界非最紧</b>"]]}},
+{"r": [54, 54], "t": "有模型的乐观：两条路线", "star": 2, "quote": "<b>Approaches to Model-based Optimism for Provably Efficient RL</b><br>① <em>Be <b>very optimistic until confident</b> that empirical estimates are close to true (dynamics/reward) parameters</em> (Brafman &amp; Tennenholtz JMLR 2002)<br>② <em>Be optimistic <b>given the information have</b></em>: compute confidence sets on dynamics and reward models, <b>or add reward bonuses that depend on experience / data</b><br><em>We will focus on the last class of approaches</em>", "one": "<b>两条路：① 在确信之前一律当最好的（R-MAX 那一类）；② 按手上的信息量决定乐观多少（置信集，或奖励加成）。课件走第二条的后半。</b>", "pts": ["<b>第一条路的精神是「非黑即白」</b>：一个 (s,a) 在被访问 m 次之前，<span class='k'>一律假定它通向最好的结局</span>；访问够了就切换成用经验估计。<b>Brafman &amp; Tennenholtz 的 R-MAX 是这一类的代表。</b>", "<b>第二条路更细腻：乐观的程度随数据量连续变化。</b> 两种实现——<b>置信集</b>（为模型参数算一个可信区域，在区域里取最乐观的那个模型）或<b>奖励加成</b>（给访问次数少的 (s,a) 额外加分）。<span class='k'>后者便宜得多</span>，因为不用在模型空间里做优化。", "<b>课件明说只讲最后一类（奖励加成）</b>，下一页的 MBIE-EB 就是它。<b>这个选择是有道理的</b>：奖励加成的实现只是在 Bellman 更新里多加一项，<span class='k'>可以挂在任何已有的规划算法上</span>。", "<b>把这两条路和老虎机那边对一下</b>：第一条像「乐观初始化」（一个大常数，用完切换）；第二条像 UCB（按 N 连续调节）。<b>MDP 这边的分类，和老虎机那边是同构的。</b>", "<b>把这两条路线和老虎机那边严格对应一下，本讲的结构就闭合了</b>：<br>① <b>「确信之前一律当最好的」</b> ↔ 老虎机的<b>乐观初始化</b>（一个大常数，用完切换）；<br>② <b>「按手上的信息决定乐观多少」</b> ↔ 老虎机的 <b>UCB</b>（按 N 连续调节）。<br><span class='k'>而两边的结论也一致</span>：①<b>在两个设定下都拿不到实用的保证</b>（p53 的天文数字初始值），②<b>在两个设定下都能证</b>（UCB 的对数遗憾、MBIE-EB 的 PAC）。"]},
+{"r": [55, 56], "t": "MBIE-EB：计数建模 + β/√N 加成", "star": 3, "quote": "<b>Model-Based Interval Estimation with Exploration Bonus (MBIE-EB)</b> (Strehl and Littman, 2008)<br><em>β = (1/(1−γ))·√(0.5 ln(2|S||A|m/δ))</em> · 初始化 <em>Q̃(s,a) = 1/(1−γ)</em><br>计数：<em>n<sub>sa</sub>(s,a) += 1 · n<sub>sas</sub>(s,a,s′) += 1</em> · 估模型：<em>R̂(s,a) = r<sub>c</sub>/n · T̂(s′|s,a) = n<sub>sas</sub>/n<sub>sa</sub></em><br><b><em>Q̃(s,a) = R̂(s,a) + γ Σ<sub>s′</sub> T̂(s′|s,a) max<sub>a′</sub> Q̃(s′,a′) + β/√(n<sub>sa</sub>(s,a))</em></b>", "one": "<b>一边用计数估模型，一边在 Bellman 更新里给访问次数少的 (s,a) 加一个 β/√N 的奖励。就这两件事。</b>", "pts": ["<b>把那个长式子拆成三块看，它其实很简单</b>：<br><code>R̂(s,a)</code>——<b>估出来的即时奖励</b>（计数平均）；<br><code>γ Σ T̂ max Q̃</code>——<b>标准的 Bellman 回溯</b>，只是用估出来的 T̂；<br><code>+ β/√n<sub>sa</sub></code>——<b>探索加成</b>，这是唯一新增的东西。<span class='k'>前两块就是 L03 的确定性等价</span>，第三块才是本讲的贡献。", "<b>加成的形状 <code>β/√N</code> 不是随便选的。</b> 它和 UCB 的 <code>√(2 log t / N)</code> 是同一个来源：<b>均值估计的误差按 1/√N 收缩</b>（Hoeffding）。<span class='k'>所以「访问次数的平方根倒数」是不确定性的自然尺度</span>，在老虎机和 MDP 里都一样。", "<b>β 里装的是「要多保险」。</b> <code>β = (1/(1−γ))·√(0.5 ln(2|S||A|m/δ))</code>：<br><code>1/(1−γ)</code> 是<b>有效时域</b>（误差会沿时间累积，所以时域越长越要保守）；<br><code>ln(|S||A|m/δ)</code> 是<b>联合界</b>（要对所有 (s,a) 同时成立，状态动作越多越要保守）；<br><span class='w'>δ 越小 β 越大</span>——要求越高概率成立，就得越乐观。", "<b>初始化 <code>Q̃ = 1/(1−γ)</code> 对应奖励被归一化到 [0,1]</b>，所以这就是 p52 的 <code>r<sub>max</sub>/(1−γ)</code>（取 r<sub>max</sub>=1）。<b>它仍然用了乐观初始化，只是额外加了会随数据衰减的加成项。</b>", "<b>注意第 12–14 行：每收到一个样本就把整个 Q̃ 重算到收敛。</b> <span class='w'>这是整个算法最贵的部分</span>——它是一次完整的值迭代。<b>所以 MBIE-EB 的样本复杂度是多项式的，计算复杂度却很高</b>。这正是 L03 p47 说的「数据效率与计算效率要分开看」。", "⚠️ <b>算法开头的 <code>m</code> 是给定的参数</b>（第 1 行 <em>Given ε, δ, m</em>），它进了 β 的公式。<b>m 通常是「每个 (s,a) 要访问多少次才算学会」的上限</b>，由 ε、δ 和问题规模决定。"], "eq": "MBIE-EB 的 Bellman 更新：\n\n  Q̃(s,a) = R̂(s,a) + γ Σ_{s'} T̂(s'|s,a) max_{a'} Q̃(s',a')  +  β / sqrt(n_sa(s,a))\n           └──────── 确定性等价（L03 p48）────────┘     └─ 探索加成 ─┘\n\n  β = (1/(1−γ)) · sqrt( 0.5 · ln( 2|S||A|m / δ ) )\n       └ 有效时域 ┘        └── 联合界：对所有 (s,a) 同时成立 ──┘\n\n  加成的 1/sqrt(N) 形状 = Hoeffding 的误差尺度，与 UCB 同源", "tbl": {"head": ["成分", "来自哪里", "作用"], "rows": [["R̂, T̂（计数估计）", "<b>L03 的确定性等价</b>", "用数据建模型"], ["γ Σ T̂ max Q̃", "标准 Bellman 回溯", "规划"], ["<b>β/√n<sub>sa</sub></b>", "<b>本讲新增</b>", "给访问少的 (s,a) 加分"], ["β 里的 1/(1−γ)", "有效时域", "误差沿时间累积"], ["β 里的 ln(2\\|S\\|\\|A\\|m/δ)", "联合界", "要对所有 (s,a) 同时成立"]]}, "res": {"tag": "推断", "v": "<b>β/√N 这个形状你可以直接搬，而且比 MBIE-EB 本身更容易用——因为你不需要那一整套 MDP 机器。</b><br>你已经有每个「节点 × 保真度档位」的访问计数（跑过多少条 query）。<span class='k'>加成项 β/√N 给的正是「这一格我了解得够不够」的定量表达</span>，而它和 L12.b 的 Beta 后验是同一件事的两种写法——<b>Beta 的宽度也按 1/√(α+β) 收缩</b>。两者选一个即可，不必都用。<br><b>β 的两个成分在你这里怎么对应</b>：<br><code>1/(1−γ)</code> ⇒ 有效时域。<b>你的 γ 该是 1、H ≤ 10</b>（L02 的科研格），所以这一项换成 <code>H</code>，是个小数（10 而不是 100），<span class='k'>比标准折扣设定友好得多</span>。<br><code>ln(2|S||A|m/δ)</code> ⇒ 联合界。你要对多少个「格子」同时成立？<b>若按 (节点, 档位) 计是 H×k 个（几十个）；若按 (query, 节点, 档位) 计就爆炸了</b>。<span class='w'>这个选择直接决定 β 的大小</span>，而它等价于「策略按什么键控」——又回到 P2/P3 消融。<br>⚠️ <b>但别把 MBIE-EB 整个搬过来</b>：它每收到一个样本就重跑一次完整值迭代（第 12–14 行），<b>而你根本不需要规划</b>——你的「转移」是确定的（节点顺序固定），没有 <code>max<sub>a′</sub> Q̃(s′,a′)</code> 这一项要算。<span class='k'>你需要的只是那个加成项的形状，不是它的算法骨架</span>。<br>标【推断】：对应关系与两处简化是我推的；γ=1、H≤10 与 P2/P3 在对应讲里是已有结论。", "ref": "课件 p56 原文 · L02 p13 科研格（γ 该是 1）· L12.b p24 科研格（Beta 宽度）· 简报 §5（P2/P3）"}},
+{"r": [57, 59], "t": "MDP 上的 PAC：定义、结论、充分条件", "star": 3, "quote": "<b>Framework: PAC for MDPs</b> — <em>For a given ε and δ, a RL algorithm A is PAC if on all but <b>N</b> steps, the action selected at time t is <b>ε-close to the optimal action</b>, where N is a <b>polynomial function of (|S|, |A|, γ, ε, δ)</b></em><br><em><b>Is this true for all algorithms?</b></em><br>p58: <b>MBIE-EB is a PAC RL algorithm</b><br>p59: <em>A Sufficient Set of Conditions to Make a RL Algorithm PAC</em> (Strehl, Li, Littman, UAI 2006)", "one": "<b>把老虎机的 PAC 定义原样搬到 MDP：N 步之外每一步都 ε-最优，而 N 是问题规模的多项式。MBIE-EB 做到了。</b>", "pts": ["<b>和 p46 的老虎机版本对照，只多了一样东西：多项式里多了 |S| 和 γ。</b> <span class='k'>状态数进来了，有效时域也进来了</span>——这两项正是 MDP 比老虎机难的地方的量化体现。", "<b>p57 最后那句反问 <em>Is this true for all algorithms?</em> 的答案是「不是」。</b> <b>ε-贪心就不是 PAC 的</b>——它每步都有固定概率随机选，<span class='w'>于是「大错」的次数随步数线性增长，不可能被多项式 N 封住</span>。<b>纯贪心也不是</b>（可能永远锁死）。", "<b>所以 PAC 是一个有区分力的标准，不是所有算法都能拿到。</b> 这一点和遗憾不同：<b>任何算法都有一个遗憾值</b>（可能很大），但<span class='k'>不是任何算法都是 PAC 的</span>。PAC 是一个二元的资格，遗憾是一个连续的分数。", "<b>p58 把结论摆出来：MBIE-EB 是 PAC 的。</b> 这就把 p54 那两条路线里的第二条落到了实处——<b>「按数据量连续调节的乐观」能拿到可证的保证，而「一次性的大常数乐观」拿不到</b>（p53）。", "<b>p59 给的是「充分条件」而不是又一个算法，这个选择很有意思。</b> Strehl、Li、Littman 2006 列出了一组条件：<span class='k'>任何满足它们的算法都是 PAC 的</span>。<b>这把「证明某个算法 PAC」从一次性的工作变成了可复用的模板</b>——后来的很多算法就是照着这组条件设计的。", "⚠️ <b>多项式里的指数和常数本讲没给。</b> 「多项式」只保证不是指数，<span class='w'>但 |S|³|A|/(ε³(1−γ)⁶) 也是多项式</span>。<b>实用性要看具体的幂次</b>，而这正是 L13 要处理的事。", "<b>把「PAC 是二元资格、遗憾是连续分数」这个区别再推一步，会得到一个实用建议。</b> <span class='k'>汇报结果时两者该用不同的句式</span>：遗憾适合写成「我们的遗憾比基线低 x%」；<b>PAC 适合写成「在 ε=…、δ=… 下，超出容忍的情形不超过 N 次」</b>。<b>后者是一句承诺，前者是一个比较。</b>", "<b>p57 那个反问还有一层没说破的意思</b>：既然不是所有算法都 PAC，<b>那「这个算法不是 PAC 的」就不等于「它不好用」</b>。ε-贪心不是 PAC 的，但它在无数实际系统里跑得好好的。<span class='w'>PAC 是一个关于最坏情况的资格</span>，而大多数实际问题不在最坏情况上。", "⚠️ <b>p58 只有一句结论「MBIE-EB is a PAC RL algorithm」，证明在引用的论文里。</b> 课件没展开，而本精读也不补——<b>要点是知道「这类算法能拿到保证」，而不是复现证明</b>。"], "tbl": {"head": ["算法", "是 PAC 吗", "为什么"], "rows": [["纯贪心", "<span class='w'>否</span>", "可能永远锁死（L12.a p16）"], ["固定 ε-贪心", "<span class='w'>否</span>", "大错次数随步数<b>线性</b>增长"], ["朴素乐观初始化", "<span class='w'>否</span>", "乐观用完就没了（p53）"], ["乐观初始化到 10^T 量级", "是", "<b>但初始值不可实现</b>"], ["<b>MBIE-EB</b>", "<b>是</b>", "<b>加成随数据衰减，不会用完</b>（p58）"]]}, "res": {"tag": "推断", "v": "<b>「不是所有算法都 PAC」这件事，给了你一个很干净的论文句式。</b><br>你不需要宣称自己的方法是 PAC 的（那要一整套证明），<span class='k'>但你可以用 PAC 的<b>陈述形式</b>来报告实证结果</span>——这在离线设定下是<b>可以直接从 oracle 表上数出来的</b>，不需要任何定理：<br><b>「在 200–300 条留出 query 上，取 ε = …，我们选出的配置有 N 条 query 的 G 比该 query 的最优配置差超过 ε；N/总数 = …」</b><br><span class='w'>这是一个可验证的事实陈述，不是一个需要假设的定理</span>。而且它恰好避开了 p53 揭示的那个陷阱——<b>「能证明是 PAC 的」常常伴随着不可实现的常数</b>，而你报的是实测的 N，没有常数问题。<br><b>两条配套的做法</b>：<br>① <b>ε 必须先定后测</b>，不能看了结果再调。p47–48 演示过 ε 从 0.05 调到 0.04 结论就翻——<span class='w'>事后调 ε 等于选择性报告</span>。建议在预注册式的说明里把 ε 的来源写清楚（比如「成本降低 x% 时可接受的准确率损失」）。<br>② <b>N 要分层报</b>：按 query 难度分桶，看大错是否集中在某一类。<span class='k'>若集中，那不是随机失误而是系统性盲区</span>，比一个总数有信息得多。<br>标【推断】：这套报告形式是我按 PAC 的定义改写的；oracle 表能精确求值在简报里是【已核】。", "ref": "课件 p46 · p57 · 简报 §4d（oracle 表，已核）· L04 p43（留出集拆两半）"}},
+{"r": [60, 61], "t": "实证：六臂模拟", "star": 1, "quote": "<b>MBIE-EB Empirically: 6 Arms Simulation</b> · <b>MBIE-EB Empirically: 6 Arms Results</b>", "one": "<b>两页图，在一个六臂的模拟问题上跑 MBIE-EB。</b>", "pts": ["<b>这两页只有图，没有正文。</b> 抽不出文字是正常的，不是漏页。", "<b>把它放在最后是有用意的：理论讲完了，看一眼它在实际上长什么样。</b> <span class='k'>本讲全程在理论与实证之间来回</span>——p8 的 Kaelbling 故事（实证先于理论）、p42 的「界更紧但 TS 实证更好」、p53 的「没有保证但常常够用」，<b>这一页是第四次。</b>", "⚠️ <b>六臂是个很小的问题。</b> 在这个规模上「MBIE-EB 表现好」说明不了它在大规模问题上也好——<b>而 L13 要讲的正是「这套方法在深度网络上还不成立」。</b>", "<b>不过「只有图」这件事本身值得停一下：课件把实证结果放在最后两页，而且没有配任何文字结论。</b> <span class='k'>这和前面每一页都带一句定性的风格不同</span>。<b>一个合理的读法是：这里展示的是「它能跑」，而不是「它更好」</b>——真正的比较性结论课件全程都给得很克制（p42 的三句话就是典型）。", "<b>六臂这个规模还暴露了 PAC 界在实践中的处境。</b> p57 说 N 是 (|S|,|A|,γ,ε,δ) 的多项式，而<span class='w'>多项式里的幂次本讲一个都没给</span>。<b>六臂问题上跑得通，不说明 |S| 上万时还跑得通</b>——因为 N 可能随 |S| 的某个幂次增长。", "<b>把本讲的「理论与实证来回」数一遍，一共四次</b>：p8 的 Kaelbling（实证先于理论十几年）、p42 的「乐观界更紧但 TS 实证更好」、p53 的「没有保证但常常够用」、以及这两页。<span class='k'>这个节奏是有意的</span>——<b>它在反复提醒：证明和管用是两件要分别确认的事。</b>", "⚠️ <b>L13 接着要讲的正是这条缝</b>：把探索证成定理之后，再承认它在深度网络上还不成立。<b>所以这两页的「小规模上能跑」是一个过渡，不是结论。</b>"], "tip": {"t": "读法", "v": "本讲到这里结束，但它留了一个明确的缺口给 L13：<b>这套 PAC 机器是在表格型、小规模 MDP 上建起来的</b>。<span class='w'>六臂模拟跑得好，不说明 |S| 上万时还好</span>——N 的多项式里幂次本讲一个都没给。<b>L13 的任务正是把这条缝摊开</b>：先把探索证成定理，再承认它在深度网络上还不成立。"}}
+];
+
+var TH = {"title": "L12 接上课题的哪一段：你的问题是上下文老虎机，这一讲给了框与算法", "arc": "<b>这一讲对你最要紧的一页是 p43</b>：上下文老虎机的定义——<em>input context which impacts reward of each arm, context sampled <b>iid</b> each step</em>。逐项对过去：<b>上下文 = query</b>、<b>臂 = 保真度配置</b>、<b>奖励 = 这条 query 的 Acc 与 Cost</b>，而最关键的那条也成立：<span class='k'>你对这条 query 用什么配置，不影响下一条 query 是什么</span>。<br><br>所以「这是不是 MDP」那个争论，在这里有了第三个答案：<b>它既不是无上下文的老虎机</b>（query 特征显然影响哪个配置最好），<b>也不必是 MDP</b>（配置不改变 query 分布）。<span class='w'>但这个框能不能用，取决于可加性检验</span>——上下文老虎机要求单步决策，而你的 workflow 有 H 个节点；只有节点效应可加，H 个节点才能拆成 H 个独立的单步问题。<b>这和 L11 p16 指向的是同一个实验。</b><br><br><b>这一讲还给了你两样可以直接用的东西。</b><br><b>一、Beta 伪计数</b>（p24–25）：每个「节点 × 档位」挂一个 Beta(α,β)，更新只是加法。它一次解决三件事——「数据够不够」有了可数的判据（α+β 就是有效样本量）、小样本虚高被自动收缩（跑 3 条全对给 0.8 而不是 1.0）、先验强度可审计（Beta(1,1) = 注入 2 个假样本）。<b>这正好对冲 L04 p42 的最大化偏差</b>：在 2187 个候选里取最大时，虚高的多半是样本少的那些，而收缩按样本量自动调节力度。<br><b>二、按「是最优的概率」排序</b>（p28–30）：与其报 <code>argmax Ĝ</code>，不如报每个配置「是最优」的后验概率。<span class='k'>后者把样本少的不确定性算了进去</span>，不会因为跑了三条 query 全对就排第一。而如果你要迭代地花预算，这就是 Thompson 采样在你这里的直接形态——<b>它没有任何需要调的旋钮</b>（没有 ε、没有置信水平，后验宽度本身就是探索力度）。<br><br><b>最后一条实证线索值得单记</b>：讲稿里她补充说 TS 在<b>结果延迟</b>时比 UCB 更稳健。你的奖励正是整条 workflow 跑完才出现。机制是 UCB 确定性、结果没回来前上界不变会反复选同一条臂，而 TS 每轮重新抽样，自动把等待期分散开。", "pitfalls": [{"v": "<b>把上下文老虎机当成「简化的 MDP」套上去。</b> 它是另一类问题，不是 MDP 的特例简化版——<span class='k'>有状态但无状态转移</span>。既不能直接用无上下文老虎机的分析（有上下文），也不需要 MDP 的全套机器（没有延迟后果）。它有自己的一套界。<b>但前提是单步</b>：H 个节点要能拆开，而那取决于可加性检验。", "tag": "推断", "ref": "课件 p43 · L11 p16 科研格"}, {"v": "<b>直接把伯努利–Beta 套到 G = Acc − λ·Cost 上。</b> <span class='w'>Acc 那一半是二值的，Cost 那一半是连续的</span>。按 L03/L05 一路下来的结论两半本就该分开建模：Acc 用 Beta–伯努利，Cost 用回归（近乎确定，预期 R² &gt; 0.95）。<b>合成 G 时要把两边的不确定性分别传播</b>，不能挂一个 Beta 了事。", "tag": "推断", "ref": "简报 §4e（两半拆分，已核）· 课件 p24–p25"}, {"v": "<b>把同一条 query 上的重复评估当独立样本。</b> Beta–伯努利要求各次独立，而同一条 query 重复跑用的是同一个 LLM、同一个提示，<span class='w'>相关性很强</span>。<b>要按 query 聚合，跨 query 才接近独立。</b>这和 UCB 的 Hoeffding 推导依赖 i.i.d. 是同一件事（L12.a p8）。", "tag": "推断", "ref": "课件 p24 · L12.a p7–9 科研格"}, {"v": "<b>报「遗憾更低」却不说参数是怎么来的。</b> 模拟实验里参数从某个分布随机生成时，量的其实是<b>贝叶斯遗憾</b>；在固定 benchmark 上比，量的更接近<b>频率派遗憾</b>。<span class='k'>两者给出的排名可以不同</span>，而贝叶斯遗憾的值还依赖所用先验。<b>报告时必须把先验与参数来源一起说清楚。</b>", "tag": "推断", "ref": "课件 p26 · p44"}, {"v": "<b>把「界更紧」读成「表现更好」。</b> 本讲给了一个干净的反例：乐观的<b>频率派</b>界比 TS 紧（p42），但换到<b>贝叶斯遗憾</b>两者齐平（p44），而实证上 TS 常常更好（p42，原文用词是 <em>extremely effective</em>）。<b>三句话都对，因为量的不是同一个东西。</b>读文献时要连问三句：哪把尺子、渐近还是有限步、常数差多少。", "tag": "已核", "ref": "课件 p42 · p44（原文逐句核对）"}, {"v": "<b>用单次运行的结果比较 TS 与 UCB。</b> <span class='w'>TS 是随机算法</span>，同一组真参数、同一段历史跑两次可能给出完全不同的序列。p40–41 那张五步对比表只能用来看<b>错误的形态</b>（乐观是多次小错，TS 是一次大错后再不犯），不能用来排名。<b>TS 必须报多个种子。</b>", "tag": "已核", "ref": "课件 p29（算法第 3 行采样）· p40–p41"}], "ammo": [{"q": "你为什么不用 UCB / Thompson 采样？", "a": "<b>先区分两种工作模式。</b> 若是<b>一次性全评估</b>（现在的做法），本讲的探索算法一个都不需要——没有「选择决定下次看到什么」的回路，不存在探索–利用权衡，只有「覆盖够不够」这一个问题。<b>若改成迭代地决定下一批跑哪些配置</b>，它们立刻全部相关，而 Thompson 采样是首选，因为<span class='k'>它没有需要调的旋钮</span>。<b>这个分界要在论文里写明</b>，否则必被追问。", "tag": "推断", "ref": "课件 p3–p4（设定/框架/做法三维表）· L04 p23 科研格"}, {"q": "AFlow 用的是 MCTS，你为什么说它不是？", "a": "指着 UCB 的定义说它缺了什么。UCB 的构成是 <code>点估计 + 随 N 下降的不确定项</code>；AFlow 的选择规则是 top-k(k=3) + 混合分布 <code>P(i) = λ·(1/n) + (1−λ)·softmax(α(s_i − s_max))</code>，λ=0.2、α=0.4——<span class='w'>没有访问计数，没有置信上界，没有 expectimax/minimax 回传</span>，它的 Backpropagation 只是把 (parent, modification, avgScore) 追加进父节点的经验日志。<b>正确叫法是 Boltzmann-greedy selection 或 LLM-guided evolutionary search。</b>带上 Algorithm 1 / Appendix A.6 行号精确指出来，本身就是加分项。", "tag": "已核", "ref": "简报 §2（AFlow Algorithm 1，Appendix A.6 行 28–42）· 课件 p8–p9"}, {"q": "你怎么保证挑出来的那个配置的分数不是虚高？", "a": "两条并用。<b>一、留出集拆两半</b>（L04 p43 的 split samples）：在 split A 上挑，在 split B 上报告，B 的估计无偏因为没参与挑选。<b>二、报「是最优的后验概率」而不是点估计最大值</b>：Beta 后验自动按样本量收缩，<span class='k'>跑三条 query 全对给 0.8 不给 1.0</span>。两条都几乎不花钱，而且解决的是同一个病根——<b>比较时丢掉了不确定性</b>。", "tag": "推断", "ref": "L04 p42–p43 科研格 · 课件 p24–p25"}, {"q": "你报的是哪一种保证？", "a": "要先说清用的是哪把尺子。本讲给了三把：<b>频率派遗憾</b>（对所有参数成立，更强更悲观）、<b>贝叶斯遗憾</b>（对先验平均，值依赖先验）、<b>PAC</b>（不加总，只数犯大错的次数）。<span class='k'>而你真正要的陈述是「上线后不更差」</span>——在形状上更接近 PAC 而不是遗憾，因为遗憾会把「一次大错」和「多次小错」算成同一个数。<b>这个选择要在形式化那一节明确。</b>", "tag": "推断", "ref": "课件 p6 · p26 · p46（PAC 框架在 L12.c）"}], "papers": [{"t": "Chapelle &amp; Li — An Empirical Evaluation of Thompson Sampling", "id": "NIPS 2010", "why": "<b>课件 p43 点名的那篇。</b> 上下文老虎机做新闻推荐，臂 = 文章、奖励 = 点击。她的说法是它<em>改变了很多人对贝叶斯老虎机与 Thompson 采样的看法</em>——在真实数据上 TS 打败了 UCB 与其它一批算法。<b>「TS 在真实系统上更好」这个论断引它比自己论证有力。</b>讲稿还补了一条课件没有的：它在<b>结果延迟</b>时也更稳健，而你的奖励正是终局才出现。"}, {"t": "Lai &amp; Robbins — 渐近最优的自适应分配规则", "id": "1985（课件 p42 点名「Lai and Robbins lower bound」）", "why": "老虎机遗憾<b>下界</b>的出处。p42 说 Thompson 采样达到了这个下界——「达到下界」意味着渐近意义上无法再改进，是算法能拿到的最高评价。<b>你若要论证某个选择规则「已经够好」，这是标准的引用方式。</b>"}, {"t": "Auer, Cesa-Bianchi &amp; Fischer — UCB1", "id": "2002（课件 p10 起反复点名）", "why": "UCB1 与那条 <code>8 log t · Σ 1/Δ<sub>a</sub></code> 的遗憾界的出处。<b>你要论证「AFlow 的选择规则不是 UCB」时，对照的就是这篇里的算法形式。</b>"}, {"t": "Thompson — 1933 / 1929", "id": "课件 p42 写作「Thompson sampling(1929)」", "why": "算法本身的出处，比 UCB 早七十多年，被冷落到 2010 年前后才因实证表现重新成为主流。<span class='w'>⚠ 年份要核</span>：课件写 1929，而文献里常引的那篇是 1933（Biometrika）。<b>引用前查原文，别照抄课件的年份。</b>"}, {"t": "Sachdeva, Su &amp; Joachims — Off-policy Bandits with Deficient Support", "id": "KDD 2020", "why": "虽然不是本讲内容，但它是你当前处境的正式名字，而且<b>它正是在老虎机框架下写的</b>——与 p43 的上下文老虎机形式化直接衔接。确定性日志导致支撑集不足时该怎么办：限制目标策略类，或接受有偏但可控的估计。"}]};
+
+(function(){
+  var PDF="../slides/lecture12_postclass.pdf", MAX=61;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l12quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l12p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l12quiz");
+      localStorage.removeItem("l12p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

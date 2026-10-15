@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS234 第十三讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs234-2019-l13">
+
+<div id="bar">
+  <h1>CS234 第十三讲 · <span>把「探索是对的」证成定理，再承认它在深度网络上还不成立</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 36</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../slides/lecture13_postclass.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs234-2019</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/中文精读/L13-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+9: [{"q": "三条充分条件里，「准确性」这一条为什么必须存在？", "o": ["为了保证收敛速度", "因为 Hoeffding 不等式需要它", "因为光要乐观，把所有值设成天文数字、永不更新就能满足——那样永远学不到东西", "为了处理连续状态空间"], "a": 2, "why": "老师的原话：<em>optimism would be easy to hold by just setting our values super high and never updating</em>。<b>准确性条件是在强制「你必须真的用上手里的信息」</b>。三条读成一句话：敢于高估（①），但高估要建立在正确使用数据之上（②），而且探索不能没完没了（③）。"}, {"q": "关于这组充分条件的来源，老师特意加了什么声明？", "o": ["它是她自己的原创结果", "它是从 Hoeffding 不等式推出来的", "它只适用于有限状态空间", "原论文并没有分析 MBIE-EB，细节要改；这是「30000 英尺高度」的合理解释而非严格引用"], "a": 3, "why": "<em>that paper does not analyze MBIE-EB. So things would have to be a little bit different.</em> <b>引用时不能说成「论文证明了 MBIE-EB 满足这三条」。</b>这类免责声明值得专门记下来。"}],
+11: [{"q": "乐观性证明里，Hoeffding 给出的失败概率界 exp(−2β²(1−γ)²) <b>不含 n</b>。这是怎么来的？", "o": ["因为 β 与 n 无关", "因为 γ<1", "因为偏差阈值取成 β/√n，而 Hoeffding 指数里本来有一个 n，两者相消", "因为样本是独立同分布的"], "a": 2, "why": "这正是 β/√N 这个形状被选中的原因——<b>如果加成项取别的形状，失败概率就会随 n 变化，联合界做不干净</b>。代入 β 的真实值后右边正好等于 δ/(2|S||A|m)，刚好够对 |S|·|A|·m 个事件做联合界。"}, {"q": "老师提到 MDP 里数据不是 i.i.d. 的。她的处理方式是？", "o": ["要求算法均匀采样", "指出整体不 i.i.d.（采样依赖算法），但条件在「正在采这个 (s,a)」之上，下一状态与奖励因 Markov 性是 i.i.d. 的", "忽略这个问题", "改用贝叶斯方法"], "a": 1, "why": "<em>you're gonna get more samples for state-action pairs that you think are gonna be good</em>——所以存在耦合。<b>严格处理要用鞅版本的不等式</b>，她提到了这一点但没展开。"}],
+13: [{"q": "MBIE-EB 只用前 m 个样本估模型、之后扔掉数据。原因是？", "o": ["为了联合界：更新次数无上限则要联合的事件是无穷多个，界做不出来", "节省内存", "防止过拟合", "因为后面的样本有偏"], "a": 0, "why": "限制在 m 次，联合界里的项数就是 |S|·|A|·m，有限可控——<b>这正是 β 里那个 m 的来源</b>。而它还有第二个作用：它是鸽笼论证的前提（每格最多 m 次，「未知」才是会耗尽的资源）。"}, {"q": "老师怎么评价「扔掉数据」这件事？", "o": ["认为它提高了样本效率", "认为这是实现细节", "引 Tom Mitchell 的 ML 定义指出它违反了「算法应随数据增多而改进」，说它「在智识上完全不令人满意」，并明说实践中全用数据", "这是算法设计的优点"], "a": 2, "why": "<em>even if you get 10 trillion examples … we're gonna throw all that data out … <b>Intellectually, this is completely unsatisfying</b> … and <b>empirically, we use all the data</b></em>。<b>这是本讲最该记住的一处「理论与实践的缝」</b>——定理成立，但成立的条件在实践中不被采用。L12 p53 的 10¹⁰⁰ 初始值是同一个模式。"}],
+14: [{"q": "混合 MDP M′ 是怎么定义的？", "o": ["在已知 (s,a) 上等于真实 MDP，在未知 (s,a) 上等于乐观模型 M̃", "所有 (s,a) 上都用经验模型", "它是真实 MDP 与乐观模型的加权平均", "所有 (s,a) 上都用乐观模型"], "a": 0, "why": "<b>它在现实中不存在，纯粹是分析工具</b>。用处是把两件事连起来：在已知的地方它和真实世界一样，在未知的地方保留乐观。连接靠模拟引理。"}, {"q": "模拟引理说的是什么？老师的一句话概括是？", "o": ["模型准 ⇒ 值函数准 ⇒ 策略好；即「把预测误差传播成控制误差」", "模拟器比真实环境更高效", "蒙特卡洛模拟收敛到真值", "乐观模型总是上界"], "a": 0, "why": "原话：<em>you can propagate empirical predictive error to control error</em>。<b>这一句值得单独记住</b>——它把「我的模型很准」这句实验观察，变成了一个可以接到决策质量上的论证。"}, {"q": "鸽笼论证为什么能保证坏决策的次数有限？", "o": ["因为状态空间有限", "因为每个 (s,a) 最多更新 m 次，所以「未知」总共只能维持 |S|·|A|·m 次访问，会耗尽", "因为 γ<1 使误差衰减", "因为策略最终会收敛"], "a": 1, "why": "两种情形都不产生无限多坏决策：撞未知的概率小 ⇒ 你待在已知区且近最优；概率大 ⇒ 你确实会撞，但<b>未知是会耗尽的资源</b>。注意这依赖 p13 那条「最多更新 m 次」的规则——<span class='w'>允许无限更新的话鸽笼就数不出来了</span>。"}],
+15: [{"q": "从老虎机版的 Thompson 采样搬到 MDP 版，最大的代价变化是什么？", "o": ["需要共轭先验", "抽出来的是一整个 MDP，还要把它解开——每走一步就是一次完整的规划", "需要更多内存存后验", "不能用 Beta 分布"], "a": 1, "why": "老虎机里抽一个数就行；MDP 里第 5 行是 <em>Compute Q*<sub>M</sub></em>，要用值迭代解到收敛。<b>但它换来了「有方向的探索」</b>——抽出的乐观模型会让规划器主动算出一条通往未探索区域的路。"}],
+19: [{"q": "MBIE-EB 与 MDP 上的 Thompson 采样，本质差别是？", "o": ["一个是 PAC 的一个不是", "一个用值迭代一个用策略迭代", "乐观一个是算出来的（β/√N 加成），一个是抽出来的（后验采样）", "一个有模型一个无模型"], "a": 2, "why": "两者都要解一个 MDP，都是有模型的。差别在乐观的来源：<b>MBIE-EB 用确定的乐观模型，TS 用随机抽出的模型</b>。后者是随机算法，必须报多种子。"}],
+22: [{"q": "为什么计数 n<sub>sa</sub> 在大状态空间里失效？", "o": ["如果每个状态只见一次，所有计数永远是 1，加成永远最大，等于没有探索指导", "计数需要太多内存", "计数会溢出", "计数不满足 Markov 性"], "a": 0, "why": "老师的原话：<em>everything will just be one forever</em>。所以需要「会泛化的不确定性度量」——<b>关键词是「那一片区域」而不是「那个点」</b>。方向有密度模型、嵌入、状态压缩。"}, {"q": "她对「状态压缩」这个方向加了什么保留？", "o": ["压缩需要大量数据", "正确的压缩取决于你要做什么决策，而决策在变，所以压缩本身是非平稳的", "压缩只适用于离散状态", "压缩会丢失 Markov 性"], "a": 1, "why": "<em>the right compression depends on the decisions you want to make. And so generally, it will be non-stationary.</em> 她接着说这不一定是坏事，可以在两者之间来回迭代。"}, {"q": "她说有模型的方法在深度 RL 里不占优，理由是？", "o": ["模型太难训练", "模型误差在规划中累积；而且按预测损失训出的表示不一定适合规划", "无模型方法理论更完备", "模型需要太多参数"], "a": 1, "why": "她举了 David Silver 2014 年那个「画面极美但规划很糟」的模拟。<b>那句「表示由预测损失最大化得来，不一定最适合规划」适用范围远超 RL</b>——任何「先训预测模型再拿去决策」的两段式流程都受它约束。"}],
+27: [{"q": "把 MBIE-EB 的思想搬到 Q-learning，改动是什么？", "o": ["改用策略梯度", "把 T̂ 换成神经网络", "把值迭代换成梯度下降", "在 TD 目标里多加一项 r_bonus(s,a)，其余一个符号不动"], "a": 3, "why": "<b>奖励加成是 MBIE-EB 里唯一不依赖模型、能被剥离出来的零件</b>——R̂、T̂、值迭代都依赖模型。这就是她选 MBIE-EB 来讲的原因。"}, {"q": "加成为什么加在<b>奖励</b>上而不是直接加在 Q 上？", "o": ["为了保持 Q 的范围", "两者等价", "数值上更稳定", "加在奖励上时它会沿 Bellman 回溯传播，于是通往未探索区域的路径也变得有吸引力"], "a": 3, "why": "这正是「有方向的探索」在无模型设定下的实现方式——一个未探索的 (s,a) 不只自己变得有吸引力，<b>通往它的整条路径都会</b>。"}],
+31: [{"q": "在深度网络上做 Thompson 采样，难点是什么？", "o": ["网络训练太慢", "需要目标网络", "没有共轭先验", "要抽的是「Q* 的后验」，那是一个定义在函数空间上的分布——你要抽一整个 Q 函数"], "a": 3, "why": "课件用了 <em>non-trivial</em> 这个克制的说法。两种绕法：Bootstrapped DQN 用 C 个网络的<b>分歧</b>近似，或<b>只在最后一层</b>做贝叶斯线性回归（后者有闭式后验）。"}, {"q": "课件对「只在最后一层做贝叶斯」的评价是？", "o": ["very simple, empirically much better —— 比 Bootstrapped DQN 简单，效果还更好", "需要更多数据", "只适用于小网络", "理论上更严谨"], "a": 0, "why": "<b>又是一次「简单做法赢」</b>，和 Thompson 采样本身是同一个模式：复杂的量算不出来时，找一个结构上恰好等价（或够用）的简单做法。但两种做法都只是近似后验，<span class='w'>继承不了理论保证</span>。"}],
+34: [{"q": "小结列的五种「好」的标准，哪两种是本课给出量化速度的？", "o": ["经验表现与收敛性", "遗憾与 PAC", "渐近与经验表现", "收敛性与渐近"], "a": 1, "why": "经验表现、收敛性、渐近是定性的（会不会到、最终到哪）；<b>遗憾（累计差多少）与 PAC（犯几次大错）才给出量化的速度</b>。第三条要求「把算法映射到它满足的标准」，L12.c p57 那张表做了一半。"}]
+};
+
+var N = [
+{"r": [1, 5], "t": "这一讲要干什么：把探索证成定理", "star": 2, "quote": "<b>Class Structure</b> — <em>Last time</em>: Fast Learning (Bayesian bandits to MDPs) · <em>This time</em>: <b>Fast Learning III (MDPs)</b> · <em>Next time</em>: Meta-learning (Guest speaker: Chelsea Finn)<br><b>Table of Contents</b>: ① MDPs ② Bayesian MDPs ③ <b>Generalization and Exploration</b> ④ Summary<br>p5 <em>Frameworks</em>: Regret · Bayesian regret · <b>PAC</b> · <em>Approaches</em>: Optimism · Thompson sampling", "one": "<b>L11–L13 的最后一段。前两讲建了框架与算法，这一讲把「探索是对的」证成定理，然后承认它在深度网络上还不成立。</b>", "pts": ["<b>p2 的「下一次：元学习（客座）」透露了一个事实</b>：<span class='k'>这是本课探索这条线的最后一讲</span>。官方课程里 lecture 14 是客座讲座（Meta-Learning），视频与 slides 都没发布——<b>所以探索这条线到这里就收了</b>。", "<b>p3–p5 是 L12 那张「设定 × 框架 × 做法」表的第三次出现</b>。设定现在固定在 MDP，框架与做法完全不换。<span class='k'>三讲共用一套词汇，这是它们被设计成一个整体的证据</span>。", "<b>目录的四节里，第三节是本讲真正的新东西</b>：<em>Generalization and Exploration</em>。前两节是把 L12 的内容在 MDP 上补完（PAC 的证明骨架、MDP 上的 Thompson 采样），<b>第三节才走到「大规模状态空间下怎么办」</b>——而答案是「还在研究中」。", "⚠️ <b>提前说明一件影响阅读的事：这一讲的核心推导不在课件上。</b> p9–p14 那一节（PAC 的充分条件与 MBIE-EB 如何满足它们）<span class='w'>在 PDF 上有三页完全没有文字</span>——<b>整段写在黑板上</b>。本精读这一段全部由课堂实录还原，并标【补课】。"], "tbl": {"head": ["讲", "设定", "主要内容", "结论的性质"], "rows": [["L11", "老虎机", "遗憾、UCB、下界", "定理"], ["L12", "老虎机 → MDP", "贝叶斯、Thompson、PAC、MBIE-EB", "定理"], ["<b>L13（本讲）</b>", "MDP", "<b>PAC 的证明骨架 · MDP 上的 TS · 泛化下的探索</b>", "<b>前两节定理，第三节「研究中」</b>"]]}, "tip": {"t": "补课", "v": "p9–p14 这一节（本讲的理论核心）<b>在课件上几乎是空白</b>：p11、p12、p14 的 PDF 里没有任何文字。<span class='k'>整段推导在黑板上</span>，本精读由课堂实录逐句还原。<b>这与 L11 p28–33 是同一种情况</b>——遇到课件突然变薄的地方，往往意味着那里是板书。"}},
+{"r": [6, 8], "t": "回顾 MBIE-EB 与 MDP 上的 PAC", "star": 2, "quote": "<b>MBIE-EB</b> (Strehl and Littman 2008) — <em>β = (1/(1−γ))√(0.5 ln(2|S||A|m/δ))</em> · <em>Q̃(s,a) = R̂(s,a) + γΣT̂ max Q̃ + β/√n<sub>sa</sub>(s,a)</em><br><b>PAC for MDPs</b> — <em>on all but N steps the action selected is ε-close to optimal, where N is a <b>polynomial</b> function of (|S|,|A|,γ,ε,δ)</em><br>p8: <b>MBIE-EB is a PAC RL Algorithm</b>", "one": "<b>这三页原样复制自 L12 的结尾：算法、定义、结论。本讲要补的是「为什么」。</b>", "pts": ["<b>L12 讲到 p58 就停在「MBIE-EB is a PAC RL Algorithm」这一句上，没有展开。</b> <span class='k'>本讲 p9 起就是在补那个展开</span>——不是完整的证明，而是「一套充分条件 + MBIE-EB 怎么满足它们」的骨架。", "<b>重读一遍那个加成项 <code>β/√n<sub>sa</sub></code>，带着「它凭什么够大」这个问题。</b> 整个乐观性证明要回答的就是这一件事：<span class='w'>β 取这个值，能不能保证算出来的 Q̃ 真的不低于 Q*</span>。p10 之后的推导全在做这件事。", "<b>注意 PAC 定义里的 N 是多项式，但本讲最后会给出它的形状</b>：<code>O(样本复杂度 / (ε(1−γ)²) · log 项)</code>。<b>「多项式」这三个字到这里才变成一个具体的表达式。</b>", "⚠️ <b>老师在讲这一段时加了一句重要的免责声明</b>：她要讲的这组条件来自 Strehl、Li、Littman 2006，而<span class='w'>那篇论文并没有分析 MBIE-EB</span>，所以细节要改。<b>她说这是「30000 英尺高度上」的合理解释，不是严格的引用。</b>"], "say": "她在开讲前先定了调：<em>the conditions that I'm gonna talk about are derived basically from this paper, with slight modifications — that paper <b>does not analyze MBIE-EB</b>. So things would have to be a little bit different. But from a 30,000 foot perspective, this is basically a reasonable way to think about why MBIE-EB is a PAC algorithm.</em><b>这种「我给的是骨架不是证明」的声明值得记下来</b>——引用时不能说成「论文证明了 MBIE-EB 满足这三条」。"},
+{"r": [9, 10], "t": "三条充分条件：这是一张检查表", "star": 3, "quote": "<b>A Sufficient Set of Conditions to Make a RL Algorithm PAC</b><br>Strehl, A. L., Li, L., Littman, M. L. (2006). <em>Incremental model-based learners with formal learning-time guarantees</em>. UAI.<br>〔p10 的具体内容在黑板上，以下由课堂实录还原〕", "one": "<b>三条：① 乐观 ② 准确 ③ 学习复杂度有界。满足这三条的算法就是 PAC 的。</b>", "pts": ["<b>① 乐观（optimism）</b>：算法算出来的值，<span class='k'>在所有时间步上都不低于真实最优值减 ε</span>。写成式子是 <code>V<sub>t</sub>(s<sub>t</sub>,a<sub>t</sub>) ≥ Q*(s<sub>t</sub>,a<sub>t</sub>) − ε</code>（高概率成立）。<b>对 MBIE-EB 来说，这一条就是在问「β 够不够大」。</b>", "<b>② 准确（accuracy）</b>：算法算出的 <code>V<sub>t</sub></code>，与<b>在一个「混合 MDP」上执行当前策略 π<sub>t</sub> 的值</b>，相差不超过 ε。<span class='w'>这个混合 MDP 既不是乐观模型也不是真实模型，而是夹在中间的一个构造</span>——p13 会说它是什么。", "<b>为什么必须有第二条？老师给的理由极其干脆</b>：<em>optimism would be easy to hold by just setting our values super high and never updating</em>。<span class='k'>光要乐观，把所有值设成天文数字、永不更新就满足了</span>——但那样你永远学不到任何东西。<b>准确性条件是在强制「你必须真的用上手里的信息」。</b>", "<b>③ 学习复杂度有界（bounded learning complexity）</b>，这一条有两半：<b>Q 更新的总次数有界</b>，以及<b>访问「未知」状态动作对的总次数有界</b>。两者的界都是 ε 和 δ 的函数。<span class='k'>这是对算法本身的约束</span>：你不能做无穷多次更新，也不能无穷多次撞进未知区域。", "<b>把三条读成一句话</b>：<b>要敢于高估（①），但高估必须建立在对已有数据的正确使用上（②），而且探索不能没完没了（③）。</b><span class='k'>三条缺一不可，而且它们互相制衡</span>——①和②是一对张力，③给整件事加了个预算。", "<b>结论的形状值得记</b>：满足三条 ⇒ 在至多 <code>N</code> 步之外都是 <b>O(ε)-最优</b>，而 <code>N = O(样本复杂度 / (ε(1−γ)²) · log 项)</code>，<b>其中样本复杂度本身是 |S|、|A| 的函数</b>。"], "eq": "三条充分条件（满足则 PAC）：\n\n  ① 乐观    V_t(s_t,a_t) ≥ Q*(s_t,a_t) − ε        对所有 t，高概率\n  ② 准确    | V_t − V^{π_t}(混合 MDP) | ≤ ε\n  ③ 有界    Q 更新总次数、访问未知 (s,a) 的总次数  都有界（ε、δ 的函数）\n\n  ⇒  在至多 N 步之外都是 O(ε)-最优\n     N = O( 样本复杂度 / (ε(1−γ)²) · log 项 )\n\n为什么要 ②：光有 ① 可以靠「把值设成天文数字、永不更新」满足", "tbl": {"head": ["条件", "说什么", "单独满足它有多容易", "它在防什么"], "rows": [["① 乐观", "算出的值 ≥ Q* − ε", "<span class='w'>很容易</span>（设成无穷大）", "防止过早放弃没试过的选项"], ["② 准确", "算出的值 ≈ 混合 MDP 上的真实值", "不容易", "<b>防止「永不更新」式的假乐观</b>"], ["③ 有界", "更新次数与撞未知的次数都有界", "不容易", "防止探索没完没了"]]}, "say": "她讲这一节前先说了为什么值得讲：<em>I found this paper super helpful when I was starting to do PAC proofs in my PhD … even for those of you that aren't interested in theory, I think looking at this is helpful because it gives one an <b>intuition about what types of properties do your algorithms need to have in order to be efficient</b>.</em><b>她的定位是「这是一张检查表，不是一个证明」</b>——这也是本精读建议的读法。", "tip": {"t": "补课", "v": "p10 在 PDF 上只有标题，<b>三条条件全写在黑板上</b>。以上内容由课堂实录逐句还原，式子的形式按她口述的结构整理。<span class='w'>符号可能与原论文不完全一致</span>——她自己也说了这组条件是「带少量修改」的改写，而且原论文没分析 MBIE-EB。"}, "res": {"tag": "推断", "v": "<b>这三条当检查表用，正好能查出你现在的做法缺哪一块。</b><br><b>① 乐观</b>——你现在没有。<code>max_config Ĝ</code> 用的是点估计，<span class='w'>不含任何向上的裕量</span>。这在离线一次性评估下不致命（没有锁死回路，见 L12.a p16），但它是 L04 p42 最大化偏差的来源。<br><b>② 准确</b>——<span class='k'>这一条你反而是满足得最好的</span>，而且理由很硬：你的成本模型预期 R² &gt; 0.95，oracle 表更是精确值而非估计。<b>条件②要防的「假乐观」在你这里不存在</b>，因为你根本没有乐观项可以虚设。<br><b>③ 学习复杂度有界</b>——在离线设定下这一条自动满足：<span class='k'>你的「探索」是一次性的留出集评估，次数固定</span>，不存在「没完没了」的可能。<br><b>所以三条里你缺的只有第一条，而且缺它的后果已经由 L04 定位清楚了。</b>补法也现成：按「是最优的后验概率」排序（L12.b），或留出集拆两半（L04 p43）。<br><b>这张检查表真正的价值在于它说明了一件事</b>：<span class='w'>这三条是为「在线、要边学边用」设计的</span>，而你是离线的。<b>照搬整套 PAC 机器没有意义，但逐条问「我这一条靠什么保证」是有意义的</b>——而且问完会发现你的处境比在线情形简单得多。<br>标【推断】：逐条对照是我做的；三条条件本身来自课堂实录。", "ref": "实录（p9–p10 板书）· L04 p42–p43 科研格 · L12.b p28–30 科研格 · 简报 §4e（成本模型 R²，已核）"}},
+{"r": [11, 12], "t": "乐观性怎么证：β 够不够大", "star": 3, "quote": "〔p11、p12 在 PDF 上<b>没有任何文字</b>——整段推导在黑板上。以下由课堂实录还原，全部标【补课】〕<br>实录：<em>what we're trying to argue right now is that <b>that β is sufficiently large as a bonus</b>, that when we do this procedure we're gonna be optimistic</em>", "one": "<b>要证的是：加上 β/√N 这个奖励加成之后，算出来的 Q̃ 确实不低于真实的 Q*。</b>", "pts": ["<b>思路是先处理「单个 (s,a) 一次更新」，再用归纳推到整个值迭代。</b> 第一步问：如果我用经验模型 <code>R̂</code>、<code>T̂</code> 加上真实的 <code>V*</code> 去算一次 Bellman 回溯，<span class='k'>结果离真实的 Q* 能差多远</span>？", "<b>这个量可以用 Hoeffding 控制住。</b> 定义 <code>X<sub>i</sub></code> 为第 i 次访问 (s,a) 时「实际收到的奖励 + γ × 实际到达的下一状态的 V*」，<span class='k'>那么 X<sub>i</sub> 的期望正好就是 Q*(s,a)</span>。于是「n 个样本的平均离真值有多远」就是一个标准的集中不等式问题。", "<b>Hoeffding 给出的形式是</b>：<code>P( Q*(s,a) − (1/n)Σ X<sub>i</sub> ≥ β/√n ) ≤ exp(−2β²(1−γ)²)</code>。<span class='w'>注意右边不含 n</span>——<b>这正是 kp#5 说的「n 恰好抵消」</b>：左边的偏差阈值取成 <code>β/√n</code>，而 Hoeffding 的指数里本来有一个 n，两者相消，<b>于是失败概率与样本数无关</b>。", "<b>这个抵消不是巧合，是 β/√N 这个形状被选中的原因。</b> <span class='k'>如果加成项取别的形状，失败概率就会随 n 变化，联合界就做不干净</span>。", "<b>把 β 的真实值代进去，右边正好等于 <code>δ / (2|S||A|m)</code>。</b> 这个数的形状直接说明了 β 里那个 <code>ln(2|S||A|m/δ)</code> 是怎么来的——<b>它是为了让每一格的失败概率小到可以对 |S|·|A|·m 个事件做联合界</b>。", "⚠️ <b>老师特意停下来说了一处技术麻烦</b>：MDP 里数据不是独立同分布的，<em>the data you gathered depends on your algorithm — you're gonna get more samples for state-action pairs that you think are gonna be good</em>。<span class='w'>整体不 i.i.d.</span>，但<b>条件在「我们正在采这个 (s,a)」之上，下一状态与奖励是 i.i.d. 的，因为 Markov 性</b>。<b>严格处理要用鞅版本的不等式。</b>"], "eq": "单个 (s,a) 的集中不等式（实录还原）：\n\n  X_i = r_i + γ V*(s'_i)        第 i 次访问时的「即时奖励 + 折扣后继最优值」\n  E[X_i] = Q*(s,a)\n\n  P( Q*(s,a) − (1/n)Σ X_i  ≥  β/sqrt(n) )  ≤  exp( −2β²(1−γ)² )\n                            └─ 阈值含 1/sqrt(n) ─┘   └─ 右边不含 n ─┘\n\n  代入 β = (1/(1−γ))·sqrt(0.5 ln(2|S||A|m/δ))\n  ⇒ 右边 = δ / (2|S||A|m)     ← 正好够做 |S|·|A|·m 个事件的联合界", "tbl": {"head": ["步骤", "在做什么", "关键点"], "rows": [["定义 X<sub>i</sub>", "r + γV*(s′)", "<b>它的期望就是 Q*(s,a)</b>"], ["用 Hoeffding", "控制 n 个样本的平均偏差", "<b>阈值取 β/√n ⇒ 指数里的 n 抵消</b>"], ["代入 β", "得到失败概率", "= δ/(2\\|S\\|\\|A\\|m)"], ["联合界", "对所有 (s,a) 与 m 次更新同时成立", "<b>这就是 β 里 ln(2\\|S\\|\\|A\\|m/δ) 的来源</b>"], ["归纳", "从一次回溯推到整个值迭代", "得到 Q̃ ≥ Q*"]]}, "tip": {"t": "补课", "v": "这两页课件上<b>一个字都没有</b>。以上全部来自课堂实录，式子按她口述的结构整理。<span class='w'>常数与指数形式可能与原论文有出入</span>——实录里她也说了会用「Hoeffding 或类似的偏差不等式」，并提到可以用鞅版本。<b>要引用具体常数时查原论文，不要照抄这里。</b>"}},
+{"r": [13, 13], "t": "为什么要故意扔掉数据", "star": 3, "quote": "<b>How Does MBIE-EB Fulfill these Conditions?</b>〔具体内容在黑板上〕<br>实录：<em>we only use the <b>first m samples</b> of (s,a) to compute R̂ and T̂ … <b>After that we're gonna throw away our data</b></em>", "one": "<b>算法只用前 m 个样本估模型，之后的数据全扔。这不是笔误，是为了联合界——而老师自己说这在智识上完全不令人满意。</b>", "pts": ["<b>先把做法说清楚</b>：对每个 (s,a)，访问次数达到 m 之前用数据更新 <code>R̂</code> 与 <code>T̂</code>；<span class='w'>到了 m 次之后就再也不更新了</span>，哪怕后面又访问了一万次。", "<b>为什么？因为高概率界。</b> 整个证明靠联合界把「所有 (s,a)、所有更新时刻」的失败概率加起来。<span class='k'>如果更新次数无上限，要联合的事件就是无穷多个，界做不出来</span>。<b>限制在 m 次，联合界里的项数就是 |S|·|A|·m，有限且可控</b>——这正是 β 里那个 m 的来源。", "<b>老师自己把这件事的别扭之处点破了，而且点得很重。</b> 她引了 Tom Mitchell 对机器学习的定义：<em>we design algorithms that <b>continue to improve with more data</b></em>，然后说 <span class='w'><em>this is violating that to some extent</em></span>——<b><em>even if you get 10 trillion examples of that state-action pair, which surely would make your empirical model better, we're gonna throw all that data out</em></b>。", "<b>她的结论是两句并列的话，缺一不可</b>：<em><b>Intellectually, this is completely unsatisfying</b>, because you should clearly be able to use more data and your algorithm should do better with using more data</em>，<em>and <b>empirically, we use all the data</b></em>。<span class='k'>理论要求扔，实践全留</span>。", "<b>这是本讲最该记住的一处「理论与实践的缝」。</b> 它不是说理论错了——<b>而是说这条证明路径需要一个实践中没人遵守的前提</b>。<span class='w'>所以「MBIE-EB 是 PAC 的」这句话，严格说是对那个会扔数据的版本成立的</span>。", "⚠️ <b>读 PAC 类论文时，这一类前提值得专门找一找</b>。L12 p53 已经出现过一次同样的问题（乐观初始化要到 10¹⁰⁰ 才 PAC）。<b>两处的模式相同：定理成立，但成立的条件在实践中不被采用。</b>"], "tbl": {"head": ["", "理论版本（可证 PAC）", "实践版本"], "rows": [["用多少数据估模型", "<b>只用前 m 个</b>", "<b>全用</b>"], ["为什么这么定", "联合界要项数有限", "数据越多模型越准"], ["Tom Mitchell 的 ML 定义", "<span class='w'>被违反</span>", "符合"], ["老师的评价", "<em>completely unsatisfying</em>", "<em>empirically we use all the data</em>"]]}, "say": "这一整段都是课件上没有的。她讲完之后还顺了一句：<em>one thing that I find really satisfying for the last few years is …</em>（指向后来改进这一点的工作）。<b>把「理论要求扔数据」这件事当成一个公开的未解问题来讲，而不是一笔带过，是这一讲里很见功力的地方。</b>", "res": {"tag": "推断", "v": "<b>这一页对你的直接价值不是「要不要扔数据」，而是它示范了一种该有的怀疑。</b><br>你的 oracle 表用的是<b>全部</b>留出集数据，这在实践上当然对。但这一页提醒你：<span class='k'>当你引用某个 PAC / 高置信界时，要去看它的前提里有没有你没遵守的东西</span>。<br><b>一个你很可能会遇到的具体例子</b>：高置信离策略评估（L15 会讲）的界，大多要求<b>数据与策略独立</b>——也就是「你不能先看了数据再决定评估哪个策略」。<span class='w'>而你的流程恰恰是先在留出集上挑出 config*，再评估它</span>。<b>这正是 L04 p43 要求「留出集拆两半」的理论理由</b>：split A 挑、split B 评，B 的数据与被评估的策略独立，界才成立。<br><b>所以这两讲是接上的</b>：L04 从偏差的角度说「不拆会虚高」，L13 从证明前提的角度说「不拆的话那个界根本不适用」。<span class='k'>同一个做法，两条独立的理由</span>——写进论文时两条都该提，因为它们说服的是不同的审稿人。<br>标【推断】：这个类比与「两条理由」的归纳是我做的；扔数据的理论原因来自实录，留出集拆两半是 L04 的原课内容。", "ref": "实录（p13 板书）· L04 p43（split samples）· L15（高置信 OPE，待该讲精读时接回）"}},
+{"r": [14, 14], "t": "两个构造出来的 MDP，与鸽笼论证", "star": 3, "quote": "〔p14 在 PDF 上<b>没有任何文字</b>。以下由课堂实录还原，全部标【补课】〕<br>实录：<em>M′ … is equal to the true MDP on (s,a) <b>in known set</b>, else it's equal to the M̃ model</em> · <em>the key idea here is the <b>pigeonhole principle</b></em>", "one": "<b>把所有 (s,a) 分成「已知」和「未知」，再造一个混合 MDP：已知的地方用真模型，未知的地方用乐观模型。然后用鸽笼原理数清楚「还能撞多少次未知」。</b>", "pts": ["<b>先是「已知 / 未知」的二分。</b> 一个 (s,a) 被访问够 m 次就算<b>已知</b>（模型估得够准），否则算<b>未知</b>。<span class='k'>这个划分是整个证明的脚手架</span>——它把「学得怎么样」变成了一个可以数的量。", "<b>然后造 M′</b>：<code>在已知集上 = 真实 MDP；在未知集上 = 乐观模型 M̃</code>。<span class='w'>这个 MDP 在现实中不存在</span>，纯粹是分析工具。<b>它的用处是把两件事连起来</b>：在已知的地方它和真实世界一样，在未知的地方它保留了乐观。", "<b>连接靠的是模拟引理（simulation lemma）</b>，老师给了一句极好的概括：<em>you can <b>propagate empirical predictive error to control error</b></em>。<span class='k'>模型估得准 ⇒ 用它算出的值函数也准 ⇒ 由它导出的策略也好</span>。<b>「预测误差能传播成控制误差」——这一句值得单独记住。</b>", "<b>最后是鸽笼论证，它处理的是条件③。</b> 把经验流切成若干段，每段问一句：<b>这一段里撞上「未知」(s,a) 的概率有多大？</b><br>· <span class='k'>概率小</span> ⇒ 你基本上待在已知区域，而在那里你是近最优的 ⇒ <b>没犯错</b>；<br>· <span class='k'>概率大</span> ⇒ 你确实会撞上未知的，<b>但这不可能发生太多次</b>。", "<b>为什么「不可能太多次」？这就是鸽笼。</b> 每个 (s,a) 最多只更新 m 次（p13 那条规则），<span class='w'>所以「未知」这个状态总共只能维持 |S|·|A|·m 次访问</span>。<b>撞完了，所有东西就都变成已知的了。</b>", "<b>于是整个论证闭合</b>：<em>either you're not reaching any unknown part of the state-action space（那你是近最优的），or 你在撞未知（而那只能发生有限次）</em>。<span class='k'>两种情形都不会产生无限多次坏决策</span>——这正是 PAC 要的结论。", "⚠️ <b>注意 p13 那条「扔掉第 m 个之后的数据」在这里起了第二个作用。</b> 它不只是为了联合界，<b>它还是鸽笼论证的前提</b>——正因为每格最多更新 m 次，「未知」才是一个会耗尽的资源。<span class='w'>如果允许无限更新，鸽笼就数不出来了</span>。"], "eq": "已知 / 未知的二分：\n  (s,a) 访问满 m 次  ⇒  已知（模型估得够准）\n  否则              ⇒  未知\n\n构造的 MDP：\n  M′ =  真实 MDP        在已知 (s,a) 上\n        乐观模型 M̃      在未知 (s,a) 上\n\n模拟引理：模型准  ⇒  值函数准  ⇒  策略好\n          （把「预测误差」传播成「控制误差」）\n\n鸽笼：\n  P(撞上未知) 小  ⇒  待在已知区，近最优，不算犯错\n  P(撞上未知) 大  ⇒  确实会撞，但每格最多 m 次\n                     ⇒ 总共至多 |S|·|A|·m 次 ⇒ 会耗尽", "tbl": {"head": ["分析工具", "是什么", "作用"], "rows": [["已知 / 未知二分", "访问满 m 次算已知", "<b>把「学得怎么样」变成可数的量</b>"], ["M̃（乐观模型）", "经验模型 + β/√N 加成", "算法实际在用的那个"], ["<b>M′（混合）</b>", "已知处用真模型，未知处用 M̃", "<b>把真实世界与乐观连起来</b>"], ["模拟引理", "模型近 ⇒ 值近 ⇒ 策略好", "<b>预测误差 → 控制误差</b>"], ["鸽笼原理", "每格最多 m 次 ⇒ 未知会耗尽", "<b>给条件③的界</b>"]]}, "tip": {"t": "补课", "v": "这一页课件上<b>一个字都没有</b>，以上全部来自课堂实录。她自己也说了<em>I won't go through all of it in detail, but I'm very happy to talk about it offline</em>——<b>连课堂上都是略讲</b>。<span class='w'>所以这里给的是论证的骨架与直觉，不是可引用的证明</span>。要细节请查 Strehl/Li/Littman 2006 与 Strehl/Littman 2008。"}, "res": {"tag": "推断", "v": "<b>模拟引理那一句是这一讲对你最直接可用的东西：「把预测误差传播成控制误差」。</b><br>你的成本模型就是一个预测模型，而且它<b>预期 R² &gt; 0.95</b>（简报 §4e）。模拟引理给的正是「预测这么准，意味着用它做出的决策能好到什么程度」这个推导的形式。<span class='k'>这把「我的成本模型很准」从一句实验观察，变成了一个可以接到决策质量上的论证</span>。<br><b>具体怎么用</b>：模拟引理的标准形式是「若模型误差 ≤ η，则值函数误差 ≤ η 的某个放大倍数，放大倍数与有效时域有关」。<span class='w'>而你的有效时域极短</span>——L02 的科研格算过 <b>γ 该是 1、H ≤ 10</b>，所以放大倍数是 H 量级（10）而不是 1/(1−γ)² 量级（γ=0.99 时是 10000）。<b>这是一个对你极其有利的结构性事实，值得在论文里明写</b>：同样的模型误差，在你的短时域问题上传播出的决策误差要小两三个数量级。<br>⚠️ <b>但「已知/未知」那套二分不要直接搬。</b> 它是为在线探索设计的（未知会随探索耗尽），<span class='w'>而你的留出集是固定的，未知不会自己耗尽</span>——没跑过的配置就是永远没跑过。<b>在你这里「未知」不是一个会耗尽的资源，而是一个固定的覆盖缺口</b>，所以该做的是<b>测量它</b>（每个 (节点,档位) 的计数，最小的那格决定你最弱的一环，见 L12.b），而不是指望它消失。<br>标【推断】：模拟引理的用法与时域对比是我推的；R² 预期与 γ=1/H≤10 在简报与 L02 里是已有结论。", "ref": "实录（p14 板书，模拟引理）· 简报 §4e（成本模型，已核）· L02 p13 科研格（γ=1，H≤10）· L12.b p24 科研格"}},
+{"r": [15, 18], "t": "回顾：贝叶斯老虎机那一套", "star": 2, "quote": "<b>Refresher: Bayesian Bandits</b> — <em>exploit prior knowledge p[R] · compute posterior p[R|h<sub>t</sub>] · use posterior to guide exploration</em>: Bayesian UCB · Thompson Sampling · <em>Better performance if prior knowledge is accurate</em><br><b>Refresher: Bernoulli Bandits</b> — <em>Beta(α,β) is conjugate for the Bernoulli</em><br><b>Thompson Sampling for Bandits</b> — sample R<sub>a</sub> from posterior · Q(a)=E[R<sub>a</sub>] · a<sub>t</sub>=argmax Q(a) · update posterior", "one": "<b>四页原样复制自 L12（p19、p24、p29）。放在这里是为了下一页的对照：同一套做法搬到 MDP 上会变成什么样。</b>", "pts": ["<b>这四页没有新内容，但「放在这个位置」本身是内容。</b> <span class='k'>课件把老虎机版的 Thompson 采样摆在 MDP 版的正前面，就是要你逐行对照</span>——p18 与 p21 的算法结构几乎一样，差别全在第 3–5 行。", "<b>重读时带着一个问题</b>：老虎机里「从后验抽一个奖励分布」很便宜（Beta 抽一个数）。<b>到了 MDP，要抽的是什么？</b><span class='w'>答案是一整个转移模型加一整个奖励模型</span>——而且抽完之后还得把这个 MDP 解开。<b>代价完全不是一个量级。</b>", "<b>p16 最后那句老话这里仍然成立</b>：<em>better performance if prior knowledge is accurate</em>。<b>MDP 上这句话的分量更重</b>——先验现在是对整个转移结构的信念，<span class='k'>错得起的空间更小</span>。", "<b>借这四页把贝叶斯这一支的三件事复习清楚，后面就不用回头翻了。</b><br><b>① 先验 p[R]</b>——你事先相信奖励大概什么样；<br><b>② 后验 p[R|h<sub>t</sub>]</b>——看过历史之后的更新；<br><b>③ 用后验指导探索</b>——两条路：取高分位数当上界（Bayesian UCB），或<b>按整个形状抽样</b>（Thompson）。<br><span class='k'>三件事在 MDP 上一件都不变，变的只是「R」换成了「P 和 R」</span>。", "<b>Beta–伯努利那一页（p17）在 MDP 上还能不能用？能，但只用在奖励那一半。</b> 二值奖励仍然配 Beta；<span class='w'>而转移模型 T(s′|s,a) 是一个多项分布</span>，它的共轭先验是 <b>Dirichlet</b>——Beta 的多维推广。<b>课件没提这个名字，但 p19 说要同时估 P 和 R 时，隐含的就是它。</b>", "<b>共轭在 MDP 上更要紧，因为要维护的后验多得多。</b> 老虎机有 m 条臂就是 m 个后验；<span class='k'>MDP 有 |S|·|A| 个 (s,a)，每个都要维护转移与奖励两个后验</span>。<b>如果更新不是闭式的，光是记账就跑不动了。</b>", "⚠️ <b>p16 那句 <em>better performance if prior knowledge is accurate</em> 在 MDP 上有个新含义。</b> 老虎机里先验错了只影响某条臂；<span class='w'>MDP 里转移先验错了，错误会沿着规划传播到整个值函数</span>——<b>这与 p26 说的「模型误差在规划中累积」是同一件事。</b>"], "tbl": {"head": ["", "老虎机版（p18）", "MDP 版（p21）"], "rows": [["抽什么", "每条臂的<b>奖励分布</b>", "<b>整个 T 和 R</b>（每个 (s,a) 都抽）"], ["抽完怎么用", "取均值当 Q，直接 argmax", "<b>解这个 MDP</b> 得到 Q*"], ["每轮代价", "抽 m 个数", "<span class='w'>一次完整的规划</span>"], ["先验是对什么的信念", "每条臂的奖励率", "<b>整个转移结构</b>"], ["奖励模型的共轭先验", "Beta（二值奖励）", "<b>Beta</b>（不变）"], ["转移模型的共轭先验", "—（没有转移）", "<b>Dirichlet</b>（多项分布的共轭）"]]}, "tip": {"t": "读法", "v": "这四页是 L12 的原样复制，可以快速扫过——<b>但别跳</b>。<span class='k'>课件把老虎机版摆在 MDP 版正前面，就是要你逐行对照 p18 与 p21</span>：两个算法的结构几乎一样，差别全在第 3–5 行（抽什么、怎么用）。<b>看清这三行，MDP 上的 Thompson 采样就不用再解释了。</b>"}, "say": "她在复习这几页时顺带点了一句整条线的来历：这些想法「已经存在很久了」——L12 p8 那段讲过区间估计最早是 <b>Kaelbling 1993</b>，而 Thompson 采样更是 <b>1929</b> 年的东西。<span class='k'>到 2019 年这门课上讲的时候，贝叶斯这一支已经被冷落又被重新发现了一轮</span>。<b>而本讲第三节要说的是：搬到深度网络上之后，这一轮重新发现还没有完成。</b>"},
+{"r": [19, 21], "t": "MDP 上的 Thompson 采样：抽一整个世界，然后解它", "star": 3, "quote": "<b>Bayesian Model-Based RL</b> — <em>Maintain posterior distribution over MDP models · Estimate both transition and rewards, p[P, R | h<sub>t</sub>]</em><br><b>Thompson Sampling for MDPs</b><br>4: <em><b>Sample a MDP M</b>: for each (s,a) pair, sample a dynamics model T(s′|s,a) and reward model R(s,a)</em><br>5: <em><b>Compute Q*<sub>M</sub></b>, optimal value for MDP M</em> · 6: <em>a<sub>t</sub> = argmax<sub>a</sub> Q*<sub>M</sub>(s<sub>t</sub>,a)</em>", "one": "<b>每一轮：从后验里抽出一整个 MDP，把它当成真的，解出最优策略，按它行动一步。然后更新后验，再来一遍。</b>", "pts": ["<b>这就是 L12 p29 那个「抽一个样本当真」的 MDP 版，只是「一个样本」变成了「一整个世界」。</b> <span class='k'>算法的精神完全没变</span>：在你的信念里采一个可能的世界，然后在那个世界里做最优决策。", "<b>第 5 行是全部的代价所在：<em>Compute Q*<sub>M</sub></em>。</b> 抽出来的 M 是一个完整的 MDP，<span class='w'>要用值迭代或策略迭代把它解到收敛</span>。<b>每走一步就解一次 MDP</b>——这比老虎机版贵了几个数量级。", "<b>但它换来一样老虎机版没有的东西：探索变成「有方向的」。</b> 抽出来的那个 M 如果在某个未访问区域给了乐观的转移，<span class='k'>解它得到的最优策略会主动规划出一条通往那里的路</span>。<b>这正是 L12.c p49 说的「MDP 里探索本身是个规划问题」的解法</b>——它把探索交给了规划器。", "<b>和 MBIE-EB 对照着看，两者是同一问题的两种答案</b>：<b>MBIE-EB</b> 用一个<b>确定的</b>乐观模型（经验模型 + β/√N），解它；<b>TS</b> 用一个<b>随机抽出</b>的模型，解它。<span class='k'>前者的乐观是算出来的，后者的乐观是抽出来的</span>。", "⚠️ <b>p20 的式子把概率匹配写在了 (s,a) 上：<code>π(s,a|h<sub>t</sub>) = P[Q(s,a) &gt; Q(s,a′), ∀a′]</code></b>。<b>注意它比较的是同一个状态下的不同动作</b>，不是跨状态比较——<span class='w'>这和老虎机版的式子形状相同，只是多了一个 s</span>。", "<b>再补一个实现上的要点：第 4 行是「对每个 (s,a) 都抽一次」，不是抽一次用到底。</b> <span class='w'>每个 (s,a) 的转移与奖励各自独立地从自己的后验里抽</span>，<b>拼起来才构成一个完整的 MDP</b>。所以抽出来的那个 M 通常<b>不等于任何一个「真实可能的世界」</b>，它只是各处边缘后验的一次联合采样——<span class='k'>这在理论上是有意为之的，但也是 TS 在 MDP 上分析较难的原因之一</span>。"], "eq": "MDP 上的 Thompson 采样（每一轮）：\n\n  1. 对每个 (s,a)，从后验抽 T(s'|s,a) 与 R(s,a)   ⇒  得到一整个 MDP M\n  2. 解 M，得到 Q*_M                              ← 一次完整的规划\n  3. a_t = argmax_a Q*_M(s_t, a)\n  4. 观察 r_t, s_{t+1}，更新后验\n\n对照 MBIE-EB：\n  MBIE-EB  用「经验模型 + β/√N」这个**确定的**乐观模型，解它\n  TS       用从后验**抽出来**的模型，解它", "tbl": {"head": ["", "MBIE-EB", "MDP 上的 TS"], "rows": [["乐观从哪来", "<b>算出来</b>（β/√N 加成）", "<b>抽出来</b>（后验采样）"], ["用的模型", "确定的（经验 + 加成）", "随机的（每轮不同）"], ["每轮要规划吗", "<b>要</b>（值迭代到收敛）", "<b>要</b>"], ["是否确定性算法", "是", "<span class='w'>否，要报多种子</span>"], ["需要先验吗", "不需要", "<b>需要</b>"]]}, "res": {"tag": "推断", "v": "<b>「抽一整个世界再解它」这个结构，和你的穷举 oracle 是同一个思路的两个极端。</b><br>TS 每轮<b>抽一个</b>可能的世界，解它，按结果行动——用随机性去覆盖可能性空间。<br>你的 oracle 表是<b>把所有可能性都跑一遍</b>（2^k 种分配，前缀共享），得到精确值。<span class='k'>它不是采样，是穷举</span>。<br><b>两者的分界线是「可能性空间有多大」</b>：MDP 的模型空间是连续且高维的，只能采样；<span class='w'>而你的配置空间在 k=4 时只有 16 个叶子</span>，穷举反而更便宜、且方差为零。<b>这是你相对标准 RL 设定的一个结构性优势，值得在论文里明说</b>——「我们不需要采样近似，因为我们付得起穷举」。<br>⚠️ <b>但有一处要注意：L02 p30 算过完整配置空间是 k^H，k=3/H=7 时 2187。</b> 穷举 oracle 之所以可行，是因为它只在 <b>k=3~4 个随机化节点</b>上枚举（经一步偏离扫描筛选后），<span class='k'>不是在全部 H 个节点上</span>。<b>这个「先降维再穷举」的两步，缺一不可</b>——直接在 2187 上穷举每条 query 就太贵了。<br>标【推断】：对照是我做的；oracle 的成本估算与扫描降维在简报里是【已核】。", "ref": "课件 p21 · 简报 §4c（一步偏离扫描）· §4d（穷举 oracle，已核）· L02 p30 科研格"}, "tip": {"t": "记号", "v": "p20 的式子写成 <code>π(s,a|h<sub>t</sub>) = P[Q(s,a) &gt; Q(s,a′), ∀a′]</code>，<b>注意它比较的是同一个状态 s 下的不同动作</b>，不是跨状态比较。<span class='k'>形状与 L12 p28 的老虎机版完全相同，只是多带了一个 s</span>——这也再次说明两者是同一个算法的两个设定。"}},
+{"r": [22, 26], "t": "泛化与探索：计数不泛化", "star": 3, "quote": "<b>Generalization and Strategic Exploration</b> — <em>Active area of ongoing research: combine generalization &amp; strategic exploration</em><br><b>Generalization and Optimism</b> — <em>What needs to be modified for continuous / extremely large state and/or action spaces?</em><br><em><b>Estimating uncertainty</b>: Counts of (s,a) and (s,a,s′) tuples are <b>not useful if we expect only to encounter any state once</b></em><br><em><b>Computing a policy</b>: Model-based planning will fail</em>", "one": "<b>把前面那套搬到大状态空间，两件事会垮：计数不再有意义，有模型的规划也跑不动。</b>", "pts": ["<b>第一件事垮得最彻底：计数。</b> MBIE-EB 的全部不确定性都来自 <code>n<sub>sa</sub></code>，而<span class='w'>如果状态是像素，你可能永远不会再见到同一组像素</span>。<b>老师的说法很直白</b>：<em>we don't wanna do it based on raw counts because then <b>everything will just be one forever</b></em>——<b>所有格子的计数永远是 1，加成永远最大，等于没有探索指导。</b>", "<b>所以需要的是一种「会泛化的不确定性度量」</b>：<em>if we visited that area of the world a lot, then we should have less of a bonus on that</em>。<span class='k'>关键词是「那一片区域」而不是「那个点」</span>。课上学生提了两个方向——<b>密度模型</b>（估计「这类状态我见过多少」）与<b>嵌入 / 状态压缩</b>。", "<b>她对状态压缩加了一个很重要的保留</b>：<em>the right compression in the state space <b>depends on the decisions you want to make</b>. And so generally, it will be <b>non-stationary</b>.</em><span class='w'>什么算「相似状态」取决于你要做什么决策，而决策在变，所以这个压缩本身是会漂移的</span>。<b>她接着说这不一定是坏事，可以在两者之间来回迭代。</b>", "<b>第二件事垮的是规划。</b> 有模型的方法在深度 RL 里一直不占优，<b>她给的理由是模型误差会在规划中累积</b>：<em>the error that you make in your models accumulates a lot as you do planning</em>。她举了 David Silver 2014 年的一次演讲——<span class='k'>展示了一个画面极其漂亮的 model-based 模拟，但拿去规划的效果很糟</span>。", "<b>然后是这一段最尖锐的一句，值得单独记</b>：<em><b>it's not clear that the representation you get by maximizing for predictive loss is always going to be your best for planning</b></em>。<span class='w'>按「预测得准」训出来的表示，不一定是「决策得好」需要的那个</span>。", "<b>这就是她选 MBIE-EB 来讲的原因</b>：<em>those sort of <b>reward bonuses are much easier to extend to the model-free case</b></em>。<span class='k'>奖励加成不依赖模型</span>，可以直接插进任何无模型算法的更新里——下一页就是。", "<b>把「两件事垮了」和前面的内容接起来，会发现它们各自对应一条已经讲过的裂缝。</b><br><b>计数垮掉</b> ← 这是「表格表示不再成立」，而 L03 p39 那张三方性质表的脚注早就预告过：<em>极限收敛那一行只对表格表示成立</em>。<br><b>规划垮掉</b> ← 这是 L01 p59 那句 <em>model may be wrong</em> 的放大版，也是 L03 p48 确定性等价的风险在深度设定下的兑现。<br><span class='k'>本讲第三节不是新问题，是前面几道裂缝在大规模下同时张开</span>。", "<b>还有一件事这一节没明说但很关键：探索与泛化不只是「都要有」，它们会互相干扰。</b> 泛化说「相似的状态应该共享知识」，探索说「没见过的地方要多去」。<span class='w'>但「相似」是由当前的表示定义的，而表示又是从已见过的数据学来的</span>——<b>于是一个真正新颖的状态，可能被一个不成熟的表示错误地判断成「见过的」</b>，从而拿不到它该有的探索加成。<b>这是这个方向最难的地方，也是理论跟不上的原因之一。</b>", "<b>最后说一下为什么「理论落后」这件事值得当成内容而不是免责声明。</b> 它决定了你读这一类论文时该怎么判断：<span class='k'>这个领域目前的证据主要是实证的</span>，<b>所以「在某几个 benchmark 上更好」几乎是唯一能拿到的论据</b>，而它对分布外的情形不提供任何保证。<b>这与 L11–L12 那些带定理的结论是两种不同强度的知识。</b>"], "tbl": {"head": ["小状态空间里靠什么", "大状态空间里为什么垮", "替代方向"], "rows": [["计数 n<sub>sa</sub>", "<b>每个状态只见一次 ⇒ 计数永远是 1</b>", "密度模型 · 嵌入 · 状态压缩"], ["有模型的规划", "<b>模型误差在规划中累积</b>", "转向无模型"], ["精确的值迭代", "状态空间太大，扫不完", "函数逼近"], ["—", "—", "<b>奖励加成最容易搬</b>（不依赖模型）"]]}, "say": "关于理论的落后她说得毫不含糊：<em>on the theory side, we still have a long way to go … even just function approximation and doing off-policy control like Q-learning, we <b>didn't have good asymptotic guarantees</b> for some of the basic algorithms. So if we don't even have good asymptotic guarantees, it's unlikely that we would have really nice <b>finite sample guarantees</b>.</em><b>连渐近保证都没有，就更谈不上有限样本保证</b>——这句话给整个第三节定了调，也兑现了本讲标题后半句「再承认它在深度网络上还不成立」。", "tip": {"t": "记这一条", "v": "<b>「表示由预测损失最大化得来，不一定最适合规划」</b>——这句话的适用范围远超 RL。<span class='k'>任何「先训一个预测模型，再拿它去做决策」的两段式流程都受它约束</span>：预测损失与决策质量是两个不同的目标，优化前者不保证后者。<b>检查方法也通用</b>：按预测值分桶看残差，确认误差不随预测值系统性变化；以及做一次端到端对照——<b>「按模型做的决策」与「按真值做的决策」是否一致</b>。<span class='w'>后者比任何拟合优度指标都有说服力</span>。"}, "res": {"tag": "推断", "v": "<b>这一节有两条直接打在你的做法上，而且方向相反——一条是好消息，一条是警告。</b><br><b>好消息：计数不泛化这个问题，在你这里不存在。</b> 它垮是因为状态空间是像素、每个状态只见一次；<span class='k'>而你的「格子」是 (节点, 保真度档位)，H×k 大约几十个</span>——<b>这是一个真正的表格型设定</b>。所以 MBIE-EB 那套计数 + β/√N 对你是<b>直接可用</b>的，不需要任何泛化技巧。<b>这在 2026 年的 RL 应用里相当罕见，值得在论文里点明</b>：我们的决策空间小到可以查表，于是能用上有保证的表格型方法。<br>⚠️ <b>但前提是策略按 (节点, 档位) 键控。</b> 一旦改成按 (query 特征, 节点, 档位)，格子数立刻爆炸，<span class='w'>计数又退化成「永远是 1」</span>——这就是 P2/P3 消融的另一个后果。<b>「能不能用表格方法」和「策略按什么键控」是同一个决定。</b><br><b>警告：那句「预测损失训出的表示不一定适合规划」正对着你的成本模型。</b> 你按 R² 优化它（预测得准），<span class='w'>但你真正要的是「用它挑出来的配置好」</span>。R² = 0.95 的模型，残差的 5% 如果<b>系统性地集中在高成本配置上</b>，挑出来的配置就会偏。<b>可做的检查很具体</b>：按预测成本分桶看残差，确认误差不随成本大小变化；以及直接比较「按模型挑」与「按真实成本挑」在留出集上选出的配置是否一致。<span class='k'>后者是一个端到端的检验，比任何 R² 都有说服力</span>。<br>标【推断】：两条对照与检查方法是我推的；格子数、R² 预期、P2/P3 在对应处是已有结论。", "ref": "实录（p26 一节）· 简报 §4e（成本模型 R²，已核）· §5（P2/P3，已核）· L12.b p24 科研格"}, "eq": "大状态空间下，MBIE-EB 的四个零件各自的命运：\n\n  n_sa 计数        ✗ 每个状态只见一次 ⇒ 永远是 1\n  R̂, T̂ 经验模型    ✗ 估不出来（状态太多）\n  值迭代到收敛      ✗ 扫不完状态空间\n  β/√N 奖励加成    ✓ 形状可以保留，但 N 要换成「等效访问次数」\n\n替代「计数」的三个方向（实录）：\n  密度模型   —— 估「这类状态我见过多少」（Bellemare 的伪计数）\n  嵌入      —— 在表示空间里量相似度\n  状态压缩   —— ⚠ 正确的压缩取决于你要做的决策 ⇒ 非平稳"},
+{"r": [27, 29], "t": "把加成搬进 Q-learning", "star": 3, "quote": "<b>Recall: Value Function Approximation with Control</b><br>p27 原式：<em>Δw = α(r(s) + γ max<sub>a′</sub> Q̂(s′,a′;w) − Q̂(s,a;w))∇<sub>w</sub>Q̂(s,a;w)</em><br>p28–29 加了一项：<em>Δw = α(r(s) <b>+ r<sub>bonus</sub>(s,a)</b> + γ max<sub>a′</sub> Q̂(s′,a′;w) − Q̂(s,a;w))∇<sub>w</sub>Q̂(s,a;w)</em><br><em>r<sub>bonus</sub>(s,a) should reflect <b>uncertainty about future reward</b> from (s,a)</em>", "one": "<b>改动只有一项：在 TD 目标里多加一个 r_bonus。三页纸就是这一个加号。</b>", "pts": ["<b>把 p27 和 p28 并排看，差别就是中间多了 <code>+ r<sub>bonus</sub>(s,a)</code>。</b> <span class='k'>其余一个符号都没动</span>——这正是「奖励加成容易搬」的字面含义：<b>它不碰算法结构，只改目标值</b>。", "<b>为什么这招能从有模型搬到无模型？</b> 因为加成是加在<b>奖励</b>上的，而奖励在两种设定里都存在。<span class='w'>MBIE-EB 的其余部分（R̂、T̂、值迭代）都依赖模型，只有加成项不依赖</span>。<b>所以它是那套方法里唯一能被剥离出来的零件。</b>", "<b>加成加在奖励上，而不是直接加在 Q 上，这个选择有后果。</b> 加在奖励上时，<span class='k'>它会沿着 Bellman 回溯传播出去</span>——一个「未探索」的 (s,a) 不只自己变得有吸引力，<b>通往它的路径也会跟着变得有吸引力</b>。<b>这正是「有方向的探索」在无模型设定下的实现方式。</b>", "<b>课件把真正难的问题留在了最后一行</b>：<em>r<sub>bonus</sub>(s,a) should reflect uncertainty about future reward from (s,a)</em>——<span class='w'>该用什么量来反映这个不确定性，课件没给答案</span>。p30 之后的几页就是在列各种尝试。", "⚠️ <b>老师在实录里对这几页加了个限定：她说自己写得「有点松」。</b> <em>I've been a little loose here, you could — this could be a target</em>——<b>式子里的 <code>max<sub>a′</sub> Q̂(s′,a′;w)</code> 严格说应该用目标网络（target network）而不是当前网络</b>。<span class='k'>这是 DQN 的标准做法（L06 讲过）</span>，课件为了简洁省掉了。", "<b>这三页还隐含了一个顺序上的提醒：加成项必须在「拟合权重时」就加进去，不是事后调整 Q。</b> <span class='k'>加成进了 TD 目标，于是它会被网络学进去并泛化到相似状态</span>；<b>如果只是在选动作时临时加一下，它既不传播也不泛化。</b>", "<b>和 L06 的 DQN 对照，这个改动的位置很特别</b>：DQN 的几个著名改进（经验回放、目标网络、Double DQN）<span class='k'>动的都是「怎么拟合」</span>，<b>而探索加成动的是「拟合什么目标」</b>。两类改进正交，可以叠加。", "<b>但这也带来一个实现上的坑：加成会被经验回放缓存下来。</b> <span class='w'>一个样本刚产生时 (s,a) 还很陌生、加成很大；几万步之后它已经很熟了，但缓存里那条记录带的还是当初那个大加成</span>。<b>所以严格做法是存原始奖励、在回放时按当前计数重算加成</b>——课件没提这一点。"], "eq": "p27（原样的 Q-learning with VFA）：\n  Δw = α( r(s) + γ max_{a'} Q̂(s',a';w) − Q̂(s,a;w) ) ∇_w Q̂(s,a;w)\n\np28–29（加了探索加成）：\n  Δw = α( r(s) + r_bonus(s,a) + γ max_{a'} Q̂(s',a';w) − Q̂(s,a;w) ) ∇_w Q̂(s,a;w)\n                 └── 唯一的改动 ──┘\n\n加在**奖励**上而非 Q 上 ⇒ 加成会沿 Bellman 回溯传播\n⇒ 通往未探索区域的**路径**也变得有吸引力\n\n⚠ 实录：max 那一项严格说该用目标网络，课件为简洁省了", "tbl": {"head": ["MBIE-EB 的零件", "依赖模型吗", "能搬到无模型吗"], "rows": [["R̂（经验奖励模型）", "<b>是</b>", "不能"], ["T̂（经验转移模型）", "<b>是</b>", "不能"], ["值迭代到收敛", "<b>是</b>", "不能"], ["<b>β/√N 奖励加成</b>", "<b>否</b>", "<b>能 —— 这是唯一能剥离的零件</b>"], ["加成加在哪", "—", "<b>加在奖励上 ⇒ 会沿回溯传播</b>"], ["与 DQN 各改进的关系", "—", "<b>正交</b>：它们改「怎么拟合」，加成改「拟合什么目标」"]]}},
+{"r": [30, 30], "t": "有方向的探索能带来什么：Montezuma's Revenge", "star": 3, "quote": "<b>Benefits of Strategic Exploration: Montezuma's revenge</b><br>Bellemare et al. <em>\"Unifying Count-Based Exploration and Intrinsic Motivation\"</em><br><em><b>Enormously better</b> than standard DQN with ε-greedy approach</em>", "one": "<b>一个例子：在 Montezuma's Revenge 上，有方向的探索远好于 ε-贪心的标准 DQN。</b>", "pts": ["<b>为什么挑这个游戏？因为它是 ε-贪心最彻底失败的那一类。</b> Montezuma's Revenge 需要<span class='k'>长串的正确动作才能拿到第一个奖励</span>（找钥匙、开门），<b>而随机乱试撞上这串动作的概率近似为零</b>。L01 p16–p17 两次用它举例，正是这个原因。", "<b>Bellemare 那篇的核心贡献是把「计数」推广到了大状态空间。</b> 标题里的 <em>unifying count-based exploration and intrinsic motivation</em> 说的就是这件事——<span class='w'>用一个密度模型来定义「伪计数」</span>，于是相似的状态可以共享访问次数。<b>这正好回答了 p26 提出的那个问题。</b>", "<b>注意「伪计数」这个词在本课出现了两次，含义相关但不同</b>：<b>L12 p24</b> 里它指 Beta 分布的 α、β（先验相当于几个假样本）；<b>这里</b>它指由密度模型推出的「等效访问次数」。<span class='k'>共同点是两者都把「我见过多少」变成一个可以加减的数</span>。", "⚠️ <b>这一页只有一句定性结论和一张图，没有数字。</b> <b>「enormously better」是课件的原话</b>，具体提升幅度要查原论文。本精读不补数字——<span class='w'>不能把没核过的数写进来</span>。", "<b>这一页在本讲的位置也值得一提：它夹在「问题」（p26 计数不泛化）与「两种贝叶斯做法」（p31–33）之间，是唯一一页实证结果。</b> <span class='k'>整个第三节的结构就是「问题 → 一个成功的例子 → 几条在探索的路」</span>，<b>而不是「问题 → 解法」</b>。这个结构本身就在说明这个方向还没有定论。"], "tbl": {"head": ["", "ε-贪心的 DQN", "有方向的探索"], "rows": [["怎么找到第一个奖励", "随机乱试撞上", "<b>按不确定性有方向地搜</b>"], ["在 Montezuma 上", "<span class='w'>几乎拿不到奖励</span>", "<b><em>enormously better</em></b>"], ["为什么这个游戏最能区分", "需要<b>长串正确动作</b>才有第一个奖励", "—"], ["「伪计数」在这里指什么", "—", "<b>由密度模型推出的等效访问次数</b>"]]}},
+{"r": [31, 33], "t": "贝叶斯那一支在深度网络上的两种做法", "star": 3, "quote": "<b>Generalization and Strategic Exploration: Thompson Sampling</b><br><em>For scaling up to very large domains, again useful to consider model-free approaches</em><br><em><b>Non-trivial</b>: would like to be able to sample from a posterior over possible Q*</em><br><b>Bootstrapped DQN</b> (Osband et al. NIPS 2016) — <em>Train C DQN agents using bootstrapped data</em><br><b>Bayesian DQN</b> (Azizzadenesheli, Anandkumar, 2017) — <em>Use deep neural network · On <b>last layer</b> use Bayesian linear regression · Be optimistic with respect to the resulting posterior · <b>Very simple, empirically much better</b></em>", "one": "<b>想在深度网络上做 Thompson 采样，难点是「怎么从 Q* 的后验里抽样」。两种绕法：训一群网络，或只在最后一层做贝叶斯。</b>", "pts": ["<b>先说清楚难在哪。</b> 老虎机里从 Beta 抽一个数很容易；<span class='w'>但「Q* 的后验」是一个定义在函数空间上的分布</span>——<b>你要抽的是一整个 Q 函数</b>。课件用了 <em>non-trivial</em> 这个词，算是很克制的说法。", "<b>做法一：Bootstrapped DQN。</b> 训 <code>C</code> 个 DQN，每个用自助采样（bootstrap）出来的数据子集。<span class='k'>这 C 个网络的分歧，就是不确定性的近似</span>——大家意见一致的地方说明数据充分，分歧大的地方说明没见过。<b>每一幕随机挑一个网络来行动，就近似实现了 Thompson 采样。</b>", "<b>做法二：只在最后一层做贝叶斯。</b> 前面所有层当成特征提取器（确定的），<span class='k'>只对最后一层的线性权重维护后验</span>——而线性回归的贝叶斯后验是有闭式解的。<b>于是「从函数空间抽样」被降维成「从一个多元高斯抽样」。</b>", "<b>课件对第二种的评价很有意思</b>：<em><b>Very simple, empirically much better</b></em>。<span class='w'>比 Bootstrapped DQN 简单，效果还更好</span>。<b>这又是一次「简单做法赢」——和 L12 p29 的 Thompson 采样本身是同一个模式</b>：复杂的量算不出来时，找一个结构上恰好等价的简单做法。", "⚠️ <b>两种做法都只是「近似的后验」。</b> Bootstrap 的分歧不等于真后验，最后一层贝叶斯也假设了前面的特征是固定且正确的。<span class='k'>所以它们继承不了 Thompson 采样的理论保证</span>——这又回到那句「理论还有很长的路要走」。", "<b>把这两种做法放回 p26 提出的那个问题里看，会更清楚它们在解什么。</b> p26 问的是「大状态空间下怎么量化不确定性」，<span class='k'>而这两种做法给的是「不确定性 = 多个假设之间的分歧」</span>——<b>这是一个和「计数」完全不同的思路</b>：不数你去过几次，而看「几个同样合理的模型是否给出一致的答案」。", "<b>Bootstrapped DQN 的自助采样为什么能近似后验？</b> 直觉是：每个网络只看到数据的一个子集，<span class='k'>数据充分的地方各子集给出的结论相同（分歧小），数据稀少的地方子集差异会被放大（分歧大）</span>。<b>所以分歧恰好随数据量反向变化，这正是不确定性该有的行为。</b>", "<b>「每一幕随机挑一个网络」这个细节值得注意：挑一次要用一整幕，不是每步重挑。</b> <span class='w'>每步重挑等于在不同假设之间来回横跳，探索就没有方向了</span>；<b>而一整幕坚持一个假设，才能走出一条连贯的、通往那个假设认为有希望的地方的路</b>——这和 p21 的「抽一个 MDP 再解它」是同一个道理。", "<b>最后一层贝叶斯的代价在哪？在于它把前面所有层当成了「正确且固定」的特征提取器。</b> <span class='w'>如果特征本身是错的，后验再精确也没用</span>。<b>所以它的不确定性只覆盖「给定特征之后的线性部分」，不覆盖「特征对不对」。</b>"], "tbl": {"head": ["做法", "怎么近似 Q* 的后验", "代价", "课件的评价"], "rows": [["<b>Bootstrapped DQN</b>", "训 C 个网络，<b>用它们的分歧</b>", "C 倍的训练与存储", "—"], ["<b>最后一层贝叶斯</b>", "前层当特征，<b>只对末层线性权重做贝叶斯</b>", "几乎不增加", "<b><em>very simple, empirically much better</em></b>"], ["共同的问题", "都只是近似后验", "—", "<span class='w'>继承不了理论保证</span>"]]}, "res": {"tag": "推断", "v": "<b>「不确定性 = 多个假设之间的分歧」这个思路，在你这里有一个几乎免费的实现。</b><br>Bootstrapped DQN 要训 C 个网络才能得到分歧；<span class='k'>而你的「模型」是一个成本回归和一堆每格的成功计数</span>，<b>自助重采样一次只是重新拟合一个回归，代价可以忽略</b>。<br><b>具体可以这么用</b>：对留出集做 B 次自助重采样，每次重新算一遍每个配置的 Ĝ，得到 B 个排名。<span class='w'>如果 config* 在 B 次里只有少数几次排第一，说明这个「最优」是噪声驱动的</span>；若它稳居第一，说明选择是稳健的。<b>这给了你一个直接针对 L04 p42 最大化偏差的诊断，而且不需要任何额外的 LLM 调用</b>——重采样只在已有的评估结果上做。<br><b>它和 L12.b 那条「按是最优的后验概率排序」是同一件事的频率派版本</b>：一个用后验采样，一个用自助重采样，<span class='k'>两者都在回答「这个第一名有多稳」</span>。<b>两条可以并用互相印证</b>，而且简报 §7 第 6 拳（paired bootstrap CI）要的正是这一类证据。<br>⚠️ <b>但要注意重采样的单位。</b> 必须按 <b>query</b> 重采样，不是按「query × 配置」的评估记录——<span class='w'>同一条 query 在不同配置下的结果是相关的</span>（同样的题目难度），拆开重采样会低估方差。<b>这和 L12.b 说的「按 query 聚合才接近独立」是同一条。</b><br>标【推断】：这套用法是我推的；paired bootstrap CI 在简报 §7 里是【已核】。", "ref": "课件 p32 · L04 p42 科研格 · L12.b p24 科研格 · 简报 §7 第 6 拳（已核）"}, "tip": {"t": "记这一条", "v": "这两种做法共享一个思路，而它和「计数」是完全不同的一条路：<b>不确定性 = 若干个同样合理的假设之间的分歧</b>。<span class='k'>计数问「我来过几次」，分歧问「几个合理的模型是否给出一致的答案」</span>。<b>后者天然会泛化</b>——数据充分的地方各假设趋同，数据稀少的地方分歧被放大，而这一切不需要定义「什么算相似状态」。<span class='w'>代价是它只覆盖被建模的那部分不确定性</span>：最后一层贝叶斯不覆盖「特征对不对」，自助重采样不覆盖「模型族选错了」。"}},
+{"r": [34, 36], "t": "小结：这三讲要求你会什么", "star": 2, "quote": "<b>Summary: What You Are Expected to Know</b><br><em>Define the <b>tension of exploration and exploitation</b> in RL and why this does not arise in supervised or unsupervised learning</em><br><em>Be able to define and compare different criteria for \"good\" performance (<b>empirical, convergence, asymptotic, regret, PAC</b>)</em><br><em>Be able to <b>map algorithms</b> discussed in class to the performance criteria they satisfy</em><br>p36 <em>Next time: Meta-learning</em>", "one": "<b>三条要求：说清探索-利用的张力、能比较五种「好」的标准、能把算法映射到它满足的标准上。</b>", "pts": ["<b>第一条回到 L01 p17。</b> 探索-利用的张力在监督/无监督学习里不存在，原因是<span class='k'>那里的数据分布不受你的选择影响</span>——标签是给定的，你预测错了不会改变下一个样本。<b>L01 的四要素表里，这一格正是 RL 独占的。</b>", "<b>第二条列了五种标准，而本课只详细讲了后三种。</b> <b>经验表现</b>（跑一跑看）、<b>收敛性</b>（会不会到）、<b>渐近</b>（最终到哪）、<b>遗憾</b>（累计差多少）、<b>PAC</b>（犯几次大错）。<span class='w'>五种是递进的：前两种是定性的，后三种才给出量化的速度</span>。", "<b>第三条是最实用的一条：把算法映射到它满足的标准。</b> 本精读在 L12.c p57 那张表已经做了一半——<b>纯贪心、固定 ε-贪心、朴素乐观初始化都不是 PAC 的；MBIE-EB 是</b>。<span class='k'>把这张表自己补全（加上 UCB、Thompson、Q-learning），就是这三讲最好的复习</span>。", "<b>p36 的「下一次：元学习」标志着探索这条线结束。</b> 官方没有发布 lecture 14（客座讲座），所以<b>本课的探索内容到此为止</b>。<span class='w'>而本讲第三节刚刚承认：这套东西在深度网络上还没有理论</span>——<b>这条线是在一个开放的问题上收尾的，不是在一个结论上。</b>", "<b>第二条要求里那五个标准，其实可以按「问的是什么时候」排成一条线</b>：<b>经验表现</b>问「现在」、<b>收敛性</b>问「会不会到」、<b>渐近</b>问「最后在哪」、<b>遗憾</b>问「路上一共亏了多少」、<b>PAC</b> 问「路上栽了几个跟头」。<span class='k'>五个问题互不替代</span>，所以不存在「哪个标准最好」——只存在「你关心哪一个」。", "<b>把三讲的算法填进那张映射表，会看到一个清晰的格局</b>：<b>有保证的</b>（UCB、Thompson、MBIE-EB）都在表格 / 有限臂的设定下；<b>实践中好用的</b>（ε-贪心、乐观初始化、各种深度 RL 探索）大多没有保证。<span class='w'>两组几乎不重叠</span>——<b>而这正是本讲标题后半句说的那件事。</b>"], "tbl": {"head": ["「好」的标准", "问什么", "本课讲到什么程度"], "rows": [["经验表现", "跑一跑效果如何", "贯穿全课"], ["收敛性", "会不会收敛", "L03 L05"], ["渐近", "最终收敛到哪", "L05（致命三件套）"], ["<b>遗憾</b>", "累计比最优差多少", "<b>L11 L12</b>"], ["<b>PAC</b>", "犯几次「大错」", "<b>L12 L13</b>"]]}, "res": {"tag": "推断", "v": "<b>第三条要求——「把算法映射到它满足的标准」——正是你写论文时需要对自己做的那件事。</b><br>把你的方法逐条过一遍这五种标准：<br><b>经验表现</b>——有（留出集上的 G 对比）。<br><b>收敛性 / 渐近</b>——<span class='k'>不适用</span>，你不是迭代算法，是一次性选择。<br><b>遗憾</b>——不适用（没有「步」的序列）。<br><b>PAC</b>——<b>可以有，而且是实测而非定理</b>：在 ε、δ 给定下，数一数留出集上有多少条 query 的 G 比最优差超过 ε（L12.c p57 那格给了具体句式）。<br><span class='w'>所以五条里你只占两条</span>，而且这不是弱点——<b>是因为你的问题结构比在线 RL 简单，很多标准根本不适用</b>。<b>把这件事主动说清楚，比含糊地借用 RL 词汇更有说服力</b>：审稿人对「NLP 论文里进口 RL 形式化」本来就警惕，而理由正是「加了记号没加预测力」。<br><b>一个具体建议</b>：在形式化那一节放一张和上面类似的表，<b>明确标出哪些标准适用、哪些不适用、为什么</b>。这比声称自己满足某个标准更可信，也正面回答了简报 §7 第 1 拳。<br>标【推断】：逐条对照与建议是我做的；§7 第 1 拳在简报里是【已核】。", "ref": "课件 p35 · L12.c p57 科研格 · 简报 §7 第 1 拳（已核）· §5"}, "tip": {"t": "读法", "v": "把 L11–L13 当成一个整体复习时，最有效的做法是<b>自己补全那张「算法 × 标准」映射表</b>：纵轴放算法（贪心、ε-贪心、衰减 ε、UCB、Thompson、乐观初始化、MBIE-EB、深度 RL 的各种探索），横轴放五个标准。<span class='k'>填完会看到一个清晰的格局：有保证的那些都在表格设定下，实践中好用的那些大多没有保证，两组几乎不重叠</span>。<b>这张表比记住任何单个定理都有用。</b>"}, "say": "p36 把「下一次：元学习」写在最后。<b>官方没有发布 lecture 14</b>（客座讲座 Meta-Learning，视频与 slides 都没公开），<span class='w'>所以本课的探索这条线实际上就终止在这一页</span>。<b>而它终止在一个开放问题上，不是一个结论上</b>——这与前十讲每讲都有收束性结论的风格不同，值得作为读完三讲之后的最后印象。"}
+];
+
+var TH = {"title": "L13 接上课题的哪一段：一张检查表，和一处必须警惕的缝", "arc": "<b>这一讲给你的不是算法，是两样别的东西。</b><br><br><b>一张检查表</b>（p9–p10 的三条充分条件）：<b>① 乐观</b>（算出的值不低于真值减 ε）、<b>② 准确</b>（算出的值要真的用上数据，而不是虚设一个大数）、<b>③ 学习复杂度有界</b>。拿它逐条查你现在的做法，结论很干净：<span class='k'>②③ 你本来就满足</span>——成本模型 R² &gt; 0.95、oracle 表是精确值而非估计，而离线一次性评估的「探索」次数本就固定；<b>你缺的只有 ①</b>，而缺它的后果已由 L04 p42 定位为最大化偏差，补法也现成（留出集拆两半 / 按「是最优的后验概率」排序）。<br><br><b>一处缝</b>（p26 实录）：<em>it's not clear that the representation you get by <b>maximizing for predictive loss</b> is always going to be your best <b>for planning</b></em>。<span class='w'>你的成本模型按 R² 优化，而你真正要的是「用它挑出来的配置好」</span>——这是两个目标。R²=0.95 的模型，若那 5% 的残差系统性地集中在高成本配置上，挑出来的配置就会偏。<b>检查方法很具体</b>：按预测成本分桶看残差；以及做端到端对照——「按模型挑」与「按真实成本挑」在留出集上选出的配置是否一致。<br><br><b>还有两条结构性的好消息。</b> 其一，<b>「计数不泛化」这个让整个深度 RL 探索方向卡住的问题，在你这里不存在</b>：你的格子是 (节点, 保真度档位)，H×k 大约几十个，<span class='k'>这是一个真正的表格型设定</span>，MBIE-EB 那套计数 + β/√N 直接可用——前提是策略按 (节点, 档位) 键控，一旦加上 query 特征就会退化。其二，<b>模拟引理</b>（「把预测误差传播成控制误差」）给了「我的成本模型够准」一个可以接到决策质量上的论证形式，而<span class='k'>你的有效时域极短</span>（γ=1、H ≤ 10），放大倍数是 H 量级而非 1/(1−γ)² 量级——<b>同样的模型误差，在你这里传播出的决策误差要小两三个数量级</b>。", "pitfalls": [{"v": "<b>把「我的预测模型很准」直接当成「我的决策很好」。</b> <span class='w'>预测损失与决策质量是两个目标</span>，优化前者不保证后者。这条对任何「先训预测模型、再拿去决策」的两段式流程都成立。<b>检查：按预测值分桶看残差是否系统性偏移；做一次「按模型挑 vs 按真值挑」的端到端对照</b>——后者比任何拟合优度指标都有说服力。", "tag": "推断", "ref": "实录 p26（原话：<em>maximizing for predictive loss … best for planning</em>）· 简报 §4e（成本模型 R²，已核）"}, {"v": "<b>引用某个 PAC / 高置信界，却没检查它的前提。</b> 这一讲给了一个极好的反面教材：MBIE-EB 的证明要求<b>只用前 m 个样本估模型、之后扔掉数据</b>——而老师自己说这「在智识上完全不令人满意」且「实践中我们用全部数据」。<span class='k'>定理成立，但成立的条件没人遵守</span>。L12 p53 的「初始化到 10¹⁰⁰ 才 PAC」是同一个模式。", "tag": "已核", "ref": "实录 p13（逐句核对）· L12 p53"}, {"v": "<b>先看数据挑出 config*，再用同一批数据评估它。</b> 高置信离策略评估的界大多要求<b>数据与被评估策略独立</b>。<span class='w'>先挑后评违反这一条，那个界根本不适用</span>——这是「留出集拆两半」除了「防虚高」之外的第二条、且独立的理由。<b>两条理由说服的是不同的审稿人，写论文时都该提。</b>", "tag": "推断", "ref": "L04 p43（split samples）· L13 p13 科研格 · L15（待该讲精读时接回）"}, {"v": "<b>把「已知 / 未知」那套二分直接搬到离线设定。</b> 它是为在线探索设计的——<span class='k'>未知会随探索耗尽</span>（鸽笼：每格最多 m 次）。而你的留出集是固定的，<span class='w'>没跑过的配置就是永远没跑过</span>。<b>在你这里「未知」不是会耗尽的资源，而是一个固定的覆盖缺口</b>：该做的是测量它（每格的计数，最小的那格决定最弱的一环），不是指望它消失。", "tag": "推断", "ref": "实录 p14（鸽笼论证）· L12.b p24 科研格"}, {"v": "<b>按「query × 配置」的评估记录做自助重采样。</b> <span class='w'>同一条 query 在不同配置下的结果是相关的</span>（同样的题目难度）。<b>必须按 query 重采样</b>，拆开会低估方差。这和「Beta–伯努利要求各次独立、所以要按 query 聚合」是同一条约束。", "tag": "推断", "ref": "L12.b p24 科研格 · 简报 §7 第 6 拳（paired bootstrap CI，已核）"}, {"v": "<b>在深度 RL 探索这个方向上，把实证结果当成有保证的结论。</b> 老师说得很明确：<em>连<b>渐近</b>保证都没有，就更不会有有限样本保证</em>。<span class='k'>这个方向目前的证据主要是实证的</span>，「在某几个 benchmark 上更好」对分布外情形不提供任何保证——<b>和 L11–L12 那些带定理的结论是两种不同强度的知识。</b>", "tag": "已核", "ref": "实录 p23–p26（逐句核对）"}], "ammo": [{"q": "你的方法满足什么理论保证？", "a": "<b>主动把适用与不适用都说清楚，比含糊借用 RL 词汇更可信。</b> 五个标准逐条过：<b>经验表现</b>——有；<b>收敛性 / 渐近</b>——不适用（不是迭代算法，是一次性选择）；<b>遗憾</b>——不适用（没有「步」的序列）；<b>PAC</b>——<span class='k'>可以有，而且是实测而非定理</span>：给定 ε、δ，数留出集上有多少条 query 的 G 比最优差超过 ε。<b>在形式化那一节放一张表，明确标出哪些适用、哪些不适用、为什么</b>——这正面回答了「为什么是 MDP 而不是 H 个独立决策」那一拳。", "tag": "推断", "ref": "课件 p35（五个标准）· L12.c p57 科研格 · 简报 §7 第 1 拳（已核）"}, {"q": "你用的是表格方法，不怕状态空间爆炸吗？", "a": "<b>正面回答：我们的决策空间小到可以查表，这是刻意的设计而非局限。</b> 格子是 (节点, 保真度档位)，H×k 约几十个。<span class='k'>深度 RL 探索方向卡住的那个问题——「每个状态只见一次，计数永远是 1」——在我们这里不存在</span>，所以可以用上有保证的表格型方法。<b>代价是策略必须按 (节点, 档位) 键控</b>；一旦加入 query 特征，格子数爆炸、计数退化。<b>而「按什么键控」正是 P2/P3 消融在回答的问题</b>——所以这不是一个随意的工程选择，是一个有实验支撑的建模决定。", "tag": "推断", "ref": "实录 p26 · 简报 §5（P2/P3，已核）· L02 p30 科研格"}, {"q": "你怎么知道挑出来的那个配置不是噪声？", "a": "两条互相印证的证据。<b>① 自助重采样</b>（本讲 p32 的思路）：按 <b>query</b> 重采样 B 次，每次重算排名，看 config* 稳居第一的比例——<span class='w'>若只在少数几次里第一，这个「最优」是噪声驱动的</span>。<b>② 后验概率排序</b>（L12.b）：报每个配置「是最优」的后验概率而非点估计最大值。<b>两者一个频率派一个贝叶斯，回答的是同一个问题「这个第一名有多稳」</b>，而且都不需要额外的 LLM 调用——重采样只在已有评估结果上做。简报 §7 第 6 拳要的 paired bootstrap CI 正是这一类证据。", "tag": "推断", "ref": "课件 p32 · L12.b p24 科研格 · L04 p42 科研格 · 简报 §7 第 6 拳（已核）"}], "papers": [{"t": "Strehl, Li &amp; Littman — Incremental model-based learners with formal learning-time guarantees", "id": "UAI 2006（课件 p9 点名）", "why": "<b>三条充分条件的出处。</b> 它的价值不是又一个算法，而是<b>把「证明某算法 PAC」从一次性工作变成可复用模板</b>。⚠ 老师明说这篇<b>没有分析 MBIE-EB</b>，她给的是带修改的改写——引用时别说成「该文证明了 MBIE-EB 满足三条」。"}, {"t": "Strehl &amp; Littman — MBIE-EB", "id": "J. of Computer &amp; System Sciences 2008", "why": "算法与 PAC 结论的出处。<b>β 的具体形式、m 的作用、以及「只用前 m 个样本」那条规则都在这里</b>。要引用常数时查这一篇，不要照抄课堂板书还原的式子。"}, {"t": "Bellemare et al. — Unifying Count-Based Exploration and Intrinsic Motivation", "id": "课件 p30 点名", "why": "把「计数」推广到大状态空间的代表作：<b>用密度模型定义伪计数</b>，于是相似状态可以共享访问次数。它正面回答了 p26 提出的问题，并在 Montezuma's Revenge 上远好于 ε-贪心的 DQN。⚠ 课件只给了「enormously better」这个定性说法，<span class='w'>具体幅度要查原文</span>。"}, {"t": "Osband et al. — Bootstrapped DQN", "id": "NIPS 2016（课件 p32）", "why": "「不确定性 = 多个假设之间的分歧」这条路线的代表。训 C 个 DQN、各用自助采样的数据，每一幕随机挑一个来行动。<b>它给你的直接启发是：自助重采样可以在已有评估结果上做，代价几乎为零。</b>"}, {"t": "Azizzadenesheli &amp; Anandkumar — Efficient Exploration through Bayesian Deep Q-Networks", "id": "NeurIPS workshop 2017（课件 p33）", "why": "<b>只在最后一层做贝叶斯线性回归</b>，于是「从函数空间抽样」降维成「从多元高斯抽样」。课件的评价是 <em>very simple, empirically much better</em>——又一次「简单做法赢」。⚠ 它假设前面的特征固定且正确，<span class='w'>不确定性不覆盖「特征对不对」</span>。"}]};
+
+(function(){
+  var PDF="../slides/lecture13_postclass.pdf", MAX=36;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l13quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l13p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l13quiz");
+      localStorage.removeItem("l13p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>

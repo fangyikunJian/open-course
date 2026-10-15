@@ -1,0 +1,283 @@
+{
+ "_目标": {"密度": 400, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p1 页脚写的是 1 / 57，而 PDF 实际 58 页 —— Beamer 数的是「帧」，有覆盖层的几页共用一个号（p7/p8、p21/p22、p23/p24、p30/p31、p34–p36 都是同一帧的叠加）",
+  "AB 例子的全部数据（p18、p21、p22）：8 幕。① A,0 → B,0；② ~ ⑦ B,1（六次）；⑧ B,0",
+  "⇒ B 被访问 8 次：6 次回报 1、2 次回报 0 ⇒ V(B) = 6/8 = 0.75（MC 与 TD 一致）",
+  "⇒ 而 V(A)：**批 MC 给 0**（唯一经过 A 的那一幕回报是 0）· **批 TD / 模型基给 0.75**",
+  "⚠ 实录明确：这个差别**不是**因为数据有限或回放次数有限 —— 无穷回放、全部数据都用上，两者仍然不同。差别来自**马尔可夫假设**",
+  "p22 用模型采出来的假数据跑 MC：V(A) = 1、V(B) = 0.75 —— 注意 V(A)=1 是采样噪声，精确的模型基答案是 0.75",
+  "真实模型（实录描述）：A 必然到 B；B 以 75% 到回报 1 的终止态、25% 到回报 0 的终止态 ⇒ 真值 V(A) = V(B) = 0.75",
+  "⚠ p9 / p10 / p12 在 PDF 上只有标题，正文是图（智能体-环境回路） —— 本精读按实录的口述还原，标【补课】"
+ ],
+ "notes": [
+  {
+   "r": [1, 5],
+   "t": "为什么用 MCTS 收尾",
+   "star": 2,
+   "quote": "<b>Final Lecture: MCTS</b> — <em>With many slides from or derived from <b>David Silver</b></em><br><b>Monte Carlo Tree Search — Why choose to have this as well?</b><br><em>Responsible in part for one of the greatest achievements in AI in the last decade — becoming a better <b>Go</b> player than any human</em><br><em>Brings in ideas of <b>model-based RL</b> and the <b>benefits of planning</b></em>",
+   "one": "<b>最后一讲讲 MCTS，理由有两条：它是 AlphaGo 的一块核心；而它把全课讲得最少的那条线——学一个模型然后用规划——带了回来。</b>",
+   "pts": [
+    "<b>先看她自己给的两条理由，第二条比第一条重要。</b> 第一条是 AlphaGo：<span class='k'>实录里她说这是「过去十到二十年最主要的 AI 成就之一」，而且「比预期快得多」就实现了</span>。<b>第二条才是教学上的理由</b>：<em>brings in ideas of <b>model-based RL</b> and the <b>benefits of planning</b></em>——<span class='w'>模型基 RL 是这门课全程讲得最少的一条线</span>。",
+    "<b>而她坦白了为什么讲得少，这句话值得记</b>：<em>in part because we haven't seen as much success in the <b>deep learning</b> case with models</em>。<span class='k'>也就是说：不是这个方向不重要，是深度模型这条路当时还没做出来</span>。<b>紧接着她押了一注</b>：<em>going forward it's likely to be a really <b>productive avenue of research</b></em>。<b>2019 年的这句话后来被证明是对的</b>——<span class='w'>世界模型、Dreamer 一类的工作正是这个方向</span>。",
+    "<b>注意本讲的署名：<em>with many slides from or derived from David Silver</em>。</b> <span class='k'>这是全课唯一一讲大量沿用他人课件</span>，<b>所以本讲的叙述风格和前十五讲不太一样</b>——<span class='w'>更接近教科书式的层层推进，少了她平时那种「这里有个坑」的口语化提醒</span>。<b>于是实录在本讲的价值比往常更高</b>：课件上那些最要紧的转折（为什么乐观在规划里是错的、为什么树故意不合并相同状态），<b>几乎全在她的口头补充里。</b>",
+    "<b>p5 的目录只有三项，而它们的比例很能说明问题</b>：引言、<b>模型基强化学习</b>、<b>基于模拟的搜索</b>。<span class='k'>MCTS 被放在第三项里，而不是自己占一项</span>——<b>这是在说：MCTS 不是一个独立的技巧，它是「有了模型之后怎么用」这条线上的一个落点</b>。",
+    "<b>整讲的逻辑链可以先摆出来，读的时候就不会迷路</b>：<span class='k'>学模型 → 模型就是模拟器 → 模拟器可以拿来规划 → 规划可以做穷举（太贵）→ 也可以只采样（太弱）→ MCTS 在两者之间</span>。<b>每一步都是上一步的代价逼出来的，没有一步是凭空来的。</b>",
+    "⚠️ <b>p2 是纯课务（作业截止、海报安排），p3 是课程结构，本精读不写这两页的内容。</b> <span class='w'>它们在页条上仍然存在，只是没有知识点</span>。"
+   ],
+   "tbl": {
+    "head": ["本讲的两条理由", "内容", "分量"],
+    "rows": [
+     ["① 应用上", "AlphaGo 的核心技术之一", "吸引注意力"],
+     ["② 教学上", "<b>把模型基 RL 与规划带回来</b>", "<b>真正的理由</b>"],
+     ["为什么模型基讲得少", "<em>haven't seen as much success in the <b>deep learning</b> case with models</em>", "<span class='k'>不是不重要，是当时还没做出来</span>"],
+     ["她的判断", "<em>likely to be a really <b>productive avenue of research</b></em>", "<b>后来被证明是对的</b>"],
+     ["⚠ 课件来源", "<em>many slides from David Silver</em>", "<span class='w'>全课唯一一讲大量沿用他人课件 ⇒ 实录更重要</span>"]
+    ]
+   }
+  },
+  {
+   "r": [6, 10],
+   "t": "学一个模型，就等于拥有一个模拟器",
+   "star": 3,
+   "quote": "<b>Model-Based Reinforcement Learning</b> — <em>Previous lectures: learn value function or policy or directly from experience</em> · <em>This lecture: <b>learn model</b> directly from experience <b>and use planning</b> to construct a value function or policy</em> · <em>Integrate learning and planning into a single architecture</em><br><b>Model-Free RL</b>: <em>No model · Learn value function (and/or policy) from experience</em><br><b>Model-Based RL</b>: <em>Learn a model from experience · Plan value function (and/or policy) from model</em>",
+   "one": "<b>前十五讲都在从经验直接学值函数或策略。这一讲学的是模型本身——而一旦有了模型，它就是一个模拟器，模拟器什么都能干。</b>",
+   "pts": [
+    "<b>这一讲和前面十五讲的分界非常干脆：学的东西换了。</b> <span class='k'>前面学的是「该怎么做」（策略）或「有多好」（值函数）；这一讲学的是「世界怎么运转」（转移与奖励）</span>。<b>学完之后还要多一步：用规划把模型变成策略。</b>",
+    "<b>而那一步多出来的代价与收益，是本讲前半的全部内容。</b> <span class='w'>收益：模型是一个模拟器，可以无限次使用</span>；<span class='w'>代价：多了一层近似，而且两层误差会叠加</span>。<b>先记住这个取舍的形状，后面每一页都在填它的细节。</b>",
+    "<b>实录里她把「模型 = 模拟器」这句话说得非常直白，而且立刻列出了它的用法</b>：<em>this can act as a <b>simulator</b>. And once you have that, you can do <b>model-free RL</b> using that simulator, or you can do <b>policy search</b> or anything else you would like to do</em>。<span class='k'>也就是说：有了模拟器，前十五讲的全部算法都可以在它上面重跑一遍</span>。<b>模型不是一个新算法，它是一个新的数据来源。</b>",
+    "<b>这里有一条很实用的区分：很多场合你知道奖励函数，但不知动力学。</b> <span class='k'>实录给的例子是客服系统</span>：<em>you probably have a reward function in mind, like <b>engagement or purchases</b>... but you may not have a very good model of <b>the customer</b></em>。<b>所以「学模型」在实践中往往只是指学转移，奖励是给定的</b>——<span class='w'>这会让问题简单不少，因为密度估计比回归难得多</span>。",
+    "⚠️ <b>p9 / p10 / p12 在 PDF 上只有标题，正文是图。</b> 实录里她把回路口述了一遍，这里按口述还原【<b>补课</b>】：<br>· <b>模型自由</b>：经验 →（直接）→ 值函数/策略 → 动作；<br>· <b>模型基</b>：经验 → <b>模型</b> → <b>规划</b> → 值函数/策略 → 动作。<span class='k'>多出来的两个方框就是全部的区别</span>。",
+    "<b>而她在描述模型基回路时夹了一句后面会兑现的伏笔，值得现在就标出来</b>：<em>we don't have to necessarily compute a full value function. All we need to know is <b>what is the next action to take</b>, and we're going to <b>exploit that</b> when we get to Monte Carlo tree search</em>。<span class='w'>规划不必算出整个值函数，只要算出「此刻该做什么」</span>。<b>这正是 MCTS 之所以可行的根本原因，而它在这里就已经埋下了。</b>",
+    "<b>把这个伏笔的分量说清楚：它把问题的规模从「整个状态空间」缩到了「当前这一个状态」。</b> <span class='k'>值迭代要对所有状态求解；而如果只需要当前状态的最优动作，你可以只看从这里出发能到的地方</span>。<b>一个指数大的问题，被「只问当下」这一个限制削成了可做的。</b>",
+    "<b>另一条实录独有、而且相当有意思的旁证：人玩 Atari 时似乎在建模型。</b> <em>there's some interesting evidence that when people play Atari games, they are probably <b>systematically building models</b>. What happens when I move the iceberg next to the polar bear?</em> <span class='k'>她的论点是：建了模型就能把它迁移到别的情形</span>——<b>而这正是下一页要讲的那个最大的好处。</b>"
+   ],
+   "eq": "模型自由：   经验  ──────────────────────▶  值函数 / 策略  ──▶  动作\n\n模型基：     经验  ──▶  **模型**  ──▶  **规划**  ──▶  值函数 / 策略  ──▶  动作\n                          └ 多出来的两个方框，就是全部的区别 ┘\n\n收益：模型 = 模拟器，可无限次使用，前十五讲的算法都能在它上面重跑\n代价：多一层近似，两层误差会叠加（p13）\n\n伏笔（实录，p12）：规划不必算出整个值函数，\n                  只要算出「此刻该做什么」 ⇒ 这就是 MCTS 可行的根本原因",
+   "tbl": {
+    "head": ["", "模型自由 RL", "模型基 RL"],
+    "rows": [
+     ["学什么", "值函数 / 策略", "<b>转移与奖励模型</b>"],
+     ["怎么得到策略", "直接学出来", "<b>学模型 + 规划</b>"],
+     ["近似误差有几层", "一层", "<span class='w'>两层，而且会复合</span>"],
+     ["数据能用几次", "回放缓冲区的次数", "<b>无限次（模拟器）</b>"],
+     ["实践中常见的简化", "—", "<b>只学转移，奖励给定</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给你的是一个重新描述自己工作的框架，而这个重新描述可能比任何技术细节都有用。</b><br><span class='k'>你的成本模型（简报 §4e，R² &gt; 0.95）就是一个模型基 RL 里的「模型」</span>。<b>而你现在用它的方式，恰恰就是这一页说的「规划」</b>：用它预测各个配置的成本，再据此挑配置。<span class='w'>换句话说：你做的事在 RL 的分类里有一个名字，而且是一条有完整文献的线</span>。<b>把它这样写出来，比说「我们训了一个成本预测器」显得有根基得多。</b><br><b>而那个伏笔（只需要知道此刻该做什么，不必算出整个值函数）在你这里尤其适用。</b> <span class='k'>你不需要一个对所有 query 都最优的指派策略，你只需要对<b>当前这一条 query</b> 给出一组节点级档位</span>。<b>这就是 MCTS 的思路，而它把「2^H 的配置空间」变成「对这一条 query 做一次局部搜索」</b>——<span class='w'>搜索的代价由你愿意花多少推理时间决定，而不是由配置空间的大小决定</span>。<b>这是一个你现在可能还没用上的自由度。</b><br><b>⚠ 但要先确认一件事：你的「模型」够不够当模拟器用。</b> <span class='k'>成本模型能预测成本，但它<b>不能</b>预测准确率</span>——而 G 的两半都需要。<b>所以你手上的其实是「半个模型」</b>：<span class='w'>成本那一半可以模拟，准确率那一半只能靠实际跑</span>。<b>这是一个很具体的限制，而且它决定了哪些 MCTS 式的做法你用得上、哪些用不上</b>：<b>任何只需要成本的搜索（比如在成本预算内找最便宜的可行配置）可以纯在模型里做；任何需要准确率的比较都必须落到真实调用上。</b><b>把这条界线画清楚，是本讲对你最实际的一条收获。</b><br>标【推断】：映射与「半个模型」的说法是我推的；成本模型 R² 在简报里是【已核】。",
+    "ref": "课件 p6–p12 · 实录 p12（逐句核对）· 简报 §4e（已核）· §2"
+   }
+  },
+  {
+   "r": [11, 13],
+   "t": "好处与坏处：能迁移，但误差会复合",
+   "star": 3,
+   "quote": "<b>Advantages of Model-Based RL</b> — <em>Can efficiently learn model by <b>supervised learning</b> methods</em> · <em>Can <b>reason about model uncertainty</b> (like in upper confidence bound methods for exploration/exploitation trade offs)</em><br><b>Disadvantages</b> — <em>First learn a model, then construct a value function ⇒ <b>two sources of approximation error</b></em>",
+   "one": "<b>好处是能用监督学习，而且能对模型的不确定性做推理。坏处是两层近似误差叠在一起，而且会复合。</b>",
+   "pts": [
+    "<b>第一个好处是工程上的，但分量不小：学模型是一个监督学习问题。</b> <span class='k'>于是过去几十年监督学习的全部工具都能直接用</span>——<b>而学值函数不是监督学习</b>（目标值本身在动，这是整个深度 RL 不稳定的根源）。<b>模型学习没有这个毛病：输入是 (s,a)，标签是真实发生的 (r,s′)，标签不会变。</b>",
+    "<b>实录补了一条该注意的区分</b>：<em>transition dynamics we're generally going to think of as stochastic. So we're going to need supervised learning methods that can predict <b>distributions</b>. For reward models we can often treat them as <b>scalars</b></em>。<span class='w'>所以两半的难度不一样</span>：<b>奖励是回归（容易），转移是密度估计（难得多）</b>。",
+    "<b>第二个好处连回了 L12/L13：有了模型就能对不确定性做推理。</b> <span class='k'>实录把这条路径说得很完整</span>：<b>老虎机那里，奖励的不确定性直接就是值的不确定性</b>（只有一步）；<b>而 MDP 里，你对转移与奖励的不确定性要<b>在规划中传播</b></b>，<span class='w'>传播的形式就是 L13 那个 β/√N 奖励加成</span>。<b>「模型不确定性 → 决策不确定性」这条链，是模型基方法独有的。</b>",
+    "<b>坏处只有一句，但要读进去：两处近似误差。</b> <span class='k'>① 模型是近似的；② 在大状态空间上，规划本身也是近似的</span>。<b>而实录强调的是它们会<b>复合</b></b>（compounding），不是简单相加。",
+    "<b>她把复合的机制类比到模仿学习，这个类比非常准，值得完整记下。</b> <span class='w'>行为克隆：你学了一个策略，照它走，走到数据稀少的地方，误差放大，于是走得更偏，于是更没数据</span>。<b>模型基 RL 一模一样</b>：<em>if you build a model and you compute a policy that ends up getting you to parts of the world where you <b>don't have very much data</b> and where your model estimate is poor, then again your resulting value function and your policy might be bad</em>。<span class='k'>两处都是「决策把你推向自己最不了解的地方」</span>——<b>而这是一个正反馈。</b>",
+    "<b>再说清楚为什么这个正反馈是模型基方法的特有风险。</b> <span class='k'>规划会主动去找模型里看起来最好的地方</span>，<b>而「模型里看起来特别好」和「这里数据少、模型瞎猜」是高度相关的</b>——<span class='w'>数据少的地方模型的预测没有约束，什么值都可能给出来，包括一个特别高的值</span>。<b>于是优化器会专门去利用模型的错误</b>。<b>这件事在离线 RL 里有个名字叫「模型利用」（model exploitation），而它是 CQL/MOPO 一类方法要解决的核心问题。</b>",
+    "<b>而实录给了一个课件上完全没有的、份量最大的好处：零样本迁移。</b> <em>if you learn a dynamics model of the world, then if someone <b>changes the reward function</b>, implicitly you can just do <b>zero shot transfer</b>, because you can just take your learned model of the dynamics and then your reward function, you can just <b>compute a new plan</b>. So I don't need any more experience.</em>",
+    "<b>她的机器人例子把这件事讲得很具体</b>：<span class='k'>学会了在这间屋里转向、前进意味着什么（动力学），原来一直往那个出口走；现在有人说那个出口关了、改去另一个，并告知新的奖励函数——重新规划即可，<b>不需要任何新经验</b></span>。<b>这是模型基方法最硬的一条优势，而它恰恰不在课件上。</b>",
+    "<b>把这条优势的边界也说清楚：它只对「奖励变了」成立。</b> <span class='w'>如果动力学变了（屋子改了布局），模型本身就过时了，零样本迁移不成立</span>。<b>所以这条优势的准确说法是：动力学稳定、目标会变的场景，模型基方法可以一次学习、多次复用。</b>"
+   ],
+   "eq": "好处：\n  ① 学模型是**监督学习** —— 标签 (r, s′) 是真实发生的，不像值函数的目标那样在动\n     ⚠ 但两半难度不同：奖励 = 回归（易） · 转移 = 密度估计（难）\n  ② 能对模型不确定性做推理，并在规划中**传播**（L13 的 β/√N）\n  ③ **零样本迁移**（实录独有）：奖励变了 ⇒ 用旧动力学重新规划，不需要任何新经验\n     ⚠ 边界：只对「奖励变了」成立。动力学变了，模型本身就过时\n\n坏处：两处近似误差，而且会**复合**\n  ① 模型是近似的      ② 大状态空间上规划也是近似的\n\n复合的机制（与模仿学习同形）：\n  规划主动去找「模型里看起来最好的地方」\n     ↕ 而这与「数据少、模型瞎猜的地方」高度相关\n  ⇒ 优化器专门利用模型的错误  ⇒ 走到更没数据的地方  ⇒ 正反馈\n  （离线 RL 里叫 model exploitation，是 CQL / MOPO 要解决的核心问题）",
+   "tbl": {
+    "head": ["", "内容", "出处"],
+    "rows": [
+     ["好处 ①", "学模型是监督学习，标签不会动", "课件 p13"],
+     ["好处 ②", "能对模型不确定性做推理并在规划中传播", "课件 p13 · L13"],
+     ["<b>好处 ③</b>", "<b>零样本迁移：奖励变了就重新规划，不要新数据</b>", "<b>实录独有</b>"],
+     ["坏处", "两层近似误差，<b>会复合</b>", "课件 p13 · 实录"],
+     ["复合的机制", "规划专门去利用模型误差大的地方", "<span class='w'>与模仿学习的误差累积同形</span>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>那条「零样本迁移」直接解决你一个很具体的痛点：λ 扫描。</b><br><span class='k'>你的目标是 <code>G = Acc − λ·Cost</code>，而 λ 是一个要扫的超参数</span>——<b>不同的 λ 代表「你有多在意成本」，而审稿人一定会要一条 λ 的曲线</b>（否则「我们选了 λ=0.1」看起来像调出来的）。<span class='w'>如果每换一个 λ 就要重跑一遍 LLM 调用，这条曲线贵到做不出来</span>。<br><b>而这一页说的正是你不必那样做：λ 只出现在奖励函数里，动力学（哪个配置产生什么 Acc 和 Cost）与 λ 无关。</b> <span class='k'>所以你只要有了 oracle 表，整条 λ 曲线是<b>零成本</b>的——换一个 λ，重新在表上取 argmax 即可，一次 LLM 调用都不用加</span>。<b>这是「奖励变了就重新规划」的教科书式应用，而且是免费的。</b><br><b>把这件事明确写进论文有两个好处</b>：① <span class='w'>λ 的敏感性分析从「做不起」变成「顺手就有」，直接堵掉一个审稿意见</span>；② <b>它给穷举 oracle 又添了一个理由</b>——<span class='k'>oracle 表不只给基准、不只给校准，它还让整个 λ 维度免费</span>。<b>连上 L15 那两条，穷举的收益已经有四条，这笔成本越来越好辩护。</b><br><b>⚠ 而那条坏处你也要正面接住：模型利用。</b> <span class='w'>如果你用成本模型去搜 2^H 空间里成本最低的配置，优化器会专门找模型预测偏低的那些格子</span>——<b>而预测偏低往往就是训练数据稀少的格子</b>。<b>这正是「两层误差复合」在你这里的具体形态</b>：<span class='k'>模型误差 + 用 argmax 放大它</span>。<b>两条可做的防护</b>：① <b>搜到的配置必须实际跑一遍验证</b>（你有这个条件，医疗场景没有）；② <b>给成本预测加一个按训练密度的保守修正</b>——<span class='w'>数据少的格子，成本往上估</span>，这就是 L13 那个 β/√N 奖励加成反过来用。<b>⚠ 注意符号：探索时乐观（成本往低估）是对的，而这里要的是悲观——因为你不是在探索，你是在选一个要上线的配置。</b><br>标【推断】：λ 扫描免费与悲观修正是我推的；λ 与 oracle 表在简报里是【已核】。",
+    "ref": "课件 p13 · 实录 p13（零样本迁移，逐句核对）· 简报 §2 §4d §4e（已核）· L13 p13"
+   }
+  },
+  {
+   "r": [14, 17],
+   "t": "模型长什么样，怎么学",
+   "star": 2,
+   "quote": "<b>MDP Model Refresher</b> — <em>A model M is a representation of an MDP &lt;S,A,P,R&gt;, parametrized by η</em> · <em>We will assume state space S and action space A are <b>known</b></em> · <em>Typically assume <b>conditional independence</b> between state transitions and rewards</em><br><b>Model Learning</b> — <em>This is a <b>supervised learning</b> problem</em> · <em>Learning s,a → r is a <b>regression</b> problem</em> · <em>Learning s,a → s′ is a <b>density estimation</b> problem</em><br><b>Table Lookup Model</b> — <em>Count visits N(s,a) to each state action pair</em>",
+   "one": "<b>模型就是一个参数化的 MDP，而且假定状态空间和动作空间已知——只有转移和奖励要学。学法是监督学习，表格情形下就是数数。</b>",
+   "pts": [
+    "<b>p14 第二行那个假设要留意：状态空间与动作空间<b>已知</b>。</b> <span class='k'>所以「学模型」在本讲的意思很窄——只学 <code>P</code> 和 <code>R</code>，不学「世界由什么状态构成」</span>。<b>而后者是真正难的部分</b>：<span class='w'>表示学习、状态抽象、该用哪些特征，全在这个假设之外</span>。<b>本讲把最难的一半放进了前提里，这是读任何模型基方法时都该先确认的一件事。</b>",
+    "<b>第二个假设是条件独立：<code>P[s′,r | s,a] = P[s′|s,a]·P[r|s,a]</code>。</b> <span class='k'>于是转移和奖励可以分头学，互不干扰</span>。<b>这在实践中几乎总是这么做的</b>，而它不成立的情形也不难想（奖励依赖于你落到了哪个下一状态），<span class='w'>那时把奖励写成 <code>R(s,a,s′)</code> 就行，不是大问题</span>。",
+    "<b>p15 把监督学习的形式摆得很清楚</b>：数据是 <code>(S₁,A₁)→(R₂,S₂)</code>、<code>(S₂,A₂)→(R₃,S₃)</code>…… <span class='k'>一条轨迹拆成 T−1 个独立的监督样本</span>。<b>这是模型基方法在数据效率上的一个真实优势</b>：<span class='w'>同一条轨迹，对值函数只贡献一个回报，对模型贡献 T−1 个样本</span>。",
+    "<b>把这条优势说得更准一点，因为它常被夸大。</b> <span class='k'>T−1 个样本不是独立的</span>（同一条轨迹里的状态高度相关），<b>但它们确实是 T−1 次「输入→标签」的监督约束</b>，<span class='w'>而回报只是一个数</span>。<b>所以优势是真的，只是不该按 T−1 倍去算。</b>",
+    "<b>两半的学习问题性质不同，这一点上面提过，这里给出理由。</b> <code>s,a→r</code> 是<b>回归</b>（预测一个标量）；<code>s,a→s′</code> 是<b>密度估计</b>（预测一个分布）。<span class='k'>而密度估计难得多，因为你要的不是一个点，是整个分布的形状</span>——<b>这是深度模型基 RL 当年卡住的技术原因之一</b>。",
+    "<b>p16 列了一串模型类，而实录对其中一个有具体评价。</b> 表查模型、线性期望模型、线性高斯、高斯过程、深度信念网络。<span class='w'>她说贝叶斯深度神经网络「可能很强大，因为能显式表示不确定性，但到目前为止很难训练」</span>（<em>pretty hard to tune so far</em>）。<b>这和 L13 p33 对贝叶斯 DQN 的评价是同一条线：想要不确定性，就得在「好训」和「好用」之间挑。</b>",
+    "<b>p17 的表查模型就是数数，而它有两种等价的实现方式，值得分清。</b> ① <b>显式计数</b>：统计 <code>N(s,a)</code> 与 <code>N(s,a,s′)</code>，归一化得到 <code>P̂</code>；② <b>存样本</b>：<span class='k'>把每个 <code>(s,a,r,s′)</code> 元组记下来，要采样时就从匹配 <code>(s,a,·,·)</code> 的元组里随机抽一个</span>。<b>两者给出同一个分布</b>，<span class='w'>但第二种不需要显式写出 <code>P̂</code></span>——<b>对状态空间很大但数据稀疏的情形，第二种省得多。</b>",
+    "<b>第二种实现方式还有一个隐含的好处：它天然就是一个「只在见过的地方取值」的模型。</b> <span class='k'>你永远只会采样出真实发生过的转移</span>，<b>于是上一页那个「模型利用」风险小得多</b>——<span class='w'>优化器没法利用模型在没数据处的瞎猜，因为那里根本采不出东西</span>。<b>代价是完全没有泛化。</b>"
+   ],
+   "eq": "模型 M = <P_η, R_η>，参数 η。**S 和 A 假定已知** —— 只学 P 和 R\n条件独立：P[s′, r | s, a] = P[s′|s,a] · P[r|s,a]   ⇒ 两半可分头学\n\n学法 = 监督学习：  (S_1,A_1) -> (R_2,S_2)\n                  (S_2,A_2) -> (R_3,S_3)   ...   一条轨迹拆成 T−1 个样本\n   s,a -> r    回归（易）\n   s,a -> s′   **密度估计**（难得多 —— 要整个分布的形状，不是一个点）\n\n表查模型的两种等价实现：\n  ① 显式计数   P̂(s′|s,a) = N(s,a,s′) / N(s,a)        要写出整个 P̂\n  ② 存样本     记下每个 (s,a,r,s′)，采样时从匹配 (s,a,·,·) 的元组里随机抽\n               ⇒ 同一个分布，但不必显式写出 P̂；\n                 且只会采出真实发生过的转移 ⇒ 模型利用风险小，代价是毫无泛化",
+   "tbl": {
+    "head": ["", "s,a → r", "s,a → s′"],
+    "rows": [
+     ["问题类型", "<b>回归</b>", "<b>密度估计</b>"],
+     ["难度", "容易", "<span class='w'>难得多</span>"],
+     ["输出", "一个标量", "<b>整个分布</b>"],
+     ["实践中", "常常<b>已知</b>，不用学", "<b>几乎总要学</b>"],
+     ["表格情形", "平均历史奖励", "计数后归一化"]
+    ]
+   }
+  },
+  {
+   "r": [18, 18],
+   "t": "AB 例子：批 TD 与批 MC 收敛到两个不同的东西",
+   "star": 3,
+   "quote": "<b>AB Example</b> — <em>Two states A,B; no discounting; <b>8 episodes</b> of experience</em> · <em>We have constructed a table lookup model from the experience</em><br><em>Recall: For a particular policy, <b>TD</b> with a tabular representation with <b>infinite experience replay</b> will converge to the <b>same value</b> as computed if construct a <b>MLE model</b> and do planning</em><br><em><b>Check Your Memory</b>: Will <b>MC</b> methods converge to the same solution?</em>",
+   "one": "<b>同一批八幕数据，批 TD 给 V(A)=0.75，批 MC 给 V(A)=0。两个都对，差别在于 MC 不假设马尔可夫。</b>",
+   "pts": [
+    "<b>先把数据摆全，这一页的全部内容都在这八幕里。</b> ① <code>A,0 → B,0</code>；②~⑦ <code>B,1</code>（六次）；⑧ <code>B,0</code>。<span class='k'>于是 B 被访问 8 次，其中 6 次回报 1、2 次回报 0</span>。<b>两种方法都同意 <code>V(B) = 6/8 = 0.75</code>。</b>",
+    "<b>分歧全在 <code>V(A)</code> 上，而两个答案的理由都站得住。</b> <span class='w'><b>批 MC</b>：只有一幕经过 A，那一幕的回报是 0 ⇒ <code>V(A) = 0</code></span>。<span class='w'><b>批 TD / 模型基</b>：A 必然到 B（见过一次，去了 B），而 <code>V(B)=0.75</code> ⇒ <code>V(A) = 0 + 0.75 = 0.75</code></span>。",
+    "⚠️ <b>这一页最容易误读的地方，实录明确否掉了：这个差别<b>不是</b>因为数据有限或回放不够。</b> <em>this is <b>not</b> due to a finite amount of use of the data... if you sort of run this through TD many, many times, and the Monte Carlo estimate is also getting access to <b>all of the data</b></em>。<span class='k'>两者都把这八幕用到极限，结论仍然不同</span>。<b>所以这不是收敛速度问题，是<b>收敛目标</b>不同。</b>",
+    "<b>两个目标各有名字，记住这组对应很有用。</b> <span class='k'><b>批 MC → 最小均方误差</b>（对观测到的回报而言）；<b>批 TD → 最大似然模型 + 规划</b>（也叫确定性等价估计）</span>。<b>而这个区别的唯一来源是：TD 假设马尔可夫，MC 不假设。</b>",
+    "<b>把「不假设马尔可夫」的后果说具体一点。</b> <span class='w'>MC 只问「从 A 出发，实际拿到过什么回报」——它不相信「A 之后会到 B，所以可以借用 B 的证据」</span>。<b>而 TD 相信这一点，于是它能用上那六个 <code>B,1</code>，哪怕那些幕根本没经过 A。</b>",
+    "<b>于是哪个更好，完全取决于世界是否真的马尔可夫——这正是实录的结论。</b> <em>if the system is really Markov, that's <b>not a very good solution</b> [MC 的 0] because we have all this other evidence that B normally has a higher value, and we're <b>not able to take advantage of that</b></em>。<span class='k'>反过来，如果系统不是马尔可夫，MC 的 0 才是对的</span>——<b>借用 B 的证据就是在借用一个不成立的假设。</b>",
+    "<b>学生还问了一个好问题，答案值得记。</b> <span class='w'>「如果换一个损失函数或加正则，MC 会收敛到别的东西吗？」</span>——<b>会</b>，<em>it may converge to different solutions than the minimum MSE depending on how you regularize or the loss you use. <b>But in general, it will not converge to the same thing</b> as the MLE model + planning</em>。<b>关键的分界始终是马尔可夫假设，不是损失函数的选择。</b>",
+    "<b>这个例子在 S&amp;B 讲 TD 的那一章里也有，而且是那一章的核心例子。</b> <span class='k'>两边的讲法互补</span>：<b>S&amp;B 强调「批更新下两者的不动点不同」，本讲强调「TD 等价于先建 MLE 模型再规划」</b>——<span class='w'>后一种说法更直接地解释了为什么本讲要讲它</span>：<b>它把「值函数方法」和「模型基方法」接上了。</b>"
+   ],
+   "eq": "八幕数据：  ① A,0 -> B,0        ②~⑦ B,1（六次）        ⑧ B,0\n⇒ B 被访问 8 次：6 次回报 1、2 次回报 0\n\n  V(B) = 6/8 = 0.75                       ← 两种方法都同意\n\n  批 MC：   只有一幕经过 A，回报 0      ⇒  V(A) = 0\n  批 TD：   A 必然到 B，V(B)=0.75       ⇒  V(A) = 0 + 0.75 = 0.75\n\n⚠ 这**不是**收敛速度问题 —— 两者都把全部数据用到极限，目标就不同：\n\n   批 MC  ──▶  最小均方误差（对观测到的回报）        **不假设马尔可夫**\n   批 TD  ──▶  最大似然模型 + 规划（确定性等价）      **假设马尔可夫**\n\n哪个对？取决于世界是否真的马尔可夫：\n   真马尔可夫 ⇒ MC 的 0 浪费了那六个 B,1 的证据\n   非马尔可夫 ⇒ TD 的 0.75 借用了一个不成立的假设",
+   "tbl": {
+    "head": ["", "批 MC", "批 TD / 模型基"],
+    "rows": [
+     ["V(B)", "0.75", "0.75"],
+     ["<b>V(A)</b>", "<b>0</b>", "<b>0.75</b>"],
+     ["收敛到什么", "<b>最小均方误差</b>", "<b>最大似然模型 + 规划</b>"],
+     ["假设马尔可夫吗", "<span class='k'>不假设</span>", "<span class='w'>假设</span>"],
+     ["能用上没经过 A 的那六幕吗", "<b>不能</b>", "<b>能</b>"],
+     ["⚠ 差别来自", "—", "<b>不是数据量，是马尔可夫假设</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页是你那个「要不要当成序贯决策问题」的争论的最干净的试金石，而且它给的是一个可以<b>实测</b>的判据。</b><br><span class='k'>两种估计法的分歧只来自一件事：能不能把「别处的证据」借到「这里」来</span>。<b>翻译到你的设定</b>：<span class='w'>节点 3 用 7B 的那些 query 的结果，能不能用来推断「节点 1 用 72B、节点 3 用 7B」这个没跑过的组合？</span><b>能借 = 可加 / 马尔可夫；不能借 = 只能看实际跑过的组合。</b><br><b>而你有一个 CS234 的学生没有的条件：你可以直接验证该不该借。</b> <span class='k'>oracle 表里有真值</span>——<b>拿「按可加性外推」的预测和「实际跑出来」的真值一比，就知道借得对不对</b>。<span class='w'>这是 L15 那张「离线估计 vs 在线真值」散点图的另一个用法</span>，<b>而它回答的问题更基本：你的设定到底是不是可加的。</b><br><b>这给了 P2/P3 消融一个更锐利的形式。</b> 不要只报「按节点键控 vs 按 query 键控哪个好」，<span class='k'>而要报「可加外推的误差有多大」</span>：<b>用 k=1（单节点偏离）的数据预测 k=2 的 G，与 k=2 的真值比</b>。<b>误差小 ⇒ 可加性成立 ⇒ 你可以只跑一步偏离扫描，然后外推整个 2^H 空间（这会把成本降一个数量级）</b>；<span class='w'>误差大 ⇒ 节点之间有交互 ⇒ 必须实际跑组合，而「序贯决策」的框架才真正必要</span>。<br><b>注意这个实验的双赢结构：无论结果是哪一边，你都得到一个可以写的结论。</b> <span class='k'>可加 ⇒ 一个便宜得多的方法；不可加 ⇒ 一个非平凡的问题</span>。<b>而现在这个问题是悬着的，论文里只能靠假设带过。</b><br><b>⚠ 还有一条警告：如果可加性只在「大部分 query 上」成立，那会是最麻烦的情形</b>——<span class='w'>平均误差小，而少数 query 上误差极大</span>。<b>所以要看的是误差的分布，不是均值</b>；<b>这和 L13 p26 那条「按预测值分桶看残差」是同一个检查。</b><br>标【推断】：实验设计是我推的；P2/P3 与一步偏离扫描在简报里是【已核】。",
+    "ref": "课件 p18 · 实录 p18（逐句核对）· 简报 §4c §5（已核）· L13 p26 · L15 p62 科研格"
+   }
+  },
+  {
+   "r": [19, 22],
+   "t": "采样式规划：为什么要从模型里采假数据",
+   "star": 3,
+   "quote": "<b>Planning with a Model</b> — <em>Solve the MDP &lt;S,A,P<sub>η</sub>,R<sub>η</sub>&gt; using favourite planning algorithm: Value iteration · Policy iteration · <b>Tree search</b></em><br><b>Sample-Based Planning</b> — <em>A simple but powerful approach</em> · <em><b>Use the model only to generate samples</b></em> · <em>Apply model-free RL to samples, e.g.: Monte-Carlo control · Sarsa · Q-learning</em> · <em>Sample-based planning methods are often <b>more data efficient</b></em><br><b>Back to the AB Example</b> — <em>e.g. Monte-Carlo learning: <b>V(A) = 1, V(B) = 0.75</b></em> · <em><b>Check Your Memory</b>: What would MC on the original experience have converged to?</em>",
+   "one": "<b>有了模型可以精确求解，但也可以只拿它采假数据、再跑模型自由算法。后者听起来绕，可它能把真实数据里从未同时出现过的片段接起来。</b>",
+   "pts": [
+    "<b>p19 先给正统做法：把模型当成一个已知 MDP，用值迭代、策略迭代或树搜索精确求解。</b> <span class='k'>注意第三项「树搜索」已经出现了</span>——<b>本讲后半讲的就是它。</b>",
+    "<b>p20 给的是另一条路，而它一上来是反直觉的：只用模型采样，然后在假数据上跑模型自由算法。</b> <span class='w'>绕一圈回到起点了吗？真实数据明明在手，为什么要先建模型、再采假数据、再学</span>——<b>实录直接把这个疑问摆了出来</b>：<em>initially that might sound like <b>why would you do that</b></em>。",
+    "<b>答案在 p21–p22，而且非常具体：模型能把片段<b>接起来</b>。</b> <span class='k'>真实数据里从没出现过「A 之后 B 得 1」这一幕</span>（唯一经过 A 的那幕 B 得 0）。<b>但模型知道 A 必然到 B，也知道 B 有时得 1</b>——<span class='w'>于是采样可以合成出 <code>A,0 → B,1</code> 这一幕，而它在现实中从未被观测到</span>。",
+    "<b>实录把这件事的依据点明了，而这句话是本页的关键</b>：<em>we're <b>leveraging the fact here that it's Markov</b>. So if the domain isn't really Markov, we could end up getting data that looks <b>very very different</b> than what you could ever get in the real world</em>。<span class='k'>合成的合法性完全建立在马尔可夫假设上</span>——<b>和上一页同一个假设，只是这里用来造数据而不是用来估值。</b>",
+    "<b>于是采样式规划的效果就能预测了：它让 MC 的答案靠向 TD 的答案。</b> <span class='w'>在合成数据上跑 MC，得到的结果接近「在原始数据上跑 TD」</span>——<b>因为合成这一步已经把马尔可夫假设注入进去了</b>。<span class='k'>这是本页最该记住的一句：假设可以通过「造数据」注入，而不必写进算法里</span>。",
+    "⚠️ <b>p22 那个 <code>V(A) = 1</code> 要看清楚，它不是「正确答案」。</b> <span class='w'>那是在幻灯片上列出的那十来条采样数据上算出来的</span>：两幕经过 A，都接上了 <code>B,1</code>，于是 <code>V(A)=1</code>。<b>而精确的模型基答案是 0.75</b>——<span class='k'>1 和 0.75 的差距是<b>采样噪声</b></span>。<b>所以这一页同时展示了采样式规划的好处（接得起来）和代价（采样误差）。</b>",
+    "<b>三个数字放在一起看，这一讲前半的全部张力就清楚了</b>：<span class='k'><b>批 MC 给 0</b>（不借证据）· <b>精确模型基给 0.75</b>（借，且精确）· <b>采样式规划给 1</b>（借，但有采样噪声）</span>。<b>真值是 0.75。</b>",
+    "<b>那么为什么还要采样、不直接精确求解？实录给了答案，而且是实践里真正的理由。</b> <em>when you start to think about doing like <b>Atari</b> or other really high-dimensional problems, <b>the planning problem alone is super expensive</b></em>。<span class='w'>精确规划在大状态空间上做不动</span>——<b>采样式规划是在「规划也算不起」时的退路。</b>",
+    "<b>还有一条她提到的用法，很实际</b>：<em>you just generate a lot of data from your simulated model, and then you <b>replay over that a ton of times</b></em>。<span class='k'>模型是一个无限的数据源，于是回放缓冲区可以无限大</span>——<b>这是 p20 那句「often more data efficient」的真实含义</b>：<span class='w'>不是用更少的真实数据，而是把真实数据榨得更干</span>。",
+    "⚠️ <b>最后是一条学生问出来的、必须记住的陷阱：拿模型自己采的数据去更新模型。</b> <em>that could lead to <b>confirmation bias</b>, because your model is giving you data, and if you treat that as real data and put that into your model... you could end up being <b>overly confident</b></em>。<span class='k'>这和 L12 p16 那条确认偏误是同一个病</span>：<b>假数据不带新信息，但会让计数变大、置信区间变窄。</b>"
+   ],
+   "eq": "两条用模型的路：\n  ① 精确规划：把模型当已知 MDP，值迭代 / 策略迭代 / **树搜索**\n  ② 采样式规划：只拿模型采样，在假数据上跑模型自由算法\n\n② 为什么不是绕圈 —— 它能把片段**接起来**：\n   真实数据里从没有「A 之后 B 得 1」这一幕\n   但模型知道 A -> B，也知道 B 有时得 1  ⇒ 可以合成 A,0 -> B,1\n   ⚠ 合法性完全建立在**马尔可夫假设**上（实录原话）\n\n三个数字（真值 0.75）：\n   批 MC         0      不借证据\n   精确模型基     0.75   借，且精确          ← 真值\n   采样式规划     1      借，但有采样噪声    ← p22 的数字\n\n为什么还要采样：大状态空间上**精确规划本身就算不起**（Atari）\n「更省数据」的真实含义：不是用更少真实数据，而是把真实数据**榨得更干**\n\n⚠ 陷阱：拿模型自己采的数据去更新模型 ⇒ 确认偏误\n   假数据不带新信息，但会让计数变大、置信区间变窄（同 L12 p16）",
+   "tbl": {
+    "head": ["做法", "V(A)", "借 B 的证据吗", "有采样噪声吗"],
+    "rows": [
+     ["批 MC（原始数据）", "<b>0</b>", "<span class='w'>不借</span>", "—"],
+     ["精确模型基规划", "<b>0.75</b>（<span class='k'>真值</span>）", "<b>借，精确</b>", "无"],
+     ["采样式规划（p22）", "<b>1</b>", "<b>借</b>", "<span class='w'>有 —— 这就是 1 与 0.75 的差</span>"],
+     ["为什么还要采样", "—", "—", "<b>大空间上精确规划算不起</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页讲的「用模型把片段接起来」，正是你那个 2^H 配置空间的唯一出路，而它的前提这一页也说清了。</b><br><span class='k'>你的留出集上不可能跑遍 2^H 个配置</span>。<b>而这一页说的就是怎么办：从跑过的片段里学一个模型，用它合成没跑过的组合</b>——<span class='w'>而合法性建立在「可加 / 马尔可夫」上，正是上一页那个要实测的假设</span>。<b>两页连起来给了你一条完整的技术路线</b>：<b>先实测可加性，成立则用模型外推整个配置空间，不成立则只能在实际跑过的组合里选。</b><br><b>p22 那个 <code>V(A)=1</code> 是给你的警告，而且比它看起来重要。</b> <span class='k'>精确答案 0.75，采样给出 1 —— 偏高</span>。<b>而偏高的方向不是偶然</b>：<span class='w'>如果你用少量合成样本去估每个配置的 G，再取 argmax，采样噪声会被 argmax 系统性地选出来</span>——<b>这就是 L04 p42 的最大化偏差，在合成数据上重演一次</b>。<b>配置越多、每个配置的合成样本越少，这个偏差越大</b>。<b>两条防护</b>：① <b>合成样本数要够</b>，而不是每个配置采几条就排名；② <b>最终入选的配置必须实际跑一遍</b>——<span class='k'>你有这个条件，这是你比医疗场景强的地方</span>。<br><b>而那条「确认偏误」的陷阱在你这里有一个非常具体的形态，值得现在就记下。</b> ⚠ <span class='w'>如果你用成本模型的预测去填 oracle 表的空格，然后再用这张「补全的表」去训练或校准成本模型，就正是这个病</span>。<b>补进去的格子不含新信息，但会让表看起来更满、让任何基于计数的置信度虚高</b>。<b>规矩很简单：模型预测的格子和实际跑的格子必须始终可区分，而且算置信界时只能数实际跑的那些。</b><br>标【推断】：路线与三条警告是我推的；配置空间规模与 oracle 表在简报里是【已核】。",
+    "ref": "课件 p20–p22 · 实录 p22（马尔可夫与确认偏误，逐句核对）· L04 p42 · L12 p16 · 简报 §4c §4d（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "她给出的「最后一讲讲 MCTS」的两条理由里，哪一条才是教学上的理由？",
+    "o": ["因为期末要考", "因为 AlphaGo 很有名", "因为它把全课讲得最少的那条线 —— 模型基 RL 与规划 —— 带了回来", "因为它比深度 RL 简单"],
+    "a": 2,
+    "why": "她还坦白了为什么模型基讲得少：<em>haven't seen as much success in the deep learning case with models</em>——<span class='k'>不是不重要，是当时还没做出来</span>。紧接着她押了一注：这「很可能是一条富有成果的研究方向」，而后来的世界模型一类工作证明她说对了。"
+   }
+  ],
+  "6": [
+   {
+    "q": "实录里埋了一个伏笔：规划不必算出整个值函数，只要算出什么？",
+    "o": ["此刻该做什么动作 —— 而这正是 MCTS 可行的根本原因", "最优策略", "状态的访问次数", "奖励函数"],
+    "a": 0,
+    "why": "<b>这个限制把问题的规模从「整个状态空间」缩到了「当前这一个状态」。</b><span class='w'>值迭代要对所有状态求解；只问当下，就只需要看从这里能到的地方</span>——一个指数大的问题被削成可做的。"
+   }
+  ],
+  "11": [
+   {
+    "q": "模型基 RL 有一个课件没写、而实录给出的重要好处。是什么？它的边界在哪？",
+    "o": ["能处理连续动作；边界是动作要有界", "收敛更快；边界是要调学习率", "零样本迁移 —— 奖励函数变了，用旧动力学重新规划即可，不需要任何新经验；边界是只对「奖励变了」成立，动力学变了模型就过时", "能并行计算；边界是需要 GPU"],
+    "a": 2,
+    "why": "她的机器人例子：学会了在这间屋里转向和前进（动力学），原来去那个出口，现在改去另一个并告知新奖励——<b>重新规划即可</b>。<span class='k'>这是模型基方法最硬的一条优势，而它恰恰不在课件上。</span>"
+   },
+   {
+    "q": "「两处近似误差会复合」的机制是什么？",
+    "o": ["两个误差直接相加", "规划主动去找「模型里看起来最好的地方」，而那与「数据少、模型瞎猜的地方」高度相关 —— 于是优化器专门利用模型的错误，走到更没数据的地方，形成正反馈", "只有在连续空间才会复合", "模型误差会随时间衰减"],
+    "a": 1,
+    "why": "她把这个类比到<b>模仿学习的误差累积</b>：决策把你推向自己最不了解的地方。<span class='w'>在离线 RL 里这叫 model exploitation，是 CQL / MOPO 要解决的核心问题</span>。"
+   }
+  ],
+  "14": [
+   {
+    "q": "p14 有一个假设把最难的一半放进了前提里。是哪一个？",
+    "o": ["假设状态空间 S 与动作空间 A 已知 —— 所以「学模型」只指学 P 和 R，不学「世界由什么状态构成」", "假设奖励有界", "假设折扣因子为 1", "假设策略是确定性的"],
+    "a": 0,
+    "why": "<b>表示学习、状态抽象、该用哪些特征，全在这个假设之外</b>——而那才是真正难的部分。<span class='k'>读任何模型基方法时，这是该先确认的一件事。</span>"
+   },
+   {
+    "q": "表查模型有两种等价实现：显式计数，或者把元组存起来按需随机抽。第二种有什么额外的好处？",
+    "o": ["它只会采出真实发生过的转移，所以优化器没法利用模型在没数据处的瞎猜 —— 代价是完全没有泛化", "计算更快", "它支持连续状态", "它不需要马尔可夫假设"],
+    "a": 0,
+    "why": "这正好对冲了上一页那个「模型利用」风险。<span class='w'>而代价也很实在：没有泛化，没见过的 (s,a) 一条样本都采不出来</span>。两种实现给出同一个分布，但在健壮性与泛化之间的位置不同。"
+   }
+  ],
+  "18": [
+   {
+    "q": "同一批八幕数据，批 TD 给 V(A)=0.75，批 MC 给 V(A)=0。差别的来源是什么？",
+    "o": ["马尔可夫假设 —— TD 相信「A 之后会到 B，所以可以借用 B 的证据」，MC 不相信", "TD 的学习率没调好", "数据量不够，回放次数有限", "折扣因子不同"],
+    "a": 0,
+    "why": "⚠ <b>实录明确否掉了「数据有限」这个解释</b>：两者都把八幕用到极限，结论仍然不同。<span class='k'>这不是收敛速度问题，是收敛目标不同</span>——批 MC 收敛到最小均方误差，批 TD 收敛到「最大似然模型 + 规划」。"
+   },
+   {
+    "q": "那么哪个答案更好？",
+    "o": ["TD 总是更好", "两个都错，真值是 0.5", "取决于世界是否真的马尔可夫：真马尔可夫则 MC 的 0 浪费了那六个 B,1 的证据；非马尔可夫则 TD 的 0.75 借用了一个不成立的假设", "MC 总是更好，因为假设更少"],
+    "a": 2,
+    "why": "真值是 0.75（A 必然到 B，B 以 75% 得 1）。<b>但「真值」这个说法本身就预设了马尔可夫</b>——<span class='w'>如果系统不是马尔可夫，从 A 出发的分布可能确实与从 B 出发不同，那时 MC 的 0 才是对的</span>。"
+   }
+  ],
+  "19": [
+   {
+    "q": "既然真实数据就在手上，为什么要先建模型、再从模型里采假数据、再学？",
+    "o": ["因为真实数据不能重复使用", "因为假数据的噪声更小", "因为模型能把片段接起来 —— 合成出真实数据里从未同时出现过的组合（如「A 之后 B 得 1」），而这建立在马尔可夫假设上", "为了节省内存"],
+    "a": 2,
+    "why": "实录原话：<em>we're leveraging the fact here that it's Markov</em>。<span class='k'>最该记住的一句是：假设可以通过「造数据」注入，而不必写进算法里</span>——在合成数据上跑 MC，答案会靠向「在原始数据上跑 TD」。"
+   },
+   {
+    "q": "p22 上那个 V(A) = 1 是什么？",
+    "o": ["精确的模型基答案", "真值", "批 MC 在原始数据上的答案", "在幻灯片列出的那十来条采样数据上算出来的 —— 精确的模型基答案是 0.75，1 与 0.75 的差就是采样噪声"],
+    "a": 3,
+    "why": "<b>所以这一页同时展示了采样式规划的好处（接得起来）和代价（采样误差）。</b>三个数字放在一起看，前半讲的张力就清楚了：<span class='k'>批 MC 给 0（不借证据）· 精确模型基给 0.75（借且精确）· 采样式规划给 1（借但有噪声）</span>。"
+   },
+   {
+    "q": "拿模型自己采出来的数据去更新模型，会出什么问题？",
+    "o": ["没有问题，这就是 Dyna", "模型会发散", "计算量太大", "确认偏误 —— 假数据不带新信息，但会让计数变大、置信区间变窄，于是过度自信"],
+    "a": 3,
+    "why": "这是学生问出来的，而她答得很明确：<em>it's not from the real world, so you could end up being overly confident</em>。<span class='k'>这和 L12 p16 那条确认偏误是同一个病</span>——注意 Dyna 用模型采的数据更新<b>值函数</b>，不是更新<b>模型</b>，两者不同。"
+   }
+  ]
+ }
+}

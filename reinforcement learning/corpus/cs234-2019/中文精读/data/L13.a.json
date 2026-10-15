@@ -1,0 +1,249 @@
+{
+ "_目标": {"密度": 400, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "三条充分条件（实录，Strehl/Li/Littman 2006 的改写）：① 乐观 ② 准确 ③ 学习复杂度有界",
+  "条件①：算法算出的 V_t(s_t,a_t) ≥ Q*(s_t,a_t) − ε，对所有时间步、以高概率成立",
+  "条件②：V_t 与「混合 MDP」上执行 π_t 的值相差不超过 ε",
+  "条件③：Q 更新总次数有界，且访问未知 (s,a) 的总次数有界，界是 ε、δ 的函数",
+  "结论：满足①②③ ⇒ 在至多 N 步之外都是 O(ε)-最优，N = O(样本复杂度 / (ε(1−γ)²) · log 项)",
+  "⚠ 老师明说这组条件来自的那篇论文**没有分析 MBIE-EB**，细节要改",
+  "⚠ 算法只用前 m 个样本估 R̂ 与 T̂，之后扔掉数据 —— 为的是联合界，不是笔误",
+  "M′ 的定义：在已知 (s,a) 上等于真 MDP，其余等于乐观模型 M̃",
+  "p11、p12、p14 在 PDF 上无文字 —— 整段推导在黑板上，本精读由实录还原，全标【补课】"
+ ],
+ "notes": [
+  {
+   "r": [1, 5],
+   "t": "这一讲要干什么：把探索证成定理",
+   "star": 2,
+   "quote": "<b>Class Structure</b> — <em>Last time</em>: Fast Learning (Bayesian bandits to MDPs) · <em>This time</em>: <b>Fast Learning III (MDPs)</b> · <em>Next time</em>: Meta-learning (Guest speaker: Chelsea Finn)<br><b>Table of Contents</b>: ① MDPs ② Bayesian MDPs ③ <b>Generalization and Exploration</b> ④ Summary<br>p5 <em>Frameworks</em>: Regret · Bayesian regret · <b>PAC</b> · <em>Approaches</em>: Optimism · Thompson sampling",
+   "one": "<b>L11–L13 的最后一段。前两讲建了框架与算法，这一讲把「探索是对的」证成定理，然后承认它在深度网络上还不成立。</b>",
+   "pts": [
+    "<b>p2 的「下一次：元学习（客座）」透露了一个事实</b>：<span class='k'>这是本课探索这条线的最后一讲</span>。官方课程里 lecture 14 是客座讲座（Meta-Learning），视频与 slides 都没发布——<b>所以探索这条线到这里就收了</b>。",
+    "<b>p3–p5 是 L12 那张「设定 × 框架 × 做法」表的第三次出现</b>。设定现在固定在 MDP，框架与做法完全不换。<span class='k'>三讲共用一套词汇，这是它们被设计成一个整体的证据</span>。",
+    "<b>目录的四节里，第三节是本讲真正的新东西</b>：<em>Generalization and Exploration</em>。前两节是把 L12 的内容在 MDP 上补完（PAC 的证明骨架、MDP 上的 Thompson 采样），<b>第三节才走到「大规模状态空间下怎么办」</b>——而答案是「还在研究中」。",
+    "⚠️ <b>提前说明一件影响阅读的事：这一讲的核心推导不在课件上。</b> p9–p14 那一节（PAC 的充分条件与 MBIE-EB 如何满足它们）<span class='w'>在 PDF 上有三页完全没有文字</span>——<b>整段写在黑板上</b>。本精读这一段全部由课堂实录还原，并标【补课】。"
+   ],
+   "tbl": {
+    "head": ["讲", "设定", "主要内容", "结论的性质"],
+    "rows": [
+     ["L11", "老虎机", "遗憾、UCB、下界", "定理"],
+     ["L12", "老虎机 → MDP", "贝叶斯、Thompson、PAC、MBIE-EB", "定理"],
+     ["<b>L13（本讲）</b>", "MDP", "<b>PAC 的证明骨架 · MDP 上的 TS · 泛化下的探索</b>", "<b>前两节定理，第三节「研究中」</b>"]
+    ]
+   },
+   "tip": {
+    "t": "补课",
+    "v": "p9–p14 这一节（本讲的理论核心）<b>在课件上几乎是空白</b>：p11、p12、p14 的 PDF 里没有任何文字。<span class='k'>整段推导在黑板上</span>，本精读由课堂实录逐句还原。<b>这与 L11 p28–33 是同一种情况</b>——遇到课件突然变薄的地方，往往意味着那里是板书。"
+   }
+  },
+  {
+   "r": [6, 8],
+   "t": "回顾 MBIE-EB 与 MDP 上的 PAC",
+   "star": 2,
+   "quote": "<b>MBIE-EB</b> (Strehl and Littman 2008) — <em>β = (1/(1−γ))√(0.5 ln(2|S||A|m/δ))</em> · <em>Q̃(s,a) = R̂(s,a) + γΣT̂ max Q̃ + β/√n<sub>sa</sub>(s,a)</em><br><b>PAC for MDPs</b> — <em>on all but N steps the action selected is ε-close to optimal, where N is a <b>polynomial</b> function of (|S|,|A|,γ,ε,δ)</em><br>p8: <b>MBIE-EB is a PAC RL Algorithm</b>",
+   "one": "<b>这三页原样复制自 L12 的结尾：算法、定义、结论。本讲要补的是「为什么」。</b>",
+   "pts": [
+    "<b>L12 讲到 p58 就停在「MBIE-EB is a PAC RL Algorithm」这一句上，没有展开。</b> <span class='k'>本讲 p9 起就是在补那个展开</span>——不是完整的证明，而是「一套充分条件 + MBIE-EB 怎么满足它们」的骨架。",
+    "<b>重读一遍那个加成项 <code>β/√n<sub>sa</sub></code>，带着「它凭什么够大」这个问题。</b> 整个乐观性证明要回答的就是这一件事：<span class='w'>β 取这个值，能不能保证算出来的 Q̃ 真的不低于 Q*</span>。p10 之后的推导全在做这件事。",
+    "<b>注意 PAC 定义里的 N 是多项式，但本讲最后会给出它的形状</b>：<code>O(样本复杂度 / (ε(1−γ)²) · log 项)</code>。<b>「多项式」这三个字到这里才变成一个具体的表达式。</b>",
+    "⚠️ <b>老师在讲这一段时加了一句重要的免责声明</b>：她要讲的这组条件来自 Strehl、Li、Littman 2006，而<span class='w'>那篇论文并没有分析 MBIE-EB</span>，所以细节要改。<b>她说这是「30000 英尺高度上」的合理解释，不是严格的引用。</b>"
+   ],
+   "say": "她在开讲前先定了调：<em>the conditions that I'm gonna talk about are derived basically from this paper, with slight modifications — that paper <b>does not analyze MBIE-EB</b>. So things would have to be a little bit different. But from a 30,000 foot perspective, this is basically a reasonable way to think about why MBIE-EB is a PAC algorithm.</em><b>这种「我给的是骨架不是证明」的声明值得记下来</b>——引用时不能说成「论文证明了 MBIE-EB 满足这三条」。"
+  },
+  {
+   "r": [9, 10],
+   "t": "三条充分条件：这是一张检查表",
+   "star": 3,
+   "quote": "<b>A Sufficient Set of Conditions to Make a RL Algorithm PAC</b><br>Strehl, A. L., Li, L., Littman, M. L. (2006). <em>Incremental model-based learners with formal learning-time guarantees</em>. UAI.<br>〔p10 的具体内容在黑板上，以下由课堂实录还原〕",
+   "one": "<b>三条：① 乐观 ② 准确 ③ 学习复杂度有界。满足这三条的算法就是 PAC 的。</b>",
+   "pts": [
+    "<b>① 乐观（optimism）</b>：算法算出来的值，<span class='k'>在所有时间步上都不低于真实最优值减 ε</span>。写成式子是 <code>V<sub>t</sub>(s<sub>t</sub>,a<sub>t</sub>) ≥ Q*(s<sub>t</sub>,a<sub>t</sub>) − ε</code>（高概率成立）。<b>对 MBIE-EB 来说，这一条就是在问「β 够不够大」。</b>",
+    "<b>② 准确（accuracy）</b>：算法算出的 <code>V<sub>t</sub></code>，与<b>在一个「混合 MDP」上执行当前策略 π<sub>t</sub> 的值</b>，相差不超过 ε。<span class='w'>这个混合 MDP 既不是乐观模型也不是真实模型，而是夹在中间的一个构造</span>——p13 会说它是什么。",
+    "<b>为什么必须有第二条？老师给的理由极其干脆</b>：<em>optimism would be easy to hold by just setting our values super high and never updating</em>。<span class='k'>光要乐观，把所有值设成天文数字、永不更新就满足了</span>——但那样你永远学不到任何东西。<b>准确性条件是在强制「你必须真的用上手里的信息」。</b>",
+    "<b>③ 学习复杂度有界（bounded learning complexity）</b>，这一条有两半：<b>Q 更新的总次数有界</b>，以及<b>访问「未知」状态动作对的总次数有界</b>。两者的界都是 ε 和 δ 的函数。<span class='k'>这是对算法本身的约束</span>：你不能做无穷多次更新，也不能无穷多次撞进未知区域。",
+    "<b>把三条读成一句话</b>：<b>要敢于高估（①），但高估必须建立在对已有数据的正确使用上（②），而且探索不能没完没了（③）。</b><span class='k'>三条缺一不可，而且它们互相制衡</span>——①和②是一对张力，③给整件事加了个预算。",
+    "<b>结论的形状值得记</b>：满足三条 ⇒ 在至多 <code>N</code> 步之外都是 <b>O(ε)-最优</b>，而 <code>N = O(样本复杂度 / (ε(1−γ)²) · log 项)</code>，<b>其中样本复杂度本身是 |S|、|A| 的函数</b>。"
+   ],
+   "eq": "三条充分条件（满足则 PAC）：\n\n  ① 乐观    V_t(s_t,a_t) ≥ Q*(s_t,a_t) − ε        对所有 t，高概率\n  ② 准确    | V_t − V^{π_t}(混合 MDP) | ≤ ε\n  ③ 有界    Q 更新总次数、访问未知 (s,a) 的总次数  都有界（ε、δ 的函数）\n\n  ⇒  在至多 N 步之外都是 O(ε)-最优\n     N = O( 样本复杂度 / (ε(1−γ)²) · log 项 )\n\n为什么要 ②：光有 ① 可以靠「把值设成天文数字、永不更新」满足",
+   "tbl": {
+    "head": ["条件", "说什么", "单独满足它有多容易", "它在防什么"],
+    "rows": [
+     ["① 乐观", "算出的值 ≥ Q* − ε", "<span class='w'>很容易</span>（设成无穷大）", "防止过早放弃没试过的选项"],
+     ["② 准确", "算出的值 ≈ 混合 MDP 上的真实值", "不容易", "<b>防止「永不更新」式的假乐观</b>"],
+     ["③ 有界", "更新次数与撞未知的次数都有界", "不容易", "防止探索没完没了"]
+    ]
+   },
+   "say": "她讲这一节前先说了为什么值得讲：<em>I found this paper super helpful when I was starting to do PAC proofs in my PhD … even for those of you that aren't interested in theory, I think looking at this is helpful because it gives one an <b>intuition about what types of properties do your algorithms need to have in order to be efficient</b>.</em><b>她的定位是「这是一张检查表，不是一个证明」</b>——这也是本精读建议的读法。",
+   "tip": {
+    "t": "补课",
+    "v": "p10 在 PDF 上只有标题，<b>三条条件全写在黑板上</b>。以上内容由课堂实录逐句还原，式子的形式按她口述的结构整理。<span class='w'>符号可能与原论文不完全一致</span>——她自己也说了这组条件是「带少量修改」的改写，而且原论文没分析 MBIE-EB。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这三条当检查表用，正好能查出你现在的做法缺哪一块。</b><br><b>① 乐观</b>——你现在没有。<code>max_config Ĝ</code> 用的是点估计，<span class='w'>不含任何向上的裕量</span>。这在离线一次性评估下不致命（没有锁死回路，见 L12.a p16），但它是 L04 p42 最大化偏差的来源。<br><b>② 准确</b>——<span class='k'>这一条你反而是满足得最好的</span>，而且理由很硬：你的成本模型预期 R² &gt; 0.95，oracle 表更是精确值而非估计。<b>条件②要防的「假乐观」在你这里不存在</b>，因为你根本没有乐观项可以虚设。<br><b>③ 学习复杂度有界</b>——在离线设定下这一条自动满足：<span class='k'>你的「探索」是一次性的留出集评估，次数固定</span>，不存在「没完没了」的可能。<br><b>所以三条里你缺的只有第一条，而且缺它的后果已经由 L04 定位清楚了。</b>补法也现成：按「是最优的后验概率」排序（L12.b），或留出集拆两半（L04 p43）。<br><b>这张检查表真正的价值在于它说明了一件事</b>：<span class='w'>这三条是为「在线、要边学边用」设计的</span>，而你是离线的。<b>照搬整套 PAC 机器没有意义，但逐条问「我这一条靠什么保证」是有意义的</b>——而且问完会发现你的处境比在线情形简单得多。<br>标【推断】：逐条对照是我做的；三条条件本身来自课堂实录。",
+    "ref": "实录（p9–p10 板书）· L04 p42–p43 科研格 · L12.b p28–30 科研格 · 简报 §4e（成本模型 R²，已核）"
+   }
+  },
+  {
+   "r": [11, 12],
+   "t": "乐观性怎么证：β 够不够大",
+   "star": 3,
+   "quote": "〔p11、p12 在 PDF 上<b>没有任何文字</b>——整段推导在黑板上。以下由课堂实录还原，全部标【补课】〕<br>实录：<em>what we're trying to argue right now is that <b>that β is sufficiently large as a bonus</b>, that when we do this procedure we're gonna be optimistic</em>",
+   "one": "<b>要证的是：加上 β/√N 这个奖励加成之后，算出来的 Q̃ 确实不低于真实的 Q*。</b>",
+   "pts": [
+    "<b>思路是先处理「单个 (s,a) 一次更新」，再用归纳推到整个值迭代。</b> 第一步问：如果我用经验模型 <code>R̂</code>、<code>T̂</code> 加上真实的 <code>V*</code> 去算一次 Bellman 回溯，<span class='k'>结果离真实的 Q* 能差多远</span>？",
+    "<b>这个量可以用 Hoeffding 控制住。</b> 定义 <code>X<sub>i</sub></code> 为第 i 次访问 (s,a) 时「实际收到的奖励 + γ × 实际到达的下一状态的 V*」，<span class='k'>那么 X<sub>i</sub> 的期望正好就是 Q*(s,a)</span>。于是「n 个样本的平均离真值有多远」就是一个标准的集中不等式问题。",
+    "<b>Hoeffding 给出的形式是</b>：<code>P( Q*(s,a) − (1/n)Σ X<sub>i</sub> ≥ β/√n ) ≤ exp(−2β²(1−γ)²)</code>。<span class='w'>注意右边不含 n</span>——<b>这正是 kp#5 说的「n 恰好抵消」</b>：左边的偏差阈值取成 <code>β/√n</code>，而 Hoeffding 的指数里本来有一个 n，两者相消，<b>于是失败概率与样本数无关</b>。",
+    "<b>这个抵消不是巧合，是 β/√N 这个形状被选中的原因。</b> <span class='k'>如果加成项取别的形状，失败概率就会随 n 变化，联合界就做不干净</span>。",
+    "<b>把 β 的真实值代进去，右边正好等于 <code>δ / (2|S||A|m)</code>。</b> 这个数的形状直接说明了 β 里那个 <code>ln(2|S||A|m/δ)</code> 是怎么来的——<b>它是为了让每一格的失败概率小到可以对 |S|·|A|·m 个事件做联合界</b>。",
+    "⚠️ <b>老师特意停下来说了一处技术麻烦</b>：MDP 里数据不是独立同分布的，<em>the data you gathered depends on your algorithm — you're gonna get more samples for state-action pairs that you think are gonna be good</em>。<span class='w'>整体不 i.i.d.</span>，但<b>条件在「我们正在采这个 (s,a)」之上，下一状态与奖励是 i.i.d. 的，因为 Markov 性</b>。<b>严格处理要用鞅版本的不等式。</b>"
+   ],
+   "eq": "单个 (s,a) 的集中不等式（实录还原）：\n\n  X_i = r_i + γ V*(s'_i)        第 i 次访问时的「即时奖励 + 折扣后继最优值」\n  E[X_i] = Q*(s,a)\n\n  P( Q*(s,a) − (1/n)Σ X_i  ≥  β/sqrt(n) )  ≤  exp( −2β²(1−γ)² )\n                            └─ 阈值含 1/sqrt(n) ─┘   └─ 右边不含 n ─┘\n\n  代入 β = (1/(1−γ))·sqrt(0.5 ln(2|S||A|m/δ))\n  ⇒ 右边 = δ / (2|S||A|m)     ← 正好够做 |S|·|A|·m 个事件的联合界",
+   "tbl": {
+    "head": ["步骤", "在做什么", "关键点"],
+    "rows": [
+     ["定义 X<sub>i</sub>", "r + γV*(s′)", "<b>它的期望就是 Q*(s,a)</b>"],
+     ["用 Hoeffding", "控制 n 个样本的平均偏差", "<b>阈值取 β/√n ⇒ 指数里的 n 抵消</b>"],
+     ["代入 β", "得到失败概率", "= δ/(2\\|S\\|\\|A\\|m)"],
+     ["联合界", "对所有 (s,a) 与 m 次更新同时成立", "<b>这就是 β 里 ln(2\\|S\\|\\|A\\|m/δ) 的来源</b>"],
+     ["归纳", "从一次回溯推到整个值迭代", "得到 Q̃ ≥ Q*"]
+    ]
+   },
+   "tip": {
+    "t": "补课",
+    "v": "这两页课件上<b>一个字都没有</b>。以上全部来自课堂实录，式子按她口述的结构整理。<span class='w'>常数与指数形式可能与原论文有出入</span>——实录里她也说了会用「Hoeffding 或类似的偏差不等式」，并提到可以用鞅版本。<b>要引用具体常数时查原论文，不要照抄这里。</b>"
+   }
+  },
+  {
+   "r": [13, 13],
+   "t": "为什么要故意扔掉数据",
+   "star": 3,
+   "quote": "<b>How Does MBIE-EB Fulfill these Conditions?</b>〔具体内容在黑板上〕<br>实录：<em>we only use the <b>first m samples</b> of (s,a) to compute R̂ and T̂ … <b>After that we're gonna throw away our data</b></em>",
+   "one": "<b>算法只用前 m 个样本估模型，之后的数据全扔。这不是笔误，是为了联合界——而老师自己说这在智识上完全不令人满意。</b>",
+   "pts": [
+    "<b>先把做法说清楚</b>：对每个 (s,a)，访问次数达到 m 之前用数据更新 <code>R̂</code> 与 <code>T̂</code>；<span class='w'>到了 m 次之后就再也不更新了</span>，哪怕后面又访问了一万次。",
+    "<b>为什么？因为高概率界。</b> 整个证明靠联合界把「所有 (s,a)、所有更新时刻」的失败概率加起来。<span class='k'>如果更新次数无上限，要联合的事件就是无穷多个，界做不出来</span>。<b>限制在 m 次，联合界里的项数就是 |S|·|A|·m，有限且可控</b>——这正是 β 里那个 m 的来源。",
+    "<b>老师自己把这件事的别扭之处点破了，而且点得很重。</b> 她引了 Tom Mitchell 对机器学习的定义：<em>we design algorithms that <b>continue to improve with more data</b></em>，然后说 <span class='w'><em>this is violating that to some extent</em></span>——<b><em>even if you get 10 trillion examples of that state-action pair, which surely would make your empirical model better, we're gonna throw all that data out</em></b>。",
+    "<b>她的结论是两句并列的话，缺一不可</b>：<em><b>Intellectually, this is completely unsatisfying</b>, because you should clearly be able to use more data and your algorithm should do better with using more data</em>，<em>and <b>empirically, we use all the data</b></em>。<span class='k'>理论要求扔，实践全留</span>。",
+    "<b>这是本讲最该记住的一处「理论与实践的缝」。</b> 它不是说理论错了——<b>而是说这条证明路径需要一个实践中没人遵守的前提</b>。<span class='w'>所以「MBIE-EB 是 PAC 的」这句话，严格说是对那个会扔数据的版本成立的</span>。",
+    "⚠️ <b>读 PAC 类论文时，这一类前提值得专门找一找</b>。L12 p53 已经出现过一次同样的问题（乐观初始化要到 10¹⁰⁰ 才 PAC）。<b>两处的模式相同：定理成立，但成立的条件在实践中不被采用。</b>"
+   ],
+   "tbl": {
+    "head": ["", "理论版本（可证 PAC）", "实践版本"],
+    "rows": [
+     ["用多少数据估模型", "<b>只用前 m 个</b>", "<b>全用</b>"],
+     ["为什么这么定", "联合界要项数有限", "数据越多模型越准"],
+     ["Tom Mitchell 的 ML 定义", "<span class='w'>被违反</span>", "符合"],
+     ["老师的评价", "<em>completely unsatisfying</em>", "<em>empirically we use all the data</em>"]
+    ]
+   },
+   "say": "这一整段都是课件上没有的。她讲完之后还顺了一句：<em>one thing that I find really satisfying for the last few years is …</em>（指向后来改进这一点的工作）。<b>把「理论要求扔数据」这件事当成一个公开的未解问题来讲，而不是一笔带过，是这一讲里很见功力的地方。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你的直接价值不是「要不要扔数据」，而是它示范了一种该有的怀疑。</b><br>你的 oracle 表用的是<b>全部</b>留出集数据，这在实践上当然对。但这一页提醒你：<span class='k'>当你引用某个 PAC / 高置信界时，要去看它的前提里有没有你没遵守的东西</span>。<br><b>一个你很可能会遇到的具体例子</b>：高置信离策略评估（L15 会讲）的界，大多要求<b>数据与策略独立</b>——也就是「你不能先看了数据再决定评估哪个策略」。<span class='w'>而你的流程恰恰是先在留出集上挑出 config*，再评估它</span>。<b>这正是 L04 p43 要求「留出集拆两半」的理论理由</b>：split A 挑、split B 评，B 的数据与被评估的策略独立，界才成立。<br><b>所以这两讲是接上的</b>：L04 从偏差的角度说「不拆会虚高」，L13 从证明前提的角度说「不拆的话那个界根本不适用」。<span class='k'>同一个做法，两条独立的理由</span>——写进论文时两条都该提，因为它们说服的是不同的审稿人。<br>标【推断】：这个类比与「两条理由」的归纳是我做的；扔数据的理论原因来自实录，留出集拆两半是 L04 的原课内容。",
+    "ref": "实录（p13 板书）· L04 p43（split samples）· L15（高置信 OPE，待该讲精读时接回）"
+   }
+  },
+  {
+   "r": [14, 14],
+   "t": "两个构造出来的 MDP，与鸽笼论证",
+   "star": 3,
+   "quote": "〔p14 在 PDF 上<b>没有任何文字</b>。以下由课堂实录还原，全部标【补课】〕<br>实录：<em>M′ … is equal to the true MDP on (s,a) <b>in known set</b>, else it's equal to the M̃ model</em> · <em>the key idea here is the <b>pigeonhole principle</b></em>",
+   "one": "<b>把所有 (s,a) 分成「已知」和「未知」，再造一个混合 MDP：已知的地方用真模型，未知的地方用乐观模型。然后用鸽笼原理数清楚「还能撞多少次未知」。</b>",
+   "pts": [
+    "<b>先是「已知 / 未知」的二分。</b> 一个 (s,a) 被访问够 m 次就算<b>已知</b>（模型估得够准），否则算<b>未知</b>。<span class='k'>这个划分是整个证明的脚手架</span>——它把「学得怎么样」变成了一个可以数的量。",
+    "<b>然后造 M′</b>：<code>在已知集上 = 真实 MDP；在未知集上 = 乐观模型 M̃</code>。<span class='w'>这个 MDP 在现实中不存在</span>，纯粹是分析工具。<b>它的用处是把两件事连起来</b>：在已知的地方它和真实世界一样，在未知的地方它保留了乐观。",
+    "<b>连接靠的是模拟引理（simulation lemma）</b>，老师给了一句极好的概括：<em>you can <b>propagate empirical predictive error to control error</b></em>。<span class='k'>模型估得准 ⇒ 用它算出的值函数也准 ⇒ 由它导出的策略也好</span>。<b>「预测误差能传播成控制误差」——这一句值得单独记住。</b>",
+    "<b>最后是鸽笼论证，它处理的是条件③。</b> 把经验流切成若干段，每段问一句：<b>这一段里撞上「未知」(s,a) 的概率有多大？</b><br>· <span class='k'>概率小</span> ⇒ 你基本上待在已知区域，而在那里你是近最优的 ⇒ <b>没犯错</b>；<br>· <span class='k'>概率大</span> ⇒ 你确实会撞上未知的，<b>但这不可能发生太多次</b>。",
+    "<b>为什么「不可能太多次」？这就是鸽笼。</b> 每个 (s,a) 最多只更新 m 次（p13 那条规则），<span class='w'>所以「未知」这个状态总共只能维持 |S|·|A|·m 次访问</span>。<b>撞完了，所有东西就都变成已知的了。</b>",
+    "<b>于是整个论证闭合</b>：<em>either you're not reaching any unknown part of the state-action space（那你是近最优的），or 你在撞未知（而那只能发生有限次）</em>。<span class='k'>两种情形都不会产生无限多次坏决策</span>——这正是 PAC 要的结论。",
+    "⚠️ <b>注意 p13 那条「扔掉第 m 个之后的数据」在这里起了第二个作用。</b> 它不只是为了联合界，<b>它还是鸽笼论证的前提</b>——正因为每格最多更新 m 次，「未知」才是一个会耗尽的资源。<span class='w'>如果允许无限更新，鸽笼就数不出来了</span>。"
+   ],
+   "eq": "已知 / 未知的二分：\n  (s,a) 访问满 m 次  ⇒  已知（模型估得够准）\n  否则              ⇒  未知\n\n构造的 MDP：\n  M′ =  真实 MDP        在已知 (s,a) 上\n        乐观模型 M̃      在未知 (s,a) 上\n\n模拟引理：模型准  ⇒  值函数准  ⇒  策略好\n          （把「预测误差」传播成「控制误差」）\n\n鸽笼：\n  P(撞上未知) 小  ⇒  待在已知区，近最优，不算犯错\n  P(撞上未知) 大  ⇒  确实会撞，但每格最多 m 次\n                     ⇒ 总共至多 |S|·|A|·m 次 ⇒ 会耗尽",
+   "tbl": {
+    "head": ["分析工具", "是什么", "作用"],
+    "rows": [
+     ["已知 / 未知二分", "访问满 m 次算已知", "<b>把「学得怎么样」变成可数的量</b>"],
+     ["M̃（乐观模型）", "经验模型 + β/√N 加成", "算法实际在用的那个"],
+     ["<b>M′（混合）</b>", "已知处用真模型，未知处用 M̃", "<b>把真实世界与乐观连起来</b>"],
+     ["模拟引理", "模型近 ⇒ 值近 ⇒ 策略好", "<b>预测误差 → 控制误差</b>"],
+     ["鸽笼原理", "每格最多 m 次 ⇒ 未知会耗尽", "<b>给条件③的界</b>"]
+    ]
+   },
+   "tip": {
+    "t": "补课",
+    "v": "这一页课件上<b>一个字都没有</b>，以上全部来自课堂实录。她自己也说了<em>I won't go through all of it in detail, but I'm very happy to talk about it offline</em>——<b>连课堂上都是略讲</b>。<span class='w'>所以这里给的是论证的骨架与直觉，不是可引用的证明</span>。要细节请查 Strehl/Li/Littman 2006 与 Strehl/Littman 2008。"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>模拟引理那一句是这一讲对你最直接可用的东西：「把预测误差传播成控制误差」。</b><br>你的成本模型就是一个预测模型，而且它<b>预期 R² &gt; 0.95</b>（简报 §4e）。模拟引理给的正是「预测这么准，意味着用它做出的决策能好到什么程度」这个推导的形式。<span class='k'>这把「我的成本模型很准」从一句实验观察，变成了一个可以接到决策质量上的论证</span>。<br><b>具体怎么用</b>：模拟引理的标准形式是「若模型误差 ≤ η，则值函数误差 ≤ η 的某个放大倍数，放大倍数与有效时域有关」。<span class='w'>而你的有效时域极短</span>——L02 的科研格算过 <b>γ 该是 1、H ≤ 10</b>，所以放大倍数是 H 量级（10）而不是 1/(1−γ)² 量级（γ=0.99 时是 10000）。<b>这是一个对你极其有利的结构性事实，值得在论文里明写</b>：同样的模型误差，在你的短时域问题上传播出的决策误差要小两三个数量级。<br>⚠️ <b>但「已知/未知」那套二分不要直接搬。</b> 它是为在线探索设计的（未知会随探索耗尽），<span class='w'>而你的留出集是固定的，未知不会自己耗尽</span>——没跑过的配置就是永远没跑过。<b>在你这里「未知」不是一个会耗尽的资源，而是一个固定的覆盖缺口</b>，所以该做的是<b>测量它</b>（每个 (节点,档位) 的计数，最小的那格决定你最弱的一环，见 L12.b），而不是指望它消失。<br>标【推断】：模拟引理的用法与时域对比是我推的；R² 预期与 γ=1/H≤10 在简报与 L02 里是已有结论。",
+    "ref": "实录（p14 板书，模拟引理）· 简报 §4e（成本模型，已核）· L02 p13 科研格（γ=1，H≤10）· L12.b p24 科研格"
+   }
+  }
+ ],
+ "quiz": {
+  "9": [
+   {
+    "q": "三条充分条件里，「准确性」这一条为什么必须存在？",
+    "o": ["为了保证收敛速度", "因为 Hoeffding 不等式需要它", "因为光要乐观，把所有值设成天文数字、永不更新就能满足——那样永远学不到东西", "为了处理连续状态空间"],
+    "a": 2,
+    "why": "老师的原话：<em>optimism would be easy to hold by just setting our values super high and never updating</em>。<b>准确性条件是在强制「你必须真的用上手里的信息」</b>。三条读成一句话：敢于高估（①），但高估要建立在正确使用数据之上（②），而且探索不能没完没了（③）。"
+   },
+   {
+    "q": "关于这组充分条件的来源，老师特意加了什么声明？",
+    "o": ["它是她自己的原创结果", "它是从 Hoeffding 不等式推出来的", "它只适用于有限状态空间", "原论文并没有分析 MBIE-EB，细节要改；这是「30000 英尺高度」的合理解释而非严格引用"],
+    "a": 3,
+    "why": "<em>that paper does not analyze MBIE-EB. So things would have to be a little bit different.</em> <b>引用时不能说成「论文证明了 MBIE-EB 满足这三条」。</b>这类免责声明值得专门记下来。"
+   }
+  ],
+  "11": [
+   {
+    "q": "乐观性证明里，Hoeffding 给出的失败概率界 exp(−2β²(1−γ)²) <b>不含 n</b>。这是怎么来的？",
+    "o": ["因为 β 与 n 无关", "因为 γ<1", "因为偏差阈值取成 β/√n，而 Hoeffding 指数里本来有一个 n，两者相消", "因为样本是独立同分布的"],
+    "a": 2,
+    "why": "这正是 β/√N 这个形状被选中的原因——<b>如果加成项取别的形状，失败概率就会随 n 变化，联合界做不干净</b>。代入 β 的真实值后右边正好等于 δ/(2|S||A|m)，刚好够对 |S|·|A|·m 个事件做联合界。"
+   },
+   {
+    "q": "老师提到 MDP 里数据不是 i.i.d. 的。她的处理方式是？",
+    "o": ["要求算法均匀采样", "指出整体不 i.i.d.（采样依赖算法），但条件在「正在采这个 (s,a)」之上，下一状态与奖励因 Markov 性是 i.i.d. 的", "忽略这个问题", "改用贝叶斯方法"],
+    "a": 1,
+    "why": "<em>you're gonna get more samples for state-action pairs that you think are gonna be good</em>——所以存在耦合。<b>严格处理要用鞅版本的不等式</b>，她提到了这一点但没展开。"
+   }
+  ],
+  "13": [
+   {
+    "q": "MBIE-EB 只用前 m 个样本估模型、之后扔掉数据。原因是？",
+    "o": ["为了联合界：更新次数无上限则要联合的事件是无穷多个，界做不出来", "节省内存", "防止过拟合", "因为后面的样本有偏"],
+    "a": 0,
+    "why": "限制在 m 次，联合界里的项数就是 |S|·|A|·m，有限可控——<b>这正是 β 里那个 m 的来源</b>。而它还有第二个作用：它是鸽笼论证的前提（每格最多 m 次，「未知」才是会耗尽的资源）。"
+   },
+   {
+    "q": "老师怎么评价「扔掉数据」这件事？",
+    "o": ["认为它提高了样本效率", "认为这是实现细节", "引 Tom Mitchell 的 ML 定义指出它违反了「算法应随数据增多而改进」，说它「在智识上完全不令人满意」，并明说实践中全用数据", "这是算法设计的优点"],
+    "a": 2,
+    "why": "<em>even if you get 10 trillion examples … we're gonna throw all that data out … <b>Intellectually, this is completely unsatisfying</b> … and <b>empirically, we use all the data</b></em>。<b>这是本讲最该记住的一处「理论与实践的缝」</b>——定理成立，但成立的条件在实践中不被采用。L12 p53 的 10¹⁰⁰ 初始值是同一个模式。"
+   }
+  ],
+  "14": [
+   {
+    "q": "混合 MDP M′ 是怎么定义的？",
+    "o": ["在已知 (s,a) 上等于真实 MDP，在未知 (s,a) 上等于乐观模型 M̃", "所有 (s,a) 上都用经验模型", "它是真实 MDP 与乐观模型的加权平均", "所有 (s,a) 上都用乐观模型"],
+    "a": 0,
+    "why": "<b>它在现实中不存在，纯粹是分析工具</b>。用处是把两件事连起来：在已知的地方它和真实世界一样，在未知的地方保留乐观。连接靠模拟引理。"
+   },
+   {
+    "q": "模拟引理说的是什么？老师的一句话概括是？",
+    "o": ["模型准 ⇒ 值函数准 ⇒ 策略好；即「把预测误差传播成控制误差」", "模拟器比真实环境更高效", "蒙特卡洛模拟收敛到真值", "乐观模型总是上界"],
+    "a": 0,
+    "why": "原话：<em>you can propagate empirical predictive error to control error</em>。<b>这一句值得单独记住</b>——它把「我的模型很准」这句实验观察，变成了一个可以接到决策质量上的论证。"
+   },
+   {
+    "q": "鸽笼论证为什么能保证坏决策的次数有限？",
+    "o": ["因为状态空间有限", "因为每个 (s,a) 最多更新 m 次，所以「未知」总共只能维持 |S|·|A|·m 次访问，会耗尽", "因为 γ<1 使误差衰减", "因为策略最终会收敛"],
+    "a": 1,
+    "why": "两种情形都不产生无限多坏决策：撞未知的概率小 ⇒ 你待在已知区且近最优；概率大 ⇒ 你确实会撞，但<b>未知是会耗尽的资源</b>。注意这依赖 p13 那条「最多更新 m 次」的规则——<span class='w'>允许无限更新的话鸽笼就数不出来了</span>。"
+   }
+  ]
+ }
+}

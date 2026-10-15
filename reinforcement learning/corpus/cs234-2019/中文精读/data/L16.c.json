@@ -1,0 +1,341 @@
+{
+ "_目标": {"密度": 400, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p47 的脚注出处：Hay, Russell, Tolpin &amp; Shimony, 「Selecting Computations: Theory and Applications」, 2012 —— 课件把这条路线叫 metalevel reasoning（元层推理）",
+  "⚠ p47 的 check your understanding 答案（实录）：老虎机用乐观是因为**真的要承受坏决策的代价**；而在规划里「在脑子里做坏决策不疼」，所以乐观在这里并不是对的目标 —— 该要的是**信息价值**",
+  "p47 反例（实录口述，课件只有图）：A1 的值高、A2 的不确定性宽。乐观永远选 A1；但若想**确信** A1 更好，该选的是 A2 —— 采它会收窄它的区间，从而把两者彻底分开",
+  "实录对 UCT 的最终评价：it's **not clear** that the bandits at each node is the optimal thing to do, **but it's pretty efficient**",
+  "p52 列的后续课程：CS238 · CS239 · MSE351 · MSE338 · CS332（实录点名 Mykel Kochenderfer 与 Ben Van Roy）",
+  "p51 全课五条目标（本精读逐条展开）；实录说第 2 条「对很多人来说可能是最有用的那一条」",
+  "p57 两条变体：更好的 rollout 策略（策略网络）· 学一个值函数（可用来避免 rollout 到整幕结束）",
+  "p58：AlphaGo Zero 与 AlphaZero，后者也用在国际象棋上",
+  "⚠ p42–p45、p54、p55 在 PDF 上只有标题，正文是图 —— p42–p45 按实录口述还原，标【补课】；p54（课程评估）与 p55（早期围棋 Elo 图）不还原"
+ ],
+ "notes": [
+  {
+   "r": [41, 45],
+   "t": "在围棋上跑一遍，和自我对弈这个真正的关键",
+   "star": 3,
+   "quote": "<b>Applying Monte-Carlo Tree Search (1)</b> — <em>Go is a 2 player game so tree is a <b>minimax</b> tree instead of expectimax</em> · <em>White <b>minimizes</b> future reward and Black <b>maximizes</b> future reward when computing action to simulate</em><br>〔p42–p45 是那张著名的五格图，PDF 上只有标题，本精读按实录口述还原〕",
+   "one": "<b>五格图一步步给出树怎么长出来。而实录补了一件课件上完全没有、却是围棋真正被攻克的关键：自我对弈。</b>",
+   "pts": [
+    "<b>先把两人博弈那一处改动记住：状态节点上取的不是期望，而是对手的最小化。</b> <span class='k'>白方要最小化黑方的回报</span>，<b>于是 expectimax 变成 minimax</b>。<span class='w'>除此之外 MCTS 的全部机制一个字不改</span>——<b>树策略、rollout、计数、UCT 全都照用。</b>",
+    "⚠️ <b>p42–p45 是那张五格图，PDF 上无正文。按实录口述还原【<b>补课</b>】，一步一格：</b>",
+    "<b>第一格（第一次 rollout）：树还什么都没有。</b> <span class='k'>根节点上没有任何统计，所以随机挑一个动作</span>，<b>之后一律按默认策略（通常就是随机）走到底，看是赢还是输</b>。<span class='w'>于是你得到了一个数，挂在那一条路径上</span>。",
+    "<b>第二格（第二次 rollout）：这次换另一个动作。</b> <span class='k'>实录给了一条通用规则</span>：<em>generally, you want to <b>try all the actions at least once</b> from a current node</em>。<b>所以在把一个节点的所有动作各试一遍之前，不会去深挖任何一条。</b>",
+    "⚠️ <b>而她在这里插了一条实践上极重要的话</b>：<em>the particular <b>order</b> in which you try actions can make a <b>big difference</b>, and early on there were significant savings by putting in <b>action heuristics</b> of what order to try actions in</em>。<span class='w'>先试哪个动作会显著影响效率</span>——<b>这是 AlphaGo 后来用策略网络做的事（给动作排序）在 2019 之前的土办法。</b>",
+    "<b>第三格之后：到了已经访问过的节点，就该用 UCT 了。</b> <span class='k'>看每个动作已有的平均回报，加上计数的加成，取最大</span>，<b>然后把算力集中到那条分支上继续挖</b>。<span class='w'>于是树开始变得<b>偏</b>——一侧深，一侧浅</span>。<b>这就是「故意长成偏的一棵树」的字面意思。</b>",
+    "<b>最后一格：直到算力预算用完。</b> <em>you do this until your <b>computational budget expires</b></em>。<span class='k'>然后从叶子往回收：动作节点取 max，状态节点取 minimax</span>，<b>根节点上那个最大值对应的动作，就是真实世界里要下的那一手。</b>",
+    "<b>接下来是实录独有、而且她自己说这是关键的一条：自我对弈。</b> <span class='w'>学生问「对手是谁」，她的回答是</span>：<em>I think one of the other <b>really big insights</b> to why people got Go to work is <b>self play</b></em>——<b>用当前这个智能体自己当对手。</b>",
+    "<b>她给的理由完全是关于信号的，而这个理由很漂亮。</b> <em>if I play against a <b>grand-master</b> in Go, I get <b>no reward for a really long period of time</b>... there's just <b>no signal</b> for a really, really long time. If I play against <b>me like five minutes ago</b>, I'm probably gonna beat them, or at least half the time maybe I'll beat them</em>。<span class='k'>两个都很弱的棋手对下，总有一个赢一个输——于是立刻就有信号</span>。",
+    "<b>她把这件事的两重作用点明了，值得分开记。</b> ① <b>缓解稀疏奖励</b>（总能拿到胜负这个信号）；② <b>提供课程</b>（<em>it gives you a <b>curriculum</b>, because you're always only playing in an environment that's <b>a little bit more difficult</b> than what you can manage</em>）。<span class='w'>难度自动跟着能力走，不需要人去设计难度曲线</span>。",
+    "<b>学生问了会不会卡在局部最优，答案很实在。</b> <em>Absolutely can happen</em>——<span class='k'>但「你总是在取 max，所以这有点像策略改进，你总在试着做得好一点」</span>；<b>而如果两边都只是各赢一半，那就说明「应该存在可以利用的弱点，而只要规划做得够多，你应该能找出来」</b>。<span class='w'>这个回答没有保证，只有一个机制上的理由。</b>",
+    "<b>另一个学生问得更妙：是不是该在某个时候换成更强的对手。</b> <span class='k'>她认为很可能是的，更大的课程跳跃可能加速学习</span>，<b>但「那个甜蜜点不好找，因为你仍然需要足够的奖励信号来自举」</b>。<b>太弱学不到，太强没信号——这是所有课程学习的共同难题。</b>",
+    "<b>最后她留了一个公开的愿望，而这句话指向一个真正的研究缺口</b>：<em>it would be really, really cool if we could figure out how to take the same ideas to a lot of other domains. Like if there are other ways to essentially <b>make self play for things like medicine or customer relations</b></em>。<span class='w'>自我对弈需要「两个版本的自己可以互相对抗并产生胜负」，而大多数现实任务没有这个结构。</span>"
+   ],
+   "eq": "两人博弈的唯一改动：状态节点取 **minimax** 而不是期望\n   白方最小化、黑方最大化。其余机制（树策略 / rollout / 计数 / UCT）一字不改\n\n五格图（按实录还原）：\n  ① 树是空的 ⇒ 随机挑一个动作，默认策略走到底，看赢输\n  ② 换另一个动作 ⇒ 规则：**一个节点的所有动作先各试一次**，再去深挖\n     ⚠ 先试哪个动作会显著影响效率 ⇒ 早期靠**动作启发式**排序\n       （AlphaGo 后来用策略网络做的就是这件事）\n  ③ 到访问过的节点 ⇒ 用 UCT 取最大，把算力集中到那条分支\n     ⇒ 树开始变**偏**：一侧深，一侧浅\n  ④ 直到**算力预算用完**\n  ⑤ 从叶子回收：动作节点 max，状态节点 minimax ⇒ 根上的 argmax 就是真实要下的那手\n\n自我对弈（实录独有，她说这是围棋被攻克的关键之一）：\n   打大师    ⇒ 极长时间**没有任何信号**\n   打五分钟前的自己 ⇒ 两个都弱，总有一个赢 ⇒ **立刻有信号**\n\n   两重作用：① 缓解稀疏奖励   ② 提供**课程**（难度自动跟着能力走）\n\n   ⚠ 局部最优会发生；机制上的理由是「总在取 max，像策略改进」\n     若两边都只赢一半 ⇒ 应存在可利用的弱点，规划够多就能找出来（无保证）\n   ⚠ 换更强对手可能加速，但「甜蜜点不好找 —— 仍需足够信号来自举」\n\n   她的公开愿望：能不能为**医疗、客户关系**造出自我对弈？\n   （前提是「两个版本的自己能互相对抗并产生胜负」—— 多数现实任务没有这个结构）",
+   "tbl": {
+    "head": ["对手选谁", "信号", "课程", "问题"],
+    "rows": [
+     ["大师", "<span class='w'>极长时间没有</span>", "<span class='w'>太陡</span>", "学不动"],
+     ["<b>五分钟前的自己</b>", "<b>立刻有（总有一方赢）</b>", "<b>自动跟着能力走</b>", "可能卡在局部最优"],
+     ["固定的弱对手", "有", "<span class='w'>不增长</span>", "<b>估值系统性偏高</b>（p40）"],
+     ["⚠ 适用前提", "—", "—", "<b>要能「两个自己对抗并产生胜负」</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>自我对弈在你这里没有直接对应物，而说清为什么没有，比硬套一个要有价值。</b><br><span class='k'>自我对弈需要一个<b>对抗</b>结构：两个版本的自己互相博弈，胜负自然产生</span>。<b>而你的问题是单边优化</b>——<span class='w'>没有对手，query 不会因为你变强而变难</span>。<b>所以这条路线借不过来，这是实话，不必勉强。</b><br><b>但它的第二重作用——课程——是可以借的，而且该借。</b> <span class='k'>她说课程的好处是「总在略微超出当前能力的环境里训练」</span>。<b>翻译到你这里：按难度给 query 分层，而不是把它们混成一池</b>。<span class='w'>而你有一个现成的难度定义：在 oracle 表里，「全用 72B 也答错」的 query 是最难的，「全用 7B 也答对」的是最简单的</span>。<b>这个分层是免费的副产品，而它会立刻暴露一件事</b>：<b>节点级指派的收益很可能几乎全部来自中间那一层</b>——<span class='k'>最简单的 query 任何配置都对（省钱即赚），最难的任何配置都错（省钱也是赚，但那是另一回事）</span>。<b>如果你的平均 G 提升主要来自「在简单题上省钱」，那结论的分量就小得多，而审稿人会问。先自己算出来。</b><br><b>而 p40 那个「固定对手让估值偏高」的警告在这里要升级成一条硬规矩。</b> ⚠ <span class='w'>你一直在同一批 query 上调方法，这正是「打固定的弱对手」</span>——<b>报出来的 G 会系统性偏高，而且偏多少你不知道</b>。<b>唯一的解药是留一批从头到尾没被看过的 query，只在最后跑一次</b>。<span class='k'>这和 L15 p55 的 20%/80% 是同一条规矩，而这一页给了它一个很好记的说法</span>。<br><b>最后一条可以直接用上的：动作顺序的启发式。</b> <span class='w'>实录说「早期靠给动作排序省下了大量算力」，而 AlphaGo 的策略网络做的就是这件事</span>。<b>你的对应物是：先扫哪些节点</b>。<span class='k'>如果你的一步偏离扫描要在 H 个节点里挑 k 个，那么<b>按「这个节点的 token 占比」排序</b>几乎肯定比随机顺序好</b>——<b>成本集中在输出长的节点上，那里的档位切换收益最大</b>。<b>这是一个零成本的先验，而且它能把扫描的预算省下一大截。</b><br>标【推断】：难度分层、排序启发式与那条「收益可能全在中间层」的预测都是我推的；oracle 表与一步偏离扫描在简报里是【已核】。",
+    "ref": "课件 p41 · 实录 p42–p45（五格图与自我对弈，逐句核对）· p40 · L15 p55 · 简报 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [46, 46],
+   "t": "MCTS 的好处：五条，而「随时可停」最被低估",
+   "star": 2,
+   "quote": "<b>Advantages of MC Tree Search</b> — <em>Highly <b>selective</b> best-first search</em> · <em>Evaluates states <b>dynamically</b> (unlike e.g. DP)</em> · <em>Uses <b>sampling</b> to break curse of dimensionality</em> · <em>Works for <b>“black-box”</b> models (only requires samples)</em> · <em>Computationally efficient, <b>anytime</b>, parallelisable</em>",
+   "one": "<b>五条好处，每一条都对应前面某一处代价的解除。而最实用的是「随时可停」。</b>",
+   "pts": [
+    "<b>第一条「高度选择性的最佳优先搜索」是对 expectimax 那个指数的回答。</b> <span class='k'>不是所有分支一视同仁，而是只深挖看起来好的那些</span>。<b>所以它不是「更快的 expectimax」，而是「只算一部分的 expectimax」</b>——<span class='w'>换来的是不保证最优（除了在极限下）</span>。",
+    "<b>第二条「动态地评估状态」要和动态规划对照才看得出分量。</b> <span class='w'>DP 要给<b>所有</b>状态都算一个值，不管你去不去得了</span>；<b>MCTS 只评估从当前状态出发实际触碰到的那些</b>。<span class='k'>于是计算量和状态空间的大小脱钩，只和「你愿意采多少条轨迹」挂钩</span>。",
+    "<b>第三条「用采样打破维数灾难」说的是同一件事的另一面。</b> <b>期望不必枚举所有下一状态来算，采样就够</b>——<span class='w'>于是 <code>(|S||A|)^H</code> 里那个 <code>|S|</code> 不再直接进来</span>。<b>代价是方差。</b>",
+    "<b>第四条最容易被低估：它只要一个「黑箱」模型。</b> <span class='k'>MCTS 对模型的全部要求是「给我一个 (s,a)，还我一个 (r,s′) 的样本」</span>——<b>不需要显式的转移概率表，不需要可微，不需要任何解析形式</b>。<span class='w'>于是任何能跑的模拟器都能接上</span>：<b>物理引擎、游戏规则、一段遗留代码。</b>",
+    "<b>把这条的意义说透：它解释了为什么 MCTS 在工业界用得比许多「更先进」的方法多。</b> <span class='k'>绝大多数真实系统都有某种模拟器，而很少有系统能给出可微的、解析的动力学</span>。<b>「只要能采样」这个门槛低得几乎人人满足。</b>",
+    "<b>第五条里「随时可停」（anytime）是最实用的一条，而实录给的例子很接地气。</b> <em>whether you have <b>one minute</b> or you have <b>three hours</b> to compute the next action... maybe you're gonna make <b>one decision per day</b> and so you can run it <b>overnight for eight hours</b> and then compute that one decision</em>。<span class='w'>给多少算力就用多少，随时打断都能给出一个答案</span>。",
+    "<b>「随时可停」为什么是一个结构性的好处，而不只是方便？</b> <span class='k'>因为它把「算多久」从算法的设计参数变成了<b>部署时</b>的旋钮</span>。<b>同一套代码，在手机上跑 50 毫秒、在服务器上跑八小时，都是有效的</b>——<span class='w'>而值迭代一类的方法必须跑到收敛才给出可用的策略</span>。<b>这是一个很少被强调、但在工程上极其值钱的性质。</b>",
+    "<b>最后「可并行」也值得一句：K 条轨迹本来就是独立采的。</b> <span class='k'>于是可以同时跑很多条，只在更新统计时同步</span>。<b>⚠ 但要注意这不是完全无损的并行</b>：<span class='w'>并行的那些轨迹看到的是<b>旧的</b>统计，所以它们的选择不如串行时那么有针对性</span>。<b>并行度越高，越接近「均匀撒点」而不是「最佳优先」。</b>"
+   ],
+   "tbl": {
+    "head": ["好处", "解除了哪处代价", "换来的代价"],
+    "rows": [
+     ["高度选择性", "expectimax 的 (|S||A|)<sup>H</sup>", "<span class='w'>不保证最优（除极限）</span>"],
+     ["动态评估状态", "DP 要算所有状态", "只对「从这里出发」有效"],
+     ["用采样算期望", "枚举所有下一状态", "<span class='w'>方差</span>"],
+     ["<b>只要黑箱模型</b>", "需要显式概率 / 可微", "<b>几乎没有代价 —— 门槛极低</b>"],
+     ["<b>随时可停</b>", "必须跑到收敛才可用", "<b>把算力变成部署时的旋钮</b>"],
+     ["可并行", "串行太慢", "<span class='w'>并行度高则退化为均匀撒点</span>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这五条里有三条你已经满足、一条你满足不了，而那一条决定了你能把 MCTS 借过来多少。</b><br><b>满足的</b>：<span class='k'>① <b>黑箱模型</b>——你的「模拟器」就是跑一遍 workflow，完全是黑箱，这正是 MCTS 最不挑的地方；② <b>动态评估</b>——你只关心当前这条 query 该怎么配置，不关心整个 query 空间；③ <b>随时可停</b>——这一条对你特别值钱，下面细说</b>。<br><b>满足不了的是「用采样打破维数灾难」背后那个隐含前提：采样便宜。</b> ⚠ <span class='w'>MCTS 的每一次「采样」是模型里的一步，几乎免费；你的每一次采样是一次真实的 LLM 调用</span>。<b>所以凡是「多采几千条就行」的论证，在你这里都要换成美元重算一遍</b>——<span class='k'>这是 L16.b p37 那条提醒的具体化</span>。<br><b>而「随时可停」这条是你应该主动拿来用的，因为它正好匹配一个真实的部署需求。</b> <span class='w'>如果你的方法要在线上对每条 query 做决策，那么「给我 20 毫秒我给一个配置、给我 200 毫秒我给一个更好的」是一个非常有说服力的性质</span>。<b>而你的成本模型可以支撑这件事</b>：<span class='k'>它是本地的、便宜的，所以在成本那一半上你确实可以做「随时可停」的搜索</span>。<b>具体形状</b>：<b>先给一个默认配置（零搜索），有时间就在成本模型上多搜几步、在预算内换更便宜的组合</b>。<b>这是一条论文里很容易被认可的工程贡献，而且它只用到你已经有的东西。</b><br><b>⚠ 但那条并行的警告要接住，因为它对应一个你很可能会犯的错。</b> <span class='k'>如果你为了省时间，把一步偏离扫描的所有候选<b>并行</b>跑完再比较，那你就失去了「逐次淘汰」的全部好处</span>——<b>并行看到的是旧统计，等于均匀撒点</b>。<span class='w'>而逐次淘汰之所以省钱，正是因为它串行地利用了前面的结果</span>。<b>所以这里有一个真实的取舍：并行省时间，串行省调用。而你的瓶颈是调用（钱），不是时间。</b><br>标【推断】：三条匹配、一条不匹配的判断与随时可停的方案是我推的；成本模型与逐次淘汰在简报／L12 里是【已核】。",
+    "ref": "课件 p46 · 实录 p46（随时可停的例子，逐句核对）· L16.b p37 科研格 · 简报 §4e（已核）· L12（逐次淘汰）"
+   }
+  },
+  {
+   "r": [47, 47],
+   "t": "★ 乐观在规划里是错的 —— 在脑子里做坏决策不疼",
+   "star": 3,
+   "quote": "<b>In more depth: Upper Confidence Tree (UCT) Search</b> — <em>UCT: treat each tree node as a multi-armed bandit problem · Maintain an upper confidence bound over reward of each arm and select the best arm</em><br><em><b>Check your understanding: Why is this slightly strange?</b> Hint: why were upper confidence bounds a good idea for exploration/exploitation? <b>Is there an exploration/exploitation problem during simulated episodes?</b></em><br><em>Relates to <b>metalevel reasoning</b> (see “Selecting Computations: Theory and Applications”, <b>Hay, Russell, Tolpin and Shimony 2012</b>)</em>",
+   "one": "<b>老虎机里用乐观，是因为你真的要承受坏决策的代价。而在模拟里做坏决策不疼——所以这里该要的不是乐观，是信息价值。</b>",
+   "pts": [
+    "<b>这一页是全讲最值得停的一页，而它的形式是一个问题而不是一个答案。</b> <span class='k'>课件只问「为什么这有点奇怪」，并给了提示：当初乐观为什么是个好主意？模拟过程中真的存在探索-利用问题吗？</span>",
+    "<b>先回忆乐观为什么在老虎机里是对的，这是整个论证的支点。</b> <em>in bandits, why do we do optimism under uncertainty? We do it because <b>we're actually incurring the pain of making bad decisions</b></em>。<span class='w'>乐观的逻辑是「要么你真的拿到高奖励，要么你学到东西」——两种结果都不亏</span>。<b>而这个逻辑成立的前提是：你拉的每一下都真的计入你的总收益。</b>",
+    "⚠️ <b>而在规划里这个前提不成立，这就是全部的答案。</b> <em>The weird thing about doing that for planning is that <b>we're not suffering if we make bad decisions in our head</b></em>。<span class='k'>模拟出来的坏动作不花你任何真实代价</span>——<b>它只花算力</b>。<span class='w'>于是「要么得高奖励，要么学到东西」这个权衡失去了一半：你根本不需要「得高奖励」，你只需要「学到东西」。</b>",
+    "<b>所以真正该优化的目标是什么？她给了名字：信息价值。</b> <em>we're just trying to figure out what actions can I take <b>as quickly as possible</b> in terms of <b>value of information</b>, so that I know what the right action is at the root. And so <b>it doesn't actually matter if I simulate out bad actions</b> if it allows me to get a better decision at the root</em>。<span class='k'>唯一的目标是「尽快确定根节点该走哪一步」</span>——<b>模拟过程中的回报本身毫无价值。</b>",
+    "<b>她给的反例把这个区别变得非常具体，而且是可以照着做的（课件上只有图，这里按实录还原【<b>补课</b>】）。</b> <span class='w'>设在某个节点上有两个动作：<b>A1 的估值高、区间窄</b>（你对它已经很了解）；<b>A2 的估值低、区间宽</b>（你对它所知很少）</span>。",
+    "<b>乐观会怎么选？永远选 A1。</b> <span class='k'>因为 A1 的上置信界更高</span>——<b>UCT 的式子就是取上界最大的那个</b>。<span class='w'>于是你会一遍遍地采 A1，而你对 A1 本来就已经很有把握了</span>。",
+    "<b>而如果你的目标是「<b>确信</b> A1 比 A2 好」，正确的选择是采 A2。</b> <em>if you wanna be really confident that A1 is better, <b>you should select A2</b>, because likely when you do that, you're gonna update your confidence intervals and now you're gonna be <b>totally sure</b> that A1 is best. <b>But this approach won't do that.</b></em> <span class='k'>采 A2 会收窄 A2 的区间，而一旦两个区间分开，结论就定了，一次计算都不用再花</span>。",
+    "<b>把这个道理提炼成一句话，它适用的范围远超 MCTS</b>：<span class='w'><b>要赢，就下注在最好的那个；要<b>知道</b>谁最好，就去测最不确定的那个。</b></span><b>这两件事的最优做法不同，而乐观只对第一件事是对的。</b>",
+    "<b>所以 UCT 其实是用错了目标函数，而实录的最终评价很诚实。</b> <em>it's <b>not clear</b> that the bandits at each node is the optimal thing to do, <b>but it's pretty efficient</b></em>。<span class='k'>它不是对的，但它便宜、好实现、而且够用</span>——<b>这又是本课反复出现的那个模式：简单做法赢。</b>",
+    "<b>课件给了这条正确路线的名字和一篇出处，值得记下来。</b> <b>元层推理</b>（metalevel reasoning）——<span class='w'>把「我接下来该做哪一次计算」本身当成一个决策问题来优化</span>。<b>出处是 Hay, Russell, Tolpin &amp; Shimony 2012,「Selecting Computations: Theory and Applications」</b>。<span class='k'>注意 Stuart Russell 这个名字：这是 AI 教科书那位，而元层推理是他长期的研究主题。</span>",
+    "<b>最后一点值得想：为什么大家还是用 UCT 而不是元层推理？</b> <span class='w'>因为算信息价值本身要花算力</span>——<b>而你花在「想清楚该算什么」上的算力，是从「实际去算」里扣出来的</b>。<span class='k'>这是一个递归的问题，而 UCT 是一个不递归的近似</span>。<b>「用一个次优但便宜的准则，而不是一个最优但要算的准则」，这个取舍本身就是元层推理的结论之一。</b>"
+   ],
+   "eq": "老虎机里乐观为什么对：\n   你**真的要承受**坏决策的代价\n   ⇒ 「要么真拿到高奖励，要么学到东西」—— 两种结果都不亏\n   前提：你拉的每一下都计入总收益\n\n⚠ 规划里这个前提**不成立**：\n   「在脑子里做坏决策不疼」—— 模拟的坏动作只花算力，不花真实代价\n   ⇒ 权衡失去一半：你不需要「得高奖励」，你只需要「学到东西」\n   ⇒ 该优化的是 **信息价值（value of information）**\n      唯一目标：尽快确定**根节点**该走哪一步\n      模拟过程中的回报本身毫无价值\n\n反例（实录口述，课件只有图）：\n   A1：估值**高**、区间**窄**（已经很了解）\n   A2：估值**低**、区间**宽**（所知很少）\n\n   乐观（UCT）⇒ 永远选 A1（上界最高）\n                ⇒ 一遍遍采你本来就有把握的那个\n   要**确信** A1 更好 ⇒ 应该选 **A2**\n                ⇒ 采它会收窄它的区间，两个区间一分开，结论就定了\n\n  ⇒ **要赢，下注在最好的那个；要知道谁最好，去测最不确定的那个。**\n     两件事的最优做法不同，而乐观只对第一件是对的\n\n实录的最终评价：UCT **不清楚是最优的，但它相当高效**（又一次「简单做法赢」）\n\n正确的路线有名字：**元层推理**（metalevel reasoning）\n   —— 把「我接下来该做哪一次计算」本身当成决策问题\n   出处：Hay, Russell, Tolpin & Shimony 2012,「Selecting Computations」\n   ⚠ 为什么大家还用 UCT：算信息价值本身要花算力，而那是从「实际去算」里扣的\n      这是个递归问题，UCT 是不递归的近似",
+   "tbl": {
+    "head": ["", "老虎机（真实探索）", "规划（模拟中）"],
+    "rows": [
+     ["坏决策要付代价吗", "<b>要</b>（真实遗憾）", "<span class='k'>不要 —— 只花算力</span>"],
+     ["目标", "最大化累积奖励", "<b>尽快确定根节点该走哪步</b>"],
+     ["该优化什么", "<b>乐观 / 上置信界</b>", "<b>信息价值</b>"],
+     ["A1 高窄 / A2 低宽，选谁", "<b>A1</b>", "<b>A2</b>（采它能把区间分开）"],
+     ["UCT 用的是", "<b>乐观</b>", "<span class='w'>乐观 —— 所以目标函数是错的</span>"],
+     ["为什么还用它", "—", "<b>不对，但便宜且够用</b>"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>这一页直接改掉你分配 oracle 预算的方式，而且改法很具体、现在就能做。</b><br><span class='k'>你的处境和这一页完全同形</span>：<b>你要从一堆候选配置里确定哪个最好，而每一次「模拟」是一次真实的 LLM 调用——所以预算有限，必须想清楚花在哪</b>。<span class='w'>而你现在（以及一般的做法）是把 query 预算平均分给候选，或者按「目前看起来最好」的顺序多跑</span>。<b>这一页说那是错的目标函数。</b><br><b>正确的判据：把下一笔预算花在「最可能改变结论」的那一对上。</b> <span class='k'>具体做法</span>：<b>算出每个候选配置的 G 的置信区间，找出所有与当前领跑者<b>区间重叠</b>的候选，把预算花在它们身上</b>——<span class='w'>而区间已经完全低于领跑者的候选，一条 query 都不要再跑</span>。<b>反过来，领跑者本身也不需要再多跑</b>：<span class='k'>多跑它只是把一个已经很窄的区间再收窄一点，不改变任何结论</span>。<b>这正是「A1 高窄 / A2 低宽时该采 A2」在你这里的字面翻译。</b><br><b>这件事的收益是可以估出来的，所以值得写成一节。</b> <span class='w'>一步偏离扫描有 H×k 个候选，而其中绝大多数在几十条 query 之后区间就已经明显低于领跑者</span>——<b>继续跑它们是纯浪费</b>。<b>把预算重新分配到难分的那几对上，等价于在同样的美元数下把有效样本量放大若干倍</b>。<span class='k'>而这个做法和 L12 的「逐次淘汰」是同一件事，只是这一页给了它一个更准确的目标函数</span>：<b>淘汰的判据不该是「平均值低」，而该是「区间已经分开」。</b><br><b>而它和 L15 那一讲接得很紧，值得在论文里并排写。</b> <span class='w'>L15 给的是「怎么算一个可靠的置信下界」；这一页给的是「有了区间之后，下一笔预算该花在哪」</span>。<b>前者是统计，后者是实验设计，而两者用的是同一个区间</b>——<b>所以你算置信区间不只是为了最后报结果，它还是预算分配的输入。这是一个很干净的论证闭环。</b><br><b>⚠ 一处必须警惕：按结果决定接下来跑什么，是一种「看着数据做选择」。</b> <span class='k'>所以最终的置信界必须用没参与过淘汰决策的数据来算，否则又是 L15 p55 那条</span>。<b>最省事的安排：淘汰阶段用一批 query，最终比较用另一批。</b><br><b>最后，那篇出处值得去读：Hay, Russell, Tolpin &amp; Shimony 2012。</b> <span class='w'>它要回答的正是「有限算力下该做哪一次计算」，而你的问题是「有限美元下该做哪一次调用」——结构一样，只是单位不同</span>。<b>如果你要给预算分配一个有理论依据的准则，这是入口。</b><br>标【已核】：乐观的前提、「在脑子里做坏决策不疼」、A1/A2 反例与那句最终评价，均为实录原话逐句核对；预算分配方案是我据此设计的做法。",
+    "ref": "课件 p47 原文与脚注 · 实录 p47（逐句核对）· L12（逐次淘汰）· L15 p55 · p60 科研格 · 简报 §4c（已核）"
+   }
+  },
+  {
+   "r": [48, 51],
+   "t": "全课五条目标：她自己认为哪一条最有用",
+   "star": 3,
+   "quote": "<b>End of Class Goals</b> — <em>① Define the key features of RL that <b>distinguish it from AI and non-interactive machine learning</b></em> · <em>② Given an application problem, <b>decide if it should be formulated as a RL problem</b>, if yes define it formally (state space, action space, dynamics, reward model), <b>state what algorithm is best suited, and justify your answer</b></em> · <em>③ Implement common RL algorithms including a deep RL algorithm</em> · <em>④ Describe multiple <b>criteria for analyzing</b> RL algorithms: regret, sample complexity, computational complexity, empirical performance, convergence</em> · <em>⑤ Describe the <b>exploration vs exploitation</b> challenge and compare at least two approaches (performance, scalability, complexity of implementation, theoretical guarantees)</em>",
+   "one": "<b>五条目标。而她明说第二条「对很多人来说可能是最有用的那一条」——也就是「这个问题该不该写成 RL，以及怎么写」。</b>",
+   "pts": [
+    "<b>第一条问的是 RL 和别的东西的分界，而实录给的答案只有一个词：数据是自己采的。</b> <em>it's this key issue of the agents being able to <b>gather their own data</b> and make decisions in the world. And so it's the <b>censored data</b> that's very different than the IID assumption for supervised learning</em>。<span class='k'>「删截数据」这个词很准：你只看得到你选过的那些动作的结果，没选的那些永远看不到</span>。",
+    "<b>她还补了和<b>规划</b>的分界，这一半常被忘记。</b> <em>it's also very different from <b>planning</b> because you are <b>reliant on the data you get</b> about the world</em>。<span class='w'>规划有模型、不需要采数据；监督学习有数据、但数据不是自己选的</span>。<b>RL 两样都要面对——这就是它独有的难处。</b>",
+    "<b>第二条是她自己点出的重点，而这句话值得完整记下</b>：<em>this is probably the thing that for many of you might end up being <b>the most useful</b>... I think this is often <b>one of the really hard parts</b>. It has <b>huge implications</b> for how easy or hard it is to solve the problem. And <b>it's often unclear</b></em>。<span class='k'>注意她没说「学会算法最有用」——她说的是「学会判断该不该用、以及怎么形式化」。</span>",
+    "<b>而这一条里最难的是状态空间怎么定，她给了一个很好的例子。</b> <em>there's lots of ways to write down the state space of describing a <b>patient</b> or a <b>student</b> or a <b>customer</b>... <b>If I treat all customers as the same, I have a lot of data. That's probably a pretty bad model.</b></em> <span class='w'>状态定得粗：数据多，但模型差；状态定得细：模型好，但数据少</span>。",
+    "<b>这又回到了<b>函数近似误差 vs 样本效率</b>这个取舍——而它在本讲已经第三次出现了。</b> <span class='k'>第一次：要不要条件在整个历史上（L16.b p23）；第二次：泡茶例子里表达力花在哪（同页）；第三次就是这里</span>。<b>一门课在最后一页又提它一遍，说明这是她认为最该带走的东西之一。</b>",
+    "<b>第三条是实现，不多说。第四条是那五个分析标准，而这一条的价值在于「知道该用哪个」。</b> <span class='w'>遗憾、样本复杂度、计算复杂度、实证表现、收敛性</span>——<b>五个标准不是都适用于每个算法</b>，<span class='k'>而「说清哪个适用、哪个不适用、为什么」正是 L13 p35 那张表要做的事</span>。",
+    "<b>第五条单独把探索-利用拎出来，理由她说得很清楚</b>：<em>it really is <b>quite unique to RL</b>. It <b>doesn't come up in planning, doesn't come up in ML</b></em>。<span class='w'>规划里你有模型，不需要探索；监督学习里数据给定，也不需要</span>。<b>只有「数据由你的决策决定」时，这个问题才出现。</b>",
+    "<b>而第五条要求的比较维度值得照抄下来，它是一张很好用的表头</b>：<b>表现、可扩展性、实现复杂度、理论保证</b>。<span class='k'>注意「实现复杂度」被明确列进去了</span>——<b>这门课反复出现的「简单做法赢」在这里被写成了一条正式的评价维度。</b>",
+    "<b>把五条目标连起来看，它们其实是一条流水线。</b> <span class='w'>①认出这是 RL 问题 → ②形式化并选算法 → ③实现它 → ④评价它 → ⑤处理它独有的那个难点</span>。<b>而她认为最难、最有用的是第二步——也就是动手之前那一步。</b>"
+   ],
+   "tbl": {
+    "head": ["目标", "内容", "她的评价 / 要点"],
+    "rows": [
+     ["①", "RL 与 AI、非交互式 ML 的分界", "<b>数据是自己采的 ⇒ 删截数据</b>；与规划的分界是「依赖采到的数据」"],
+     ["<b>②</b>", "<b>该不该写成 RL，怎么形式化，选哪个算法</b>", "<b>「对很多人可能是最有用的那一条」· 很难 · 影响极大 · 常常不清楚</b>"],
+     ["③", "实现常见算法，含一个深度 RL 算法", "—"],
+     ["④", "五个分析标准", "<span class='k'>重点是知道哪个<b>不</b>适用（L13 p35）</span>"],
+     ["⑤", "探索-利用，并比较至少两种做法", "<b>RL 独有</b>：规划没有，ML 也没有"],
+     ["⑤的比较维度", "表现 · 可扩展性 · <b>实现复杂度</b> · 理论保证", "<b>「简单做法赢」被写成了正式维度</b>"]
+    ]
+   },
+   "res": {
+    "tag": "已核",
+    "v": "<b>第二条就是简报 §7 第一拳，而 Brunskill 认为它是这门课最有用的一条——这件事本身就是对那一拳分量的确认。</b><br><span class='w'>那一拳是：「为什么这是一个序贯决策问题，而不是 H 个独立选择？」</span><b>而这一页说的正是「判断该不该写成 RL、以及怎么形式化」是最难也最有用的能力</b>。<span class='k'>所以这不是审稿人在挑刺，这是这个领域认为最核心的那个判断</span>。<b>你的回答要配得上它的分量，而你现在有三层材料可以用</b>：<br>· <b>L16.b p23 的可加性实验</b>——实测该不该把别处的证据借到这里；<br>· <b>L15 p42 的课件原话</b>——<em>part of the world is non-Markovian … other parts are Markov</em>，系统的不同部分可以有不同的马尔可夫性；<br>· <b>L13 p35 那五个标准</b>——明确说出哪些适用、哪些不适用。<br><b>三层叠起来，这一拳就从「我们假设它是 MDP」变成「我们测过、而且课件自己给了理由」。</b><br><b>而那个「状态定粗还是定细」的例子直指你的 P2/P3 消融。</b> <span class='k'>她说「把所有客户当成同一个，数据很多，但模型很差」</span>——<b>翻译过来：把所有 query 当成同一个（指派策略只按节点键控），每个格子样本很多，但忽略了 query 之间的差异</b>；<span class='w'>而按 query 特征键控，格子数爆炸、计数退化</span>。<b>这正是 P2/P3 在测的那条曲线，而这一页告诉你该怎么<b>叙述</b>它</b>：<b>不是「我们试了两种键控方式」，而是「我们在函数近似误差与样本效率之间定位了那个取舍点」</b>。<span class='k'>后一种说法把一个工程选择变成了一个有名字的科学问题。</span><br><b>⚠ 还有一条该主动承认的：第五条说探索-利用是 RL 独有的，而你的设定里它基本<b>不</b>存在。</b> <span class='w'>你的评估是离线一次性的，oracle 表跑完就不再采新数据</span>——<b>所以你没有真正的探索-利用问题</b>。<b>主动说这一句有两个好处</b>：<span class='k'>它表明你清楚自己在用什么、不在用什么；而且它解释了为什么你借的是 L15（离线评估）和本讲（规划）而不是 L11–L13（探索）</b>。<b>⚠ 但要注意 p47 那一页是例外</b>：<span class='w'>预算分配确实是一个「该采哪个」的问题，只是它的正确目标是信息价值而不是乐观</span>——<b>所以准确的说法是：我们没有探索-利用问题，但我们有一个元层的计算分配问题。</b><br>标【已核】：五条目标、她对第二条的评价、客户状态空间的例子、第五条的四个比较维度，均为课件与实录原话逐句核对。",
+    "ref": "课件 p49–p51 原文 · 实录 p49–p51（逐句核对）· 简报 §7 第 1 拳 · §5（已核）· L13 p35 · L15 p42 · L16.b p23 科研格"
+   }
+  },
+  {
+   "r": [52, 53],
+   "t": "她对这个领域的判断：手机上还没有 RL",
+   "star": 2,
+   "quote": "<b>Learning more about RL</b> — <em>CS238: Decision Making under Uncertainty · CS239 · MSE351 Dynamic Programming and Stochastic Control · MSE338 Reinforcement Learning (advanced) · CS332: Advanced Survey of RL</em><br><b>Reinforcement learning</b> — <em>Already seeing incredible results in <b>games</b> and some terrific successes in <b>robotics</b></em> · <em><b>Healthcare, education, consumer marketing...</b></em> · <em>Machines learning to help us, in <b>safe, fair and accountable</b> ways</em>",
+   "one": "<b>她对现状的判断很节制：游戏和机器人有成绩，而真正广阔的那些应用还没落地——「我们手机上还没有 RL」。</b>",
+   "pts": [
+    "<b>p53 那三行的顺序本身就是一个判断：游戏（已成）、机器人（有成绩）、医疗/教育/营销（还没有）。</b> <span class='k'>而最后一行是方法论要求而不是应用</span>：<em>machines learning to help us, in <b>safe, fair and accountable</b> ways</em>。",
+    "<b>实录里那句比较最能说明她的判断</b>：<em><b>most of us do not have RL on our phone yet in the way that we have face recognition on our phone</b>. And so the potential of using these types of ideas for a lot of other types of applications is <b>still enormous</b></em>。<span class='w'>人脸识别已经是基础设施，而 RL 还不是</span>——<b>2019 年她这么说，而这个判断在相当程度上至今仍然成立。</b>",
+    "<b>为什么差距这么大？本讲其实已经给了答案，值得把它们收拢起来。</b> <span class='k'>人脸识别是监督学习：数据可以事先收集、独立同分布、标注可以外包；RL 要自己采数据，而采错数据有真实代价</span>（L15 整讲在处理这件事）。<b>游戏之所以先成，是因为那里采数据免费（模拟器）、而且规则已知（L16.b p37）</b>——<span class='w'>这两个条件现实应用一个都不满足。</b>",
+    "<b>「安全、公平、可问责」这三个词不是客套，实录给了具体含义。</b> <em>typically these systems are going to be part of a <b>human in the loop</b> system. And so allowing the agents to <b>expose their reasoning</b> and <b>expose their limitations</b> will be critical</em>。<span class='k'>注意第二条：不只要说出理由，还要说出<b>自己的局限</b></span>。",
+    "<b>而「暴露局限」和 L15 p69 那条要求是同一件事。</b> <span class='w'>L15 要你「能说清这个保证不保证什么」；这里要系统本身能说出来</span>。<b>一个是对研究者的要求，一个是对系统的要求，而它们是同一种诚实。</b>",
+    "<b>p52 那五门课可以按用途分一下，不必全记。</b> <span class='k'>CS238 / MSE351 偏规划与动态规划（有模型）；MSE338 偏理论（Ben Van Roy 的方向）；CS332 是她自己的前沿课题课</span>。<b>实录点名的两位是 Mykel Kochenderfer 与 Ben Van Roy。</b>",
+    "<b>最后值得留意的是她给出的应用清单：医疗、教育、消费者营销。</b> <span class='w'>这三个正是她实验室的方向，也正是 L15 那一讲用来举例的那些</span>——<b>而它们的共同点是「数据贵、犯错有真实代价、不能随便做 A/B」</b>。<span class='k'>所以 L15（离线评估与安全改进）不是一个附带的话题，它是这些应用能不能落地的前提。</b>"
+   ],
+   "tbl": {
+    "head": ["领域", "状态（2019）", "为什么", "本课哪一讲对应"],
+    "rows": [
+     ["游戏", "<b>已成</b>", "<b>采数据免费 + 规则已知</b>", "本讲（规划 / MCTS）"],
+     ["机器人", "有成绩", "模拟器可用，但有现实差距", "L11 等"],
+     ["医疗 / 教育 / 营销", "<span class='w'>还没有</span>", "<b>数据贵 · 犯错有代价 · 不能 A/B</b>", "<b>L15（离线评估与安全改进）</b>"],
+     ["对比：人脸识别", "<b>已是基础设施</b>", "监督学习：数据可事先收集、IID", "—"],
+     ["她的要求", "安全 · 公平 · 可问责", "<b>系统要能说出自己的理由和局限</b>", "L15 p69"]
+    ]
+   }
+  },
+  {
+   "r": [54, 55],
+   "t": "两页图：课程评估与早期围棋结果",
+   "star": 1,
+   "quote": "<b>Getting Your Feedback</b>〔p54〕 · <b>MCTS and Early Go Results</b>〔p55〕〔两页在 PDF 上只有标题，正文是图〕",
+   "one": "<b>这两页一页是课程评估、一页是早期围棋程度的实力曲线图。本精读不还原图里的数字。</b>",
+   "pts": [
+    "⚠️ <b>p54 是课程评估环节</b>（实录里她请大家用十分钟填课程评价），<span class='k'>没有知识点，本精读不写内容</span>。",
+    "⚠️ <b>p55 是「MCTS 与早期围棋结果」，PDF 上只有标题，正文是图</b>（按常例是各程序的棋力曲线）。<span class='w'>实录在这里说的是 <em>I'm gonna skip this for now</em>——她当堂跳过了这一页，直接去讲 p47 那个「有点奇怪」的问题</span>。<b>所以这一页既没有课件正文，也没有口头讲解，本精读不补。</b>",
+    "<b>不过有一件事可以从这里说清楚，而且是读任何「早期结果」图时都该注意的。</b> <span class='k'>MCTS 之前的围棋程序大约在业余中低段徘徊，而 MCTS 把它推到了业余高段/低职业段；再往上到战胜顶尖职业棋手，靠的是 AlphaGo 加上的那些东西</span>（<b>策略网络、值网络、自我对弈</b>）。<span class='w'>⚠ 这段进程的具体段位与年份本精读不给数字</span>——<b>要引用请查 p58 提到的那几篇原文。</b>",
+    "<b>把这个分工记住，对读 p56–p58 有帮助</b>：<span class='k'>MCTS 提供的是「怎么把算力花在对的分支上」这个骨架；而 AlphaGo 提供的是「rollout 和叶子评估该有多聪明」这个填充</span>。<b>骨架和填充是两件事，下一页就在讲填充。</b>"
+   ],
+   "tbl": {
+    "head": ["页", "内容", "本精读怎么处理"],
+    "rows": [
+     ["p54", "课程评估环节", "<span class='k'>无知识点，不写</span>"],
+     ["p55", "早期围棋结果（图）", "<span class='w'>她当堂跳过（<em>I'm gonna skip this</em>）；无正文、无讲解，不补</span>"],
+     ["可以记住的", "MCTS 提供<b>骨架</b>（算力花在哪）", "AlphaGo 提供<b>填充</b>（rollout 与叶子评估多聪明）"]
+    ]
+   }
+  },
+  {
+   "r": [56, 58],
+   "t": "变体与 AlphaGo：学一个值函数，就不必 rollout 到底",
+   "star": 3,
+   "quote": "<b>MCTS Variants</b> — <em>UCT and vanilla MCTS are <b>just the beginning</b></em> · <em>Use a <b>better rollout policy</b> (have a policy network? Learned from expert data or from data gathered in the real world)</em> · <em><b>Learn a value function</b> (can be used in combination with simulated trajectories to get a state-action estimate, can be used to <b>bias initial actions considered</b>, can be used to <b>avoid having to rollout to the full episode length</b>, ...)</em><br><b>MCTS and AlphaGo / AlphaZero</b> — <em>MCTS was a critical advance for defeating Go</em> · <em>AlphaGo Zero and AlphaZero have even more impressive performance</em> · <em>AlphaZero has also been applied to <b>Chess</b></em>",
+   "one": "<b>两条变体，正好对应 MCTS 的两个薄弱处：rollout 太傻，以及必须走到终局才拿得到一个数。</b>",
+   "pts": [
+    "<b>先回忆朴素 MCTS 的两个薄弱处，变体就是冲着它们来的。</b> <span class='w'>① <b>rollout 是随机的</b>——所以叶子的估值噪声极大；② <b>必须走到终止</b>才能拿到一个回报——所以每条轨迹都很贵，而且长时域下几乎没信息</span>。",
+    "<b>第一条变体治第一个病：换一个更好的 rollout 策略。</b> <span class='k'>课件提到可以用一个策略网络，而它可以从专家数据学，也可以从真实世界采的数据学</span>。<b>效果是叶子的估值从「随机乱下的结果」变成「还算像样的棋手下出来的结果」</b>——<span class='w'>方差小得多，而且更接近真实的值</span>。",
+    "⚠️ <b>但这里有一个取舍要注意，课件没写。</b> <span class='k'>rollout 策略越强，估出来的值越接近 <code>q^{该策略}</code> 而不是 <code>q*</code></span>——<b>而 MCTS 要的是 <code>q*</code></b>。<span class='w'>随机 rollout 虽然噪声大，但它不系统性地偏向任何一种下法</span>（这正是 L16.b p32 说的「粗糙但不偏向谁」）；<b>强 rollout 策略噪声小，但会把它自己的偏好带进估值里</b>。<b>这是一个真实的偏差-方差取舍，不是单纯的改进。</b>",
+    "<b>第二条变体治第二个病，而它的三个用途课件列得很完整，值得逐条看。</b> ① <b>和模拟轨迹结合，给出状态-动作的估值</b>；② <b>给初始考虑的动作排序</b>（就是 p42–45 那个「动作顺序很要紧」的正式解法）；③ <b>避免必须 rollout 到整幕结束</b>。",
+    "<b>第三个用途是最关键的，把它说透。</b> <span class='k'>有了值函数，你可以走 d 步就停下，用值函数估计剩下的部分</span>——<b><code>G ≈ r₁+…+r_d + V(s_d)</code></b>。<span class='w'>于是每条轨迹的代价从 H 步降到 d 步</span>。<b>在 H 是 50–200 的围棋里，这是一个数量级的节省。</b>",
+    "<b>而这正是自举重新出现的地方，值得点明。</b> <span class='w'>L16.b 说过 UCT 是蒙特卡洛式的、没有自举，代价是方差大</span>；<b>而「走 d 步然后用 V 估剩下的」就是自举——它就是 n 步回报</b>。<span class='k'>于是 MCTS 从纯 MC 滑向了 TD 那一侧，拿方差换偏差</span>。<b>这门课从 L03 开始反复出现的那个旋钮，在最后一页又出现了一次。</b>",
+    "<b>把两条变体和 AlphaGo 对上，整个故事就完整了。</b> <span class='k'>策略网络 = 更好的 rollout 与动作排序；值网络 = 避免 rollout 到底</span>；<b>而自我对弈（实录那条）= 这两个网络的训练数据从哪来</b>。<span class='w'>三样东西填在 MCTS 这个骨架上</span>——<b>p58 说得很准：<em>MCTS was a <b>critical advance</b> for defeating Go</em>，是「关键的一步」而不是「全部」。</b>",
+    "<b>p58 最后一句值得留意：AlphaZero 也用在了国际象棋上。</b> <span class='k'>而国际象棋本来是被传统树搜索加手工评估函数攻克的（L16.b p37）</span>——<b>所以这件事说明的不是「终于下得了象棋」，而是「同一套不含领域知识的方法，在两个此前需要完全不同技术的游戏上都做到了最好」</b>。<span class='w'>「Zero」这个名字说的就是这件事：不用人类棋谱，只用规则加自我对弈。</b>",
+    "<b>最后收一句本讲的落点。</b> <span class='k'>本讲从「学一个模型」出发，走到「模型就是模拟器」、「模拟器可以拿来想事情」，最后落在「想事情的时候该把算力花在哪」</span>。<b>而最后那个问题（p47）的正确答案本讲并没有给出——它只给了名字（元层推理）和一篇出处</b>。<span class='w'>一门课以一个未解决的问题收尾，而不是以一个结论收尾</span>——<b>这和 L15 p67 把「行为策略确定性怎么办」列为开放问题是同一种姿态。</b>"
+   ],
+   "eq": "朴素 MCTS 的两个薄弱处，与对应的两条变体：\n\n  ① rollout 是随机的 ⇒ 叶子估值噪声极大\n     变体：**更好的 rollout 策略**（策略网络，从专家数据或真实数据学）\n     ⚠ 取舍（课件未写）：rollout 越强，估的越接近 q^{该策略} 而不是 q*\n        随机 rollout 噪声大，但**不偏向任何下法**\n        强 rollout 噪声小，但把自己的偏好带进估值\n        ⇒ 真实的偏差-方差取舍，不是单纯改进\n\n  ② 必须走到终止才拿到回报 ⇒ 每条轨迹都贵，长时域几乎没信息\n     变体：**学一个值函数**，三个用途 ——\n        · 与模拟轨迹结合给出状态-动作估值\n        · 给初始考虑的动作**排序**（p42–45 那个「顺序很要紧」的正式解法）\n        · **避免 rollout 到整幕结束**：\n              G ≈ r_1 + … + r_d + V(s_d)        走 d 步就停\n              ⇒ 每条轨迹从 H 步降到 d 步（围棋 H=50~200 ⇒ 省一个数量级）\n        ⚠ 而这就是**自举**重新出现 —— 它就是 n 步回报\n          ⇒ MCTS 从纯 MC 滑向 TD 一侧：拿方差换偏差\n\nAlphaGo = MCTS（骨架）+ 策略网络（rollout 与排序）+ 值网络（不必走到底）\n          + 自我对弈（这两个网络的训练数据从哪来）\n  ⇒ p58 的说法很准：MCTS 是 **critical advance**，不是全部\n\np58 末句：AlphaZero 也用在国际象棋上\n  ⚠ 意义不是「终于下得了象棋」（象棋本来就被传统树搜索攻克了），\n    而是**同一套不含领域知识的方法，在两个此前需要完全不同技术的游戏上都最好**\n    「Zero」= 不用人类棋谱，只用规则 + 自我对弈",
+   "tbl": {
+    "head": ["变体", "治哪个病", "代价"],
+    "rows": [
+     ["更好的 rollout 策略", "<b>叶子估值噪声大</b>", "<span class='w'>把策略自己的偏好带进估值（估 q<sup>π</sup> 而非 q*）</span>"],
+     ["学值函数：给动作排序", "动作顺序很要紧", "值函数本身要训练"],
+     ["<b>学值函数：走 d 步就停</b>", "<b>必须 rollout 到终局</b>", "<b>引入自举偏差（= n 步回报）</b>"],
+     ["AlphaGo 的构成", "MCTS 骨架 + 策略网络 + 值网络 + 自我对弈", "<b>MCTS 是关键一步，不是全部</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「学一个值函数来避免 rollout 到底」这条变体，就是你的成本模型在这个框架里的确切位置——而说清这一点，等于给你的做法找到了一个有文献的身份。</b><br><span class='k'>MCTS 的问题是「每条 rollout 都要走到终局才拿到一个数」，太贵；解法是训一个值函数，走几步就用它估剩下的</span>。<b>你的问题是「每个配置都要真跑一遍才知道 G」，太贵；而你的成本模型做的正是同一件事</b>——<span class='w'>用一个学出来的函数替代昂贵的实际展开</span>。<b>把它这样写出来，比说「我们训了一个回归器」准确得多，而且把你的工作接进了一条成熟的线。</b><br><b>而那三个用途你可以逐条对照，会发现第二个你还没用上。</b> ① <b>与实际结果结合给出估值</b>——你在做（表内用真值、表外用模型）；② <b>给要考虑的动作排序</b>——<span class='k'>你还没用</span>，<b>而这正好是 L16.c p41 那条「先扫哪些节点」的建议</b>：<span class='w'>用成本模型预测各节点切换档位的成本变化，按幅度排序，先扫幅度大的</span>；③ <b>避免走到底</b>——<b>你的对应是「不必把整条 workflow 跑完就能估出成本」</b>，<span class='k'>这个你已经有了，而且这就是成本那一半能纯本地规划的原因</span>。<br><b>⚠ 但那条课件没写的取舍你必须接住，因为它在你这里有一个更尖锐的版本。</b> <span class='w'>rollout 策略越强，估出来的越是「那个策略的值」而不是「最优值」</span>。<b>你的版本是：成本模型是在<b>某个分布</b>的配置上训的</b>——<span class='k'>如果训练数据主要来自接近 AFlow 基线的配置（因为一步偏离扫描就是在基线附近采的），那么模型在远离基线的配置上会系统性地不准</span>。<b>而你恰恰要用它去搜远处</b>。<b>这是「用近处的数据去外推远处」，而它和 L16.a p13 那个「模型利用」正反馈叠在一起会很危险</b>：<span class='w'>模型在远处不准 + argmax 专门去找预测偏低的格子 = 系统性地选到远处那些模型瞎猜的配置</span>。<b>两条防护仍然是那两条</b>：<b>按训练密度做悲观修正，以及最终入选的配置必须实际跑一遍。</b><br><b>最后一条是姿态上的，但值得记。</b> <span class='k'>本讲以一个未解决的问题（p47 的元层推理）收尾，而不是以结论收尾；L15 也以 p67 那个开放问题收尾</span>。<b>两讲都把自己方法的边界明确地摊了出来</b>——<span class='w'>而这正是 L15 p69 要求你会做的那件事</span>。<b>你的论文最后一节照这个姿态写，是最省力也最可信的做法。</b><br>标【推断】：身份对应、排序建议与外推风险是我推的；成本模型与一步偏离扫描在简报里是【已核】。",
+    "ref": "课件 p56–p58 · L16.a p13 科研格 · L16.c p41 科研格 · L15 p67 · p69 · 简报 §4c §4e（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "41": [
+   {
+    "q": "围棋是两人博弈，所以树从 expectimax 变成 minimax。除此之外 MCTS 要改什么？",
+    "o": ["要改树策略和 rollout 策略", "要改成有折扣的回报", "要去掉 UCT", "什么都不用改 —— 树策略、rollout、计数、UCT 全都照用，只是状态节点上取对手的最小化而不是期望"],
+    "a": 3,
+    "why": "<span class='k'>这是 MCTS 很值钱的一个性质：博弈结构只影响回收时那一个运算。</span>五格图展示的长树过程（先把每个动作各试一次 → 之后用 UCT 深挖 → 预算用完就回收）在两人博弈里一字不改。"
+   },
+   {
+    "q": "实录说围棋被攻克还有一个课件上没有的关键。是什么？它解决了什么问题？",
+    "o": ["更大的棋盘；解决了泛化", "蒙特卡洛评估；解决了方差", "更快的硬件；解决了算力不足", "自我对弈 —— 打大师极长时间没有任何信号，而打五分钟前的自己总有一方赢，于是立刻有信号；它同时缓解稀疏奖励并提供课程"],
+    "a": 3,
+    "why": "<b>「课程」的意思是难度自动跟着能力走，不需要人去设计难度曲线。</b><span class='w'>她也承认局部最优确实会发生，而机制上的理由只是「你总在取 max，有点像策略改进」——这不是保证。</span>"
+   },
+   {
+    "q": "五格图里有一条实践上很重要、容易被忽略的提醒。是什么？",
+    "o": ["必须用折扣因子", "树必须深度优先展开", "rollout 必须足够长", "先试哪个动作的顺序会显著影响效率 —— 早期靠动作启发式排序省下了大量算力，而这正是 AlphaGo 后来用策略网络做的事"],
+    "a": 3,
+    "why": "<span class='k'>另一条规则是：一个节点的所有动作要先各试一次，再去深挖任何一条。</span>之后到了访问过的节点才用 UCT，于是树开始变偏——这就是「故意长成偏的一棵树」的字面意思。"
+   }
+  ],
+  "46": [
+   {
+    "q": "MCTS 的五条好处里，最容易被低估、但在工程上极值钱的是哪一条？为什么？",
+    "o": ["可并行，因为能用多核", "高度选择性，因为省算力", "用采样打破维数灾难，因为避免了枚举", "随时可停 —— 它把「算多久」从算法的设计参数变成了部署时的旋钮，同一套代码在手机上跑 50 毫秒和在服务器上跑八小时都有效"],
+    "a": 3,
+    "why": "<span class='w'>值迭代一类方法必须跑到收敛才给出可用策略，而 MCTS 给多少算力就用多少。</span>实录的例子很接地气：如果一天只做一个决策，可以让它跑一整夜八小时。"
+   },
+   {
+    "q": "「只要黑箱模型」这条为什么门槛特别低？",
+    "o": ["因为黑箱模型不需要训练", "因为它只用于博弈", "因为黑箱模型更准", "因为它对模型的全部要求只是「给我 (s,a)，还我一个 (r,s′) 样本」—— 不要显式概率表、不要可微、不要任何解析形式"],
+    "a": 3,
+    "why": "<b>这解释了为什么 MCTS 在工业界用得比很多「更先进」的方法多。</b><span class='k'>绝大多数真实系统都有某种模拟器，而很少有系统能给出可微的解析动力学。</span>⚠ 而并行有个代价：并行的轨迹看到旧统计，并行度越高越接近均匀撒点。"
+   }
+  ],
+  "47": [
+   {
+    "q": "p47 问「把每个节点当老虎机为什么有点奇怪」。答案是什么？",
+    "o": ["因为 rollout 是随机的", "因为老虎机里用乐观是由于你真的要承受坏决策的代价，而在模拟里「在脑子里做坏决策不疼」—— 所以该优化的不是乐观，是信息价值", "因为树太深", "因为节点之间不独立"],
+    "a": 1,
+    "why": "<b>乐观的逻辑是「要么真拿到高奖励，要么学到东西」，而这需要每一下都计入总收益。</b><span class='w'>规划里这个前提不成立，于是权衡失去一半：你不需要「得高奖励」，你只需要「学到东西」。</span>唯一的目标是尽快确定根节点该走哪一步。"
+   },
+   {
+    "q": "某节点上 A1 的估值高、区间窄，A2 的估值低、区间宽。乐观会选谁？而若目标是「确信 A1 更好」，该选谁？",
+    "o": ["都选 A1；都选 A1", "乐观选 A1（上界最高）；而要确信该选 A2 —— 采它会收窄它的区间，两个区间一分开结论就定了，一次计算都不用再花", "乐观选 A2；要确信选 A1", "都选 A2；都选 A2"],
+    "a": 1,
+    "why": "<b>提炼成一句话：要赢就下注在最好的那个，要知道谁最好就去测最不确定的那个。</b><span class='k'>两件事的最优做法不同，而乐观只对第一件是对的。</span>实录对 UCT 的最终评价很诚实：不清楚它是最优的，但它相当高效。"
+   },
+   {
+    "q": "课件给了这条「正确路线」一个名字和一篇出处。是什么？而为什么大家还是用 UCT？",
+    "o": ["汤普森采样；因为它需要先验", "元层推理（metalevel reasoning），Hay, Russell, Tolpin & Shimony 2012；而算信息价值本身要花算力，那是从「实际去算」里扣的 —— 这是个递归问题，UCT 是不递归的近似", "蒙特卡洛积分；因为它需要梯度", "贝叶斯优化；因为它太慢"],
+    "a": 1,
+    "why": "<span class='w'>注意 Stuart Russell 这个名字——AI 教科书那位，元层推理是他长期的研究主题。</span><b>「用一个次优但便宜的准则，而不是一个最优但要算的准则」，这个取舍本身就是元层推理的结论之一。</b>"
+   }
+  ],
+  "48": [
+   {
+    "q": "五条全课目标里，她自己点明哪一条「对很多人来说可能是最有用的」？",
+    "o": ["实现常见的深度 RL 算法", "列举五个分析标准", "描述探索与利用的挑战", "判断一个应用问题该不该写成 RL、怎么形式化、选哪个算法并说明理由 —— 她说这往往是真正难的部分，影响极大，而且常常不清楚"],
+    "a": 3,
+    "why": "<b>注意她没说「学会算法最有用」。</b><span class='k'>而这一条里最难的是状态空间怎么定</span>：「把所有客户当成同一个，数据很多，但模型很差」——<span class='w'>这又回到了函数近似误差与样本效率的取舍，而它在本讲已经第三次出现。</span>"
+   },
+   {
+    "q": "她说 RL 与监督学习、与规划的分界各是什么？",
+    "o": ["与监督学习的分界是有标签，与规划的分界是有奖励", "都是因为有折扣因子", "都是因为状态空间大", "与监督学习：数据是自己采的、是删截数据，不是 IID；与规划：你依赖采到的数据，而不是有现成的模型"],
+    "a": 3,
+    "why": "<span class='k'>「删截数据」这个词很准：你只看得到自己选过的那些动作的结果，没选的永远看不到。</span>而第五条目标（探索-利用）之所以被单独拎出来，理由同源：<b>规划有模型不需要探索，监督学习数据给定也不需要——只有「数据由你的决策决定」时它才出现。</b>"
+   }
+  ],
+  "52": [
+   {
+    "q": "实录里她用什么比较来说明 RL 的落地程度？",
+    "o": ["RL 已经解决了医疗问题", "RL 已经超过人类水平", "我们手机上还没有 RL，不像人脸识别那样已经是基础设施 —— 所以这些想法用在其他应用上的潜力「依然巨大」", "RL 比监督学习更省数据"],
+    "a": 2,
+    "why": "<b>差距的原因本讲已经给了</b>：<span class='w'>人脸识别是监督学习（数据可事先收集、IID、标注可外包）；游戏之所以先成，是因为采数据免费且规则已知</span>——<span class='k'>而这两个条件现实应用一个都不满足。</span>"
+   },
+   {
+    "q": "「安全、公平、可问责」这三个词，实录给的具体含义是什么？",
+    "o": ["这些系统通常是人在回路中的一部分，所以让智能体能暴露自己的推理、以及暴露自己的局限，会是关键", "要通过监管审查", "要开源代码", "要有形式化验证"],
+    "a": 0,
+    "why": "<b>注意第二条：不只要说出理由，还要说出自己的局限。</b><span class='k'>这和 L15 p69 那条「能说清这个保证不保证什么」是同一件事</span>——一个是对研究者的要求，一个是对系统的要求，而它们是同一种诚实。"
+   }
+  ],
+  "56": [
+   {
+    "q": "「学一个值函数」这条变体治的是 MCTS 哪个薄弱处？代价是什么？",
+    "o": ["治并行困难；代价是同步开销", "治树太深；代价是内存", "治「必须 rollout 到终局才拿到回报」—— 走 d 步就用 V(s_d) 估剩下的；代价是引入自举偏差，因为那就是 n 步回报", "治 rollout 太随机；代价是要更多数据"],
+    "a": 2,
+    "why": "<b>于是 MCTS 从纯蒙特卡洛滑向 TD 那一侧：拿方差换偏差。</b><span class='w'>在 H 是 50–200 的围棋里，不必走到底是一个数量级的节省。</span><span class='k'>这门课从 L03 开始反复出现的那个旋钮，在最后一页又出现了一次。</span>"
+   },
+   {
+    "q": "「换一个更强的 rollout 策略」有一个课件没写的取舍。是什么？",
+    "o": ["更强的策略不能并行", "rollout 策略越强，估出来的越接近那个策略的 q^π 而不是 q* —— 随机 rollout 噪声大，但不偏向任何下法", "更强的策略需要更多内存", "更强的策略算得更慢"],
+    "a": 1,
+    "why": "<b>这是一个真实的偏差-方差取舍，不是单纯的改进。</b><span class='k'>随机 rollout「粗糙但不偏向谁」正是 L16.b p32 说它合适的理由</span>——而 MCTS 要的是 q*，不是某个策略的值。"
+   },
+   {
+    "q": "AlphaZero 也被用在国际象棋上。这件事的意义是什么？",
+    "o": ["终于能下象棋了", "象棋本来就被传统树搜索加手工评估函数攻克了；意义在于同一套不含领域知识的方法，在两个此前需要完全不同技术的游戏上都做到了最好", "象棋比围棋更难", "说明 MCTS 只适合棋类"],
+    "a": 1,
+    "why": "<b>「Zero」这个名字说的就是这件事：不用人类棋谱，只用规则加自我对弈。</b><span class='w'>而 p58 的措辞很准——MCTS 是 critical advance（关键的一步），不是全部</span>：<span class='k'>AlphaGo = MCTS 骨架 + 策略网络 + 值网络 + 自我对弈。</span>"
+   }
+  ]
+ }
+}
