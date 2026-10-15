@@ -1,0 +1,688 @@
+{
+ "_目标": {
+  "密度": 500,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "⚠ **这一讲和本门课其余 15 份不一样：它是印刷体幻灯片 + 手写批注**，不是手写扫描件。所以引文可以逐字抄，但要分清「幻灯片上印的」与「课上手写加的」。",
+  "p3 课程大纲（印刷体）：四条线 —— (Non-)stochastic **Online learning** · (Non-)stochastic **Multi-armed Bandits** · (Non-)stochastic **Linear Bandits and experimental design** · (Non-)stochastic **Contextual bandits (model-free and model-based)**；教材 [SzepesvariLattimore] Bandit Algorithms",
+  "p7 整页只有一句话：**Do these applications actually fall into the standard machine learning paradigm?**",
+  "p9 可实现情形的设定：有限假设类 ℋ = {h_1,h_2,…}，h(x) ∈ {−1,1}；(x_1,y_1),…,(x_n,y_n) 独立同分布 ∼ ν，**y_i = h_*(x_i) 对某个 h_* ∈ ℋ**",
+  "p9 手写批注：**R̂_n(h)「empirical risk」**（经验风险）· **R(ĥ) = P(ĥ(X) ≠ Y)「true risk」**（真实风险）",
+  "p10 **可实现情形定理**：|ℋ| < ∞，y_i ∈ {−1,1}，R̂_n(h) = (1/n)Σ1{h(x_i)≠y_i}，R(h) = P(h(X)≠Y)；**假设存在 h_* ∈ ℋ 使 R(h_*) = 0**；ĥ = argmin_h R̂_n(h)，则以概率 ≥ 1−δ：**R(ĥ) ≤ log(|ℋ|/δ) / n**",
+  "p10 手写：R(h) = E[R̂_n(h)]；P(R̂(ĥ) > log(|ℋ|/δ)/n) ≤ δ；**Probably Approximately Correct (PAC)**",
+  "p11/p12 证明（p11 手写、p12 印刷，同一个）：P(R(ĥ) ≥ ε) = P(R(ĥ) ≥ ε **且** ∩_{i=1}^n{ĥ(x_i)=y_i}) ≤ P(∪_{h∈ℋ}{R(h) ≥ ε 且 ∩_i{h(x_i)=y_i}}) ≤ Σ_{h∈ℋ} P(R(h) ≥ ε 且 ∩_i{h(x_i)=y_i}) ≤ Σ_{h∈ℋ}(1−ε)^n ≤ **|ℋ|·exp(−nε)**",
+  "p12 **并集界**（原文 Union bound）：P(A ∪ B) = P(A) + P(B) − P(A ∩ B) ≤ P(A) + P(B)",
+  "p12 用到的初等不等式：**exp(−x) ≥ (1−x) ∀x**",
+  "p13 **推论**（期望形式）：在同样条件下 **E[R(ĥ)] ≤ ∫_{ε=0}^{1} P(R(ĥ) ≥ ε) dε ≤ 2·log(|ℋ|)/n**；手写注：E[Z] = ∫_0^∞ P(Z>ε)dε，被积函数 **≤ min{1, |ℋ|e^{−nε}}**",
+  "p14/p17 **不可知（非可实现）情形定理**：同样设定但**不假设**有完美分类器；ĥ = argmin R̂_n(h)，则以概率 ≥ 1−δ：**R(ĥ) − R(h_*) ≤ sqrt( 2·log(|ℋ|/δ) / n )**；左边手写标注 **「Excess Risk」**（超额风险），h_* := argmin_{h∈ℋ} R(h)",
+  "p14 手写的三项分解：R(ĥ) − R(h_*) = [R(ĥ) − R̂_n(ĥ)] + [**R̂_n(ĥ) − R̂_n(h_*)**] + [R̂_n(h_*) − R(h_*)]，⚠ **中间那项 ≤ 0**（因为 ĥ 是经验风险最小者）",
+  "p14 ⇒ ≤ max_{h∈ℋ}(R(h) − R̂_n(h)) + (R̂_n(h_*) − R(h_*)) ≤ sqrt(log(2|ℋ|/δ)/(2n)) + sqrt(log(2|ℋ|/δ)/(2n))",
+  "p15 **Hoeffding 不等式**（引理，印刷体）：Z_1,…,Z_n 独立同分布 ∼ ν，E[Z_i] = μ，Z_i ∈ [a,b] 几乎必然，则 **P( (1/n)Σ_{i=1}^n Z_i ≥ μ + ε ) ≤ exp( −2nε² / |b−a|² )**",
+  "p15 手写：R̂_n(h) − R(h) = (1/n)Σ(1{h(x_i)≠y_i} − R(h))，其中 Z_i ∈ [−R(h), 1−R(h)]；**Var(Z_i) = R(h)(1−R(h)) ≤ 1/4**；n→∞ 时 → 𝒩(0, Var(Z_1)/n) ≈ 𝒩(0, 1/(4n))",
+  "p17 **不可知情形的推论**：若另加 **|ℋ| ≥ n**，则 **E[R(ĥ)] − R(h_*) ≤ sqrt( 8·log(|ℋ|) / n )**",
+  "p18 **插值（Interpolation）定理**：**R(ĥ) − R(h_*) ≤ sqrt( 2·R(h_*)·log(2|ℋ|/δ) / n ) + log(2|ℋ|/δ) / n**；原文证明一句话：**Proof: Use Bernstein's inequality instead of Hoeffding.**",
+  "⚠ p18 这条把 p10 与 p14 统一了：**R(h_*) = 0 时第一项消失、退回 1/n 的快率；R(h_*) 大时第一项主导、是 1/√n 的慢率**",
+  "p19/p20 **无限类**：原文红字 What if |ℋ| is *infinite* such as the space of all hyperplane classifiers? 蓝字给三条出路：**minimum description length** · **VC-dimension and Rademacher complexity** · **Covering number / log-entropy bounds**",
+  "⚠ 全程只用到两件工具：**并集界**与**一个集中不等式**（可实现情形用 (1−ε)^n，不可知情形用 Hoeffding，插值用 Bernstein）。换哪个集中不等式，就得到哪一档的界。"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    3
+   ],
+   "t": "这门课的地图：四条线，和一本书",
+   "star": 2,
+   "quote": "<b>CSE 541: Interactive Learning</b> — <em>Kevin Jamieson</em>, University of Washington, Spring 2025<br><em>We will cover selected topics from [SzepesvariLattimore]:</em><br><em>• (Non-)stochastic <b>Online learning</b><br>• (Non-)stochastic <b>Multi-armed Bandits</b><br>• (Non-)stochastic <b>Linear Bandits and experimental design</b><br>• (Non-)stochastic <b>Contextual bandits (model-free and model-based)</b></em><br><em>[SzepesvariLattimore] <b>Bandit Algorithms</b> course notes, Csaba Szepesvari and Tor Lattimore</em><br><em>The course will be analysis heavy, with a focus on methods that work well in practice.</em>",
+   "one": "<b>四条线，每条都有「随机」和「非随机」两个版本——而那个括号里的 (Non-) 就是这门课真正的主轴：同一个问题，假设分布与不假设分布，各能走多远。</b>",
+   "pts": [
+    "⚠️ <b>先说一件会影响你怎么读的事：<b>这一讲和本门课其余 15 份讲义不是一个形态</b>。</b> <span class='k'>其余全是手写扫描件（没有可用文本层，只能看图读）；<b>而 L01 是印刷体幻灯片 + 课上手写批注</b></span>。<b>⇒ 好处是引文可以逐字抄；代价是要分清哪些是幻灯片上印好的、哪些是当堂加的——后者往往才是老师真正想强调的。</b>",
+    "<b>课程大纲那四条线值得逐条对照你已经读过的讲次，因为它就是这门课的骨架。</b> <span class='w'>① <b>在线学习</b>（本讲后半 + L03/L04）；② <b>多臂老虎机</b>（L05–L09、L14）；③ <b>线性老虎机与实验设计</b>（L07、L10、L12、L16）；④ <b>上下文老虎机</b>（L18、L20）</span>。",
+    "<b>而每条线前面那个 <code>(Non-)</code> 前缀才是真正的主轴。</b> <span class='k'>它的意思是：同一个问题问两遍——<b>假设数据独立同分布</b>时能证出什么，<b>什么都不假设</b>（对抗）时又能证出什么</span>。<b>⇒ 你读过的 L14（EXP3）正是「非随机多臂老虎机」那一格，而本讲后半是「非随机在线学习」那一格。</b>",
+    "<b>注意这门课的顺序安排：<b>先讲在线学习，再讲老虎机</b>。</b> <span class='w'>原因在后面会很清楚：在线学习是<b>全信息</b>的（每轮能看到所有候选的损失），老虎机是<b>部分信息</b>的（只能看到你选的那个）</span>。<b>⇒ 老虎机的算法几乎都是「在线学习算法 + 一个把部分信息补成全信息的估计量」，而 L14 的 EXP3 就是最干净的例子（指数权重 + 重要性加权）。</b>",
+    "<b>教材只有一本：Lattimore &amp; Szepesvári 的 <em>Bandit Algorithms</em>。</b> <span class='k'>⚠ 这件事对你写论文有直接用处：讲义是板书，不适合当引文，而这本书把课上讲的几乎每条结论都写成了可引用的标准形式</span>。<b>任务清单的条目 1 已经把这本列进来了。</b>",
+    "<b>幻灯片上那句「<em>analysis heavy, with a focus on methods that work well in practice</em>」不是客套。</b> <span class='w'>这门课的每一讲几乎都是「给一个算法 + 证一条界」，而且界里的每个因子都会被追问来历</span>——<b>这正是你那条「写 bound」的验收标准需要的训练。</b>",
+    "<b>⚠ 最后一条关于本讲自身的结构：<b>L01 实际上是把六讲塞进了一份讲义</b>。</b> <span class='k'>① 课程概览（p1–3）；② 标准范式的动机（p4–7）；③ <b>泛化界</b>（p8–20，本片）；④ 在线学习的犯错界（p21–34）；⑤ 遗憾（p35–40）；⑥ <b>指数权重</b>（p41–48）与在线凸优化（p49–54）</span>。<b>所以这份精读分成三片做，本片是第 ③ 块。</b>"
+   ],
+   "eq": "⚠ 形态提醒：L01 是**印刷体幻灯片 + 手写批注**，其余 15 份讲义都是手写扫描件\n   ⇒ 引文可逐字抄；但要分清「幻灯片印的」与「课上手写加的」\n     后者往往才是老师真正想强调的\n\n课程四条线（每条都有 (Non-) 两个版本）：\n   ① **在线学习**                    ← 本讲后半 + L03 / L04\n   ② **多臂老虎机**                  ← L05–L09、L14\n   ③ **线性老虎机与实验设计**         ← L07、L10、L12、L16\n   ④ **上下文老虎机**（model-free / model-based） ← L18、L20\n\n   (Non-) 前缀 = 真正的主轴：\n     同一个问题问两遍 —— **假设独立同分布** vs **什么都不假设（对抗）**\n     L14（EXP3）= 「非随机多臂老虎机」那一格\n     本讲后半 = 「非随机在线学习」那一格\n\n为什么先讲在线学习再讲老虎机：\n   在线学习 = **全信息**（每轮看到所有候选的损失）\n   老虎机   = **部分信息**（只看到你选的那个）\n   ⇒ 老虎机算法 ≈ 在线学习算法 + 把部分信息补成全信息的估计量\n     L14 的 EXP3 = 指数权重 + 重要性加权，最干净的例子\n\n教材：Lattimore & Szepesvári《Bandit Algorithms》\n   ⚠ 讲义是板书不宜当引文；这本把课上结论写成了可引用的标准形式\n\n⚠ L01 自身 = 六讲塞进一份讲义：\n   ① 课程概览 p1–3    ② 动机 p4–7      ③ **泛化界 p8–20（本片）**\n   ④ 犯错界 p21–34    ⑤ 遗憾 p35–40    ⑥ 指数权重 p41–48 + 在线凸优化 p49–54",
+   "tbl": {
+    "head": [
+     "课程的四条线",
+     "随机版（假设 i.i.d.）",
+     "非随机版（对抗）",
+     "你读过的"
+    ],
+    "rows": [
+     [
+      "在线学习",
+      "ERM / 跟随领先者",
+      "<b>指数权重</b>",
+      "<b>本讲 p21–54</b>"
+     ],
+     [
+      "多臂老虎机",
+      "UCB · 逐次淘汰",
+      "<b>EXP3</b>",
+      "L05–L09 · <b>L14</b>"
+     ],
+     [
+      "线性老虎机 + 实验设计",
+      "LinUCB · G-最优设计",
+      "—",
+      "L07 · L10 · L12 · L16"
+     ],
+     [
+      "上下文老虎机",
+      "model-based",
+      "SquareCB",
+      "L18 · L20"
+     ]
+    ]
+   },
+   "link": {
+    "t": "你学过的对应：本课 L14 精读（EXP3 = 本讲的指数权重 + 重要性加权 + 强制探索；读完本片第三块 p41–48 再回去看 L14 会顺很多）",
+    "href": "L14-精读.html"
+   }
+  },
+  {
+   "r": [
+    4,
+    7
+   ],
+   "t": "标准范式，和那个把全课问出来的问号",
+   "star": 2,
+   "quote": "<b>Standard Machine Learning Paradigm</b><br><em>• <b>Data</b>: past observations<br>• <b>Hypotheses/Models</b>: devised to capture the patterns in data<br>• <b>Prediction</b>: apply model to forecast future observations</em><br>〔图上三次渐进：<em>Unlabeled data</em> → <em>Some labeled data</em> → <em>Decision rule learned based on labeled data and applied to future unlabeled data</em>〕<br>〔p7 整页只有一句话，配着 Netflix / Spotify / Amazon / 信用卡 / 法槌 / 药物 / 自动驾驶 / Facebook 广告的图〕<br><em><b>Do these applications actually fall into the standard machine learning paradigm?</b></em>",
+   "one": "<b>标准范式的隐含前提是「数据先给定、模型后学、预测再应用」——三个阶段互不影响。而 p7 列的那些应用全都不满足它：你的预测会改变你下一步看到的数据。</b>",
+   "pts": [
+    "<b>p4–p6 是同一张幻灯片的三次渐进，讲的是教科书式的监督学习。</b> <span class='k'>先是一堆无标注数据；然后标注其中一部分；最后学出一条决策规则，应用到将来的无标注数据上</span>。<b>⇒ 三个阶段严格分开，而这正是要被质疑的地方。</b>",
+    "<b>p7 整页只有一句话，而它是全课的出发点</b>：<b>「这些应用真的落在标准机器学习范式里吗？」</b><span class='w'>配图是 Netflix 推荐、Spotify 每周发现、Amazon「你可能也喜欢」、信用卡、司法判决、药物、自动驾驶、Facebook 广告。</span>",
+    "<b>答案当然是「不」，而不落在里面的理由只有一条，但它很致命：<b>你的决策会改变你接下来收到的数据</b>。</b> <span class='k'>Netflix 推荐了什么，用户就只可能点什么；你没推荐的那些，你永远不知道用户会不会喜欢</span>。<b>⇒ 数据不再是「天上掉下来的样本」，而是你自己行为的产物。</b>",
+    "<b>这件事有一个标准名字叫<b>反馈回路</b>，而它破坏的恰恰是标准范式最依赖的那条假设：数据独立同分布、且与模型无关。</b> <span class='w'>一旦模型影响采样，后来的数据就依赖于前面的模型，<b>独立性没了</b></span>。<b>⇒ 本讲后半要处理的正是这件事。</b>",
+    "<b>还有第二个问题，p7 的图里也藏着：<b>你只观察到你选的那个选项的结果</b>。</b> <span class='k'>推荐了电影 A，你知道用户点没点 A；但「如果推荐 B 会怎样」永远观察不到</span>。<b>⇒ 这就是<b>部分信息</b>（bandit 反馈），是这门课后半程的全部内容。</b>",
+    "<b>⚠ 但要留意本片的安排：<b>讲这个问号之后，老师并没有马上去解决它，而是先花了 12 页讲标准范式下的泛化界</b>（p8–20）。</b> <span class='w'>这不是跑题</span>——<b>因为后面证在线学习的界时，用的工具（并集界、Hoeffding、ERM 的三项分解）与这里一模一样</b>。<span class='k'>⇒ 先把工具打磨好，再去碰难设定。</span>",
+    "<b>对你的课题，这一页的问号恰好是你那套方法的立论基础，值得记一下措辞。</b> <span class='w'>你做的是：在一个 agentic 工作流里，<b>为每个节点选模型档位</b>——而这个选择会决定你观察到什么（你只知道所选配置的准确率）</span>。<b>⇒ 「这不是标准监督学习，因为我们的决策决定了我们的数据」这句话，是开题时最省力的一句开场白。</b>"
+   ],
+   "eq": "p4–p6（同一张幻灯片的三次渐进）= 教科书式监督学习：\n   无标注数据 → 标注一部分 → 学出决策规则 → 应用到将来的无标注数据\n   ⇒ **三个阶段严格分开** —— 这正是要被质疑的地方\n\np7（整页只有一句话，全课的出发点）：\n   **Do these applications actually fall into the standard machine learning paradigm?**\n   配图：Netflix · Spotify · Amazon · 信用卡 · 司法 · 药物 · 自动驾驶 · Facebook 广告\n\n答案是「不」，理由只有一条但很致命：\n   **你的决策会改变你接下来收到的数据**\n   Netflix 推荐了什么，用户就只可能点什么；没推荐的那些，永远不知道\n   ⇒ 数据不再是「天上掉下来的样本」，而是**你自己行为的产物**\n\n   标准名字：**反馈回路**\n   破坏的正是标准范式最依赖的假设：数据 i.i.d. 且与模型无关\n   一旦模型影响采样，后来的数据依赖前面的模型 ⇒ **独立性没了**\n\n第二个问题（图里也藏着）：\n   **你只观察到你选的那个选项的结果**\n   推荐了 A，知道点没点 A；「如果推荐 B 会怎样」永远观察不到\n   ⇒ **部分信息**（bandit 反馈）= 这门课后半程的全部内容\n\n⚠ 注意安排：讲完这个问号，老师**没有**马上解决它，\n   而是先花 12 页讲标准范式下的泛化界（p8–20）\n   不是跑题 —— 后面证在线学习的界，用的工具完全一样\n   （并集界、Hoeffding、ERM 的三项分解）\n   ⇒ 先把工具打磨好，再碰难设定"
+  },
+  {
+   "r": [
+    8,
+    9
+   ],
+   "t": "可实现情形的设定：两个风险，一个 argmin",
+   "star": 3,
+   "quote": "<b>Realizable case</b><br><em>Fix a finite hypothesis class ℋ = {h₁, h₂, …, } where h(x) ∈ {−1,1}.</em><br><em>You are given a data set (x₁,y₁), …, (x<sub>n</sub>,y<sub>n</sub>) <sup>iid</sup>∼ ν where <b>y<sub>i</sub> = h<sub>*</sub>(x<sub>i</sub>) for some h<sub>*</sub> ∈ ℋ</b></em><br><em>Let ĥ ∈ arg min<sub>h∈ℋ</sub> (1/n) Σ<sub>i=1</sub><sup>n</sup> <b>1</b>{h(x<sub>i</sub>) ≠ y<sub>i</sub>} &nbsp; how “good” is ĥ?</em><br>〔手写批注〕<em>R̂<sub>n</sub>(h) &nbsp;“empirical risk”</em> &nbsp;·&nbsp; <em>(x,y) ∼ ν, &nbsp; ℙ(ĥ(x) ≠ y) = R(ĥ) &nbsp;“true risk”</em>",
+   "one": "<b>两个风险要分清：经验风险是你在手上这 n 个样本上数错了几个，真实风险是在整个分布上会错多少。ERM 最小化前者，而定理要控制的是后者。</b>",
+   "pts": [
+    "<b>设定有三个限制，每一个都在后面被用到，值得逐条点出来。</b> <span class='k'>① <b>ℋ 有限</b>（<code>|ℋ| < ∞</code>）——并集界要对它求和；② <b>二分类</b>（<code>h(x) ∈ {−1,1}</code>）——损失是 0/1，有界；③ <b>独立同分布</b>（<code>(x_i,y_i) ∼ ν</code>）——集中不等式的前提</span>。",
+    "<b>而「可实现」这个词专指第四条：<b>存在 <code>h_* ∈ ℋ</code> 使 <code>y_i = h_*(x_i)</code></b>。</b> <span class='w'>翻译过来是「<b>真相就在你的候选集合里，而且它一点错都不犯</b>」</span>。<b>⇒ 这是一个很强的假设，后面 p14 会把它去掉（那就是「不可知」情形）。</b>",
+    "<b>两个风险的定义必须分清楚，这是整块内容的记号基础。</b> <span class='k'><b>经验风险</b> <code>R̂_n(h) = (1/n)Σ_i 1{h(x_i) ≠ y_i}</code>——在你手上这 n 个样本里数错了几个，<b>你算得出来</b></span>；<b><code>真实风险 R(h) = P(h(X) ≠ Y)</code>，<code>(X,Y) ∼ ν</code>——在整个分布上会错多少，<b>你算不出来</b></b>。",
+    "<b>两者的关系是一句话：<code>R(h) = E[R̂_n(h)]</code>（p10 的手写批注写明了）。</b> <span class='w'>经验风险是真实风险的<b>无偏估计</b>，因为每一项 <code>1{h(x_i)≠y_i}</code> 的期望就是 <code>R(h)</code></span>。<b>⇒ 于是问题变成「一个无偏估计离真值能差多远」，这正是集中不等式回答的。</b>",
+    "⚠️ <b>但这里有一个<b>关键的陷阱</b>，它是整个泛化理论存在的理由：<b><code>R(ĥ) ≠ E[R̂_n(ĥ)]</code></b>。</b> <span class='k'>对<b>固定</b>的 <code>h</code>，<code>R̂_n(h)</code> 是 <code>R(h)</code> 的无偏估计；但 <code>ĥ</code> 是<b>按这批数据挑出来的</b>，它依赖数据</span>。<b>⇒ <code>ĥ</code> 是「在这批数据上看起来最好的那个」，所以 <code>R̂_n(ĥ)</code> 会<b>系统性地偏低</b>。</b>",
+    "<b>这就是为什么证明里必须对<b>所有</b> <code>h ∈ ℋ</code> 同时控制，而不能只对 <code>ĥ</code> 控制。</b> <span class='w'>你事先不知道 <code>ĥ</code> 会是谁，所以只能把 <code>|ℋ|</code> 个事件全都盖住</span>——<b>而「全都盖住」的代价就是并集界带来的那个 <code>log|ℋ|</code>。</b>",
+    "<b>幻灯片上写的是 <code>ĥ ∈ arg min</code> 而不是 <code>=</code>，这个细节在 p30 会变得要紧。</b> <span class='k'>因为可能有<b>多个</b> <code>h</code> 同时达到最小经验风险，<code>argmin</code> 是一个<b>集合</b></span>。<b>⇒ 「平局怎么打破」在独立同分布下无所谓，但在对抗设定下会被对手利用（p30 的那个 <code>min{|ℋ|,T}</code> 反例正是这么构造的）。</b>",
+    "<b>p9 右下角那张手绘图画的是几条候选分类曲线 <code>h_1, h_2, h_3</code> 穿过一堆 +/− 点。</b> <span class='w'>意思很直白：<b>多条曲线都能把训练点分对，你该挑哪条、挑错了会怎样</b></span>——<b>而答案就是下一页那条界。</b>"
+   ],
+   "eq": "设定的三个限制（每条后面都被用到）：\n   ① **ℋ 有限**（|ℋ| < ∞）        ← 并集界要对它求和\n   ② **二分类** h(x) ∈ {−1,1}      ← 损失是 0/1，有界\n   ③ **独立同分布** (x_i,y_i) ∼ ν  ← 集中不等式的前提\n\n**可实现**（realizable）专指第四条：\n   存在 h_* ∈ ℋ 使 y_i = h_*(x_i)\n   = 「**真相就在你的候选集合里，而且它一点错都不犯**」\n   ⇒ 很强的假设；p14 会去掉它（那就是「不可知」情形）\n\n两个风险（记号基础，必须分清）：\n   **经验风险** R̂_n(h) = (1/n) Σ_i 1{h(x_i) ≠ y_i}   在手上 n 个样本里错几个 —— **算得出**\n   **真实风险** R(h)   = P(h(X) ≠ Y),  (X,Y) ∼ ν     在整个分布上错多少 —— **算不出**\n\n   关系：**R(h) = E[ R̂_n(h) ]**（p10 手写批注）\n     经验风险是真实风险的**无偏估计**（每项 1{h(x_i)≠y_i} 的期望就是 R(h)）\n     ⇒ 问题变成「无偏估计离真值能差多远」= 集中不等式回答的\n\n⚠⚠ 关键陷阱（整个泛化理论存在的理由）：**R(ĥ) ≠ E[R̂_n(ĥ)]**\n   对**固定**的 h，R̂_n(h) 无偏\n   但 ĥ 是**按这批数据挑出来的**，它依赖数据\n   ⇒ ĥ = 「在这批数据上看起来最好的那个」⇒ R̂_n(ĥ) **系统性偏低**\n\n   ⇒ 所以证明必须对**所有** h ∈ ℋ 同时控制，不能只对 ĥ 控制\n     事先不知道 ĥ 是谁 ⇒ 只能把 |ℋ| 个事件全盖住\n     「全盖住」的代价 = 并集界带来的 **log|ℋ|**\n\n⚠ 幻灯片写的是 ĥ **∈** arg min 而不是 = ：argmin 是一个**集合**\n   可能有多个 h 同时达到最小经验风险\n   平局怎么打破，在 i.i.d. 下无所谓，**但对抗下会被对手利用**\n   （p30 那个 min{|ℋ|,T} 的反例正是这么构造的）",
+   "tbl": {
+    "head": [
+     "",
+     "经验风险 R̂<sub>n</sub>(h)",
+     "真实风险 R(h)"
+    ],
+    "rows": [
+     [
+      "定义",
+      "(1/n)Σ<b>1</b>{h(x<sub>i</sub>)≠y<sub>i</sub>}",
+      "ℙ(h(X)≠Y)"
+     ],
+     [
+      "你算得出来吗",
+      "<b>算得出</b>",
+      "<span class='w'>算不出</span>"
+     ],
+     [
+      "对<b>固定</b> h",
+      "<b>是 R(h) 的无偏估计</b>",
+      "—"
+     ],
+     [
+      "对<b>选出来的</b> ĥ",
+      "<span class='w'>⚠ 系统性偏低</span>",
+      "<b>定理要控制的就是它</b>"
+     ],
+     [
+      "谁最小化它",
+      "<b>ERM（算法）</b>",
+      "<span class='w'>你真正想要的</span>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    10,
+    10
+   ],
+   "t": "可实现情形的定理：log(|ℋ|/δ)/n，以及 PAC 这三个字",
+   "star": 3,
+   "quote": "<b>Theorem</b>: <em>Fix a finite hypothesis class ℋ so that |ℋ| &lt; ∞ and for all h ∈ ℋ we have h(x) ∈ {−1,1}. Let (x₁,y₁),…,(x<sub>n</sub>,y<sub>n</sub>) <sup>iid</sup>∼ ν where y<sub>i</sub> ∈ {−1,1}. For any h ∈ ℋ define R̂<sub>n</sub>(h) = (1/n)Σ<sub>i=1</sub><sup>n</sup><b>1</b>{h(x<sub>i</sub>) ≠ y<sub>i</sub>} and R(h) = ℙ(h(X) ≠ Y) where (X,Y) ∼ ν. <u>Assume there exists an h<sub>*</sub> ∈ ℋ such that R(h<sub>*</sub>) = 0</u>. If ĥ = arg min<sub>h∈ℋ</sub> R̂<sub>n</sub>(h) then with probability at least 1 − δ we have</em><br><em><b>R(ĥ) ≤ log(|ℋ|/δ) / n</b></em><br>〔手写批注〕<em>R(h) = 𝔼[R̂<sub>n</sub>(h)]</em> · <em>ℙ( R(ĥ) &gt; log(|ℋ|/δ)/n ) ≤ δ</em> · <em><b>Probably Approximately Correct (PAC)</b></em>",
+   "one": "<b>两个旋钮：|ℋ| 只进 log，所以候选再多也不太贵；δ 也只进 log，所以把置信度从 95% 提到 99.9% 几乎免费。贵的是 n，而它在分母上是一次方——这是「快率」。</b>",
+   "pts": [
+    "<b>先读那个形状：<code>R(ĥ) ≤ log(|ℋ|/δ)/n</code>，分母是 <code>n</code> 的<b>一次方</b>。</b> <span class='k'>这叫<b>快率</b>（fast rate），对比 p14 不可知情形的 <code>1/√n</code>（慢率）</span>。<b>⇒ 要把误差减半，这里只需 2 倍样本；慢率那边要 4 倍。</b>",
+    "<b>拆开 <code>log(|ℋ|/δ) = log|ℋ| + log(1/δ)</code>，两项各有含义。</b> <span class='w'><code>log|ℋ|</code> 是「候选集有多大」的代价，<code>log(1/δ)</code> 是「你要多有把握」的代价</span>——<b>⇒ 两个都只进 <code>log</code>，所以都很便宜。</b>",
+    "<b><code>log(1/δ)</code> 便宜到什么程度值得感受一下：<code>δ</code> 从 <code>0.05</code> 到 <code>0.001</code>，<code>log(1/δ)</code> 从约 3 变成约 6.9。</b> <span class='k'>置信度从 95% 提到 99.9%，代价只是样本量翻一倍多一点</span>。<b>⇒ 所以在这类界里，「把 δ 取得很小」几乎从来不是瓶颈。</b>",
+    "<b><code>log|ℋ|</code> 同理：候选从 1000 个增加到 100 万个，<code>log|ℋ|</code> 只从约 6.9 变成约 13.8。</b> <span class='w'><b>候选数翻 1000 倍，样本量只需翻一倍</b></span>。<b>⇒ 这是整个有限类理论最重要的一条直觉，而它对你那个「<code>2^H</code> 个配置」的问题有直接含义（见右侧科研格）。</b>",
+    "<b>⚠ 那条被下划线的假设 <code>R(h_*) = 0</code> 是「可实现」的全部内容，而它比看上去强。</b> <span class='k'>它要求存在一个候选<b>完美</b>——不是「最好的那个」，是「一个错都不犯的那个」</span>。<b>⇒ 一旦不成立，这条界<b>完全失效</b>（不是常数变差，是结论不对），必须换成 p14 的版本。</b>",
+    "<b>手写那行 <code>P(R(ĥ) > log(|ℋ|/δ)/n) ≤ δ</code> 是把定理反过来写，而这个形式更接近证明实际做的事。</b> <span class='w'>证明是先固定一个 <code>ε</code>、算出「<code>R(ĥ) ≥ ε</code>」的概率上界 <code>|ℋ|e^{−nε}</code>，再令它等于 <code>δ</code> 反解 <code>ε</code></span>。<b>⇒ <code>|ℋ|e^{−nε} = δ ⟺ ε = log(|ℋ|/δ)/n</code>，定理里那个式子就是这么来的。</b>",
+    "<b><b>PAC</b>（Probably Approximately Correct，「大概、差不多、对」）这个名字把界的结构说得很准。</b> <span class='k'><b>Probably</b> = 以概率 <code>1−δ</code>（允许小概率失败）；<b>Approximately</b> = 误差 <code>≤ ε</code> 而非 0；<b>Correct</b> = 确实接近最优</span>。<b>⇒ 两个「让步」各对应一个参数，而两个参数都只进 <code>log</code>。</b>",
+    "<b>⚠ 一个容易忽略的点：这条界<b>不保证 <code>ĥ = h_*</code></b>。</b> <span class='w'>它只保证 <code>ĥ</code> 的真实风险小，<b>没说你找到的就是那个完美分类器</b></span>——<b>可能还有别的 <code>h</code> 也在数据上零错误，而你挑中了其中一个「几乎完美」的。</b><span class='k'>⇒ 「找到最优解」和「找到一个足够好的解」是两件事，而 PAC 只承诺后者。这个区分在 L09 的纯探索里会再出现一次。</b>"
+   ],
+   "eq": "**R(ĥ) ≤ log(|ℋ|/δ) / n**     分母是 n 的**一次方** = **快率**（fast rate）\n   对比 p14 不可知情形的 1/sqrt(n)（慢率）\n   ⇒ 误差减半：这里只需 2 倍样本；慢率那边要 4 倍\n\n拆开 log(|ℋ|/δ) = **log|ℋ|** + **log(1/δ)**\n   log|ℋ|   = 「候选集有多大」的代价\n   log(1/δ) = 「你要多有把握」的代价\n   ⇒ 两个都只进 log，都很便宜\n\n   感受一下有多便宜：\n     δ: 0.05 → 0.001       log(1/δ): 约 3 → 约 6.9\n       置信度 95% → 99.9%，样本量只翻一倍多一点\n     |ℋ|: 1000 → 1,000,000  log|ℋ|: 约 6.9 → 约 13.8\n       **候选数翻 1000 倍，样本量只需翻一倍**\n\n⚠ 被下划线的假设 **R(h_*) = 0** 比看上去强：\n   要求存在一个候选**完美** —— 不是「最好的那个」，是「一个错都不犯的那个」\n   一旦不成立，这条界**完全失效**（不是常数变差，是结论不对）\n\n手写的反写形式（更接近证明实际做的事）：\n   P( R(ĥ) > log(|ℋ|/δ)/n ) ≤ δ\n   证明：先固定 ε，算出 P(R(ĥ) ≥ ε) ≤ |ℋ|e^{−nε}，再令它 = δ 反解\n   **|ℋ|e^{−nε} = δ  ⟺  ε = log(|ℋ|/δ)/n**    ← 定理那个式子的来历\n\n**PAC** = Probably Approximately Correct（大概、差不多、对）\n   **Probably**      = 以概率 1−δ（允许小概率失败）\n   **Approximately** = 误差 ≤ ε 而非 0\n   **Correct**       = 确实接近最优\n   ⇒ 两个「让步」各对应一个参数，而两个参数都只进 log\n\n⚠ 这条界**不保证 ĥ = h_***：\n   只保证 ĥ 的真实风险小，没说你找到的就是那个完美分类器\n   可能还有别的 h 也在数据上零错误，你挑中了其中一个「几乎完美」的\n   ⇒ 「找到最优解」≠「找到一个足够好的解」，PAC 只承诺后者\n     （这个区分在 L09 的纯探索里会再出现）",
+   "tbl": {
+    "head": [
+     "界里的量",
+     "进去的方式",
+     "翻 1000 倍要多少样本",
+     "是瓶颈吗"
+    ],
+    "rows": [
+     [
+      "候选数 |ℋ|",
+      "<b>log</b>",
+      "<b>约 2 倍</b>",
+      "<span class='w'>不是</span>"
+     ],
+     [
+      "置信度 1/δ",
+      "<b>log</b>",
+      "<b>约 2 倍</b>",
+      "<span class='w'>不是</span>"
+     ],
+     [
+      "样本量 n",
+      "<b>1/n（一次方）</b>",
+      "—",
+      "<b>是</b>"
+     ],
+     [
+      "⚠ 可实现假设",
+      "<b>要么成立要么全垮</b>",
+      "—",
+      "<b>是（见 p14）</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你一个可以立刻算出来的数，而它可能会改变你对「<code>2^H</code> 个配置」这件事的焦虑程度。</b><br><span class='k'>候选数只进 <code>log</code>。你的配置空间是 <code>2^H</code> 个（<code>H</code> 个节点、每个二选一），于是 <b><code>log|𝒳| = log(2^H) = H·log 2 ≈ 0.69·H</code></b></span>。<b>⇒ <code>H = 10</code> 时这个数是 <b>6.9</b>；<code>H = 20</code> 时是 <b>13.9</b>。</b><span class='w'>换句话说：<b>「候选集有 2^H 个」在统计上的代价只是线性于 H，不是指数</b>。</span><br><b>⇒ 这件事值得在论文里明说，因为它把问题的难点定位准了</b>：<span class='k'>如果你能<b>免费</b>获得每个配置在每条 query 上的表现，那么选出近最优配置所需的 query 数只按 <code>H</code> 线性增长，<code>2^H</code> 完全不是障碍</span>。<b>真正的障碍是<b>每次测量要花钱</b>——你不能对每个配置都跑一遍。</b><br><b>⚠ 所以要把两个「复杂度」分开讲，否则会被审稿人问住：</b><br><b>① <b>统计复杂度</b>（需要多少条 query）：<code>log|𝒳| = H log2</code>，便宜；</b><br><b>② <b>计算/预算复杂度</b>（需要多少次 LLM 调用）：朴素做法是 <code>|𝒳| × query 数</code>，<b>这才是指数的那一项</b>。</b><br><span class='w'>⇒ 而你的方法（线性结构 + 最优设计 + 逐次淘汰）攻的正是第 ②，不是第 ①。</span><br><b>另外两条直接可用的：</b><br><b>· <code>log(1/δ)</code> 很便宜 ⇒ <b>把 <code>δ</code> 取小一点，别为了好看的界牺牲置信度</b></b>。<span class='k'>从 0.05 到 0.001 只多一倍样本，而审稿人对 <code>δ=0.001</code> 的信任度高得多。</span><br><b>· ⚠ <b>「可实现」在你这里几乎必然不成立</b></b>——<span class='w'>不存在一个配置在<b>每条</b> query 上都最优（不同 query 难度不同）</span>。<b>⇒ 所以你该用的是 p14 的不可知版本（<code>1/√n</code>），而不是这一页。别不小心引错了那条更漂亮的界。</b>",
+    "ref": "本讲 p10（逐字核对）· p14 · L14 p4（log|ℋ| 与 n 的来历对照）· 简报 §1 §4c（已核）"
+   }
+  },
+  {
+   "r": [
+    11,
+    12
+   ],
+   "t": "证明：并集界 + 一个指数不等式，两件工具而已",
+   "star": 3,
+   "quote": "<em><b>Union bound</b>: ℙ(A ∪ B) = ℙ(A) + ℙ(B) − ℙ(A ∩ B) ≤ ℙ(A) + ℙ(B)</em><br><em>ℙ(R(ĥ) ≥ ϵ) = ℙ(R(ĥ) ≥ ϵ <b>and</b> ∩<sub>i=1</sub><sup>n</sup>{ĥ(x<sub>i</sub>) = y<sub>i</sub>})</em><br><em>&nbsp;≤ ℙ( ∪<sub>h∈ℋ</sub> { R(h) ≥ ϵ and ∩<sub>i=1</sub><sup>n</sup>{h(x<sub>i</sub>) = y<sub>i</sub>} } )</em><br><em>&nbsp;≤ Σ<sub>h∈ℋ</sub> ℙ( R(h) ≥ ϵ and ∩<sub>i=1</sub><sup>n</sup>{h(x<sub>i</sub>) = y<sub>i</sub>} )</em><br><em>&nbsp;≤ Σ<sub>h∈ℋ</sub> (1 − ϵ)<sup>n</sup> &nbsp;≤&nbsp; <b>|ℋ| exp(−nϵ)</b></em><br>〔右侧配图与注〕<em>exp(−x) ≥ (1 − x) &nbsp; ∀x</em>",
+   "one": "<b>五行，每一行只做一件事：先补上一个恒成立的条件，再把「我选的那个」放大成「所有候选的并」，然后并集界拆开，最后对单个候选用一个初等概率计算。</b>",
+   "pts": [
+    "<b>第一行是整个证明里最巧的一步，而它看起来像什么都没做：<code>P(R(ĥ) ≥ ε) = P(R(ĥ) ≥ ε <b>且</b> ∩_i{ĥ(x_i) = y_i})</code>。</b> <span class='k'>加上去的那个条件「<code>ĥ</code> 在全部训练点上都对」是<b>恒成立</b>的</span>——<b>因为可实现假设保证 <code>h_*</code> 的经验风险为 0，而 <code>ĥ</code> 是经验风险最小者，所以 <code>ĥ</code> 的经验风险也必须是 0。</b>",
+    "<b>⇒ 加一个概率为 1 的条件不改变概率，但<b>把一个关于 <code>ĥ</code> 的陈述变成了一个可以对每个 <code>h</code> 单独检验的陈述</b>。</b> <span class='w'>这是整个论证的转轴：没有这一步，后面的并集界无从下手</span>。",
+    "<b>第二行把 <code>ĥ</code> 换成 <code>∪_{h∈ℋ}</code>，而这里用的逻辑值得说清。</b> <span class='k'><code>ĥ</code> 是 <code>ℋ</code> 里的某一个（你不知道是哪个）；所以「<code>ĥ</code> 满足某性质」<b>蕴含</b>「<b>存在</b>某个 <code>h ∈ ℋ</code> 满足该性质」</b></span>。<b>⇒ 事件变大，概率只增不减，不等号方向对。</b>",
+    "<b>这一步的代价就是后面那个 <code>|ℋ|</code>，而它本质上是在为「<code>ĥ</code> 依赖数据」付费。</b> <span class='w'>如果 <code>h</code> 是事先固定的，根本不需要并集界，<code>log|ℋ|</code> 这一项就不会出现</span>。<b>⇒ 这呼应了 p9 那条陷阱：<code>ĥ</code> 是挑出来的，所以必须对所有候选同时控制。</b>",
+    "<b>第三行就是<b>并集界</b>，幻灯片把它单独写在了顶上。</b> <span class='k'><code>P(A∪B) = P(A)+P(B)−P(A∩B) ≤ P(A)+P(B)</code>，推广到 <code>|ℋ|</code> 个就是 <code>P(∪_h A_h) ≤ Σ_h P(A_h)</code></span>。<b>⇒ 它是最粗糙的工具之一（完全忽略事件之间的相关性），但也最通用。</b>",
+    "<b>第四行是对<b>单个固定</b> <code>h</code> 的计算，而这正是前面费那么大劲换来的。</b> <span class='k'>固定一个 <code>h</code>，若 <code>R(h) ≥ ε</code>，则它在一个随机样本上<b>答对</b>的概率 <code>≤ 1−ε</code>；n 个样本独立，<b>全对</b>的概率 <code>≤ (1−ε)^n</code></span>。<b>⇒ 「坏的假设恰好在所有训练点上蒙对」这件事指数地不可能。</b>",
+    "<b>⚠ 这一步的独立性用在哪里要看清：用在 <code>n</code> 个样本之间，不是候选之间。</b> <span class='w'><code>(x_i,y_i)</code> 独立同分布 ⇒ n 次「答对」可以连乘</span>。<b>⇒ 这是整个证明里唯一用到独立同分布的地方，而本讲后半要去掉的正是它。</b>",
+    "<b>第五行用 <code>1−x ≤ e^{−x}</code>（幻灯片写成 <code>exp(−x) ≥ 1−x</code>，右边还画了两条曲线）。</b> <span class='k'>这个不等式对所有 <code>x</code> 成立，是切换到指数形式的标准手法</span>。<b>⇒ <code>(1−ε)^n ≤ e^{−nε}</code>，于是总和 <code>≤ |ℋ|e^{−nε}</code>。</b>",
+    "<b>最后令 <code>|ℋ|e^{−nε} = δ</code> 反解即得定理：<code>ε = log(|ℋ|/δ)/n</code>。</b> <span class='w'>注意 <code>|ℋ|</code> 和 <code>1/δ</code> 在这里是<b>乘</b>在一起的，取 log 后才变成加法</span>——<b>这解释了为什么它们俩在界里总是以 <code>log(|ℋ|/δ)</code> 这个组合出现。</b>",
+    "<b>⚠ 把全局看一眼：整个证明只用了<b>两件工具</b>——并集界，和一个关于单个假设的概率计算。</b> <span class='k'>后面 p14 的不可知情形结构<b>完全一样</b>，只是第四行换成 Hoeffding；p18 再换成 Bernstein</span>。<b>⇒ 「换哪个集中不等式，就得到哪一档的界」——这个模板你会反复用到。</b>"
+   ],
+   "eq": "① 补一个恒成立的条件（整个证明最巧的一步，看起来什么都没做）：\n   P(R(ĥ) ≥ ε) = P( R(ĥ) ≥ ε **且** ∩_i {ĥ(x_i) = y_i} )\n\n   为什么恒成立：可实现 ⇒ R̂_n(h_*) = 0；ĥ 是经验风险最小者 ⇒ R̂_n(ĥ) = 0\n   ⇒ 加一个概率为 1 的条件不改变概率，\n     但**把关于 ĥ 的陈述变成了可以对每个 h 单独检验的陈述**\n     这是整个论证的转轴\n\n② ĥ → ∪_{h∈ℋ}：\n   ĥ 是 ℋ 里某一个（不知是哪个）\n   ⇒「ĥ 满足 P」**蕴含**「**存在** h ∈ ℋ 满足 P」⇒ 事件变大，概率只增不减\n   代价 = 后面那个 |ℋ|，本质是在为「ĥ 依赖数据」付费\n     （若 h 事先固定，根本不需要并集界，log|ℋ| 不会出现）\n\n③ **并集界**：P(A∪B) = P(A)+P(B)−P(A∩B) ≤ P(A)+P(B)\n   推广：P(∪_h A_h) ≤ Σ_h P(A_h)\n   最粗糙的工具之一（完全忽略相关性），但最通用\n\n④ 对**单个固定** h 的计算（前面费劲换来的）：\n   若 R(h) ≥ ε，则它在一个随机样本上**答对**的概率 ≤ 1−ε\n   n 个样本独立 ⇒ **全对**的概率 ≤ (1−ε)^n\n   = 「坏假设恰好在所有训练点上蒙对」指数地不可能\n\n   ⚠ 独立性用在**样本之间**，不是候选之间\n     这是整个证明里**唯一**用到 i.i.d. 的地方 —— 本讲后半要去掉的正是它\n\n⑤ **exp(−x) ≥ (1−x)  ∀x** ⇒ (1−ε)^n ≤ e^{−nε}\n   ⇒ 总和 ≤ **|ℋ|·exp(−nε)**\n\n令 |ℋ|e^{−nε} = δ 反解：**ε = log(|ℋ|/δ)/n** ✓\n   注意 |ℋ| 与 1/δ 在这里是**乘**在一起的，取 log 后才变加法\n   ⇒ 解释了为什么它们总以 log(|ℋ|/δ) 这个组合出现\n\n⚠ 全局：整个证明只用了**两件工具** —— 并集界 + 单个假设的概率计算\n   p14 不可知情形结构**完全一样**，只是 ④ 换成 Hoeffding\n   p18 再换成 Bernstein\n   ⇒ **换哪个集中不等式，就得到哪一档的界**"
+  },
+  {
+   "r": [
+    13,
+    13
+   ],
+   "t": "从「高概率」到「期望」：一个积分技巧",
+   "star": 2,
+   "quote": "<b>Corollary</b> <em>Under the conditions of the theorem (i.e., there exists an h<sub>*</sub> ∈ ℋ such that R(h<sub>*</sub>) = 0, (x<sub>i</sub>,y<sub>i</sub>) <sup>iid</sup>∼ ν, and ĥ = arg min<sub>h∈ℋ</sub> (1/n)Σ<sub>i=1</sub><sup>n</sup><b>1</b>{h(x<sub>i</sub>) ≠ y<sub>i</sub>}) we have</em><br><em><b>𝔼[R(ĥ)] ≤ ∫<sub>ϵ=0</sub><sup>1</sup> ℙ(R(ĥ) ≥ ϵ) dϵ ≤ 2 log(|ℋ|) / n</b></em><br>〔手写批注〕<em>𝔼[Z] = ∫<sub>0</sub><sup>∞</sup> ℙ(Z &gt; ϵ) dϵ</em> · <em>被积函数 ≤ min{1, |ℋ|e<sup>−nϵ</sup>}</em>",
+   "one": "<b>高概率界和期望界之间只隔一个恒等式：E[Z] = ∫P(Z>ε)dε。把尾概率积掉，δ 就自己消失了——代价是常数 2。</b>",
+   "pts": [
+    "<b>为什么要有期望版本？因为高概率界里那个 <code>δ</code> 是个自由参数，报结果时总要解释「我们取 δ=0.05」。</b> <span class='k'>期望界没有这个参数，更干净，也更容易和别的结果比较</span>。<b>⇒ 两种形式各有用处，而它们之间的转换是机械的。</b>",
+    "<b>用的恒等式是 <code>E[Z] = ∫_0^∞ P(Z > ε)dε</code>，对<b>非负</b>随机变量成立。</b> <span class='w'>直觉：把 <code>Z</code> 的图像按水平线切片，每一片的面积就是 <code>P(Z > ε)dε</code>，加起来就是期望</span>。<b>⇒ 这是概率论里最常用的小技巧之一，值得当成反射。</b>",
+    "<b>这里 <code>R(ĥ) ∈ [0,1]</code>，所以积分上限是 1 而不是 <code>∞</code>。</b> <span class='k'>幻灯片写的就是 <code>∫_{ε=0}^{1}</code>（手写批注里还纠结过上限，划掉又改过）</span>。",
+    "<b>关键一步是手写批注那行：<b>被积函数 <code>≤ min{1, |ℋ|e^{−nε}}</code></b>。</b> <span class='w'>概率天然 <code>≤ 1</code>，而定理给了 <code>≤ |ℋ|e^{−nε}</code>——取两者的较小值</span>。<b>⇒ 这个 <code>min</code> 是必需的：当 <code>ε</code> 很小时 <code>|ℋ|e^{−nε}</code> 会大于 1，直接积分会高估。</b>",
+    "<b>于是积分被分成两段，而分界点正好在 <code>|ℋ|e^{−nε} = 1</code>，即 <code>ε_0 = log|ℋ|/n</code>。</b> <span class='k'><b>第一段</b> <code>[0, ε_0]</code>：被积函数取 1，贡献 <code>ε_0 = log|ℋ|/n</code>；<b>第二段</b> <code>[ε_0, 1]</code>：被积函数取 <code>|ℋ|e^{−nε}</code>，积出来是 <code>(|ℋ|/n)e^{−nε_0} = 1/n</code></span>。",
+    "<b>两段加起来是 <code>log|ℋ|/n + 1/n</code>，而幻灯片给的是 <code>2log|ℋ|/n</code>。</b> <span class='w'>只要 <code>|ℋ| ≥ e</code>（即 <code>log|ℋ| ≥ 1</code>），就有 <code>1/n ≤ log|ℋ|/n</code>，于是和 <code>≤ 2log|ℋ|/n</code></span>。<b>⇒ 那个常数 2 就是这么来的，是一步「把小项并进大项」的粗放。</b>",
+    "<b>⚠ 注意期望版里 <code>δ</code> 不见了，但代价不是零：<b>多了一个常数 2</b>，而且丢掉了「失败时有多糟」的信息。</b> <span class='k'>高概率界告诉你「<code>1−δ</code> 的情况下不超过多少」；期望界只给平均值，<b>可能被罕见的坏情况拖累而你看不出来</b></span>。<b>⇒ 报结果时两种都给，是最稳妥的做法。</b>",
+    "<b>这一页的技巧在本片后面还会再用一次（p17 的不可知推论 <code>√(8log|ℋ|/n)</code>），而且在你自己写界时几乎一定会用到。</b> <span class='w'>凡是手上有一条形如「以概率 <code>1−δ</code>，误差 <code>≤ f(δ)</code>」的界，都可以这样积出期望版</span>。"
+   ],
+   "eq": "为什么要期望版本：高概率界里的 δ 是自由参数，报结果时总要解释「我们取 δ=0.05」\n   期望界没有这个参数，更干净，也更容易和别的结果比较\n\n恒等式（对**非负**随机变量）：**E[Z] = ∫_0^∞ P(Z > ε) dε**\n   直觉：把 Z 的图像按水平线切片，每片面积 = P(Z>ε)dε，加起来就是期望\n   这里 R(ĥ) ∈ [0,1] ⇒ 积分上限是 1\n\n关键（手写批注）：被积函数 ≤ **min{ 1, |ℋ|e^{−nε} }**\n   概率天然 ≤ 1，而定理给了 ≤ |ℋ|e^{−nε}，取较小者\n   ⚠ 这个 min 是必需的：ε 很小时 |ℋ|e^{−nε} > 1，直接积分会高估\n\n分界点在 |ℋ|e^{−nε} = 1，即 **ε_0 = log|ℋ| / n**\n   第一段 [0, ε_0]：被积函数取 1        ⇒ 贡献 ε_0 = log|ℋ|/n\n   第二段 [ε_0, 1]：取 |ℋ|e^{−nε}      ⇒ 积出 (|ℋ|/n)e^{−n·ε_0} = 1/n\n\n   和 = log|ℋ|/n + 1/n\n   只要 |ℋ| ≥ e（即 log|ℋ| ≥ 1）⇒ 1/n ≤ log|ℋ|/n\n   ⇒ **≤ 2·log(|ℋ|)/n**        ← 那个常数 2 的来历（把小项并进大项）\n\n⚠ δ 不见了，但代价不是零：\n   多了常数 2，而且**丢掉了「失败时有多糟」的信息**\n   高概率界：「1−δ 的情况下不超过多少」\n   期望界：只给平均值，**可能被罕见的坏情况拖累而你看不出来**\n   ⇒ 报结果时两种都给最稳妥\n\n这个技巧后面还会用（p17 的 sqrt(8log|ℋ|/n)），你自己写界时几乎一定用得到：\n   凡是手上有「以概率 1−δ，误差 ≤ f(δ)」的界，都可以这样积出期望版"
+  },
+  {
+   "r": [
+    14,
+    15
+   ],
+   "t": "不可知情形：去掉完美假设，快率掉成慢率",
+   "star": 3,
+   "quote": "<b>Agnostic (Non-realizable) case</b> — <b>Theorem</b>: <em>〔同样设定，但<b>不</b>假设存在完美分类器〕If ĥ = arg min<sub>h∈ℋ</sub> R̂<sub>n</sub>(h) then with probability at least 1 − δ we have</em><br><em><b>R(ĥ) − R(h<sub>*</sub>) ≤ √( 2 log(|ℋ|/δ) / n )</b></em> 〔手写标注：<b>“Excess Risk”</b>，h<sub>*</sub> = arg min<sub>h∈ℋ</sub> R(h)〕<br>〔手写的分解〕<em>R(ĥ) − R(h<sub>*</sub>) = R(ĥ) − R̂<sub>n</sub>(ĥ) + <u>R̂<sub>n</sub>(ĥ) − R̂<sub>n</sub>(h<sub>*</sub>)</u> + R̂<sub>n</sub>(h<sub>*</sub>) − R(h<sub>*</sub>) &nbsp;〔中间一项标注 ≤ 0〕</em><br><b>Lemma (Hoeffding's inequality)</b>: <em>Let Z₁,…,Z<sub>n</sub> <sup>iid</sup>∼ ν where 𝔼[Z<sub>i</sub>] = μ and Z<sub>i</sub> ∈ [a,b] almost surely. Then &nbsp;ℙ( (1/n)Σ<sub>i=1</sub><sup>n</sup> Z<sub>i</sub> ≥ μ + ϵ ) ≤ exp( −2nϵ² / |b−a|² )</em>",
+   "one": "<b>没有完美分类器，就不能再说「坏假设蒙对所有点的概率是 (1−ε)ⁿ」。换成 Hoeffding 之后，n 从分母的一次方掉到根号里——这就是快率与慢率的全部区别。</b>",
+   "pts": [
+    "<b>先看变了什么：<b>只去掉了「存在 <code>h_* </code> 使 <code>R(h_*) = 0</code>」这一条</b>，其余设定一字未改。</b> <span class='k'>于是 <code>h_*</code> 的含义也随之改变——现在它是 <code>argmin_{h∈ℋ}R(h)</code>，即<b>类里最好的那个</b>，而不是「完美的那个」</span>。",
+    "<b>结论的形式也必须跟着变：不能再说 <code>R(ĥ)</code> 小，只能说 <code>R(ĥ)</code> 离 <code>R(h_*)</code> 不远。</b> <span class='w'>手写标注给了这个差一个名字：<b>超额风险</b>（Excess Risk）</span>。<b>⇒ 道理很简单：如果你的假设类里最好的也有 30% 错误率，那谁也不能让你低于 30%，只能保证你接近它。</b>",
+    "<b>而代价是速率从 <code>1/n</code> 掉到 <code>1/√n</code>，这个差别在实践里非常大。</b> <span class='k'>要达到 <code>ε</code> 的精度：可实现情形需要 <code>n ≈ log(|ℋ|/δ)/ε</code>；不可知情形需要 <code>n ≈ 2log(|ℋ|/δ)/ε²</code></span>。<b>⇒ <code>ε = 0.01</code> 时，后者比前者多要 <b>100 倍</b>样本。</b>",
+    "<b>手写那个三项分解是整块内容最该带走的东西，因为它是 ERM 分析的通用模板。</b> <b><code>R(ĥ) − R(h_*) = [R(ĥ) − R̂_n(ĥ)] + [R̂_n(ĥ) − R̂_n(h_*)] + [R̂_n(h_*) − R(h_*)]</code></b><span class='w'>——纯粹的加减零，没有任何不等式。</span>",
+    "<b>⚠ 而<b>中间那项 <code>≤ 0</code></b>，理由只有一句：<code>ĥ</code> 是经验风险的最小者，所以 <code>R̂_n(ĥ) ≤ R̂_n(h_*)</code>。</b> <span class='k'>这是整个论证里<b>唯一</b>用到「<code>ĥ</code> 是怎么选出来的」的地方</span>。<b>⇒ 算法的全部作用就浓缩在这一个不等号里，其余两项与算法无关。</b>",
+    "<b>剩下两项的性质完全不同，必须分开对待。</b> <span class='w'><b>第三项</b> <code>R̂_n(h_*) − R(h_*)</code>：<code>h_*</code> 是<b>固定</b>的（不依赖数据），直接用一次 Hoeffding 即可</span>；<b><b>第一项</b> <code>R(ĥ) − R̂_n(ĥ)</code>：<code>ĥ</code> <b>依赖数据</b>，必须放大成 <code>max_{h∈ℋ}(R(h) − R̂_n(h))</code> 再对 <code>|ℋ|</code> 个用并集界。</b>",
+    "<b>⇒ 两项各贡献 <code>√(log(2|ℋ|/δ)/(2n))</code>，加起来就是 <code>√(2log(|ℋ|/δ)/n)</code> 量级（手写最后一行写的正是这两项相加）。</b> <span class='k'>那个 <code>2|ℋ|</code> 里的 2 来自把 <code>δ</code> 分一半给两项。</span>",
+    "<b>Hoeffding 不等式本身要记住三件事：<b>独立同分布、有界、指数尾</b>。</b> <span class='w'><code>P((1/n)ΣZ_i ≥ μ+ε) ≤ exp(−2nε²/|b−a|²)</code>——<b>注意分母是区间长度的<b>平方</b></b></span>。<b>⇒ 这里 <code>Z_i = 1{h(x_i)≠y_i}</code> 取值在 <code>[0,1]</code>，<code>|b−a| = 1</code>，于是是 <code>exp(−2nε²)</code>。</b>",
+    "<b>p15 手写部分还给了一个很有用的直觉：<b>把 Hoeffding 看成中心极限定理的「非渐近版」</b>。</b> <span class='k'>手写写着 <code>R̂_n(h) − R(h) → 𝒩(0, Var(Z_1)/n)</code>，而 <code>Var(Z_i) = R(h)(1−R(h)) ≤ 1/4</code></span>；<b>⇒ 标准差约 <code>√(1/(4n)) = 1/(2√n)</code>，正好对上 Hoeffding 给的 <code>√(log(1/δ)/(2n))</code> 的量级。</b>",
+    "<b>⚠ 但那个 <code>Var ≤ 1/4</code> 是<b>最坏情况</b>，而这正是下一页（p18）要改进的地方。</b> <span class='w'>如果 <code>R(h)</code> 很小（好假设），<code>Var = R(h)(1−R(h))</code> 也很小，用 Hoeffding 就浪费了</span>。<b>⇒ 换成能利用方差的 Bernstein，就能把界收紧——这是 p18 的全部内容。</b>"
+   ],
+   "eq": "只去掉一条：「存在 h_* 使 R(h_*) = 0」，其余设定一字未改\n   ⇒ h_* 的含义随之改变：现在是 **argmin_{h∈ℋ} R(h)** = 类里**最好的**那个，不是完美的那个\n\n结论形式也必须变：不能说 R(ĥ) 小，只能说它离 R(h_*) 不远\n   手写标注给这个差一个名字：**超额风险**（Excess Risk）\n   道理：类里最好的也有 30% 错误率，谁也不能让你低于 30%\n\n**R(ĥ) − R(h_*) ≤ sqrt( 2·log(|ℋ|/δ) / n )**     速率从 1/n 掉到 **1/sqrt(n)**\n   达到精度 ε 所需样本：\n     可实现   n ≈ log(|ℋ|/δ) / ε\n     不可知   n ≈ 2log(|ℋ|/δ) / ε²\n   ⇒ ε = 0.01 时后者多要 **100 倍**样本\n\n**三项分解**（ERM 分析的通用模板，纯粹加减零，无不等式）：\n   R(ĥ) − R(h_*) = [ R(ĥ) − R̂_n(ĥ) ] + [ **R̂_n(ĥ) − R̂_n(h_*)** ] + [ R̂_n(h_*) − R(h_*) ]\n\n   ⚠ **中间项 ≤ 0**：ĥ 是经验风险最小者 ⇒ R̂_n(ĥ) ≤ R̂_n(h_*)\n     这是整个论证里**唯一**用到「ĥ 是怎么选出来的」的地方\n     ⇒ **算法的全部作用浓缩在这一个不等号里**，其余两项与算法无关\n\n   剩下两项性质完全不同：\n     第三项 R̂_n(h_*) − R(h_*)：h_* **固定**（不依赖数据）⇒ 直接一次 Hoeffding\n     第一项 R(ĥ) − R̂_n(ĥ)：ĥ **依赖数据** ⇒ 放大成 max_h(R(h) − R̂_n(h)) 再并集界\n\n   两项各贡献 sqrt( log(2|ℋ|/δ) / (2n) )  ⇒ 合起来 sqrt( 2log(|ℋ|/δ)/n ) 量级\n   （2|ℋ| 里的 2 = 把 δ 分一半给两项）\n\n**Hoeffding**：Z_i i.i.d.，E[Z_i] = μ，Z_i ∈ [a,b] a.s.\n   P( (1/n)ΣZ_i ≥ μ + ε ) ≤ exp( −2nε² / |b−a|² )\n   记三件事：**独立同分布、有界、指数尾**；⚠ 分母是区间长度的**平方**\n   这里 Z_i = 1{h(x_i)≠y_i} ∈ [0,1] ⇒ |b−a| = 1 ⇒ exp(−2nε²)\n\np15 手写的直觉：把 Hoeffding 看成中心极限定理的**非渐近版**\n   R̂_n(h) − R(h) → 𝒩(0, Var(Z_1)/n)，而 **Var(Z_i) = R(h)(1−R(h)) ≤ 1/4**\n   ⇒ 标准差约 sqrt(1/(4n)) = 1/(2sqrt(n))，对上 Hoeffding 的量级\n\n⚠ 但 Var ≤ 1/4 是**最坏情况** —— 正是下一页 (p18) 要改进的：\n   R(h) 很小（好假设）时 Var = R(h)(1−R(h)) 也很小，用 Hoeffding 就浪费了\n   ⇒ 换成能利用方差的 **Bernstein** 就能收紧",
+   "tbl": {
+    "head": [
+     "",
+     "可实现（p10）",
+     "不可知（p14）"
+    ],
+    "rows": [
+     [
+      "假设",
+      "<b>存在 h<sub>*</sub>，R(h<sub>*</sub>)=0</b>",
+      "<span class='w'>无</span>"
+     ],
+     [
+      "h<sub>*</sub> 的含义",
+      "<b>完美的那个</b>",
+      "<b>类里最好的那个</b>"
+     ],
+     [
+      "结论控制什么",
+      "<b>R(ĥ)</b>",
+      "<b>R(ĥ) − R(h<sub>*</sub>)（超额风险）</b>"
+     ],
+     [
+      "速率",
+      "<b>log(|ℋ|/δ)/n（快）</b>",
+      "<b>√(2log(|ℋ|/δ)/n)（慢）</b>"
+     ],
+     [
+      "达到 ε=0.01 的样本量",
+      "<b>≈ 100·log(·)</b>",
+      "<span class='w'>≈ 20000·log(·)</span>"
+     ],
+     [
+      "用的集中不等式",
+      "<b>(1−ε)<sup>n</sup></b>",
+      "<b>Hoeffding</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>那个三项分解是你论文里<b>一定</b>会用到的东西，因为<b>你的配置选择程序本身就是一个 ERM</b>。</b><br><span class='k'>你做的事情是：在一批 query 上测量每个候选配置的 <code>Ĝ</code>，然后挑 <code>Ĝ</code> 最大的那个。把 <code>−G</code> 当成损失，这<b>字面上</b>就是经验风险最小化</span>。<b>⇒ 于是「我们选出的配置有多接近真正最优」这个问题，答案就是那个三项分解：</b><br><b><code>G(x_*) − G(x̂) = [Ĝ(x̂) − G(x̂)] + [G(x_*) − Ĝ(x_*)] + [Ĝ(x_*) − Ĝ(x̂)]</code></b><br><span class='w'>最后一项 <code>≤ 0</code>（因为 <code>x̂</code> 是 <code>Ĝ</code> 的最大者），前两项各用一次集中不等式</span>。<b>⇒ 这就是一个完整的、可写进论文的保证，而且推导只有三行。</b><br><b>⚠ 但要注意两项的<b>不对称</b>，这是最容易出错的地方：</b> <span class='k'><code>x_*</code> 是<b>固定</b>的（它不依赖你的数据），所以对它只需一次集中不等式；而 <code>x̂</code> 是<b>你挑出来的</b>，必须对所有候选取 max 再并集界</span>。<b>⇒ 代价就是那个 <code>log|𝒳| = H log 2</code>（见 p10 科研格）。<b>如果你只对 <code>x̂</code> 用一次集中不等式而不做并集界，那是一个真实的错误</b>，而且因为 <code>x̂</code> 的 <code>Ĝ</code> 系统性偏高，这个错误会让你<b>高估</b>所选配置的好处。</b><br><b>⇒ 这正是「赢家的诅咒」在你问题里的形式：<b>你报告的那个最优配置的 <code>Ĝ</code>，几乎必然比它的真实 <code>G</code> 高</b>。</b> <span class='w'>一个干净的做法是<b>样本分割</b>：用一半数据选配置，用另一半<b>重新估</b>它的 <code>G</code> 再报告</span>——<b>那一半上 <code>x̂</code> 已经是固定的了，不需要并集界，报出来的数无偏。</b><br><b>最后一条：「可实现 vs 不可知」在你这里对应「存不存在一个配置在所有 query 上都最优」。</b> <span class='k'>几乎必然<b>不</b>存在（不同 query 难度不同，有的要大模型有的不用）</span>。<b>⇒ 所以你处在<b>不可知</b>这一档，速率是 <code>1/√n</code>，而且该报的是<b>超额风险</b>而不是绝对风险。</b>",
+    "ref": "本讲 p14（逐行核对）· p10 科研格 · p15 · L09 p11 · 简报 §2 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [
+    16,
+    17
+   ],
+   "t": "干净版与期望推论：√(8log|ℋ|/n)",
+   "star": 2,
+   "quote": "〔p16 是一张只有标题的空白页：<b>Agnostic (Non-realizable) case - Proof</b>〕<br>〔p17 是 p14 的干净版（去掉手写），加上一条推论〕<br><b>Corollary</b> <em>Under the conditions of the theorem (i.e., (x<sub>i</sub>,y<sub>i</sub>) <sup>iid</sup>∼ ν, and ĥ = arg min<sub>h∈ℋ</sub> (1/n)Σ<sub>i=1</sub><sup>n</sup><b>1</b>{h(x<sub>i</sub>) ≠ y<sub>i</sub>}) and <b>|ℋ| ≥ n</b>, we have &nbsp; <b>𝔼[R(ĥ)] − R(h<sub>*</sub>) ≤ √( 8 log(|ℋ|) / n )</b></em>",
+   "one": "<b>和 p13 同一个积分技巧，只是这回被积的是 √ 型的尾界。多出来的条件 |ℋ| ≥ n 是为了让那个粗放的常数 8 成立。</b>",
+   "pts": [
+    "<b>p16 是一张只有标题的空白页（<em>Agnostic case - Proof</em>），课上应该是在黑板上推的。</b> <span class='k'>⚠ 这类空白页在这份讲义里有好几张（p47、p53 也是），<b>它们不是缺页，而是「板书在别处」的标记</b></span>。<b>⇒ 对照 p14 的手写批注就能看出那天实际推了什么：正是那个三项分解。</b>",
+    "<b>p17 把 p14 的定理重抄了一遍（这次没有手写干扰），然后加了一条<b>期望形式</b>的推论。</b> <span class='w'>做法与 p13 完全一样：用 <code>E[Z] = ∫P(Z>ε)dε</code> 把 <code>δ</code> 积掉</span>。",
+    "<b>但这次被积的尾界是 <code>√</code> 型的，所以反解方向要小心。</b> <span class='k'>从 <code>R(ĥ)−R(h_*) ≤ √(2log(|ℋ|/δ)/n)</code> 反解出 <code>P(超额风险 ≥ ε) ≤ |ℋ|·exp(−nε²/2)</code></span>——<b>注意指数里是 <code>ε²</code> 而不是 <code>ε</code>，这是慢率的特征。</b>",
+    "<b>积分同样分两段，分界点在 <code>|ℋ|e^{−nε²/2} = 1</code>，即 <code>ε_0 = √(2log|ℋ|/n)</code>。</b> <span class='w'>第一段贡献 <code>ε_0</code>，第二段是一个高斯型尾巴的积分，贡献同阶的一项</span>。<b>⇒ 合起来是 <code>√(log|ℋ|/n)</code> 的常数倍，幻灯片取的常数是 <code>√8</code>。</b>",
+    "<b>⚠ 多出来的那个条件 <b><code>|ℋ| ≥ n</code></b> 值得留意，它在 p13 的推论里是没有的。</b> <span class='k'>它的作用和 p13 里「<code>|ℋ| ≥ e</code>」一样：保证第二段积分的那一项能被并进第一项，于是常数可以写成一个干净的 8</span>。<b>⇒ 这是一个纯技术性的条件，不影响理解，但引用时不能漏掉。</b>",
+    "<b>把本片到这里的四条界并排看，<b>整个有限假设类理论的骨架就齐了</b>。</b> <span class='w'>可实现·高概率 <code>log(|ℋ|/δ)/n</code>；可实现·期望 <code>2log|ℋ|/n</code>；不可知·高概率 <code>√(2log(|ℋ|/δ)/n)</code>；不可知·期望 <code>√(8log|ℋ|/n)</code></span>。<b>⇒ 两个维度：有没有完美假设（决定 <code>1/n</code> 还是 <code>1/√n</code>），要高概率还是期望（决定 <code>δ</code> 在不在）。</b>",
+    "<b>⚠ 而四条界里 <code>log|ℋ|</code> 这一项<b>始终不变</b>，这件事值得单独记住。</b> <span class='k'>不管快率慢率、不管高概率还是期望，「候选集有多大」的代价永远是 <code>log|ℋ|</code></span>。<b>⇒ 因为它来自并集界，而并集界与用哪个集中不等式无关。</b>"
+   ],
+   "eq": "p16 = 只有标题的空白页（Agnostic case - Proof），课上在黑板推的\n   ⚠ 这类空白页讲义里有好几张（p47、p53 也是）\n     **不是缺页，是「板书在别处」的标记**\n     对照 p14 的手写批注就知道那天推了什么：正是三项分解\n\np17 = p14 的干净版 + 一条**期望形式**的推论\n   做法与 p13 完全一样：用 E[Z] = ∫P(Z>ε)dε 把 δ 积掉\n\n⚠ 但这次尾界是 sqrt 型的，反解方向要小心：\n   从 R(ĥ)−R(h_*) ≤ sqrt(2log(|ℋ|/δ)/n)\n   反解 ⇒ P(超额风险 ≥ ε) ≤ |ℋ|·exp( −nε²/2 )\n   注意指数里是 **ε²** 而不是 ε —— 这是慢率的特征\n\n积分分两段，分界点 |ℋ|e^{−nε²/2} = 1 ⇒ **ε_0 = sqrt(2log|ℋ|/n)**\n   第一段贡献 ε_0；第二段是高斯型尾巴的积分，贡献同阶\n   ⇒ **E[R(ĥ)] − R(h_*) ≤ sqrt( 8·log(|ℋ|) / n )**\n\n⚠ 多出来的条件 **|ℋ| ≥ n**（p13 的推论里没有）：\n   作用和 p13 里「|ℋ| ≥ e」一样 —— 保证第二段能并进第一项，常数写成干净的 8\n   纯技术性条件，不影响理解，但引用时不能漏\n\n**本片四条界的骨架**：\n                  高概率                        期望\n   可实现    log(|ℋ|/δ)/n              2·log|ℋ|/n\n   不可知    sqrt(2log(|ℋ|/δ)/n)      sqrt(8·log|ℋ|/n)\n\n   两个维度：① 有没有完美假设 ⇒ 1/n 还是 1/sqrt(n)\n             ② 高概率还是期望 ⇒ δ 在不在\n\n⚠ 四条界里 **log|ℋ| 这一项始终不变**\n   不管快率慢率、不管高概率还是期望，「候选集有多大」的代价永远是 log|ℋ|\n   因为它来自**并集界**，而并集界与用哪个集中不等式无关",
+   "tbl": {
+    "head": [
+     "",
+     "高概率（含 δ）",
+     "期望（δ 已积掉）"
+    ],
+    "rows": [
+     [
+      "<b>可实现</b>（有完美假设）",
+      "<b>log(|ℋ|/δ)/n</b>",
+      "<b>2log|ℋ|/n</b>"
+     ],
+     [
+      "<b>不可知</b>（无）",
+      "<b>√(2log(|ℋ|/δ)/n)</b>",
+      "<b>√(8log|ℋ|/n)</b>"
+     ],
+     [
+      "额外条件",
+      "<span class='w'>无</span>",
+      "<b>|ℋ| ≥ e / |ℋ| ≥ n</b>"
+     ],
+     [
+      "log|ℋ| 这一项",
+      "<b>始终不变（来自并集界）</b>",
+      "<b>始终不变</b>"
+     ]
+    ]
+   }
+  },
+  {
+   "r": [
+    18,
+    18
+   ],
+   "t": "插值：用 Bernstein 换 Hoeffding，把两档界统一起来",
+   "star": 3,
+   "quote": "<b>Agnostic (Non-realizable) case - <span style='color:#8b5cf6'>Interpolation</span></b><br><b>Theorem</b>: <em>〔同前设定〕If ĥ = arg min<sub>h∈ℋ</sub> R̂<sub>n</sub>(h) then with probability at least 1 − δ we have</em><br><em><b>R(ĥ) − R(h<sub>*</sub>) ≤ √( 2 R(h<sub>*</sub>) log(2|ℋ|/δ) / n ) + log(2|ℋ|/δ) / n</b></em><br><em><b>Proof: Use Bernstein's inequality instead of Hoeffding.</b></em>",
+   "one": "<b>一条界同时覆盖两种情形：R(h_*)=0 时第一项消失、退回 1/n 的快率；R(h_*) 大时第一项主导、就是 1/√n 的慢率。中间的情形自动插值——所以叫 Interpolation。</b>",
+   "pts": [
+    "<b>这一页是本片最漂亮的一条，因为它把前面两档界<b>合成了一条</b>。</b> <span class='k'>界是 <code>√(2R(h_*)log(2|ℋ|/δ)/n) + log(2|ℋ|/δ)/n</code>，<b>两项</b></span>：<b>第一项带 <code>√</code> 且含 <code>R(h_*)</code>，第二项是干净的 <code>1/n</code>。</b>",
+    "<b>先代入 <code>R(h_*) = 0</code>（可实现情形）：<b>第一项整个消失</b>，只剩 <code>log(2|ℋ|/δ)/n</code>。</b> <span class='w'>这就是 p10 那条快率界（差一个常数 2 在 <code>|ℋ|</code> 上）</span>。<b>⇒ 可实现情形被<b>包含</b>了，不是另一条定理。</b>",
+    "<b>再看 <code>R(h_*)</code> 比较大的情形：第一项 <code>√(2R(h_*)log(·)/n)</code> 主导，而 <code>R(h_*) ≤ 1</code>，于是它 <code>≤ √(2log(·)/n)</code>。</b> <span class='k'>这就是 p14 那条慢率界</span>。<b>⇒ 不可知情形也被包含了。</b>",
+    "<b>⇒ 所以「插值」这个名字名副其实：<b>同一条式子，随 <code>R(h_*)</code> 从 0 连续变到 1，速率从 <code>1/n</code> 连续滑到 <code>1/√n</code></b>。</b> <span class='w'>两档不是两个世界，而是一条谱的两端</span>。",
+    "<b>原文的证明只有一句话：<b><em>Use Bernstein's inequality instead of Hoeffding.</em></b></b> <span class='k'>这句话值得当真——它说明前面那套证明的<b>结构</b>一点没变，只换了第四步那个集中不等式</span>。<b>⇒ 这正是我在 p11 结尾说的那个模板：换哪个集中不等式，就得到哪一档的界。</b>",
+    "<b>Bernstein 与 Hoeffding 的区别只有一处，但很关键：<b>Bernstein 用方差，Hoeffding 只用范围</b>。</b> <span class='w'>Hoeffding：<code>exp(−2nε²/|b−a|²)</code>，只认区间长度；Bernstein：<code>exp(−nε²/(2σ² + 2ε/3))</code> 量级，<b>认真实方差 <code>σ²</code></b></span>。",
+    "<b>而 p15 已经算过那个方差：<code>Var(Z_i) = R(h)(1−R(h))</code>。</b> <span class='k'><b>当 <code>R(h)</code> 很小时，方差也很小</b>——好假设犯错少，所以它的「犯不犯错」这个随机变量几乎是常数 0</span>。<b>⇒ Hoeffding 一律按 <code>Var ≤ 1/4</code> 处理，在好假设上<b>浪费得很厉害</b>；Bernstein 把这块捡了回来。</b>",
+    "<b>⚠ 注意第二项 <code>log(2|ℋ|/δ)/n</code> 是<b>没法去掉</b>的，它是 Bernstein 界里那个 <code>ε/3</code> 项的产物。</b> <span class='w'>所以这条界永远至少有 <code>1/n</code> 这一项</span>——<b>⇒ 这也说明 <code>1/n</code> 是这类问题的下限，快率快不过它。</b>",
+    "<b>这类界在文献里有几个名字，查资料时都会撞上：<b>一阶界</b>（first-order bound）、<b>小损失界</b>（small-loss bound）、<b>方差自适应界</b>（variance-adaptive）。</b> <span class='k'>它们说的是同一件事：<b>当最优者本身表现很好时，界自动变紧</b></span>。"
+   ],
+   "eq": "**R(ĥ) − R(h_*) ≤ sqrt( 2·R(h_*)·log(2|ℋ|/δ) / n ) + log(2|ℋ|/δ) / n**\n   两项：第一项带 sqrt 且含 R(h_*)；第二项是干净的 1/n\n\n代入 **R(h_*) = 0**（可实现）：\n   第一项整个**消失** ⇒ 只剩 log(2|ℋ|/δ)/n = p10 那条**快率**界\n   ⇒ 可实现情形被**包含**了，不是另一条定理\n\n**R(h_*) 较大**时：\n   第一项主导，而 R(h_*) ≤ 1 ⇒ ≤ sqrt(2log(·)/n) = p14 那条**慢率**界\n   ⇒ 不可知情形也被包含了\n\n⇒ 「插值」名副其实：**同一条式子，R(h_*) 从 0 连续变到 1，\n   速率从 1/n 连续滑到 1/sqrt(n)** —— 两档不是两个世界，是一条谱的两端\n\n原文证明只有一句：**Use Bernstein's inequality instead of Hoeffding.**\n   说明前面那套证明的**结构**一点没变，只换了第四步的集中不等式\n   ⇒ 正是 p11 结尾那个模板：**换哪个集中不等式，就得到哪一档的界**\n\n**Bernstein vs Hoeffding**（区别只有一处，但关键）：\n   Hoeffding：exp( −2nε² / |b−a|² )        只认**区间长度**\n   Bernstein：exp( −nε² / (2σ² + 2ε/3) )    认**真实方差 σ²**\n\n   而 p15 已经算过：**Var(Z_i) = R(h)(1 − R(h))**\n     R(h) 很小时方差也很小 —— 好假设犯错少，\n     所以它的「犯不犯错」这个随机变量几乎是常数 0\n   ⇒ Hoeffding 一律按 Var ≤ 1/4 处理，在好假设上**浪费得厉害**\n     Bernstein 把这块捡了回来\n\n⚠ 第二项 log(2|ℋ|/δ)/n **没法去掉**（Bernstein 里那个 ε/3 项的产物）\n   ⇒ 这条界永远至少有 1/n 这一项 ⇒ **1/n 是这类问题的下限，快率快不过它**\n\n文献里的几个名字（查资料会撞上，说的是同一件事）：\n   **一阶界**（first-order）· **小损失界**（small-loss）· **方差自适应界**（variance-adaptive）\n   = **当最优者本身表现很好时，界自动变紧**",
+   "tbl": {
+    "head": [
+     "R(h<sub>*</sub>) 的大小",
+     "第一项 √(2R(h<sub>*</sub>)log/n)",
+     "第二项 log/n",
+     "总速率",
+     "退回哪条"
+    ],
+    "rows": [
+     [
+      "<b>= 0</b>",
+      "<b>消失</b>",
+      "<b>主导</b>",
+      "<b>1/n（快）</b>",
+      "<b>p10</b>"
+     ],
+     [
+      "<b>很小</b>",
+      "<span class='w'>小</span>",
+      "可比",
+      "<b>介于两者</b>",
+      "<span class='w'>（插值区）</span>"
+     ],
+     [
+      "<b>≈ 1</b>",
+      "<b>主导</b>",
+      "<span class='w'>可忽略</span>",
+      "<b>1/√n（慢）</b>",
+      "<b>p14</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你有一条很实在的用处：<b>你的界可以「自己变紧」，而且不需要你事先知道问题有多容易</b>。</b><br><span class='k'>把 <code>R(h_*)</code> 映射到你的设定，它对应的是<b>最优配置的那个「不确定性尺度」</b>——比如最优配置的 <code>G</code> 在各条 query 上的方差，或者（若你做的是「挑出所有满足约束的配置」）最优者的违约率</span>。<b>⇒ 若这个量小，界自动从 <code>1/√n</code> 升级到接近 <code>1/n</code>，<b>而算法一个字都不用改</b>。</b><br><b>为什么这对你特别有价值：<b>你报的是实测的界，而不是最坏情况的界</b>。</b> <span class='w'>最坏情况界（Hoeffding 那档）在论文里看着保险，但往往比实际松几倍，于是「理论需要 10 万次调用、实际 3000 次就够了」这种尴尬就出现了</span>。<b>⇒ 方差自适应的界能把这个差距收窄，让理论预测和实验曲线对得上——而这正是审稿人最喜欢看到的。</b><br><b>⚠ 但要先确认一件事：<b>Bernstein 要求你能界住方差，而你的 <code>G</code> 的方差未必好界</b>。</b> <span class='k'>这里之所以干净，是因为损失是 0/1 的，<code>Var = R(1−R)</code> 有闭式；<b>而你的 <code>G = Acc − λ·Cost</code> 是连续的</b></span>。<b>⇒ 两条出路：① 若 Acc 是逐 query 的 0/1 正确性，那它<b>就是</b>伯努利，方差同样有闭式；② Cost 那一半你知道上下界，可以用经验 Bernstein（用样本方差代替真方差，多付一个 <code>1/n</code> 项）。</b><br><b>⇒ 建议：<b>优先走第 ① 条</b>。</b> <span class='w'>把 Acc 保持成逐 query 的 0/1，不要先在 query 上平均再处理——平均会把伯努利结构弄丢，之后就只能用 Hoeffding 了</span>。<b>这是一个数据管线上的设计决定，而且做错了很难补救。</b><br><b>最后记一下这三个检索词，你一定会需要查文献：<b>first-order bound · small-loss bound · empirical Bernstein</b>。</b>",
+    "ref": "本讲 p18（逐字核对）· p15（Var = R(1−R)）· p14 科研格 · 简报 §4b §4d（已核）"
+   }
+  },
+  {
+   "r": [
+    19,
+    20
+   ],
+   "t": "无限类：三条出路，和它们共同的那件事",
+   "star": 2,
+   "quote": "〔红字〕<em><b>What if |ℋ| is <i>infinite</i> such as the space of all hyperplane classifiers?</b></em><br>〔蓝字〕<em>Lots of tools to address this:<br>- <b>minimum description length</b><br>- <b>VC-dimension and Rademacher complexity</b><br>- <b>Covering number / log-entropy bounds</b></em>",
+   "one": "<b>前面所有界都靠 log|ℋ|，而 |ℋ| 无限时它就爆了。三条出路的共同做法是：找一个「有效的候选数」来替换 |ℋ|——因为无限多个假设里，真正互相区分得开的只有有限多个。</b>",
+   "pts": [
+    "<b>问题提得很具体：<b>所有超平面分类器</b>的集合是连续统，<code>|ℋ| = ∞</code>，于是 <code>log|ℋ| = ∞</code>，前面四条界<b>全部失效</b>。</b> <span class='k'>⚠ 注意失效的不是结论的精度，是结论本身——界变成了「<code>R(ĥ) ≤ ∞</code>」，什么都没说</span>。",
+    "<b>但直觉上这不该是对的，而想清楚「为什么不该」正是三条出路的共同起点。</b> <span class='w'><code>ℝ^d</code> 里有无穷多个超平面，<b>但在 <code>n</code> 个固定的点上，它们只能产生有限多种标注方式</b></span>。<b>⇒ 两个超平面若在你这 <code>n</code> 个样本上给出完全相同的标注，对你的分析而言它们<b>就是同一个假设</b>。</b>",
+    "<b>⇒ 所以真正该出现在界里的不是 <code>|ℋ|</code>，而是<b>「有效的候选数」</b>——在 <code>n</code> 个点上能区分出多少种不同的行为。</b> <span class='k'>这个数通常是 <code>n</code> 的<b>多项式</b>（而不是指数），于是 <code>log</code> 之后就是 <code>d·log n</code> 量级，完全可用</span>。",
+    "<b><b>VC 维</b> 走的就是这条路，而它给的是最经典的结论。</b> <span class='w'>Sauer–Shelah 引理说：VC 维为 <code>d</code> 的类在 <code>n</code> 个点上最多产生 <code>O(n^d)</code> 种标注</span>；<b>⇒ 代进去 <code>log|ℋ| → d·log n</code>，于是界变成 <code>√(d log n/n)</code> 量级</b>。<span class='k'>而 <code>d</code> 维超平面的 VC 维正好是 <code>d+1</code>。</span>",
+    "<b><b>覆盖数 / log-熵</b> 是同一思路的连续版本，也是三条里最通用的。</b> <span class='k'>做法：在 <code>ℋ</code> 上定义一个距离，问「要多少个球才能把 <code>ℋ</code> 盖住到 <code>ε</code> 精度」，那个数的 <code>log</code> 就替换 <code>log|ℋ|</code></span>。<b>⇒ 对你有用的是：<b>它不要求假设类是 0/1 的，连续值的类也能处理</b>。</b>",
+    "<b><b>Rademacher 复杂度</b> 换了个角度：不数候选，而是直接问「这个类能多好地拟合<b>纯噪声</b>」。</b> <span class='w'>给每个样本一个随机的 ±1 标签，看类里最好的假设能拟合到什么程度</span>；<b>⇒ 拟合噪声的能力越强，过拟合风险越大，界越松。</b><span class='k'>好处是它<b>依赖具体的数据分布</b>，所以往往比 VC 维紧。</span>",
+    "<b><b>最小描述长度</b>（MDL）是最不一样的一条：它给每个假设分配一个<b>编码长度</b>，复杂的假设编码长。</b> <span class='k'>界里出现的是 <code>编码长度</code> 而不是 <code>log|ℋ|</code>，相当于给每个假设一个<b>非均匀的先验</b></span>。<b>⇒ ⚠ 这条对你最有启发：<b>并集界不一定要均匀地分 <code>δ</code></b>。</b>",
+    "<b>那个「非均匀分配」的想法值得展开一句，因为它是一个你可能真的用得上的技巧。</b> <span class='w'>标准并集界把 <code>δ</code> 平均分给 <code>|ℋ|</code> 个候选，每个得 <code>δ/|ℋ|</code>；但你可以分得不均匀——给你更看好的候选多分一点，代价是别的候选少分</span>。<b>⇒ 只要 <code>Σ_h δ_h ≤ δ</code> 就合法，而这就是 MDL 和 PAC-Bayes 的核心。</b>",
+    "<b>⚠ 最后提醒一句边界：<b>本门课后面不会用到这三条</b>。</b> <span class='k'>老虎机那部分的「候选集」是臂的集合，通常是有限的或者有线性结构（L07/L10/L12 的 <code>d</code> 维参数）</span>；<b>⇒ 所以这一页是「知道有这回事」的性质，真要用时去查 Lattimore &amp; Szepesvári 或任何一本统计学习理论的教材。</b>"
+   ],
+   "eq": "问题：所有超平面分类器的集合是连续统 ⇒ |ℋ| = ∞ ⇒ log|ℋ| = ∞\n   ⚠ 前面四条界**全部失效** —— 失效的不是精度，是结论本身\n     界变成「R(ĥ) ≤ ∞」，什么都没说\n\n但直觉上不该如此（三条出路的共同起点）：\n   ℝ^d 里有无穷多超平面，**但在 n 个固定的点上，它们只能产生有限多种标注**\n   两个超平面若在这 n 个样本上标注完全相同，对分析而言**就是同一个假设**\n   ⇒ 真正该出现在界里的是**「有效的候选数」**\n     通常是 n 的**多项式**（非指数）⇒ log 之后 ≈ d·log n，完全可用\n\n**① VC 维**（最经典）：\n   Sauer–Shelah：VC 维为 d 的类在 n 个点上最多产生 O(n^d) 种标注\n   ⇒ log|ℋ| → **d·log n** ⇒ 界变成 sqrt( d·log n / n ) 量级\n   （d 维超平面的 VC 维正好是 d+1）\n\n**② 覆盖数 / log-熵**（同一思路的连续版，三条里最通用）：\n   在 ℋ 上定义距离，问「多少个球能把 ℋ 盖到 ε 精度」，那个数的 log 替换 log|ℋ|\n   ⇒ 好处：**不要求假设类是 0/1 的，连续值也能处理**\n\n**③ Rademacher 复杂度**（换角度：不数候选）：\n   直接问「这个类能多好地拟合**纯噪声**」\n   给每个样本一个随机 ±1 标签，看类里最好的假设能拟合到什么程度\n   拟合噪声能力越强 ⇒ 过拟合风险越大 ⇒ 界越松\n   好处：**依赖具体数据分布**，往往比 VC 维紧\n\n**④ 最小描述长度 MDL**（最不一样的一条）：\n   给每个假设一个**编码长度**，复杂的假设编码长\n   界里出现编码长度而不是 log|ℋ| = 给每个假设一个**非均匀的先验**\n\n   ⚠ 这条最有启发：**并集界不一定要均匀地分 δ**\n     标准做法：δ 平均分给 |ℋ| 个候选，每个 δ/|ℋ|\n     但可以不均匀 —— 看好的候选多分一点，别的少分\n     **只要 Σ_h δ_h ≤ δ 就合法** ⇒ 这就是 MDL 和 PAC-Bayes 的核心\n\n⚠ 边界：**本门课后面不会用到这三条**\n   老虎机的「候选集」是臂的集合，通常有限或有线性结构（L07/L10/L12 的 d 维参数）\n   ⇒ 这一页是「知道有这回事」；真要用去查 Lattimore & Szepesvári 或统计学习理论教材",
+   "tbl": {
+    "head": [
+     "出路",
+     "用什么替换 log|ℋ|",
+     "核心想法",
+     "对你有用吗"
+    ],
+    "rows": [
+     [
+      "<b>VC 维</b>",
+      "<b>d·log n</b>",
+      "n 个点上只有有限种标注",
+      "<span class='w'>间接</span>"
+     ],
+     [
+      "<b>覆盖数 / log-熵</b>",
+      "<b>log N(ε)</b>",
+      "用 ε-球把类盖住",
+      "<b>能处理连续值</b>"
+     ],
+     [
+      "<b>Rademacher</b>",
+      "<b>ℜ<sub>n</sub>(ℋ)</b>",
+      "能多好地拟合纯噪声",
+      "<span class='w'>依赖分布，更紧</span>"
+     ],
+     [
+      "<b>MDL</b>",
+      "<b>编码长度</b>",
+      "<b>δ 可以非均匀地分</b>",
+      "<b>是（见右）</b>"
+     ]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页里真正能搬到你问题上的是 MDL 那条，而它其实是一个很简单的技巧：<b>并集界的 <code>δ</code> 不必均匀分配</b>。</b><br><span class='k'>标准做法把 <code>δ</code> 平分给 <code>|𝒳|</code> 个配置，每个得 <code>δ/|𝒳|</code>，于是界里出现 <code>log|𝒳|</code>。但合法性的全部要求只是 <b><code>Σ_x δ_x ≤ δ</code></b></span>。<b>⇒ 你可以给「先验上更可能好」的配置分更多的 <code>δ</code>（界更紧），给不太可能的分少一点。</b><br><b>而你恰好<b>有</b>这样一个先验，这是关键</b>：<span class='w'>配置是「每个节点选哪个档位」，而<b>偏离基线越少的配置越可能是好的</b>（成本低且准确率接近）</span>。<b>⇒ 一个自然的分配：按偏离基线的节点数 <code>k</code> 给权重，比如 <code>δ_x ∝ 2^{-k}/C(H,k)</code>。</b><span class='k'>于是「只改 1 个节点」的那 <code>H</code> 个配置各自拿到的 <code>δ</code> 比「改 10 个节点」的配置大得多，前者的区间会明显更紧。</span><br><b>⇒ 效果是：<b>你最关心、也最可能选中的那些配置，得到更紧的界</b>，而代价由那些你本来就不看好的配置承担。</b> <span class='w'>总的 <code>δ</code> 预算没变，保证仍然成立。</span><br><b>⚠ 两条要注意的：</b><br><b>① <b>先验必须事先定好，不能看了数据再定</b></b>——<span class='k'>这是整个技巧合法性的唯一前提，违反了就是 p 值操纵</span>。<b>所以要在预注册/方法一节里把分配规则写死。</b><br><b>② <b>别指望它改变阶</b></b>。<span class='w'>这个技巧改善的是<b>常数和 <code>log</code> 里的那个数</b>，不会把 <code>√n</code> 变成 <code>n</code></span>；<b>而对你来说 <code>log|𝒳| = H log2</code> 本来就不大（p10 科研格算过），所以收益有限。</b><br><b>⇒ 结论：这是一条「锦上添花、写起来漂亮」的技巧，值得知道，但<b>不该</b>是你方法的主线。主线仍然是线性结构 + 最优设计。</b>",
+    "ref": "本讲 p20（逐字核对）· p10 科研格 · p11（并集界）· L07 p5 · 简报 §4c（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "8": [
+   {
+    "q": "经验风险 R̂_n(h) 是真实风险 R(h) 的无偏估计。那为什么还需要整套泛化理论？",
+    "o": [
+     "因为 ĥ 是按这批数据挑出来的、依赖数据，所以 R̂_n(ĥ) 会系统性偏低 —— 无偏性只对固定的 h 成立",
+     "因为 n 有限，估计总有误差",
+     "因为 0/1 损失不可导",
+     "因为分布 ν 未知"
+    ],
+    "a": 0,
+    "why": "<b>这是整个泛化理论存在的理由。</b><span class='k'>你事先不知道 ĥ 会是谁，所以只能把 |ℋ| 个事件全部盖住——而「全都盖住」的代价就是并集界带来的那个 log|ℋ|。</span>"
+   },
+   {
+    "q": "幻灯片写的是 ĥ ∈ arg min 而不是 ĥ = arg min。这个细节什么时候会变得要紧？",
+    "o": [
+     "当 ℋ 无限时",
+     "当多个 h 同时达到最小经验风险时 argmin 是一个集合；在 i.i.d. 下平局怎么打破无所谓，但在对抗设定下会被对手利用",
+     "当损失不是 0/1 时",
+     "永远不要紧，只是记号习惯"
+    ],
+    "a": 1,
+    "why": "<span class='w'>p30 那个「跟随领先者会犯 min{|ℋ|,T} 次错」的反例正是这么构造的——提示里明说了「假设对手知道你的平局打破策略」。</span>"
+   }
+  ],
+  "10": [
+   {
+    "q": "可实现情形的界是 log(|ℋ|/δ)/n。候选数从 1000 增加到 100 万，样本量大约要增加多少？",
+    "o": [
+     "100 万倍",
+     "大约 2 倍 —— 因为 |ℋ| 只进 log，log|ℋ| 从约 6.9 变成约 13.8",
+     "1000 倍",
+     "不变"
+    ],
+    "a": 1,
+    "why": "<b>这是整个有限类理论最重要的一条直觉。</b><span class='k'>同理 log(1/δ)：置信度从 95% 提到 99.9%，代价只是样本量翻一倍多一点——所以「把 δ 取小」几乎从不是瓶颈。</span>"
+   },
+   {
+    "q": "这条界保证 ĥ 就是那个完美分类器 h_* 吗？",
+    "o": [
+     "保证，当 n 足够大时",
+     "保证，因为只有 h_* 的经验风险为 0",
+     "保证，这是 PAC 的含义",
+     "不保证 —— 它只保证 ĥ 的真实风险小。可能还有别的 h 也在数据上零错误，你挑中了其中一个「几乎完美」的"
+    ],
+    "a": 3,
+    "why": "<b>「找到最优解」和「找到一个足够好的解」是两件事，PAC 只承诺后者。</b><span class='w'>PAC = Probably（以概率 1−δ）Approximately（误差 ≤ ε 而非 0）Correct——两个让步各对应一个参数，而两个参数都只进 log。</span>"
+   }
+  ],
+  "11": [
+   {
+    "q": "证明第一步把 P(R(ĥ)≥ε) 写成 P(R(ĥ)≥ε 且 ∩{ĥ(x_i)=y_i})。加上去的那个条件为什么不改变概率？",
+    "o": [
+     "因为 ε 很小",
+     "因为两个事件独立",
+     "因为用了并集界",
+     "因为可实现假设保证 R̂_n(h_*)=0，而 ĥ 是经验风险最小者，所以 ĥ 的经验风险也必为 0 —— 那个条件恒成立"
+    ],
+    "a": 3,
+    "why": "<b>这是整个论证的转轴：加一个概率为 1 的条件不改变概率，却把关于 ĥ 的陈述变成了可以对每个 h 单独检验的陈述。</b><span class='k'>没有这一步，后面的并集界无从下手。</span>"
+   },
+   {
+    "q": "证明里的独立同分布假设具体用在哪一步？",
+    "o": [
+     "全程都要用",
+     "用在 1−x ≤ e^{−x} 那一步",
+     "用在并集界那一步",
+     "用在「固定 h 时，n 个样本全对的概率 ≤ (1−ε)^n」这一步 —— 独立性让 n 次「答对」可以连乘"
+    ],
+    "a": 3,
+    "why": "<b>这是整个证明里唯一用到 i.i.d. 的地方，而本讲后半要去掉的正是它。</b><span class='w'>注意独立性用在<b>样本之间</b>，不是候选之间——候选之间的相关性被并集界完全忽略了。</span>"
+   }
+  ],
+  "13": [
+   {
+    "q": "从高概率界得到期望界，用的是哪个恒等式？为什么被积函数要取 min{1, |ℋ|e^{−nε}}？",
+    "o": [
+     "用分部积分；取 min 是为了换元",
+     "用切比雪夫；取 min 是为了对称",
+     "用 Jensen；取 min 是为了收敛",
+     "用 E[Z] = ∫P(Z>ε)dε（对非负随机变量）；取 min 是因为概率天然 ≤ 1，而 ε 很小时 |ℋ|e^{−nε} 会大于 1，不取 min 会高估"
+    ],
+    "a": 3,
+    "why": "<span class='k'>分界点在 |ℋ|e^{−nε}=1 即 ε₀=log|ℋ|/n：第一段贡献 ε₀，第二段积出 1/n。</span><b>两段相加是 log|ℋ|/n + 1/n，只要 |ℋ| ≥ e 就 ≤ 2log|ℋ|/n——那个常数 2 就是这么来的。</b>"
+   }
+  ],
+  "14": [
+   {
+    "q": "ERM 的三项分解里，中间那项 R̂_n(ĥ) − R̂_n(h_*) ≤ 0 的理由是什么？它的地位为什么特殊？",
+    "o": [
+     "因为 h_* 是真实风险最小者；它消去了偏差",
+     "因为可实现假设；它保证了快率",
+     "因为 ĥ 是经验风险的最小者；它是整个论证里唯一用到「ĥ 是怎么选出来的」的地方 —— 算法的全部作用浓缩在这一个不等号里",
+     "靠 Hoeffding；它提供了主要的界"
+    ],
+    "a": 2,
+    "why": "<b>其余两项与算法无关。</b><span class='w'>而剩下两项性质不同：h_* 是<b>固定</b>的，一次 Hoeffding 即可；ĥ <b>依赖数据</b>，必须放大成 max_h 再对 |ℋ| 个并集界。</span>"
+   },
+   {
+    "q": "从可实现到不可知，速率从 1/n 掉到 1/√n。要达到 ε=0.01 的精度，样本量差多少？",
+    "o": [
+     "差约 100 倍 —— 可实现要 n ≈ log(·)/ε，不可知要 n ≈ 2log(·)/ε²",
+     "差 2 倍",
+     "差 10 倍",
+     "一样多"
+    ],
+    "a": 0,
+    "why": "<b>这个差别在实践里非常大。</b><span class='k'>而「可实现」要求存在一个候选<b>完美</b>——不是「最好的那个」，是「一个错都不犯的那个」。一旦不成立这条界完全失效，不是常数变差而是结论不对。</span>"
+   },
+   {
+    "q": "Hoeffding 不等式里，指数的分母是 |b−a|²。p15 手写部分给了什么直觉？",
+    "o": [
+     "把 Hoeffding 看成中心极限定理的非渐近版：R̂_n(h)−R(h) → 𝒩(0, Var(Z₁)/n)，而 Var(Z_i)=R(h)(1−R(h)) ≤ 1/4，标准差约 1/(2√n)",
+     "它来自方差的定义",
+     "它保证了无偏性",
+     "它来自切比雪夫不等式"
+    ],
+    "a": 0,
+    "why": "<b>⚠ 但 Var ≤ 1/4 是最坏情况——这正是 p18 要改进的地方。</b><span class='w'>如果 R(h) 很小（好假设），Var=R(h)(1−R(h)) 也很小，用 Hoeffding 就浪费了。</span>"
+   }
+  ],
+  "16": [
+   {
+    "q": "本片四条界（可实现/不可知 × 高概率/期望）里，哪一项是始终不变的？为什么？",
+    "o": [
+     "log|ℋ| —— 因为它来自并集界，而并集界与用哪个集中不等式无关",
+     "δ",
+     "常数 2",
+     "1/n 这个速率"
+    ],
+    "a": 0,
+    "why": "<b>两个维度各管一件事：有没有完美假设决定 1/n 还是 1/√n；要高概率还是期望决定 δ 在不在。</b><span class='k'>而「候选集有多大」的代价永远是 log|ℋ|。</span>"
+   }
+  ],
+  "18": [
+   {
+    "q": "插值定理 √(2R(h_*)log(2|ℋ|/δ)/n) + log(2|ℋ|/δ)/n 为什么叫「插值」？",
+    "o": [
+     "因为它用了插值多项式",
+     "因为它需要内插样本",
+     "因为它在两个 ℋ 之间插值",
+     "因为同一条式子随 R(h_*) 从 0 连续变到 1，速率从 1/n 连续滑到 1/√n —— R(h_*)=0 时第一项消失退回快率，R(h_*) 大时第一项主导就是慢率"
+    ],
+    "a": 3,
+    "why": "<b>两档不是两个世界，而是一条谱的两端。</b><span class='w'>原文的证明只有一句话：Use Bernstein's inequality instead of Hoeffding——说明证明<b>结构</b>一点没变，只换了那个集中不等式。</span>"
+   },
+   {
+    "q": "Bernstein 比 Hoeffding 强在哪里？在这个问题里强在哪？",
+    "o": [
+     "Bernstein 用真实方差 σ²，Hoeffding 只用区间长度；而这里 Var(Z_i)=R(h)(1−R(h))，好假设犯错少、方差也小，Hoeffding 一律按 ≤1/4 处理就浪费了",
+     "Bernstein 的常数更小",
+     "Bernstein 不要求独立",
+     "Bernstein 不要求有界"
+    ],
+    "a": 0,
+    "why": "<span class='k'>⚠ 第二项 log(2|ℋ|/δ)/n 没法去掉（Bernstein 里 ε/3 项的产物），所以 1/n 是这类问题的下限。</span><b>文献里这类界叫 first-order bound / small-loss bound / variance-adaptive——三个名字同一件事。</b>"
+   }
+  ],
+  "19": [
+   {
+    "q": "|ℋ| 无限时前面的界全部失效。三条出路的共同想法是什么？",
+    "o": [
+     "找一个「有效的候选数」替换 |ℋ| —— 因为无限多个假设在 n 个固定点上只能产生有限多种标注，标注相同的假设对分析而言就是同一个",
+     "改用贝叶斯方法",
+     "增加样本量直到界有意义",
+     "限制假设类为凸集"
+    ],
+    "a": 0,
+    "why": "<span class='w'>VC 维走的就是这条路：Sauer–Shelah 说 VC 维为 d 的类在 n 个点上最多产生 O(n^d) 种标注，于是 log|ℋ| → d·log n。</span><b>⚠ 注意 |ℋ|=∞ 时失效的不是精度而是结论本身——界变成「R(ĥ) ≤ ∞」，什么都没说。</b>"
+   },
+   {
+    "q": "MDL 那条路对「并集界」提出了什么一般性的启发？",
+    "o": [
+     "并集界在无限类上仍然成立",
+     "δ 不必均匀分配给每个候选：只要 Σ_h δ_h ≤ δ 就合法，于是可以给先验上更看好的候选多分一点、界更紧",
+     "并集界可以去掉",
+     "并集界可以用切尔诺夫界代替"
+    ],
+    "a": 1,
+    "why": "<b>⚠ 但先验必须事先定好，不能看了数据再定——这是合法性的唯一前提。</b><span class='k'>而且这个技巧改善的是常数和 log 里的那个数，不会把 √n 变成 n。</span>"
+   }
+  ]
+ }
+}

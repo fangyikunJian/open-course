@@ -1,0 +1,474 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p1 两点检验：H₀: X_t ~ P = N(0,1)；H₁: X_t ~ Q = N(Δ,1)，t=1..T。问「T 要多大才能分辨 H₀ 与 H₁」",
+  "p1 上界：取 μ̂_T = (1/T)ΣX_t，则以概率 ≥1−δ 有 |μ̂_T − E[X₁]| ≤ sqrt(2log(2/δ)/T) = Δ/2",
+  "⇒ 取 **T = 8Δ⁻²log(2/δ)**（板书圈出），按 μ̂_T 与 Δ/2 比大小判，正确概率 ≥1−δ",
+  "p1 定义 全变差：TV(P,Q) = sup_{A∈𝓕}|P(A) − Q(A)|",
+  "⚠ 板书把它写成 = ∫|p(x)−q(x)|dx，而**与 sup 定义一致的标准形式带 1/2**（TV = ½∫|p−q|dx）。本精读按标准形式理解，用到的只是 sup 那个定义",
+  "p1 定义 KL：KL(P|Q) = ∫log(dP/dQ(ω))dP(ω) = ∫log(p(x)/q(x))p(x)dx",
+  "p2 **Pinsker 不等式**：TV(P,Q) ≤ sqrt( KL(P|Q)/2 )；红字另补一条 ≤ sqrt(1 − e^{−KL(P|Q)})（KL 大时更紧）",
+  "p2 似然比检验 LRT：Π_{t=1}^T q(X_t)/p(X_t) > 1/δ 就判 H₁，否则判 H₀",
+  "p2 两类错误：P_{X~P}(Π q/p > 1/δ) ≤ δ·E_P[Π q/p] = δ（马尔可夫），其中 E_{X~P}[q(X)/p(X)] = ∫p·(q/p)dx = 1",
+  "p3 E_{X~Q}[Σ_{t=1}^T log(q(X_t)/p(X_t))] = T·KL(Q|P) ⇒ **T ≈ log(1/δ)/KL(Q|P)**",
+  "p3 P = N(0,1)、Q = N(Δ,1) ⇒ **KL(Q,P) = Δ²/2** ⇒ T ≈ 2log(1/δ)/Δ²，与 p1 的上界 8Δ⁻²log(2/δ) **只差常数**",
+  "p3 SPRT：τ = min{ T : Σ_{t=1}^T log(q(X_t)/p(X_t)) > log(1/δ) }",
+  "p3 **Wald 恒等式**（红字标注）：log(1/δ) = E_Q[ Σ_{t=1}^τ log(q/p) ] = **E_Q[τ]·KL(Q|P)** ⇒ E_Q[τ] ≈ log(1/δ)/KL(Q|P)，E_P[τ] ≈ log(1/δ)/KL(P|Q)",
+  "p4 **定理（极小极大遗憾下界）**：对每个 T ≥ n，存在 bandit 实例 ν_θ（ν_{θ,i} = N(θ_i,1)）使得对任何策略 π：inf_π max_θ E_θ[Σ_t θ_* − θ_{I_t}] ≥ **sqrt( (n−1)T / 256 )**",
+  "p4 构造：θ = (Δ,0,…,0)。对任何 π，存在 i ≠ 1 使 **E_θ[T_i] ≤ T/(n−1)**（鸽笼）。再造 θ′ = (Δ,0,…,2Δ,…,0)，把 2Δ 放在第 i 位",
+  "p5 收尾链：max ≥ ½(E_θ[R_T] + E_{θ′}[R_T]) ≥ (ΔT/4)(1 − TV(P_θ,P_{θ′})) ≥ (ΔT/4)(1 − sqrt(KL/2)) ≥ (ΔT/4)(1 − sqrt(Δ²·T/(n−1)))",
+  "⇒ 取 **Δ = sqrt( (n−1)/(4T) )**（红字）代入，得 sqrt((n−1)T/256)",
+  "p5 **引理（散度分解）**：两个 bandit 实例 ν、ν′，固定策略 π，则 **KL(P_ν | P_{ν′}) = Σ_{i=1}^n E_ν[T_i(T)]·KL(ν_i | ν′_i)**；红字补：**若 𝒯 是停时，上式对 T = 𝒯 同样成立**",
+  "p6 证明的关键：dP_ν(Z) = Π_t ν_{I_t}(X_t)·π(I_t | I_s,X_s, s<t)，而**策略项 π(·) 在两个测度里完全相同、取对数作差时约掉**",
+  "p7 **δ-正确**的定义：P_{θ_*}(î = argmax_j θ_{*,j}) ≥ 1−δ 对**所有** θ_* ∈ ℝⁿ 成立",
+  "p7 回顾上界：Action Elimination 在 **T = c·Σ_{j≠i_*} Δ_j⁻²·log( n·log(Δ_j⁻²)/δ )** 次拉臂后以 ≥1−δ 认出最优臂",
+  "p7 构造对手实例：ν_i = N(θ_i,1)；ν^{(j)} 只把第 j 条臂换成 **N(θ₁ + Δ_j + ε, 1)**（刚好把第 j 条顶到第 1 条之上），其余不变",
+  "p8 **引理（数据处理不等式）**：随机变量 Z 的前推测度满足 **KL(P_Z|Q_Z) ≤ KL(P|Q)**",
+  "p8 用它：取 Z = 1{î=1}，P_ν(î=1) ≥ 1−δ 而 P_{ν^{(j)}}(î=1) < δ ⇒ 二元 KL ≥ **log( 1/(2.4δ) )**",
+  "⇒ log(1/(2.4δ)) ≤ KL(P_ν|P_{ν^{(j)}}) = E_ν[T_j(𝒯)]·KL(ν_j|ν^{(j)}_j)，而 KL(ν_j|ν^{(j)}_j) = **(Δ_j+ε)²/2**",
+  "p9 ⇒ E_ν[T_j(𝒯)] ≥ 2log(1/(2.4δ))/(Δ_j+ε)²；ε 任意，取 ε→0",
+  "p9 **定理（BAI 下界）**：任何 δ-正确的算法都需要 **E_ν[𝒯] ≥ Σ_{j≠i_*} 2·log(1/(2.4δ)) / Δ_j²**",
+  "p9 **引理（重对数律 LIL）**：ε_t ~ N(0,1)、S_t = Σ_{s≤t}ε_s ⇒ limsup_{t→∞} S_t / sqrt(2t·loglog t) = 1 几乎必然",
+  "p10 E[|S_t|] ≈ sqrt(t)",
+  "p10 **定理（渐近的实例相关遗憾下界）**：若某算法对任意 α>0 满足 max_θ E_θ[R_T] ≤ T^{1−α}，则 **lim_{T→∞} E_θ[R_T]/log T ≥ Σ_{i≠i_*} Δ_i⁻¹**"
+ ],
+ "notes": [
+  {
+   "r": [1, 1],
+   "t": "一切下界的原型：两点之间要几个样本才分得开",
+   "star": 3,
+   "quote": "<b>Lower Bounds</b>. <em>(Ω,𝓕,P) &nbsp; (Ω,𝓕,Q). &nbsp; H₀: X<sub>t</sub> ~ P = N(0,1); &nbsp; H₁: X<sub>t</sub> ~ Q = N(Δ,1), t=1,2,…,T.</em><br><em><b>How big does T need to be to discern whether H₀ or H₁ is true?</b></em><br><em>If we define μ̂<sub>T</sub> = (1/T)Σ<sub>t</sub>X<sub>t</sub> then w.p. ≥1−δ: |μ̂<sub>T</sub> − E[X₁]| ≤ √(2log(2/δ)/T) = Δ/2. Choose <b>T = 8Δ<sup>−2</sup>log(2/δ)</b>, compute μ̂<sub>T</sub>, and decide H₁ if μ̂<sub>T</sub> > Δ/2, H₀ if μ̂<sub>T</sub> < Δ/2. This is correct w.p. ≥1−δ.</em><br><b>Def</b> <em>The <b>total variation</b> between P,Q is TV(P,Q) = sup<sub>A∈𝓕</sub>|P(A) − Q(A)|</em><br><b>Def</b> <em>The <b>Kullback-Liebler divergence</b> from P to Q is KL(P|Q) = ∫log(dP/dQ(ω))dP(ω)</em>",
+   "one": "<b>把所有下界问题剥到最干净：两个只差 Δ 的高斯，要看多少个样本才能分辨？上界是 8Δ⁻²log(2/δ)；整讲剩下的部分是在证明你不可能做得更好。</b>",
+   "pts": [
+    "<b>这一页先把问题设成最简形态，而这个「两点问题」是后面所有下界的骨架。</b> <span class='k'>两个分布 <code>P = N(0,1)</code> 与 <code>Q = N(Δ,1)</code>，只差均值 Δ</span>；<b>你看 T 个 i.i.d. 样本，要判断数据来自哪一个</b>。<span class='w'>问题只有一个：<b>T 要多大？</b></span>",
+    "<b>上界那半页是复习，三行就完了。</b> <span class='k'>取样本均值 <code>μ̂_T</code>，次高斯集中不等式给 <code>|μ̂_T − 真均值| ≤ √(2log(2/δ)/T)</code></span>；<b>让这个误差恰好等于 <code>Δ/2</code>（两个均值间距的一半），就能用「<code>μ̂_T</code> 在 <code>Δ/2</code> 的哪一侧」来判</b>。<span class='w'>解出来 <code>T = 8Δ^{-2}log(2/δ)</code>——板书把它圈了出来，因为后面要和下界对。</span>",
+    "<b>注意这个 <code>Δ^{-2}</code> 的形状：差距减半，样本量要翻两番。</b> <span class='k'>这是整个 bandit 理论里最常出现的那个标度</span>——<b>而这一讲要证明它不是算法笨，是信息论的下限。</b>",
+    "<b>然后页面下半定义了两个距离，而选哪个是有讲究的。</b> <b>全变差</b>：<code>TV(P,Q) = sup_{A∈𝓕}|P(A) − Q(A)|</code>——<span class='w'>在<b>任何</b>事件上，两个分布给出的概率最多差多少</span>。<b>这个定义正好对上「分辨」这件事</b>：<span class='k'>任何判别规则都是一个事件 A（「落在 A 里就判 H₁」），而它的两类错误之和被 <code>1 − TV</code> 从下面卡住</b>。",
+    "<b>所以 TV 是「可分辨性」的<b>正确</b>度量，而不是一个随手挑的距离。</b> <span class='w'><code>TV = 0</code> 时两个分布完全不可分；<code>TV = 1</code> 时存在一个事件能完美区分</span>。<b>下界的全部工作就是证明「TV 不够大」。</b>",
+    "⚠️ <b>板书把 TV 又写成了 <code>∫|p(x) − q(x)|dx</code>，而这与前面那个 sup 定义<b>差一个 1/2</b>。</b> <span class='k'>标准结论是 <code>sup_A|P(A)−Q(A)| = ½∫|p−q|dx</code></span>——<b>取 <code>A = {x : p(x) &gt; q(x)}</code> 就能看出来</b>。<span class='w'>本精读按标准形式理解；好在后面用到的只是 sup 那个定义，这处笔误不影响任何结论。</span>",
+    "<b>第二个定义是 KL 散度，而它为什么出场要到下一页才清楚。</b> <code>KL(P|Q) = ∫log(dP/dQ)dP</code>。<span class='k'>直接用 TV 做下界很难算（sup 不好处理），而 KL 对<b>乘积测度可加</b>——T 个独立样本的 KL 就是单个的 T 倍</span>。<b>Pinsker 不等式就是把两者接起来的那座桥。</b>",
+    "<b>把这一页的逻辑先摆出来，后面三页就是在填它</b>：<span class='w'>要证「T 小了分不开」⇒ 要证「TV 小」⇒ 用 Pinsker 把它换成「KL 小」⇒ 而 KL 可加、好算 ⇒ 于是 <code>T·KL</code> 必须足够大</span>。<b>这条链是本讲的主干，而且后面证极小极大下界与 BAI 下界时会原样再走一遍。</b>"
+   ],
+   "eq": "两点问题（所有下界的骨架）：\n   H_0: X_t ~ P = N(0,1)        H_1: X_t ~ Q = N(Δ,1)        t = 1..T\n   问：T 要多大才能分辨？\n\n上界（复习，三行）：\n   μ̂_T = (1/T)Σ_t X_t，次高斯集中给 |μ̂_T − 真均值| ≤ sqrt(2log(2/δ)/T)\n   令它 = Δ/2（两均值间距的一半）⇒ 用「μ̂_T 在 Δ/2 的哪一侧」来判\n   ⇒ **T = 8 Δ^{−2} log(2/δ)**        ← 板书圈出，后面要和下界对\n\n   注意 Δ^{−2} 的标度：差距减半，样本量翻两番\n\n两个距离：\n   **全变差** TV(P,Q) = sup_{A∈𝓕} |P(A) − Q(A)|\n      —— 「可分辨性」的正确度量，不是随手挑的距离：\n         任何判别规则都是一个事件 A，其两类错误之和被 1 − TV 从下面卡住\n         TV=0 完全不可分；TV=1 存在事件能完美区分\n   ⚠ 板书另写成 ∫|p−q|dx，与 sup 定义**差一个 1/2**\n     （标准结论：sup_A|P(A)−Q(A)| = ½∫|p−q|dx，取 A={p>q} 即可看出）\n     本精读按标准形式；后面只用 sup 定义，这处不影响结论\n\n   **KL 散度** KL(P|Q) = ∫ log(dP/dQ) dP\n      为什么要它：TV 的 sup 不好算，而 KL **对乘积测度可加**\n      —— T 个独立样本的 KL 就是单个的 T 倍\n\n本讲的主干（后面证两个下界时会原样再走一遍）：\n   要证「T 小了分不开」\n     ⇒ 要证 **TV 小**\n     ⇒ 用 **Pinsker** 换成「**KL** 小」\n     ⇒ KL 可加、好算  ⇒ 于是 T·KL 必须足够大",
+   "tbl": {
+    "head": ["", "全变差 TV", "KL 散度"],
+    "rows": [
+     ["定义", "sup<sub>A</sub>|P(A) − Q(A)|", "∫log(dP/dQ)dP"],
+     ["对应什么", "<b>可分辨性</b>（任何判别规则的错误）", "信息量"],
+     ["好算吗", "<span class='w'>sup 不好处理</span>", "<b>对乘积测度可加</b>"],
+     ["对称吗", "<b>对称</b>", "<span class='w'>不对称</span>"],
+     ["两者的桥", "<b>Pinsker：TV ≤ √(KL/2)</b>", "<b>Pinsker</b>"]
+    ]
+   }
+  },
+  {
+   "r": [2, 2],
+   "t": "Pinsker 与似然比检验",
+   "star": 3,
+   "quote": "<b>Lemma (Pinsker's inequality)</b> <em>TV(P,Q) ≤ <b>√(KL(P|Q)/2)</b></em> 〔红字另补：<em>≤ √(1 − e<sup>−KL(P|Q)</sup>)</em>〕<br><em><b>Aside</b>: likelihood of X₁,…,X<sub>T</sub> under N(μ,1) is Π<sub>t</sub>(1/√(2π))exp(−(X<sub>t</sub>−μ)²/2), so likelihood ratio of H₁ to H₀ is Π<sub>t</sub> q(X<sub>t</sub>)/p(X<sub>t</sub>)</em><br><em>The <b>likelihood ratio test (LRT)</b> says pick H₁ if Π<sub>t=1</sub><sup>T</sup> q(X<sub>t</sub>)/p(X<sub>t</sub>) &gt; 1/δ and H₀ otherwise.</em><br><em>Make an error under P w/ prob: P<sub>X~P</sub>(Π q/p &gt; 1/δ) ≤ δ·E<sub>P</sub>[Π q/p] = δ, &nbsp; since E<sub>X~P</sub>[q(X₁)/p(X₁)] = ∫p(x)·(q(x)/p(x))dx = 1</em>",
+   "one": "<b>Pinsker 把「分不开」和「KL 小」接上。而似然比检验给出的是一个更干净的判别规则——它的错误概率只用一行马尔可夫不等式就控住了。</b>",
+   "pts": [
+    "<b>Pinsker 不等式就是上一页说的那座桥</b>：<b><code>TV(P,Q) ≤ √(KL(P|Q)/2)</code></b>。<span class='k'>方向很重要：它用<b>容易算</b>的 KL 从上面卡住<b>难算</b>的 TV</span>——<b>而下界要的正是「TV 不够大」，所以这个方向刚好。</b>",
+    "<b>红字补的那条是另一个上界</b>：<code>TV ≤ √(1 − e^{-KL})</code>。<span class='w'>它在 KL 大的时候更紧</span>——<b>注意 Pinsker 的右边在 <code>KL &gt; 2</code> 时就超过 1 了（而 TV 永远 ≤ 1），这时 Pinsker 完全失效，而这一条仍然有用</b>。<span class='k'>这是 Bretagnolle–Huber 那一类的界，证下界时经常要换着用。</span>",
+    "<b>页面下半换了个角度：不去估均值，而是直接做<b>似然比检验</b>。</b> <span class='k'>在 <code>N(μ,1)</code> 下，样本的似然是 <code>Π_t (1/√(2π))exp(−(X_t−μ)²/2)</code></span>；<b>H₁ 比 H₀ 的似然比就是 <code>Π_t q(X_t)/p(X_t)</code></b>——<span class='w'>那些 <code>1/√(2π)</code> 全约掉了。</span>",
+    "<b>LRT 的规则只有一句：似然比超过 <code>1/δ</code> 就判 H₁，否则判 H₀。</b> <span class='k'>门槛取 <code>1/δ</code> 不是随手的，下一行就看出理由</span>。",
+    "<b>而错误概率的控制漂亮在只用了一行马尔可夫不等式。</b> <span class='w'><code>P_{X~P}(Π q/p &gt; 1/δ) ≤ δ·E_P[Π q/p]</code></span>；<b>而 <code>E_P[Π q/p] = 1</code>，于是错误概率 <code>≤ δ</code></b>。<span class='k'>门槛取 <code>1/δ</code> 正是为了让马尔可夫直接给出 δ。</span>",
+    "<b>那个 <code>E_P[q/p] = 1</code> 值得单独记，它是整个似然比方法的支点。</b> <code>E_{X~P}[q(X)/p(X)] = ∫p(x)·(q(x)/p(x))dx = ∫q(x)dx = 1</code>。<span class='w'>分母上的 <code>p</code> 和积分测度里的 <code>p</code> 约掉了，剩下的是 q 的全积分</span>——<b>这就是重要性采样「无偏」的同一个计算</b>。<span class='k'>CS234 L15 讲 IS 时用的是同一步，只是那里用来换测度，这里用来控错误率。</span>",
+    "<b>再看独立性让这件事变得多简单：T 个样本的似然比是单样本似然比的<b>乘积</b>，而乘积的期望等于期望的乘积，仍然是 1。</b> <span class='w'>所以不管 T 多大，<code>E_P[Π_t q/p] = 1</code> 恒成立</span>——<b>错误概率的界与 T 无关</b>。",
+    "<b>对称地，在 Q 下也有 <code>P_{X~Q}(Π q/p &lt; δ) ≤ δ</code>。</b> <span class='k'>于是两类错误都被 δ 控住了</span>。<b>⚠ 但注意这只说明 LRT 在<b>足够大的 T</b> 下能做到两类错误都小，它还没告诉你 T 要多大</b>——<span class='w'>那是下一页的事。</span>"
+   ],
+   "eq": "**Pinsker**：TV(P,Q) ≤ sqrt( KL(P|Q) / 2 )\n   方向刚好：用**容易算**的 KL 从上面卡住**难算**的 TV\n   而下界要的正是「TV 不够大」\n\n⚠ 红字另一条（Bretagnolle–Huber 一类）：TV ≤ sqrt( 1 − e^{−KL} )\n   KL 大时更紧 —— Pinsker 的右边在 KL > 2 时就超过 1 了（而 TV ≤ 1），那时它完全失效\n\n似然比检验 LRT：\n   N(μ,1) 下样本似然 = Π_t (1/sqrt(2π))·exp(−(X_t−μ)²/2)\n   H_1 比 H_0 的似然比 = Π_t q(X_t)/p(X_t)      （1/sqrt(2π) 全约掉）\n\n   规则：Π_{t=1..T} q(X_t)/p(X_t) > 1/δ  ⇒ 判 H_1，否则判 H_0\n\n   错误概率（一行马尔可夫）：\n      P_{X~P}( Π q/p > 1/δ ) ≤ δ · E_P[ Π q/p ] = δ\n                                        └── = 1 ──┘\n      门槛取 1/δ 正是为了让马尔可夫直接给出 δ\n\n   为什么 E_P[q/p] = 1（整个似然比方法的支点）：\n      E_{X~P}[q(X)/p(X)] = ∫ p(x)·(q(x)/p(x)) dx = ∫ q(x) dx = 1\n      分母的 p 与积分测度里的 p 约掉 —— **与重要性采样「无偏」是同一步计算**\n      （CS234 L15 用它换测度，这里用它控错误率）\n\n   独立性让它对任意 T 都成立：乘积的期望 = 期望的乘积 = 1\n   ⇒ 错误概率的界**与 T 无关**\n\n   对称地：P_{X~Q}( Π q/p < δ ) ≤ δ\n   ⚠ 但这只说明「T 足够大时两类错误都小」，还没说 T 要多大 ⇒ 下一页"
+  },
+  {
+   "r": [3, 3],
+   "t": "SPRT 与 Wald 恒等式：T ≈ log(1/δ) / KL",
+   "star": 3,
+   "quote": "<em>P<sub>X~Q</sub>(Π q/p &gt; 1/δ) = P<sub>X~Q</sub>(Σ<sub>t</sub>log(q(X<sub>t</sub>)/p(X<sub>t</sub>)) &gt; log(1/δ))</em><br><em>E<sub>X~Q</sub>[Σ<sub>t=1</sub><sup>T</sup>log(q(X<sub>t</sub>)/p(X<sub>t</sub>))] = <b>T·KL(Q|P)</b> &nbsp;⟹&nbsp; Under Q, <b>T ≈ log(1/δ)/KL(Q|P)</b></em><br><em>P = N(0,1), Q = N(Δ,1) ⟹ <b>KL(Q,P) = Δ²/2</b></em><br><b>Sequential Probability Ratio Test (SPRT)</b>: <em>τ = min{T : Σ<sub>t=1</sub><sup>T</sup>log(q(X<sub>t</sub>)/p(X<sub>t</sub>)) &gt; log(1/δ)}</em><br><em>log(1/δ) = E<sub>Q</sub>[Σ<sub>t=1</sub><sup>τ</sup>log(q/p)] = <b>E<sub>Q</sub>[τ]·KL(Q|P)</b></em> 〔红字：<b>Wald's Identity</b>〕",
+   "one": "<b>取对数把乘积变成和，于是「似然比要涨到 1/δ」就成了「随机游走要走到 log(1/δ)」。而每一步的平均漂移恰好是 KL——所以要走 log(1/δ)/KL 步。</b>",
+   "pts": [
+    "<b>第一步只是取对数，但它把问题换了个形态。</b> <span class='k'>乘积 <code>Π q/p &gt; 1/δ</code> 变成求和 <code>Σ log(q/p) &gt; log(1/δ)</code></span>——<b>而求和是一个<b>随机游走</b></b>。<span class='w'>于是问题成了：这个游走要多久才能走到 <code>log(1/δ)</code>？</span>",
+    "<b>第二步算这个游走每一步的平均漂移，而答案正好是 KL。</b> <code>E_{X~Q}[log(q(X)/p(X))] = KL(Q|P)</code>——<span class='k'>这就是 KL 的定义</span>。<b>所以 T 步之后的期望位置是 <code>T·KL(Q|P)</code>。</b>",
+    "<b>要走到 <code>log(1/δ)</code>，令 <code>T·KL = log(1/δ)</code>，就得到了本讲的核心式子</b>：<br><b><code>T ≈ log(1/δ) / KL(Q|P)</code></b>。<span class='w'>样本量 = 要积累的证据量 ÷ 每个样本提供的证据量</span>——<b>这个读法值得记住，它把一个数学结论变成了一句直观的话。</b>",
+    "<b>代入高斯就对上了：<code>P = N(0,1)</code>、<code>Q = N(Δ,1)</code> 时 <code>KL(Q,P) = Δ²/2</code>。</b> <span class='k'>于是 <code>T ≈ 2log(1/δ)/Δ²</code></span>；<b>而 p1 的上界是 <code>8Δ^{-2}log(2/δ)</code></b>——<span class='w'>两者<b>只差常数</b>（约 4 倍）</span>。<b>上界与下界在同一个形状上对齐了，这就是这三页要证的事。</b>",
+    "<b>注意 <code>KL(N(Δ,1), N(0,1)) = Δ²/2</code> 这个式子本身值得记。</b> <span class='k'>同方差的两个高斯，KL 等于均值差的平方除以 2σ²</span>——<b>而 <code>Δ²</code> 的出现正是「样本量按 <code>Δ^{-2}</code> 走」的根源</b>。<span class='w'>所有 <code>Δ^{-2}</code> 都是从这里来的。</span>",
+    "<b>页面下半把固定 T 换成了<b>停时</b>：SPRT。</b> <span class='k'><code>τ = min{T : Σ_{t≤T} log(q/p) &gt; log(1/δ)}</code>——不预先定 T，而是<b>一边采一边看</b>，证据够了就停</span>。<b>这比固定样本量的检验更省，因为容易的情形会早停。</b>",
+    "<b>而要分析停时就要用 Wald 恒等式（红字标出的那条），它是这一页的技术核心。</b> <span class='w'><b>Wald</b>：若 <code>τ</code> 是停时、各项 i.i.d.，则 <code>E[Σ_{t=1}^τ Y_t] = E[τ]·E[Y₁]</code></span>。<b>注意这不是显然的</b>：<span class='k'>求和的项数本身是随机的，而且与被求和的项<b>相关</b>（正是因为和变大了才停）</span>——<b>Wald 说尽管如此，期望仍然可以这样拆。</b>",
+    "<b>用上它就得到 <code>log(1/δ) = E_Q[τ]·KL(Q|P)</code>，于是 <code>E_Q[τ] ≈ log(1/δ)/KL(Q|P)</code>。</b> <span class='w'>和固定 T 的答案形状完全一样</span>——<b>但现在它是对<b>期望停时</b>说的，而这正是后面 BAI 下界需要的形式</b>（<span class='k'>因为自适应算法的停止时刻就是一个停时</span>）。",
+    "⚠️ <b>严格说 Wald 给的是等式，而板书把最后两行写成了不等号（或约等号）。</b> <span class='w'>差别来自<b>越过门槛的那一步</b>（overshoot）：游走不会恰好停在 <code>log(1/δ)</code>，而是跨过去一点</span>。<b>所以准确的说法是 <code>E_Q[τ]·KL ≥ log(1/δ)</code>，而 overshoot 通常是常数量级、可以忽略。</b>",
+    "<b>最后一行把方向反过来写了一遍：<code>E_P[τ] ≈ log(1/δ)/KL(P|Q)</code>。</b> <span class='k'>注意 KL 的两个参数换了位置</span>——<b>KL 不对称，所以「从 P 分辨 Q」和「从 Q 分辨 P」所需的样本量一般<b>不同</b></b>。<span class='w'>高斯这个特例下两者恰好相等（都是 <code>Δ²/2</code>），但那是巧合，别当成一般规律。</span>"
+   ],
+   "eq": "第一步：取对数，乘积变成**随机游走**\n   Π_t q/p > 1/δ   ⟺   Σ_t log(q(X_t)/p(X_t)) > log(1/δ)\n\n第二步：每一步的平均漂移恰好是 KL（这就是 KL 的定义）\n   E_{X~Q}[ log(q(X)/p(X)) ] = KL(Q|P)\n   ⇒ T 步后的期望位置 = T·KL(Q|P)\n\n⇒ **T ≈ log(1/δ) / KL(Q|P)**\n   读法：**样本量 = 要积累的证据量 ÷ 每个样本提供的证据量**\n\n代入高斯：P=N(0,1), Q=N(Δ,1) ⇒ **KL(Q,P) = Δ²/2**\n   ⇒ T ≈ 2log(1/δ)/Δ²\n   而 p1 的上界是 8Δ^{−2}log(2/δ)  ⇒ **只差常数（约 4 倍）**\n   ⇒ 上界与下界在同一形状上对齐 —— 这三页要证的就是这件事\n\n   （同方差高斯的 KL = 均值差² / (2σ²) —— 所有 Δ^{−2} 都是从这里来的）\n\nSPRT（把固定 T 换成**停时**）：\n   τ = min{ T : Σ_{t≤T} log(q/p) > log(1/δ) }\n   不预定 T，一边采一边看，证据够了就停 ⇒ 容易的情形会早停\n\n**Wald 恒等式**（分析停时的技术核心）：\n   τ 是停时、各项 i.i.d. ⇒ E[ Σ_{t=1..τ} Y_t ] = E[τ]·E[Y_1]\n   ⚠ 不显然：求和的**项数本身随机**，而且与被求和的项**相关**\n     （正是因为和变大了才停）—— Wald 说期望仍可这样拆\n\n   ⇒ log(1/δ) = E_Q[τ]·KL(Q|P)  ⇒ **E_Q[τ] ≈ log(1/δ)/KL(Q|P)**\n     形状与固定 T 相同，但现在是对**期望停时**说的\n     ⇒ 这正是后面 BAI 下界需要的形式（自适应算法的停止时刻就是停时）\n\n⚠ Wald 给的是等式，而板书写成了不等/约等：差别来自**越过门槛那一步**（overshoot）\n   游走不会恰好停在 log(1/δ) 而是跨过一点\n   ⇒ 准确说法 E_Q[τ]·KL ≥ log(1/δ)，overshoot 通常是常数量级可忽略\n\n⚠ 最后一行反向：E_P[τ] ≈ log(1/δ)/KL(**P|Q**)\n   KL 不对称 ⇒ 「从 P 分辨 Q」与「从 Q 分辨 P」所需样本量一般**不同**\n   高斯特例下两者恰好相等（都是 Δ²/2），那是巧合，别当一般规律",
+   "tbl": {
+    "head": ["", "固定样本量检验", "SPRT（停时）"],
+    "rows": [
+     ["T 怎么定", "<b>事先定死</b>", "<b>边采边看，够了就停</b>"],
+     ["答案", "T ≈ log(1/δ)/KL", "<b>E[τ] ≈ log(1/δ)/KL</b>"],
+     ["靠什么分析", "期望的线性", "<b>Wald 恒等式</b>"],
+     ["容易的情形", "<span class='w'>一样慢</span>", "<b>会早停</b>"],
+     ["⚠ 误差来源", "—", "<b>overshoot（跨过门槛那一步）</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「样本量 = 要积累的证据量 ÷ 每个样本提供的证据量」这句话，是你那条「写 bound」验收标准最该用的框架。</b><br><span class='k'>你的问题可以原样套进这个两点形态</span>：<b>两个配置 A 和 B，它们的 G 相差 Δ，问「要跑多少条 query 才能以 1−δ 的把握判出哪个更好」</b>。<span class='w'>答案的形状就是 <code>log(1/δ)/KL</code>，而你要做的只是算出你那个 KL。</span><br><b>而你的 Acc 是 0/1 的，所以 KL 不是高斯那个 <code>Δ²/2</code>，要用伯努利的。</b> <span class='k'>两个成功率 <code>p</code> 与 <code>p+Δ</code> 的伯努利之间 <code>KL = p·log(p/(p+Δ)) + (1−p)log((1−p)/(1−p−Δ))</code></span>，<b>在 Δ 小时约为 <code>Δ²/(2p(1−p))</code></b>。<span class='w'>注意那个 <code>p(1−p)</code> 在分母上</span>——<b>这和 CSE541 L09 p5 那个 Fisher 信息里的 <code>σ(1−σ)</code> 因子是同一件事的两面</b>：<span class='k'>信息量正比于 <code>p(1−p)</code>，所以样本量反比于它</b>。<b>⇒ <code>p</code> 接近 0 或 1（题目太难或太简单）时，分辨两个配置所需的样本量会爆炸。</b><br><b>这给了你一个可以直接算、而且很有说服力的数</b>：<span class='w'>按你 oracle 表里实际的 <code>p̂</code> 和配置间的实际 Δ，算出 <code>log(1/δ)·2p(1−p)/Δ²</code></span>，<b>和你实际跑的 query 数比一比</b>。<b>这是「写 bound」最低成本的一个版本，而且不需要任何新实验。</b><br><b>⚠ 而 SPRT 那一段对你尤其相关，因为你的淘汰是<b>自适应</b>的。</b> <span class='k'>固定样本量的分析对你不适用——你会提前停</span>。<b>要分析自适应停止就必须用 Wald 恒等式，而它要求「停时」这个条件被真正满足</b>：<span class='w'>停止的决定只能依赖已经看到的数据，不能偷看未来</span>。<b>这听起来显然，但实操里很容易违反</b>——<span class='k'>比如「先把全部 query 跑完，再回头找一个最早能分出胜负的时刻」，那个时刻就<b>不是</b>停时，Wald 不适用，报出来的样本复杂度是假的。</b><br>标【推断】：伯努利 KL 的代入与那条「不是停时」的警告是我推的；Acc 为 0/1 与自适应淘汰在简报/前面讲里是【已核】。",
+    "ref": "本讲 p3（逐行核对）· CSE 541 L09 p5 科研格 · CS234 L15 · 简报 §4c §4f（已核）"
+   }
+  },
+  {
+   "r": [4, 4],
+   "t": "极小极大下界：造一对「几乎一样、但答案相反」的实例",
+   "star": 3,
+   "quote": "<b>Theorem</b> <em>For every T ≥ n, ∃ bandit instance ν<sub>θ</sub> where ν<sub>θ,i</sub> = N(θ<sub>i</sub>,1) such that for a policy π:</em><br><em>inf<sub>π</sub> max<sub>θ</sub> E<sub>θ</sub>[Σ<sub>t=1</sub><sup>T</sup>θ<sub>*</sub> − θ<sub>I<sub>t</sub></sub>] ≥ <b>√( (n−1)T / 256 )</b></em><br><b>Proof</b> <em>Let θ = (Δ,0,…,0). For any π, ∃ i ∈ [n]\\{1} s.t. <b>E<sub>θ</sub>[T<sub>i</sub>] ≤ T/(n−1)</b>. Define θ′ = (Δ,0,…,<b>2Δ</b>,0,…,0) with 2Δ at the i-th location.</em><br><em>E<sub>θ′</sub>[R<sub>T</sub>] ≥ (θ′<sub>i</sub> − θ′<sub>1</sub>)E<sub>θ′</sub>[T₁] ≥ Δ·P<sub>θ′</sub>(T₁ &gt; T/2)·T/2</em><br><em>E<sub>θ</sub>[R<sub>T</sub>] = Δ·E<sub>θ</sub>[Σ<sub>i≠1</sub>T<sub>i</sub>] ≥ Δ·P<sub>θ</sub>(T₁ &lt; T/2)·T/2 = Δ(1 − P<sub>θ</sub>(T₁ &gt; T/2))·T/2</em>",
+   "one": "<b>下界的标准套路：造两个实例，它们长得几乎一样（所以算法分不开），但最优答案相反（所以必有一个会被答错）。</b>",
+   "pts": [
+    "<b>先看要证什么：<code>inf_π max_θ E_θ[R_T] ≥ √((n−1)T/256)</code>。</b> <span class='k'><b>inf over π</b> 表示「不管你用什么算法」；<b>max over θ</b> 表示「总存在一个实例让你吃亏」</span>。<b>这叫<b>极小极大</b>下界——它说的不是某个算法不好，而是<b>没有任何算法</b>能对所有实例都好。</b>",
+    "<b>注意这个界的形状：<code>√(nT)</code>。</b> <span class='w'>它随 T 增长（不像依赖差距的界那样有上限），而且随臂数增长</span>——<b>而 L06/L09 的上界正好也是 <code>√(nT)</code> 量级</b>。<span class='k'>所以上下界匹配，那些算法在极小极大意义下是最优的。</span>",
+    "<b>证明的第一步是构造，而这一步最见功夫。</b> <span class='k'>先取 <code>θ = (Δ, 0, …, 0)</code>——第一条臂好一点，其余都是 0</span>。<b>然后用鸽笼原理：T 步要分给 <code>n−1</code> 条劣臂，所以<b>必有一条</b> <code>i</code> 被拉的期望次数 <code>≤ T/(n−1)</code></b>。<span class='w'>注意这个 <code>i</code> 依赖于算法 π——不同的算法会冷落不同的臂，但总会冷落某一条。</span>",
+    "<b>第二步针对这条被冷落的臂造一个「对手实例」。</b> <code>θ′ = (Δ, 0, …, 2Δ, …, 0)</code>——<span class='k'>把第 <code>i</code> 条臂（恰好是你最少去碰的那条）抬到 <code>2Δ</code>，让它成为新的最优臂</span>。<b>其余全不动。</b>",
+    "<b>这个构造的精妙之处在于它<b>针对算法</b>定制。</b> <span class='w'>你哪条臂拉得少，我就把宝藏藏在那条臂里</span>——<b>而「总有一条被拉得少」是鸽笼原理保证的，与算法无关</b>。<span class='k'>所以无论你怎么设计算法，这个构造总能找到你的盲点。</span>",
+    "<b>接下来两行分别算两个实例下的遗憾，而它们是互补的。</b> <span class='w'><b>在 θ′ 下</b>：最优臂是 <code>i</code>，而你每拉一次臂 1 就亏 <code>θ′_i − θ′_1 = Δ</code></span>；<b>于是 <code>E_{θ′}[R_T] ≥ Δ·E_{θ′}[T₁]</code></b>。<span class='k'>再用马尔可夫把期望换成概率：<code>E[T₁] ≥ P(T₁ &gt; T/2)·T/2</code></span>。",
+    "<b>在 θ 下正相反：最优臂是 1，每拉一次别的臂就亏 Δ。</b> <code>E_θ[R_T] = Δ·E_θ[Σ_{i≠1}T_i]</code>，<span class='w'>而 <code>Σ_{i≠1}T_i = T − T₁</code></span>；<b>于是 <code>≥ Δ·P_θ(T₁ &lt; T/2)·T/2 = Δ(1 − P_θ(T₁ &gt; T/2))·T/2</code>。</b>",
+    "<b>现在看这两个式子的结构，整个证明的用意就清楚了。</b> <span class='k'>两边都出现了同一个量 <code>P(T₁ &gt; T/2)</code>，但<b>一个要它大、一个要它小</b></span>：<b>θ′ 下遗憾大当且仅当你<b>常拉</b>臂 1（因为那是错的）；θ 下遗憾大当且仅当你<b>少拉</b>臂 1</b>。<span class='w'>你没法同时让两者都小。</span>",
+    "<b>而「你没法同时满足」的严格表述，就是下一页要用 TV 和 Pinsker 的地方</b>：<span class='k'>如果两个实例在你的算法眼里几乎一样（TV 小），那么 <code>P_θ(T₁&gt;T/2)</code> 与 <code>P_{θ′}(T₁&gt;T/2)</code> 也几乎一样</span>——<b>于是两个遗憾里必有一个大。</b>"
+   ],
+   "eq": "要证：**inf_π max_θ E_θ[R_T] ≥ sqrt( (n−1)T / 256 )**\n   inf over π  = 不管你用什么算法\n   max over θ  = 总存在一个实例让你吃亏\n   ⇒ **极小极大**下界：不是某个算法不好，是**没有任何算法**能对所有实例都好\n\n   形状 sqrt(nT)：随 T 增长、随臂数增长\n   而 L06/L09 的上界也是 sqrt(nT) 量级 ⇒ **上下界匹配**，那些算法在极小极大意义下最优\n\n构造（最见功夫的一步）：\n   ① θ = (Δ, 0, …, 0)                第一条臂好一点，其余为 0\n   ② **鸽笼**：T 步分给 n−1 条劣臂 ⇒ 必有一条 i 满足 E_θ[T_i] ≤ T/(n−1)\n      ⚠ 这个 i **依赖算法 π** —— 不同算法冷落不同的臂，但总会冷落某一条\n   ③ θ′ = (Δ, 0, …, **2Δ**, …, 0)     把宝藏藏在**你最少碰的那条臂**里\n\n   精妙之处：构造**针对算法**定制，而「总有一条被冷落」由鸽笼保证、与算法无关\n   ⇒ 无论你怎么设计算法，这个构造总能找到你的盲点\n\n两个实例下的遗憾（互补）：\n   在 θ′ 下：最优臂是 i，每拉一次臂 1 就亏 θ′_i − θ′_1 = Δ\n      E_{θ′}[R_T] ≥ Δ·E_{θ′}[T_1] ≥ Δ·**P_{θ′}(T_1 > T/2)**·T/2      （马尔可夫）\n\n   在 θ 下：最优臂是 1，每拉一次别的臂就亏 Δ；且 Σ_{i≠1}T_i = T − T_1\n      E_θ[R_T] = Δ·E_θ[Σ_{i≠1}T_i] ≥ Δ·P_θ(T_1 < T/2)·T/2\n                = Δ·( 1 − **P_θ(T_1 > T/2)** )·T/2\n\n⇒ 两边都出现同一个量 P(T_1 > T/2)，但**一个要它大、一个要它小**：\n     θ′ 下遗憾大 ⟺ 你**常拉**臂 1（那是错的）\n     θ  下遗憾大 ⟺ 你**少拉**臂 1\n   你没法同时让两者都小\n\n   而「没法同时满足」的严格表述 ⇒ 下一页用 TV + Pinsker：\n     两实例在算法眼里几乎一样（TV 小）⇒ 两个概率也几乎一样 ⇒ 必有一个遗憾大",
+   "tbl": {
+    "head": ["", "实例 θ", "实例 θ′"],
+    "rows": [
+     ["臂的均值", "(Δ, 0, …, 0)", "(Δ, 0, …, <b>2Δ</b>, …, 0)"],
+     ["最优臂", "<b>臂 1</b>", "<b>臂 i</b>（你最少碰的那条）"],
+     ["什么时候遗憾大", "<b>少拉臂 1</b>", "<b>常拉臂 1</b>"],
+     ["差在哪", "只有第 i 个坐标不同", "只有第 i 个坐标不同"],
+     ["⇒ 为什么分不开", "<b>而第 i 条臂恰好是你拉得最少的</b>", "—"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这个构造套路可以逐字搬到你的问题上，而且搬过来之后你就能说出一句很强的话：「任何方法都做不到更好」。</b><br><b>套路三步</b>：<span class='k'>① 造一个实例（一组配置的真实 G）；② 用鸽笼找出「这个算法在它上面测得最少的那个配置」；③ 把宝藏藏在那里——造第二个实例，只把那一个配置的 G 抬高，其余全不动</span>。<b>然后证明两个实例在算法眼里几乎一样（KL 小），于是它必在其中一个上出错。</b><br><b>而第 ③ 步在你这里有一个很具体的形态</b>：<span class='w'>两个 workflow 配置，只在<b>一个节点</b>的档位上不同，而那个节点恰好是你的搜索最少触碰的</span>。<b>这正是「节点级指派」这个结构给下界的天然着力点</b>——<span class='k'>配置空间是组合的，所以总有节点被冷落，鸽笼在这里特别好用</span>。<br><b>⚠ 但有一处必须想清楚，否则下界会证错：你的「实例」是什么？</b> <span class='w'>bandit 里实例是 <code>θ</code>（各臂的真实均值），而你的「真实均值」是由 LLM 的行为决定的，不是你能自由构造的</span>。<b>所以严格的下界只能是「在某个<b>实例类</b>上」的</b>——<span class='k'>比如「所有满足可加性、且各节点效应落在 [0,B] 内的 G」</span>。<b>下界的强度完全取决于这个类定得多宽</b>：<b>类定得太宽，下界成立但不切题（现实中的 LLM 不会那么对抗）；定得太窄，下界弱。这个取舍要在论文里明说。</b><br><b>而极小极大这个框架本身给了你一句很好用的措辞</b>：<span class='w'>「我们证明的不是某个算法的局限，而是在这个实例类上<b>没有任何算法</b>能做得更好」</span>。<b>配上 CSE541 L09 那个 <code>ρ_*</code>（上下界在同一个量上对齐），你的理论部分就有了两层</b>：<span class='k'>上界说「我们的方法够好」，下界说「不可能更好」</span>。<b>⚠ 而这两层里，下界那一层是你现在完全没有的，也是「写 bound」这条验收标准真正要的东西。</b><br>标【推断】：套路的移植、实例类的取舍是我推的；节点级指派与组合配置空间在简报里是【已核】。",
+    "ref": "本讲 p4（逐行核对）· CSE 541 L09 p11 科研格 · 简报 §4c §7 第 1 拳（已核）"
+   }
+  },
+  {
+   "r": [5, 5],
+   "t": "收尾：Pinsker 上场，以及散度分解引理",
+   "star": 3,
+   "quote": "<em>max<sub>μ∈{θ,θ′}</sub>E<sub>μ</sub>[R<sub>T</sub>] ≥ ½(E<sub>θ</sub>[R<sub>T</sub>] + E<sub>θ′</sub>[R<sub>T</sub>]) ≥ (ΔT/4)(1 − |P<sub>θ</sub>(T₁&gt;T/2) − P<sub>θ′</sub>(T₁&gt;T/2)|)</em><br><em>≥ (ΔT/4)(1 − <b>TV(P<sub>θ</sub>,P<sub>θ′</sub>)</b>) ≥ (ΔT/4)(1 − <b>√(KL(P<sub>θ</sub>|P<sub>θ′</sub>)/2)</b>) ≥ (ΔT/4)(1 − √(Δ²E<sub>θ</sub>[T<sub>i</sub>])) ≥ (ΔT/4)(1 − √(Δ²·T/(n−1))) ≥ <b>√((n−1)T/256)</b></em> 〔红字：<em>Δ = √((n−1)/(4T))</em>〕<br><b>Lemma</b> <em>Let ν = (ν₁,…,ν<sub>n</sub>) and ν′ be two bandit instances. Fix policy π … Then <b>KL(P<sub>ν</sub>|P<sub>ν′</sub>) = Σ<sub>i=1</sub><sup>n</sup>E<sub>ν</sub>[T<sub>i</sub>(T)]·KL(ν<sub>i</sub>|ν′<sub>i</sub>)</b></em> 〔红字：<em>Furthermore, if 𝒯 is a <b>stopping time</b>, the above holds w/ T = 𝒯</em>〕",
+   "one": "<b>「最大值 ≥ 平均值」起头，Pinsker 把 TV 换成 KL，散度分解把 KL 换成「拉了多少次 × 每次的 KL」——而拉得最少的那条臂让整个式子塌下来。</b>",
+   "pts": [
+    "<b>第一步是一个很常用的小技巧：<b>最大值 ≥ 平均值</b>。</b> <span class='k'><code>max_{μ∈{θ,θ′}} E_μ[R_T] ≥ ½(E_θ[R_T] + E_{θ′}[R_T])</code></span>——<b>于是不用操心「哪个实例更坏」，只要证明两者之<b>和</b>不小就行。</b>",
+    "<b>把上一页那两个式子加起来，那个共同的量就配平了。</b> <span class='w'>一个贡献 <code>P_{θ′}(T₁&gt;T/2)</code>，另一个贡献 <code>1 − P_θ(T₁&gt;T/2)</code></span>；<b>两者相加 <code>≥ 1 − |P_θ(·) − P_{θ′}(·)|</code></b>。<span class='k'>这一步只是把「两个概率之差」提出来。</span>",
+    "<b>而「两个概率之差」正好被 TV 从上面卡住——这就是 TV 定义里那个 sup 的用处。</b> <code>|P_θ(A) − P_{θ′}(A)| ≤ sup_A|·| = TV(P_θ, P_{θ′})</code>。<span class='w'>注意这里的 <code>P_θ</code> 不是单个臂的分布，而是<b>整个交互轨迹</b>的分布</span>——<b>「算法分不分得开」说的就是这两个轨迹分布。</b>",
+    "<b>接着 Pinsker 上场，把难算的 TV 换成好算的 KL。</b> <code>TV ≤ √(KL/2)</code>。<span class='k'>到这里，证明已经从「概率论」转进了「信息论」，而后者是可以逐项算的。</span>",
+    "<b>然后是这一页的关键引理：<b>散度分解</b>。</b> <b><code>KL(P_ν | P_{ν′}) = Σ_{i=1}^n E_ν[T_i(T)]·KL(ν_i | ν′_i)</code></b>。<span class='w'>整条轨迹的 KL = 对每条臂，「期望拉了多少次」乘「这条臂上两个分布的 KL」，再求和</span>。",
+    "<b>这个式子的形状非常直观：你从一条臂上获得的辨别信息，正比于你拉它的次数。</b> <span class='k'>没拉过的臂，<code>E[T_i] = 0</code>，它对区分两个实例<b>一点贡献都没有</b></span>——<b>哪怕那条臂上两个实例差得很远。</b>",
+    "<b>而这正好和上一页的构造咬合上了。</b> <span class='w'>两个实例只在第 <code>i</code> 条臂上不同，所以求和里只剩一项：<code>E_θ[T_i]·KL(ν_i|ν′_i)</code></span>；<b>而 <code>KL(N(0,1), N(2Δ,1)) = (2Δ)²/2 = 2Δ²</code>，<code>E_θ[T_i] ≤ T/(n−1)</code></b>。<span class='k'>板书写的是 <code>Δ²E_θ[T_i]</code>，常数上略有出入，不影响量级。</span>",
+    "<b>代进去就得到 <code>(ΔT/4)(1 − √(Δ²T/(n−1)))</code>，最后对 Δ 取最优。</b> <span class='w'>红字给的是 <code>Δ = √((n−1)/(4T))</code></span>——<b>这个取法让括号里那项变成常数（约 1/2），于是整体是 <code>ΔT</code> 量级 <code>= √((n−1)T)/2</code> 量级</b>，<span class='k'>配上各处常数得到 <code>√((n−1)T/256)</code></span>。",
+    "<b>注意 Δ 的取法有一个很清楚的含义：它取在「刚好分不开」的尺度上。</b> <span class='w'>Δ 再大一点，算法就能分开了（遗憾小）；Δ 再小一点，分不开但每次亏得少（遗憾也小）</span>——<b>最坏的情形恰好在中间，而 <code>√((n−1)/T)</code> 就是那个临界尺度。</b><span class='k'>所有极小极大下界的构造里，这个「取在临界尺度上」的步骤都是一样的。</span>",
+    "⚠️ <b>最后别漏了红字那句补充：<b>若 𝒯 是停时，散度分解对 <code>T = 𝒯</code> 同样成立</b>。</b> <span class='w'>这是后面证 BAI 下界的前提</span>——<b>因为最优臂识别的算法是自己决定什么时候停的</b>。<span class='k'>而这一步需要 Wald 式的论证（p3 那条），不是显然的。</span>"
+   ],
+   "eq": "收尾链（每一步换一次工具）：\n   max_{μ∈{θ,θ′}} E_μ[R_T]\n     ≥ ½( E_θ[R_T] + E_{θ′}[R_T] )                      **最大值 ≥ 平均值**\n     ≥ (ΔT/4)( 1 − |P_θ(T_1>T/2) − P_{θ′}(T_1>T/2)| )   上一页两式相加，共同量配平\n     ≥ (ΔT/4)( 1 − **TV(P_θ, P_{θ′})** )                TV 定义里那个 sup 的用处\n     ≥ (ΔT/4)( 1 − **sqrt(KL(P_θ|P_{θ′})/2)** )         **Pinsker** —— 转进信息论\n     ≥ (ΔT/4)( 1 − sqrt(Δ²·E_θ[T_i]) )                  **散度分解**（下面的引理）\n     ≥ (ΔT/4)( 1 − sqrt(Δ²·T/(n−1)) )                   鸽笼：E_θ[T_i] ≤ T/(n−1)\n     ≥ **sqrt( (n−1)T / 256 )**                          取 Δ = sqrt( (n−1)/(4T) )\n\n   ⚠ 注意 P_θ 不是单个臂的分布，而是**整个交互轨迹**的分布\n     —— 「算法分不分得开」说的就是这两个轨迹分布\n\n   Δ 的取法含义：取在**刚好分不开**的尺度上\n      Δ 再大 ⇒ 算法能分开，遗憾小\n      Δ 再小 ⇒ 分不开但每次亏得少，遗憾也小\n      最坏恰在中间，而 sqrt((n−1)/T) 就是那个临界尺度\n      （所有极小极大下界的构造里，这一步都一样）\n\n**引理（散度分解）**：\n   KL( P_ν | P_{ν′} ) = Σ_{i=1..n} **E_ν[T_i(T)]** · **KL(ν_i | ν′_i)**\n                         └ 期望拉了多少次 ┘  └ 这条臂上两分布的 KL ┘\n\n   直观：从一条臂上获得的辨别信息，**正比于你拉它的次数**\n   ⇒ 没拉过的臂 E[T_i]=0，对区分两个实例**一点贡献都没有**\n     —— 哪怕那条臂上两个实例差得很远\n\n   与构造咬合：两实例只在第 i 条臂不同 ⇒ 求和只剩一项 E_θ[T_i]·KL(ν_i|ν′_i)\n\n⚠ 红字补充：**若 𝒯 是停时，上式对 T = 𝒯 同样成立**\n   —— 这是后面证 BAI 下界的前提（识别算法自己决定何时停）\n   而这一步需要 Wald 式的论证（p3），不是显然的",
+   "tbl": {
+    "head": ["步骤", "用的工具", "换到了什么"],
+    "rows": [
+     ["max ≥ 平均", "初等", "不必操心哪个实例更坏"],
+     ["提出概率之差", "上一页两式相加", "<b>|P<sub>θ</sub>(A) − P<sub>θ′</sub>(A)|</b>"],
+     ["差 ≤ TV", "<b>TV 的 sup 定义</b>", "TV（轨迹分布之间）"],
+     ["TV ≤ √(KL/2)", "<b>Pinsker</b>", "<b>转进信息论</b>"],
+     ["KL 拆开", "<b>散度分解引理</b>", "<b>E[T<sub>i</sub>] × 单臂 KL</b>"],
+     ["E[T<sub>i</sub>] 很小", "<b>鸽笼</b>", "T/(n−1)"],
+     ["对 Δ 取最优", "临界尺度", "<b>√((n−1)T/256)</b>"]
+    ]
+   }
+  },
+  {
+   "r": [6, 6],
+   "t": "散度分解的证明：策略项约掉了",
+   "star": 3,
+   "quote": "<em>dP<sub>ν</sub>(Z) = Π<sub>t=1</sub><sup>T</sup> ν<sub>I<sub>t</sub></sub>(X<sub>t</sub>)·<b>π(I<sub>t</sub> | I<sub>s</sub>,X<sub>s</sub>, s&lt;t)</b></em><br><em>KL(P<sub>ν</sub>|P<sub>ν′</sub>) = E<sub>ν</sub>[log(dP<sub>ν</sub>(Z)/dP<sub>ν′</sub>(Z))] = E<sub>ν</sub>[log( Π<sub>t</sub>ν<sub>I<sub>t</sub></sub>(X<sub>t</sub>) / Π<sub>t</sub>ν′<sub>I<sub>t</sub></sub>(X<sub>t</sub>) )] = E<sub>ν</sub>[Σ<sub>t</sub>log(ν<sub>I<sub>t</sub></sub>(X<sub>t</sub>)/ν′<sub>I<sub>t</sub></sub>(X<sub>t</sub>))]</em><br><em>E<sub>ν</sub>[log(ν<sub>I<sub>t</sub></sub>/ν′<sub>I<sub>t</sub></sub>)] = E<sub>ν</sub>[ E[log(ν<sub>i</sub>/ν′<sub>i</sub>) | I<sub>t</sub>=i] ] = E<sub>ν</sub>[KL(ν<sub>I<sub>t</sub></sub>|ν′<sub>I<sub>t</sub></sub>)]</em><br><em>= E<sub>ν</sub>[Σ<sub>i</sub>Σ<sub>t</sub>1{I<sub>t</sub>=i}KL(ν<sub>i</sub>|ν′<sub>i</sub>)] = Σ<sub>i</sub>KL(ν<sub>i</sub>|ν′<sub>i</sub>)·E<sub>ν</sub>[Σ<sub>t</sub>1{I<sub>t</sub>=i}] = <b>Σ<sub>i</sub>E<sub>ν</sub>[T<sub>i</sub>]·KL(ν<sub>i</sub>|ν′<sub>i</sub>)</b></em>",
+   "one": "<b>整条轨迹的概率，是「每一步环境给的奖励概率」乘「每一步算法选臂的概率」。而后者在两个实例下完全相同——取对数相减时整个约掉。</b>",
+   "pts": [
+    "<b>第一行先把轨迹的概率写出来，而这是全部关键。</b> <span class='k'>记轨迹 <code>Z = (I₁,X₁,I₂,X₂,…,I_T,X_T)</code></span>，<b>它的概率是 <code>Π_t ν_{I_t}(X_t)·π(I_t | 历史)</code></b>——<span class='w'>两个因子交替：<b>算法</b>根据历史选臂（π），<b>环境</b>根据被选的臂给奖励（ν）。</span>",
+    "<b>而 KL 要算的是两个实例下这个概率的对数比。</b> <span class='k'>算法 π 是<b>同一个</b>（引理说的是「固定策略 π」），而且它只依赖历史、不依赖哪个实例是真的</span>——<b>所以 <code>π(I_t|历史)</code> 在分子分母里逐项相同，<b>全部约掉</b></b>。",
+    "<b>把这件事的分量说透：这是整个 bandit 下界理论的支点。</b> <span class='w'>它意味着「两个实例有多难分」<b>与算法的具体设计无关</b></span>——<b>只与「它拉了每条臂多少次」有关</b>。<span class='k'>于是你不必对每个算法单独证下界，只要对「拉臂次数的分配」证一次就够。</span>",
+    "<b>约掉之后剩下的是 <code>E_ν[Σ_t log(ν_{I_t}(X_t)/ν′_{I_t}(X_t))]</code>，接下来用条件期望逐项处理。</b> <span class='w'>给定第 t 步选了臂 <code>i</code>，那一项的条件期望恰好是 <code>KL(ν_i|ν′_i)</code></span>（<b>这就是 KL 的定义</b>）。<span class='k'>所以 <code>E_ν[log(ν_{I_t}/ν′_{I_t})] = E_ν[KL(ν_{I_t}|ν′_{I_t})]</code>——外面那个期望是对「第 t 步选了哪条臂」取的。</span>",
+    "<b>剩下的是整理：把对臂的求和提到外面。</b> <code>= E_ν[Σ_i Σ_t 1{I_t=i}·KL(ν_i|ν′_i)]</code>，<span class='w'><code>KL(ν_i|ν′_i)</code> 是常数可以提出来</span>，<b><code>= Σ_i KL(ν_i|ν′_i)·E_ν[Σ_t 1{I_t=i}] = Σ_i E_ν[T_i]·KL(ν_i|ν′_i)</code></b>。<span class='k'>因为 <code>Σ_t 1{I_t=i}</code> 就是臂 i 被拉的次数 <code>T_i</code>。</span>",
+    "<b>⚠ 注意期望是在 <code>ν</code> 下取的，不是 <code>ν′</code>。</b> <span class='w'>KL 不对称，所以这里的 <code>E_ν[T_i]</code> 是「在<b>真实</b>实例 ν 下，算法期望拉臂 i 多少次」</span>——<b>而上一页用鸽笼界住的正是这个量。</b><span class='k'>如果写成 <code>E_{ν′}[T_i]</code>，整个论证就接不上了。</span>",
+    "<b>把这条引理记成一句话：<b>区分两个实例的难度 = Σ（你去那条臂的次数 × 那条臂上的信息差）</b>。</b> <span class='w'>它同时解释了下界与算法设计</span>：<b>要把两个实例分开，你<b>必须</b>在它们不同的那条臂上花足够多的次数</b>——<span class='k'>而那正是 CSE541 L09 里 <code>ρ_*</code> 要最小化的东西的对偶面。</span>",
+    "<b>最后值得注意的是这个引理<b>没有</b>用到高斯、没有用到独立同分布的奖励、也没有限制算法的形式。</b> <span class='w'>它对任意的臂分布、任意的（可能随机、可能自适应的）策略都成立</span>——<b>唯一的要求是「策略在两个实例下是同一个」，而那是定义使然。</b><span class='k'>这种极少假设的引理，是能撑起一整个理论分支的那种。</span>"
+   ],
+   "eq": "轨迹 Z = (I_1, X_1, I_2, X_2, …, I_T, X_T)\n\n   dP_ν(Z) = Π_{t=1..T}  ν_{I_t}(X_t)  ·  **π(I_t | I_s, X_s, s<t)**\n                         └ 环境给奖励 ┘    └ 算法选臂 ┘\n\nKL(P_ν|P_{ν′}) = E_ν[ log( dP_ν(Z) / dP_{ν′}(Z) ) ]\n\n   ⚠ **策略项 π(·) 在分子分母里逐项相同 ⇒ 全部约掉**\n     （引理固定了同一个 π，而 π 只依赖历史、不依赖哪个实例是真的）\n\n   ⇒ 这是整个 bandit 下界理论的**支点**：\n     「两个实例有多难分」**与算法的具体设计无关**，只与「它拉了每条臂多少次」有关\n     ⇒ 不必对每个算法单独证下界，只要对「拉臂次数的分配」证一次\n\n   = E_ν[ Σ_t log( ν_{I_t}(X_t) / ν′_{I_t}(X_t) ) ]\n   = E_ν[ KL(ν_{I_t} | ν′_{I_t}) ]              给定第 t 步选了臂 i，条件期望就是 KL（定义）\n   = E_ν[ Σ_i Σ_t 1{I_t=i} · KL(ν_i|ν′_i) ]\n   = Σ_i KL(ν_i|ν′_i) · E_ν[ Σ_t 1{I_t=i} ]\n   = **Σ_i E_ν[T_i] · KL(ν_i | ν′_i)**\n\n⚠ 期望在 **ν** 下取，不是 ν′（KL 不对称）\n   —— E_ν[T_i] 正是上一页用鸽笼界住的那个量；写成 E_{ν′}[T_i] 论证就接不上\n\n记成一句话：**区分两个实例的难度 = Σ（去那条臂的次数 × 那条臂上的信息差）**\n\n⚠ 这个引理**没有**用到高斯、没有用到 i.i.d.、也没限制算法形式\n   对任意臂分布、任意（可随机、可自适应的）策略都成立\n   唯一要求：策略在两个实例下是同一个（定义使然）",
+   "res": {
+    "tag": "已核",
+    "v": "<b>这条引理是你写下界时唯一真正需要的工具，而它那个「策略约掉」的性质，正是它好用的原因。</b><br><span class='k'>它说：<b>两个实例有多难分，与你用什么算法无关，只与「你在它们不同的那个地方测了多少次」有关</b></span>。<b>于是你不必对自己的具体算法证下界——你只要证「任何分配方案都躲不开」。</b><br><b>搬到你的问题上，形态非常干净</b>：<span class='w'>两个 workflow 实例只在<b>节点 i 的某个档位</b>上不同（比如该节点用 7B 时的准确率相差 Δ）</span>，<b>那么 <code>KL(P_ν|P_{ν′}) = E_ν[N_{i,f}]·KL(Bern(p) | Bern(p+Δ))</code></b>——<span class='k'>其中 <code>N_{i,f}</code> 是你实际测了多少次「节点 i 用档位 f」这个格子</span>。<b>要能分辨，就必须 <code>N_{i,f} ≳ 2p(1−p)log(1/δ)/Δ²</code>。</b><br><b>而这给了你一个很具体、而且可以直接算的结论</b>：<span class='w'>对 oracle 表里的<b>每一个格子</b>，算出「要分辨该格子上 Δ 大小的差异所需的最少测量次数」，再和你<b>实际</b>测了多少次比</span>。<b>测量次数低于那个数的格子，你的结论在那里就是没有保证的</b>——<span class='k'>而这是一张可以直接放进论文的表，而且它是<b>下界</b>，不是经验观察。</span><br><b>⚠ 一个你必须满足的前提：策略在两个实例下是同一个。</b> <span class='w'>这要求你的采样方案<b>不依赖</b>真实的 G 值</span>——<b>固定设计满足；而自适应淘汰也满足（它依赖的是<b>观测</b>，而观测在两个实例下分布不同但规则相同）</b>。<span class='k'>真正会破坏它的是「我看了结果之后回头改了采样方案」这类事后调整。</span><br><b>⚠ 还有一条要接住：期望是在真实实例 <code>ν</code> 下取的。</b> <span class='w'>所以你不能用「我打算测多少次」来代入，要用「在真实情形下期望实际测了多少次」</span>——<b>自适应算法这两者是不同的</b>。<b>而红字那句「停时也成立」正是为了允许自适应</b>（p5），<b>所以这条路是通的，只是要用对量。</b><br>标【已核】：策略项约掉、期望在 ν 下取、以及引理不依赖分布形式与算法形式，均为 p6 原文逐行核对；移植到格子上的算法是我据此设计的做法。",
+    "ref": "本讲 p6（逐行核对）· p5 红字（停时）· CSE 541 L09 p11 · 简报 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [7, 7],
+   "t": "最优臂识别：δ-正确，和为它定制的对手实例",
+   "star": 3,
+   "quote": "<b>Best arm identification</b> <em>for t=1,2,…,T: Player chooses I<sub>t</sub> ∈ [n]; Nature reveals X<sub>t,I<sub>t</sub></sub> ~ N(θ<sub>I<sub>t</sub></sub>,1). If player stops: Output î ∈ [n].</em><br><b>Def</b> <em>We say an algorithm is <b>δ-correct</b> if P<sub>θ<sub>*</sub></sub>(î = argmax<sub>j</sub>θ<sub>*,j</sub>) ≥ 1−δ <b>for all θ<sub>*</sub> ∈ ℝⁿ</b></em><br><em><b>Recall</b> Action Elimination alg identifies î = argmax<sub>j</sub>θ<sub>j</sub> w.p. ≥1−δ after just <b>T = cΣ<sub>j≠i<sub>*</sub></sub>Δ<sub>j</sub><sup>−2</sup>log(n log(Δ<sub>j</sub><sup>−2</sup>)/δ)</b> pulls, Δ<sub>j</sub> = θ<sub>*</sub> − θ<sub>j</sub></em><br><em>Fix any θ ∈ ℝⁿ, assume WLOG i<sub>*</sub> = 1. ν<sub>i</sub> = N(θ<sub>i</sub>,1) ∀i. &nbsp; <b>ν<sup>(j)</sup><sub>i</sub> = ν<sub>i</sub> if i≠j; &nbsp; N(θ₁ + Δ<sub>j</sub> + ε, 1) if i=j</b></em>",
+   "one": "<b>换成「识别」问题：不计过程中的损失，只问最后输出对不对，而且要对<b>所有</b>实例都对。对手实例的造法是：把第 j 条臂刚好顶到第 1 条之上。</b>",
+   "pts": [
+    "<b>设定换了，而换掉的那件事正是 CS234 L16 p47 那条「在脑子里做坏决策不疼」。</b> <span class='k'>玩家每轮选一条臂、看一个样本；<b>想停就停</b>，停时输出一个 <code>î</code></span>。<b>过程中拉了多少烂臂一概不罚——只问 <code>î</code> 对不对。</b>",
+    "<b>δ-正确的定义里有一个词最要紧：<b>对所有 <code>θ_*</code></b>。</b> <span class='w'><code>P_{θ_*}(î = argmax_j θ_{*,j}) ≥ 1−δ</code> 要对<b>每一个</b>实例成立</span>——<b>不是「平均而言对」，也不是「对典型实例对」</b>。<span class='k'>正是这个「对所有」让下界有了着力点：只要造出<b>一个</b>让你失败的实例，你就不是 δ-正确的。</span>",
+    "<b>注意这个定义里没有 T：算法自己决定什么时候停。</b> <span class='w'>所以复杂度度量不是「用了多少轮」，而是<b>期望停时</b> <code>E[𝒯]</code></span>——<b>这就是为什么 p5 那句「停时也成立」的补充是必需的。</b>",
+    "<b>回顾的那个上界形状要记住，因为下界要和它对</b>：<b><code>T = c·Σ_{j≠i_*} Δ_j^{-2}·log(n·log(Δ_j^{-2})/δ)</code></b>。<span class='k'>对每条劣臂 <code>j</code> 都有一项 <code>Δ_j^{-2}</code>——差距越小的臂，越贵</span>；<b>而 log 里那个 <code>log(Δ_j^{-2})</code> 是重对数律的痕迹（p9 会讲）。</b>",
+    "<b>构造对手实例的办法，比 p4 那个更精细，而且思路完全不同。</b> <span class='w'>p4 是「把宝藏藏在你最少碰的臂里」（为遗憾下界服务）</span>；<b>这里是「对<b>每一条</b>劣臂 <code>j</code>，都造一个把它顶上去的实例」</b>。",
+    "<b>具体造法只改一个坐标</b>：<code>ν^{(j)}</code> 里第 <code>j</code> 条臂换成 <code>N(θ₁ + Δ_j + ε, 1)</code>，<span class='k'>其余全不动</span>。<b>注意这个均值：原来是 <code>θ_j = θ₁ − Δ_j</code>，现在变成 <code>θ₁ + Δ_j + ε</code></b>——<span class='w'>也就是说它从「比臂 1 低 <code>Δ_j</code>」变成了「比臂 1 高 <code>ε</code>」</span>。",
+    "<b>那个 <code>ε</code> 的作用是让它<b>刚刚好</b>成为最优臂，而这是有意为之的。</b> <span class='k'>如果只顶到和臂 1 持平，两个实例的最优臂就不唯一，<code>argmax</code> 没有定义</span>；<b>加一个任意小的 <code>ε</code>，第 j 条臂就严格最优了</b>。<span class='w'>而 <code>ε</code> 最后会取极限趋于 0，所以它不影响结论的形状。</span>",
+    "<b>于是两个实例的「正确答案」相反：在 <code>ν</code> 下该输出 1，在 <code>ν^{(j)}</code> 下该输出 j。</b> <span class='k'>而算法必须在<b>两个</b>实例下都 δ-正确</span>——<b>这就逼出了「它必须能分辨两者」，而分辨的代价由散度分解给出。</b>",
+    "<b>注意这个构造要对<b>每一条</b>劣臂 j 各做一遍，而这正是下界里那个求和的来源。</b> <span class='w'>每条劣臂都贡献一个「必须测够多少次」的约束</span>；<b>把它们加起来，就得到 <code>E[𝒯] ≥ Σ_j (…)</code></b>。<span class='k'>⚠ 严格说「加起来」需要这些约束互不冲突，而它们确实互不冲突，因为约束的是<b>不同</b>臂的拉动次数。</span>"
+   ],
+   "eq": "设定（最优臂识别 / 纯探索）：\n   每轮选 I_t ∈ [n]，看一个样本 X_{t,I_t} ~ N(θ_{I_t}, 1)\n   **想停就停**，停时输出 î ∈ [n]\n   过程中拉了多少烂臂一概不罚（= CS234 L16 p47「在脑子里做坏决策不疼」）\n\n**δ-正确**：P_{θ_*}( î = argmax_j θ_{*,j} ) ≥ 1−δ   **对所有 θ_* ∈ R^n**\n   ⚠ 「对所有」是下界的着力点：只要造出**一个**让你失败的实例，你就不是 δ-正确的\n   ⚠ 定义里**没有 T** —— 算法自己决定何时停\n     ⇒ 复杂度度量是**期望停时 E[𝒯]** ⇒ p5 那句「停时也成立」是必需的\n\n上界（要和下界对的形状）：\n   T = c · Σ_{j≠i_*} Δ_j^{−2} · log( n·log(Δ_j^{−2}) / δ )\n       每条劣臂一项 Δ_j^{−2}：差距越小越贵\n       log 里那个 log(Δ_j^{−2}) 是**重对数律**的痕迹（p9）\n\n对手实例的造法（比 p4 更精细，思路不同）：\n   p4：把宝藏藏在**你最少碰**的臂里          （为遗憾下界服务）\n   这里：对**每一条**劣臂 j 各造一个实例      （为识别下界服务）\n\n   ν^{(j)}_i = ν_i                      若 i ≠ j\n             = **N(θ_1 + Δ_j + ε, 1)**   若 i = j\n\n   第 j 条臂的均值：原来 θ_j = θ_1 − Δ_j  ⇒  现在 θ_1 + Δ_j + ε\n   即从「比臂 1 低 Δ_j」变成「比臂 1 高 ε」\n\n   ε 的作用：让它**刚刚好**成为最优臂\n      只顶到持平 ⇒ 最优臂不唯一，argmax 无定义\n      加任意小的 ε ⇒ 严格最优；最后取 ε → 0，不影响结论形状\n\n   ⇒ 两实例的正确答案相反：ν 下该输出 1，ν^{(j)} 下该输出 j\n     而算法必须在**两个**实例下都 δ-正确 ⇒ 必须能分辨 ⇒ 代价由散度分解给出\n\n   对每条劣臂各做一遍 ⇒ 下界里那个**求和**的来源\n   ⚠ 「加起来」需要这些约束互不冲突 —— 它们确实不冲突，因为约束的是**不同**臂的次数",
+   "tbl": {
+    "head": ["", "遗憾最小化（p4–p6）", "最优臂识别（p7–p9）"],
+    "rows": [
+     ["罚什么", "<b>过程中每一步的差距</b>", "<b>只罚最后输出错</b>"],
+     ["T 谁定", "给定", "<b>算法自己停</b>"],
+     ["复杂度度量", "E[R<sub>T</sub>]", "<b>E[𝒯]（期望停时）</b>"],
+     ["造几个对手实例", "<b>一个</b>（藏在最少碰的臂里）", "<b>每条劣臂各一个</b>"],
+     ["下界形状", "√((n−1)T/256)", "<b>Σ<sub>j</sub> 2log(1/2.4δ)/Δ<sub>j</sub>²</b>"]
+    ]
+   },
+   "link": {
+    "t": "你学过的对应：CS234 L16（p47「在脑子里做坏决策不疼」——那一页说的正是本页这个设定变化：过程中的损失不计，只问最后选得对不对）",
+    "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L16-精读.html"
+   }
+  },
+  {
+   "r": [8, 8],
+   "t": "数据处理不等式：把「答对答错」挤进 KL",
+   "star": 3,
+   "quote": "<b>Lemma (Data Processing Inequality)</b> <em>Given a probability space (Ω,𝓕) and dist. P,Q. R.v. Z w/ push-forward measures P<sub>Z</sub>,Q<sub>Z</sub>: &nbsp;<b>KL(P<sub>Z</sub>|Q<sub>Z</sub>) ≤ KL(P|Q)</b></em><br><em>KL( P<sub>ν</sub>(î=1) | P<sub>ν<sup>(j)</sup></sub>(î=1) ) ≤ KL(P<sub>ν</sub>|P<sub>ν<sup>(j)</sup></sub>)</em> 〔其中 <em>P<sub>ν</sub>(î=1) ≥ 1−δ</em>、<em>P<sub>ν<sup>(j)</sup></sub>(î=1) &lt; δ</em>〕<br><em>令 p = P<sub>ν</sub>(î=1), q = P<sub>ν<sup>(j)</sup></sub>(î=1): &nbsp; p·log(p/q) + (1−p)log((1−p)/(1−q)) ≥ <b>log(1/(2.4δ))</b></em><br><em>⟹ log(1/(2.4δ)) ≤ KL(P<sub>ν</sub>|P<sub>ν<sup>(j)</sup></sub>) = <b>E<sub>ν</sub>[T<sub>j</sub>(𝒯)]·KL(ν<sub>j</sub>|ν<sup>(j)</sup><sub>j</sub>)</b>, &nbsp; KL(ν<sub>j</sub>|ν<sup>(j)</sup><sub>j</sub>) = <b>(Δ<sub>j</sub>+ε)²/2</b></em>",
+   "one": "<b>算法的输出只是轨迹的一个函数，所以「输出的分布」之间的 KL 不会超过「轨迹分布」之间的 KL。而输出的分布是已知的——δ-正确把它钉死了。</b>",
+   "pts": [
+    "<b>数据处理不等式说的是一件很直观的事：<b>处理数据不会增加信息</b>。</b> <span class='k'>你把两个分布 <code>P, Q</code> 下的样本都喂给同一个函数 <code>Z</code>，输出的两个分布 <code>P_Z, Q_Z</code> 之间的 KL<b>不会超过</b>原来的 KL</span>。<b>直观：任何加工都只可能把两者变得更像，不可能更不像。</b>",
+    "<b>这里要用的「处理」就是算法本身：把整条轨迹映成一个输出 <code>î</code>。</b> <span class='w'>更省一点，只取指示变量 <code>Z = 1{î = 1}</code>（答案是不是第 1 条臂）</span>——<b>于是 <code>P_Z</code> 和 <code>Q_Z</code> 都只是伯努利分布</b>。",
+    "<b>而 δ-正确把这两个伯努利的参数<b>钉死</b>了，这是整个论证最巧的一步。</b> <span class='k'>在 <code>ν</code> 下最优臂是 1，所以 <code>P_ν(î=1) ≥ 1−δ</code></span>；<b>在 <code>ν^{(j)}</code> 下最优臂是 j，所以算法必须以 ≥1−δ 输出 j，于是 <code>P_{ν^{(j)}}(î=1) &lt; δ</code></b>。<span class='w'>两个几乎相反的概率。</span>",
+    "<b>两个相差这么远的伯努利之间，KL 必然不小——这就是那个 <code>log(1/(2.4δ))</code>。</b> <span class='k'>二元 KL <code>= p log(p/q) + (1−p)log((1−p)/(1−q))</code>，代入 <code>p ≥ 1−δ</code>、<code>q &lt; δ</code></span>，<b>化简得 <code>≥ log(1/(2.4δ))</code></b>。<span class='w'>⚠ 那个 2.4 是把 <code>(1−δ)log((1−δ)/δ) + δlog(δ/(1−δ))</code> 放缩之后得到的常数，板书上把中间那一行划掉了、直接给了结果。</span>",
+    "<b>于是三件事串起来，下界就出来了。</b> <span class='k'>① 数据处理：输出的 KL ≤ 轨迹的 KL；② δ-正确：输出的 KL ≥ <code>log(1/(2.4δ))</code>；③ 散度分解：轨迹的 KL <code>= E_ν[T_j(𝒯)]·KL(ν_j|ν^{(j)}_j)</code></span>。<b>合起来：<code>log(1/(2.4δ)) ≤ E_ν[T_j(𝒯)]·KL(ν_j|ν^{(j)}_j)</code>。</b>",
+    "<b>注意散度分解在这里只剩一项，因为两个实例只在第 j 条臂上不同。</b> <span class='w'>其余臂的 <code>KL(ν_i|ν^{(j)}_i) = 0</code></span>——<b>所以不管你在别的臂上花了多少次，都对分辨这两个实例<b>毫无帮助</b></b>。<span class='k'>这正是 p6 那条「没拉过的臂贡献为零」的另一面：<b>拉了但不在差异处的臂，贡献同样为零</b>。</span>",
+    "<b>最后一块是算单臂的 KL：<code>KL(ν_j | ν^{(j)}_j) = (Δ_j + ε)²/2</code>。</b> <span class='w'>两个单位方差高斯，均值分别是 <code>θ₁ − Δ_j</code> 与 <code>θ₁ + Δ_j + ε</code>，相差 <code>2Δ_j + ε</code></span>……<b>⚠ 按 <code>KL = (均值差)²/2</code> 应得 <code>(2Δ_j+ε)²/2</code>，而板书写的是 <code>(Δ_j+ε)²/2</code>。</b>",
+    "⚠️ <b>这处差别值得说清楚：它只影响常数，不影响形状。</b> <span class='k'>若按 <code>(2Δ_j)²/2 = 2Δ_j²</code>，最终的下界会是 <code>Σ_j log(1/2.4δ)/(2Δ_j²)</code>，比板书的小 4 倍</span>。<b>本精读按板书录，但在用它做比较时只用量级</b>——<span class='w'>而 <code>Δ_j^{-2}</code> 这个形状两种算法完全一致，那才是要记的东西。</span>",
+    "<b>把这一页的方法提炼一句：<b>δ-正确给了你输出端的一个硬约束，数据处理不等式把它<b>推回</b>到数据端</b>。</b> <span class='k'>这个「从结论倒推所需信息量」的套路，是所有统计下界的通用骨架</span>——<b>换一个问题，只要换掉「输出端的约束」和「实例怎么造」这两样。</b>"
+   ],
+   "eq": "**数据处理不等式**：处理数据不会增加信息\n   Z 是任意（可随机的）函数，前推测度 P_Z, Q_Z ⇒ **KL(P_Z|Q_Z) ≤ KL(P|Q)**\n   直观：任何加工只可能把两个分布变得更像，不可能更不像\n\n这里的「处理」就是算法：把整条轨迹映成输出 î\n   再省一点，取 Z = 1{î = 1} ⇒ P_Z, Q_Z 都只是**伯努利**\n\n**δ-正确把这两个伯努利的参数钉死**（最巧的一步）：\n   在 ν 下最优臂是 1        ⇒ P_ν(î=1) ≥ 1−δ\n   在 ν^{(j)} 下最优臂是 j   ⇒ P_{ν^{(j)}}(î=1) < δ\n   两个几乎相反的概率 ⇒ 二元 KL 必然不小：\n\n   p·log(p/q) + (1−p)·log((1−p)/(1−q)) ≥ **log( 1/(2.4δ) )**\n   ⚠ 2.4 来自把 (1−δ)log((1−δ)/δ) + δlog(δ/(1−δ)) 放缩；板书把中间那行划掉了\n\n三件事串起来：\n   ① 数据处理：   输出的 KL ≤ 轨迹的 KL\n   ② δ-正确：     输出的 KL ≥ log(1/(2.4δ))\n   ③ 散度分解：   轨迹的 KL = E_ν[T_j(𝒯)] · KL(ν_j | ν^{(j)}_j)\n\n   ⇒ **log(1/(2.4δ)) ≤ E_ν[T_j(𝒯)] · KL(ν_j|ν^{(j)}_j)**\n\n   ⚠ 散度分解在这里**只剩一项**（两实例只在第 j 条臂不同，其余 KL = 0）\n     ⇒ 在别的臂上花再多次数，对分辨这两个实例**毫无帮助**\n       （p6「没拉过的臂贡献为零」的另一面：**拉了但不在差异处，贡献同样为零**）\n\n单臂 KL：板书给 **(Δ_j + ε)²/2**\n   ⚠ 两个单位方差高斯的均值是 θ_1 − Δ_j 与 θ_1 + Δ_j + ε，相差 2Δ_j + ε\n     按 KL = (均值差)²/2 应得 (2Δ_j+ε)²/2，比板书大 4 倍\n     ⇒ **只影响常数，不影响形状**；本精读按板书录，比较时只用量级\n       Δ_j^{−2} 这个形状两种算法完全一致 —— 那才是要记的\n\n提炼：**δ-正确给出输出端的硬约束，数据处理不等式把它推回数据端**\n   这个「从结论倒推所需信息量」是所有统计下界的通用骨架\n   换一个问题，只要换「输出端的约束」和「实例怎么造」两样",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给的是你写下界的<b>模板</b>，而且它只需要你填两个空。</b><br><span class='k'>骨架：① 你的方法承诺了什么（输出端的约束）；② 怎么造一对答案相反的实例；③ 剩下的全是现成的（数据处理 + 散度分解 + 单臂 KL）</span>。<br><b>填空 ①</b>：<span class='w'>你的承诺是「以 ≥1−δ 的概率，输出的配置的 G 不劣于最优配置（或不劣于某个基线）」</span>。<b>注意这和 δ-正确略有不同——你多半不需要「恰好选中最优」，只需要「不比最优差 ε」</b>。<span class='k'>那叫 (ε,δ)-PAC，下界的形状会把 <code>Δ_j</code> 换成 <code>max(Δ_j, ε)</code></span>：<b>差距比 ε 还小的配置你根本不必分辨——这会让你的下界<b>小</b>很多，也就是说你的任务比纯 BAI 容易。这一点对你有利，值得明确写出来。</b><br><b>填空 ②</b>：<span class='w'>造一对只在<b>一个节点的一个档位</b>上不同的实例</span>。<b>由散度分解，分辨它们所需的次数完全由「你在那个格子上测了多少次」决定</b>——<b>而这就把下界落到了<b>格子级</b>，和你的 oracle 表是同一个粒度。</b><br><b>于是你能写出的结论形如</b>：<span class='k'>「要以 1−δ 的把握保证输出配置的 G 不劣于最优 ε，<b>任何</b>方法都必须在每个关键格子上至少测 <code>2p(1−p)log(1/2.4δ)/max(Δ,ε)²</code> 次」</span>。<b>这是一句关于「任何方法」的话，不是关于你的方法的话——而这正是「写 bound」这条验收标准想要的。</b><br><b>⚠ 两处必须诚实。</b> ① <b>实例类</b>：下界只在你构造实例的那个类里成立（p4 科研格那条）；<span class='w'>如果你的类允许任意调整单个格子的 G，那它可能比真实的 LLM 行为更对抗</span>——<b>要在论文里说明这个类为什么合理</b>。② <b>常数</b>：<span class='k'>板书这里的单臂 KL 与标准算法差 4 倍</span>，<b>而你自己推时务必用伯努利的 KL 重算一遍，别照抄高斯的 <code>Δ²/2</code>。</b><br>标【推断】：模板的填法、(ε,δ)-PAC 带来的放松、格子级的落点都是我推的；oracle 表的粒度与 δ 的用法在简报里是【已核】。",
+    "ref": "本讲 p8（逐行核对）· p4 · p6 科研格 · CSE 541 L09 p11 · 简报 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [9, 9],
+   "t": "BAI 下界定理，与重对数律",
+   "star": 3,
+   "quote": "<em>⟹ E<sub>ν</sub>[T<sub>j</sub>(𝒯)] ≥ (2/(Δ<sub>j</sub>+ε)²)·log(1/(2.4δ)) &nbsp;⟹&nbsp; E<sub>ν</sub>[𝒯] ≥ Σ<sub>j=2</sub><sup>n</sup>E<sub>ν</sub>[T<sub>j</sub>(𝒯)] ≥ Σ<sub>j=2</sub><sup>n</sup> 2log(1/(2.4δ))/(Δ<sub>j</sub>+ε)²</em><br><em>ε was arbitrary, take ε → 0.</em><br><b>Theorem</b> <em>Any δ-correct algorithm requires &nbsp;<b>E<sub>ν</sub>[𝒯] ≥ Σ<sub>j≠i<sub>*</sub></sub> 2log(1/(2.4δ))/Δ<sub>j</sub>²</b></em><br><b>Lemma (Law of the Iterated Logarithm)</b> <em>Let ε<sub>t</sub> ~ N(0,1) and S<sub>t</sub> = Σ<sub>s=1</sub><sup>t</sup>ε<sub>s</sub>. Then &nbsp;<b>limsup<sub>t→∞</sub> S<sub>t</sub>/√(2t·loglog t) = 1</b> &nbsp;a.s.</em>",
+   "one": "<b>把每条劣臂的约束加起来，就得到 BAI 的下界 Σ 2log(1/2.4δ)/Δ_j²——和上界只差 log 里的因子。而那个差，正是重对数律造成的。</b>",
+   "pts": [
+    "<b>第一步只是把上一页的不等式反解出来</b>：<code>E_ν[T_j(𝒯)] ≥ 2log(1/(2.4δ))/(Δ_j+ε)²</code>。<span class='k'>注意这是对<b>每一条</b>劣臂 j 分别成立的——每条劣臂都有自己的一个对手实例</span>。",
+    "<b>第二步把它们加起来，而这一步的合法性值得留意。</b> <span class='w'>总停时 <code>𝒯</code> 至少是各臂拉动次数之和，所以 <code>E_ν[𝒯] ≥ Σ_{j≠1}E_ν[T_j(𝒯)]</code></span>；<b>而每一项都有自己的下界</b>。<span class='k'>⚠ 关键是这些下界全都是在<b>同一个</b>真实实例 <code>ν</code> 下取的期望——所以可以直接相加，不会互相冲突。</span>",
+    "<b>第三步取 <code>ε → 0</code>（它本来就是任意的），得到定理</b>：<br><b><code>E_ν[𝒯] ≥ Σ_{j≠i_*} 2log(1/(2.4δ))/Δ_j²</code></b>。<span class='w'>任何 δ-正确的算法都逃不掉。</span>",
+    "<b>现在和 p7 回顾的上界对一下，这是本讲的收束。</b> <span class='k'>上界：<code>c·Σ_j Δ_j^{-2}log(n·log(Δ_j^{-2})/δ)</code>；下界：<code>Σ_j 2Δ_j^{-2}log(1/(2.4δ))</code></span>。<b><code>Σ_j Δ_j^{-2}</code> 这个主体<b>完全一致</b></b>——<span class='w'>差别只在 log 里：上界多了 <code>n</code> 和 <code>log(Δ_j^{-2})</code> 两个因子。</span>",
+    "<b>那个多出来的 <code>n</code> 来自并集界（要对所有臂同时成立），而 <code>log(Δ_j^{-2})</code> 来自哪里？这就是下半页重对数律的用处。</b> <span class='k'>算法不知道 <code>Δ_j</code>，所以必须一直看着、随时准备停</span>——<b>而「随时都要成立」的置信界比「固定时刻成立」的要宽</b>。",
+    "<b>重对数律刻画的正是这个「随时」的代价。</b> <b><code>limsup_{t→∞} S_t/√(2t·loglog t) = 1</code> 几乎必然</b>，<span class='w'>其中 <code>S_t</code> 是标准高斯的随机游走</span>。<b>意思是：随机游走的<b>上包络</b>恰好是 <code>√(2t loglog t)</code></b>——<span class='k'>它会无穷多次触到这条线，但（几乎必然）不会超出。</span>",
+    "<b>把它和普通的集中不等式对比，差别就清楚了。</b> <span class='w'>固定 t 时，<code>|S_t| ≲ √(2t log(1/δ))</code>；而要对<b>所有</b> t 同时成立，就得换成 <code>√(2t loglog t)</code> 量级</span>——<b>多出来的那个 <code>loglog t</code> 就是「随时有效」的价格</b>。<span class='k'>而把 <code>t ≈ Δ^{-2}</code> 代进去，<code>loglog t ≈ log(Δ^{-2})</code>，正好对上上界 log 里那个因子。</span>",
+    "<b>所以上下界之间那点差距不是分析不够紧，而是<b>真实存在</b>的代价。</b> <span class='w'>自适应停止的算法必须付 <code>loglog</code>，而知道该在什么时候停的「先知」不必付</span>。<b>这是一个很漂亮的收束：每一个多出来的因子都有出处。</b>",
+    "<b>页下那张图画的就是这件事</b>：<span class='k'>一条上下乱走的随机游走，外面套着一对 <code>±√(2t loglog t)</code> 的包络</span>。<b>图里还标了一条直线（线性的界），用来对比——随机游走只以 <code>√t</code> 增长，所以终究会被任何线性的界甩开</b>。<span class='w'>这正是 p10 第一行 <code>E[|S_t|] ≈ √t</code> 要说的。</span>"
+   ],
+   "eq": "① 反解上一页：E_ν[T_j(𝒯)] ≥ 2·log(1/(2.4δ)) / (Δ_j + ε)²       对**每一条**劣臂分别成立\n\n② 相加：E_ν[𝒯] ≥ Σ_{j≠1} E_ν[T_j(𝒯)] ≥ Σ_{j≠1} 2log(1/(2.4δ))/(Δ_j+ε)²\n   ⚠ 合法的原因：所有下界都在**同一个**真实实例 ν 下取期望 ⇒ 可直接相加\n\n③ ε 任意，取 ε → 0：\n\n**定理（BAI 下界）**：任何 δ-正确的算法都需要\n   **E_ν[𝒯] ≥ Σ_{j≠i_*} 2·log(1/(2.4δ)) / Δ_j²**\n\n与 p7 的上界对照（本讲的收束）：\n   上界 c · Σ_j Δ_j^{−2} · log( **n**·**log(Δ_j^{−2})** / δ )\n   下界     Σ_j Δ_j^{−2} · 2log( 1/(2.4δ) )\n   ⇒ 主体 Σ_j Δ_j^{−2} **完全一致**；差别只在 log 里的两个因子\n      n            ← 并集界（要对所有臂同时成立）\n      log(Δ_j^{−2}) ← **重对数律**\n\n**重对数律（LIL）**：ε_t ~ N(0,1), S_t = Σ_{s≤t} ε_s\n   **limsup_{t→∞} S_t / sqrt( 2t·loglog t ) = 1**   几乎必然\n   —— 随机游走的**上包络**恰好是 sqrt(2t loglog t)：无穷多次触到，但不超出\n\n   与普通集中不等式对比：\n      固定 t：        |S_t| ≲ sqrt( 2t·log(1/δ) )\n      对**所有** t：   换成 sqrt( 2t·loglog t ) 量级\n      ⇒ 多出来的 loglog t 就是「**随时有效**」的价格\n      而 t ≈ Δ^{−2} 时 loglog t ≈ log(Δ^{−2}) ⇒ 正好对上上界 log 里那个因子\n\n⇒ 上下界那点差距**不是分析不紧，而是真实存在的代价**：\n   自适应停止的算法必须付 loglog；知道何时该停的「先知」不必付\n   —— 每一个多出来的因子都有出处",
+   "tbl": {
+    "head": ["", "上界（Action Elimination）", "下界（本页定理）"],
+    "rows": [
+     ["主体", "<b>Σ<sub>j</sub> Δ<sub>j</sub><sup>−2</sup></b>", "<b>Σ<sub>j</sub> Δ<sub>j</sub><sup>−2</sup></b>（完全一致）"],
+     ["log 里", "log(<b>n</b>·<b>log(Δ<sub>j</sub><sup>−2</sup>)</b>/δ)", "log(1/(2.4δ))"],
+     ["多出来的 n", "<b>并集界</b>（对所有臂同时成立）", "—"],
+     ["多出来的 log(Δ<sup>−2</sup>)", "<b>重对数律</b>（随时有效的代价）", "—"],
+     ["⇒ 结论", "<b>差距有出处，不是分析不紧</b>", "—"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页的下界形状，就是你「写 bound」最终该写出来的那个式子——而且它给了一个很具体的检查项。</b><br><span class='k'><code>E[𝒯] ≥ Σ_{j≠最优} 2log(1/2.4δ)/Δ_j²</code></span>：<b>总预算至少是「对每个非最优配置，各付 <code>Δ_j^{-2}</code>」的总和</b>。<span class='w'>注意是<b>求和</b>而不是取最大</span>——<b>这意味着候选配置越多，代价线性地累加</b>；<b>而这正是「先把明显差的淘汰掉」为什么如此重要的理由：被淘汰的配置不再进入这个求和。</b><br><b>而那个「<code>Δ_j</code> 很小的配置贵得离谱」的性质，对你有一个很实际的后果。</b> <span class='k'>如果有两个配置的 G 几乎相同（<code>Δ ≈ 0</code>），这个下界是<b>无穷大</b>——任何方法都不可能把它们分出来</span>。<b>所以你<b>必须</b>用 (ε,δ)-PAC 的口径而不是严格 BAI</b>：<span class='w'>「不劣于最优 ε」把 <code>Δ_j</code> 换成 <code>max(Δ_j, ε)</code>，于是下界有限</b>。<b>⚠ 这不是技术细节，是你的问题可解的前提——严格 BAI 在你这里是不可能完成的任务。</b><br><b>而重对数律那一段对你有一个很容易被忽略的提醒。</b> <span class='k'>你的淘汰是<b>自适应</b>的（边跑边砍），所以你用的置信界必须「随时有效」，不能只在某个固定时刻有效</span>。<b>⚠ 实操里最常见的错误正是这个</b>：<span class='w'>用一个固定样本量的置信界，却在过程中反复查看、一达标就停</span>——<b>那样实际的失败概率远高于名义的 δ</b>。<b>正确做法是用 anytime-valid 的界（付那个 <code>loglog</code> 的价），或者按轮分配 <code>δ/(2ℓ²)</code>（L06/L07 那套 Basel 求和的做法）。</b><span class='k'>后者更简单，而且本课一直在用——你照抄即可。</span><br><b>最后一条可以直接写进论文的</b>：<span class='w'>「我们的样本复杂度与下界在主体 <code>Σ_j max(Δ_j,ε)^{-2}</code> 上一致，差距只在 log 因子，而那个因子来自并集界与随时有效的要求，是真实的代价而非分析松弛」</span>——<b>这句话需要你真的把两边都算出来，但它一旦成立，理论部分就很难被挑剔了。</b><br>标【推断】：(ε,δ)-PAC 的必要性、随时有效的提醒与论文措辞都是我推的；自适应淘汰与配置间差距小在简报里是【已核】。",
+    "ref": "本讲 p9（逐行核对）· p7 上界 · CSE 541 L06 · L07 p6 · 简报 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [10, 10],
+   "t": "渐近的实例相关遗憾下界",
+   "star": 2,
+   "quote": "<em>E[|S<sub>t</sub>|] ≈ √t</em><br><em>Using similar techniques one can show:</em><br><b>Theorem</b> <em>Fix any alg s.t. max<sub>θ</sub>E<sub>θ</sub>[R<sub>T</sub>] ≤ T<sup>1−α</sup> for any α &gt; 0. Then &nbsp;<b>lim<sub>T→∞</sub> E<sub>θ</sub>[R<sub>T</sub>]/log(T) ≥ Σ<sub>i≠i<sub>*</sub></sub> Δ<sub>i</sub><sup>−1</sup></b></em>",
+   "one": "<b>最后一个下界换了口径：不问最坏实例，而问「在一个固定实例上，长期来看遗憾至少以多快增长」。答案是 Σ 1/Δ_i 乘 log T。</b>",
+   "pts": [
+    "<b>这一页的定理和 p4 那个极小极大下界是两种完全不同的口径，要分清。</b> <span class='k'><b>p4（极小极大）</b>：对<b>最坏</b>的实例，遗憾至少 <code>√(nT)</code>；<b>本页（实例相关）</b>：对<b>给定</b>的实例，遗憾至少 <code>(Σ_i 1/Δ_i)·log T</code></span>。",
+    "<b>两者的 T 依赖完全不同，而这不矛盾。</b> <span class='w'>极小极大是 <code>√T</code>，实例相关是 <code>log T</code></span>——<b>因为极小极大里的那个最坏实例会随 T 变化</b>（<span class='k'>p5 里 <code>Δ = √((n−1)/(4T))</code> 就是随 T 取的</span>）；<b>而实例相关里实例是固定的，<code>Δ_i</code> 不随 T 变。</b>",
+    "<b>定理的前提那一句很有意思，而且是必需的</b>：<em>Fix any alg s.t. <code>max_θ E_θ[R_T] ≤ T^{1−α}</code> for any <code>α &gt; 0</code></em>。<span class='w'>也就是说只对「在所有实例上都还算合理」的算法成立</span>——<b>这类算法叫<b>一致的</b>（consistent）。</b>",
+    "<b>为什么要这个前提？因为没有它，定理是错的。</b> <span class='k'>考虑一个「永远只拉臂 1」的傻算法：如果臂 1 恰好是最优的，它的遗憾<b>恒为 0</b>，远小于 <code>log T</code></span>。<b>但这个算法在别的实例上会线性地亏</b>——<span class='w'>一致性条件正是把这类「赌对了就赢、赌错了就死」的算法排除掉</span>。<b>所以这个下界说的是：<b>想在所有实例上都不太差，就必须在每个实例上付 <code>log T</code></b>。</b>",
+    "<b>这个「不能同时在所有实例上都好」的结构，和 p4 是同一个精神，只是换了表述。</b> <span class='k'>p4 用「最坏实例」来表达，本页用「一致性前提」来表达</span>——<b>两者都在说同一件事：信息是有代价的，你不可能既不探索又总是对。</b>",
+    "<b>结论的形状 <code>Σ_{i≠i_*} Δ_i^{-1}</code> 要和 BAI 那个 <code>Σ Δ_j^{-2}</code> 分清楚，这是很容易记混的一处。</b> <span class='w'><b>遗憾</b>下界是 <code>Δ^{-1}</code>，<b>识别</b>下界是 <code>Δ^{-2}</code></span>。<b>理由很直观</b>：<span class='k'>识别需要把臂 j 测到能分辨 <code>Δ_j</code>，那要 <code>Δ_j^{-2}</code> 次；而遗憾是「次数 × 每次亏的 <code>Δ_j</code>」，所以是 <code>Δ_j^{-2}·Δ_j = Δ_j^{-1}</code></b>。<b>一个 <code>Δ</code> 被亏损抵掉了。</b>",
+    "<b>这就是 Lai–Robbins 那条经典结论的形式，也是 UCB 一类算法的标杆。</b> <span class='w'>UCB 的遗憾上界正是 <code>O(Σ_i log T/Δ_i)</code></span>——<b>与这个下界在形状上完全一致</b>。<span class='k'>所以 UCB 在实例相关的意义下是渐近最优的，这件事就是靠这个下界说出口的。</span>",
+    "<b>页首那行 <code>E[|S_t|] ≈ √t</code> 是上一页 LIL 的一个小注脚，顺带记一下。</b> <span class='k'>随机游走的典型幅度是 <code>√t</code>（而不是 LIL 说的 <code>√(2t loglog t)</code> ——后者是<b>上包络</b>，不是典型值）</span>。<b>这两个量别混：典型幅度决定「平均要多久能分辨」，上包络决定「随时有效的界要多宽」。</b>",
+    "⚠️ <b>最后要说清这是一个<b>渐近</b>结论：它是 <code>T → ∞</code> 的极限。</b> <span class='w'>它不告诉你有限 T 下会怎样，也不给常数</span>——<b>而 p4 那个极小极大下界是<b>有限 T</b> 的（对每个 <code>T ≥ n</code> 都成立）</b>。<span class='k'>两种下界各有各的用处：要说「这个算法渐近最优」用本页的，要说「任何算法在 T 步内都会亏这么多」用 p4 的。</span>"
+   ],
+   "eq": "两种口径的下界（别混）：\n   p4 **极小极大**：对**最坏**实例，E[R_T] ≥ sqrt(nT)        —— 有限 T，对每个 T ≥ n 成立\n   本页 **实例相关**：对**给定**实例，E[R_T] ≳ (Σ_i 1/Δ_i)·log T —— 渐近，T → ∞\n\n   T 依赖不同不矛盾：极小极大里的最坏实例**随 T 变化**（p5 的 Δ = sqrt((n−1)/(4T))）\n                     实例相关里实例固定，Δ_i 不随 T 变\n\n前提（必需的）：max_θ E_θ[R_T] ≤ T^{1−α} 对任意 α>0 —— 即算法是**一致的**\n   ⚠ 没有它定理是错的：\n     「永远只拉臂 1」的傻算法，若臂 1 恰好最优则遗憾**恒为 0**，远小于 log T\n     但它在别的实例上线性地亏 —— 一致性正是排除这类「赌对就赢、赌错就死」的算法\n   ⇒ 定理真正说的是：**想在所有实例上都不太差，就必须在每个实例上付 log T**\n     （与 p4 同一个精神，只是换了表述）\n\n形状对照（很容易记混）：\n   **遗憾**下界   Σ_{i≠i_*} **Δ_i^{−1}** · log T\n   **识别**下界   Σ_{j≠i_*} **Δ_j^{−2}** · log(1/δ)\n\n   理由：识别要把臂 j 测到能分辨 Δ_j ⇒ Δ_j^{−2} 次\n         遗憾 = 次数 × 每次亏的 Δ_j ⇒ Δ_j^{−2} · Δ_j = Δ_j^{−1}\n         —— **一个 Δ 被亏损抵掉了**\n\n   这就是 Lai–Robbins 的经典形式；UCB 的上界 O(Σ_i log T/Δ_i) 与它形状一致\n   ⇒ UCB 在实例相关意义下**渐近最优**，这句话就是靠这个下界说出口的\n\n页首 E[|S_t|] ≈ sqrt(t)：随机游走的**典型幅度**\n   ⚠ 与 LIL 的 sqrt(2t loglog t)（**上包络**）不是一回事\n     典型幅度 → 「平均要多久能分辨」；上包络 → 「随时有效的界要多宽」",
+   "tbl": {
+    "head": ["", "极小极大下界（p4）", "实例相关下界（本页）", "BAI 下界（p9）"],
+    "rows": [
+     ["对谁", "<b>最坏实例</b>", "<b>给定实例</b>", "给定实例"],
+     ["形状", "√(nT)", "<b>(Σ 1/Δ<sub>i</sub>)·log T</b>", "<b>Σ 2log(1/2.4δ)/Δ<sub>j</sub>²</b>"],
+     ["有限 T 吗", "<b>是</b>", "<span class='w'>渐近（T→∞）</span>", "是（期望停时）"],
+     ["前提", "无", "<b>算法一致</b>", "<b>算法 δ-正确</b>"],
+     ["Δ 的幂次", "—", "<b>−1</b>（亏损抵掉一个 Δ）", "<b>−2</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你最有用的是那个「<code>Δ^{-1}</code> 还是 <code>Δ^{-2}</code>」的区分——因为选错了，你报的下界会差一整个数量级。</b><br><span class='k'>你的问题是<b>识别</b>（离线选一个配置上线），不是<b>遗憾</b>（在线反复决策）</span>。<b>所以你要用的是 p9 那个 <code>Δ^{-2}</code>，不是本页的 <code>Δ^{-1}</code>。</b><span class='w'>⚠ 而这很容易搞错，因为 bandit 文献里 <code>Σ log T/Δ_i</code> 这个式子出现得最频繁、最容易被当成「标准答案」照抄</span>。<b>照抄它会让你低估所需预算一个 <code>Δ</code> 的因子。</b><br><b>而那个「一致性前提」给了你一个很好的类比，可以用来解释你为什么要在差配置上花钱。</b> <span class='k'>定理说：没有一致性前提，「永远只拉臂 1」的算法在运气好时遗憾为零</span>——<b>翻译过来就是「直接用 AFlow 基线、什么都不测」在基线恰好最优时代价为零</b>。<span class='w'>但它在基线不是最优时会一直亏</span>。<b>所以「我们要在所有情形下都不太差」这个要求，<b>本身</b>就是你必须付出测量代价的原因</b>——<b>这是一个很干净的论证，而且它把「为什么不直接用基线」这个问题正面回答了。</b><br><b>⚠ 还有一条该留意的：本页的下界是<b>渐近</b>的，不给常数。</b> <span class='k'>而你的实验是有限的、而且预算不大</span>——<b>所以对你更有用的是 p4 那种<b>有限 T</b> 的下界和 p9 那个<b>期望停时</b>的下界</b>。<span class='w'>渐近结论在论文里可以引来做定位，但不能用来论证「我们的预算够了」</span>。<b>这个区分值得在写作时守住。</b><br><b>最后一条联系：本页提到 UCB 的上界与下界形状一致、因而渐近最优。</b> <span class='k'>而 CSE541 L09 已经告诉你，为遗憾设计的算法（UCB、Thompson）在<b>纯探索</b>上并不最优</span>——<b>两条放在一起，就是你回答「为什么不用 UCB」的完整论证</b>：<b>UCB 在它自己的目标（遗憾）上渐近最优，而我们的目标是识别，两者的最优算法不同。</b>",
+    "ref": "本讲 p10（逐行核对）· p9 · p4 · CSE 541 L09 p12 科研格 · 简报 §2 §4c（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "两点问题的上界是 T = 8Δ⁻²log(2/δ)。这个 Δ⁻² 的形状意味着什么？",
+    "o": ["差距减半，样本量不变", "差距减半，样本量翻倍", "差距减半，样本量翻两番（×4）—— 这是整个 bandit 理论里最常出现的标度，而这一讲要证它不是算法笨，是信息论的下限", "差距减半，样本量减半"],
+    "a": 2,
+    "why": "判别规则很简单：让集中不等式的误差恰好等于两个均值间距的一半 Δ/2，然后看 μ̂_T 落在 Δ/2 的哪一侧。<span class='k'>板书把这个 T 圈了出来，因为后面要和下界对。</span>"
+   },
+   {
+    "q": "为什么用「全变差 TV」而不是别的距离来刻画「分不分得开」？",
+    "o": ["因为它最好算", "因为它是对称的", "因为 TV = sup_A|P(A) − Q(A)|，而任何判别规则都是一个事件 A —— 它的两类错误之和被 1 − TV 从下面卡住；TV=0 完全不可分，TV=1 存在事件能完美区分", "因为它满足三角不等式"],
+    "a": 2,
+    "why": "<b>而引入 KL 的理由是互补的</b>：<span class='w'>TV 的 sup 不好算，而 KL 对乘积测度可加——T 个独立样本的 KL 就是单个的 T 倍</span>。<b>Pinsker 不等式就是把两者接起来的桥。</b>⚠ 板书把 TV 又写成 ∫|p−q|dx，与 sup 定义差一个 1/2。"
+   }
+  ],
+  "2": [
+   {
+    "q": "似然比检验的门槛取 1/δ，错误概率就 ≤ δ。靠的是什么？",
+    "o": ["Hoeffding 不等式", "Pinsker 不等式", "一行马尔可夫不等式加上 E_P[q(X)/p(X)] = 1 —— 后者是因为 ∫p·(q/p)dx = ∫q dx = 1，分母的 p 与积分测度里的 p 约掉了", "中心极限定理"],
+    "a": 2,
+    "why": "<b>这与重要性采样「无偏」是同一步计算</b>（CS234 L15 用它换测度，这里用它控错误率）。<span class='k'>而独立性让它对任意 T 都成立：乘积的期望 = 期望的乘积 = 1，所以错误概率的界与 T 无关。</span>"
+   },
+   {
+    "q": "红字补的 TV ≤ √(1 − e^{−KL}) 相比 Pinsker 有什么用？",
+    "o": ["KL 大时更紧 —— Pinsker 的右边在 KL > 2 时就超过 1 了（而 TV 永远 ≤ 1），那时它完全失效，而这一条仍然有用", "它是下界而非上界", "它对非高斯才成立", "计算更简单"],
+    "a": 0,
+    "why": "<span class='w'>这是 Bretagnolle–Huber 那一类的界。</span>证下界时经常要在两者之间换着用——<b>哪个紧用哪个。</b>"
+   }
+  ],
+  "3": [
+   {
+    "q": "取对数之后，「似然比涨到 1/δ」变成了什么问题？答案的形状是什么？",
+    "o": ["变成一个最优化问题；答案是 √T", "变成「随机游走要走到 log(1/δ)」，而每步的平均漂移恰好是 KL —— 所以 T ≈ log(1/δ)/KL，即「要积累的证据量 ÷ 每个样本提供的证据量」", "变成一个鞅；答案是 loglog T", "变成求解一个方程；答案是 Δ/2"],
+    "a": 1,
+    "why": "代入高斯：KL(N(Δ,1), N(0,1)) = Δ²/2 ⇒ T ≈ 2log(1/δ)/Δ²，<b>而 p1 的上界是 8Δ⁻²log(2/δ)——只差约 4 倍常数。</b><span class='k'>上下界在同一形状上对齐，这三页要证的就是这件事。</span>"
+   },
+   {
+    "q": "Wald 恒等式说 E[Σ_{t=1}^τ Y_t] = E[τ]·E[Y₁]。为什么这不是显然的？",
+    "o": ["因为 Y_t 不独立", "因为期望可能不存在", "因为 τ 可能无穷", "因为求和的项数本身是随机的，而且与被求和的项相关（正是因为和变大了才停）—— Wald 说尽管如此，期望仍可这样拆"],
+    "a": 3,
+    "why": "⚠ 严格说 Wald 给的是等式，而板书写成了不等/约等：<span class='w'>差别来自 overshoot——游走不会恰好停在 log(1/δ) 而是跨过一点</span>。准确说法是 E_Q[τ]·KL ≥ log(1/δ)，overshoot 通常可忽略。"
+   }
+  ],
+  "4": [
+   {
+    "q": "极小极大下界的构造分三步，其中最关键的是哪一步？",
+    "o": ["取 Δ 为临界尺度", "用 Pinsker 换成 KL", "用马尔可夫把期望换成概率", "用鸽笼找出「这个算法拉得最少的那条臂」，然后把宝藏藏在那里 —— 构造针对算法定制，而「总有一条被冷落」由鸽笼保证、与算法无关"],
+    "a": 3,
+    "why": "<b>所以无论你怎么设计算法，这个构造总能找到你的盲点。</b><span class='k'>而两个实例下的遗憾是互补的：θ′ 下遗憾大当且仅当你常拉臂 1，θ 下遗憾大当且仅当你少拉臂 1——你没法同时让两者都小。</span>"
+   },
+   {
+    "q": "inf_π max_θ 这个写法说明了什么？",
+    "o": ["不管你用什么算法（inf over π），总存在一个实例让你吃亏（max over θ）—— 这不是说某个算法不好，而是没有任何算法能对所有实例都好", "实例可以针对算法优化，但算法先选", "算法可以针对实例优化", "两者同时优化"],
+    "a": 0,
+    "why": "形状 √(nT) 随 T 与臂数增长，<b>而 L06/L09 的上界也是 √(nT) 量级——所以上下界匹配，那些算法在极小极大意义下最优。</b>"
+   }
+  ],
+  "5": [
+   {
+    "q": "收尾链里 Δ 取 √((n−1)/(4T))。这个取法的含义是什么？",
+    "o": ["让常数最小", "取在「刚好分不开」的临界尺度上：Δ 再大算法就能分开（遗憾小），Δ 再小则分不开但每次亏得少（遗憾也小），最坏恰在中间", "让 n 消掉", "让 T 消掉"],
+    "a": 1,
+    "why": "<span class='k'>所有极小极大下界的构造里，这个「取在临界尺度上」的步骤都是一样的。</span>整条链是：max≥平均 → 提出概率之差 → TV → Pinsker → 散度分解 → 鸽笼 → 对 Δ 取最优。"
+   },
+   {
+    "q": "散度分解引理 KL(P_ν|P_ν′) = Σ_i E_ν[T_i]·KL(ν_i|ν′_i) 的直观含义是什么？",
+    "o": ["KL 与拉臂次数无关", "从一条臂上获得的辨别信息正比于你拉它的次数 —— 没拉过的臂 E[T_i]=0，对区分两个实例一点贡献都没有，哪怕那条臂上两实例差得很远", "KL 可以逐臂相加", "每条臂的贡献相等"],
+    "a": 1,
+    "why": "⚠ 别漏了红字补充：<b>若 𝒯 是停时，上式对 T = 𝒯 同样成立</b>——这是后面证 BAI 下界的前提，因为识别算法自己决定何时停。"
+   }
+  ],
+  "6": [
+   {
+    "q": "散度分解证明里最关键的一步是什么？它为什么重要？",
+    "o": ["用了独立性", "轨迹概率里的策略项 π(I_t|历史) 在两个实例下完全相同，取对数相减时全部约掉 —— 于是「两个实例有多难分」与算法的具体设计无关，只与它拉了每条臂多少次有关", "用了高斯的具体形式", "用了条件期望"],
+    "a": 1,
+    "why": "<b>这是整个 bandit 下界理论的支点</b>：<span class='w'>不必对每个算法单独证下界，只要对「拉臂次数的分配」证一次就够</span>。⚠ 而且这个引理没有用到高斯、没有用到 i.i.d.、也没限制算法形式。"
+   },
+   {
+    "q": "散度分解里的期望 E_ν[T_i] 是在哪个实例下取的？为什么要紧？",
+    "o": ["在 ν′ 下；因为那是对手实例", "无所谓，两者相等", "在 ν（真实实例）下 —— KL 不对称，而上一页用鸽笼界住的正是这个量；写成 E_ν′[T_i] 论证就接不上了", "在两者的混合下；因为要对称"],
+    "a": 2,
+    "why": "<span class='k'>记成一句话：区分两个实例的难度 = Σ（去那条臂的次数 × 那条臂上的信息差）。</span>它同时解释了下界与算法设计——要分开两个实例，你必须在它们不同的那条臂上花足够多的次数。"
+   }
+  ],
+  "7": [
+   {
+    "q": "δ-正确的定义里，哪个词对下界最要紧？",
+    "o": ["「argmax」", "「输出 î」", "「对所有 θ_*」—— 正是它让下界有了着力点：只要造出一个让你失败的实例，你就不是 δ-正确的", "「概率 ≥ 1−δ」"],
+    "a": 2,
+    "why": "<b>而定义里没有 T：算法自己决定何时停</b>，所以复杂度度量是<b>期望停时 E[𝒯]</b>——这就是为什么 p5 那句「停时也成立」的补充是必需的。"
+   },
+   {
+    "q": "识别问题的对手实例怎么造？和 p4 的构造有什么不同？",
+    "o": ["对每一条劣臂 j 各造一个实例，把第 j 条臂的均值从 θ₁−Δ_j 顶到 θ₁+Δ_j+ε（刚好严格最优），其余不动；而 p4 只造一个、藏在最少碰的臂里", "同样是藏在最少碰的臂里", "把所有臂都抬高", "把最优臂压低"],
+    "a": 0,
+    "why": "ε 的作用是让它<b>刚刚好</b>成为最优臂——只顶到持平则 argmax 无定义；最后取 ε→0，不影响形状。<span class='k'>对每条劣臂各做一遍，正是下界里那个求和的来源。</span>"
+   }
+  ],
+  "8": [
+   {
+    "q": "数据处理不等式在这里是怎么用的？",
+    "o": ["把停时换成固定 T", "算法把轨迹映成输出 î，取 Z = 1{î=1} 后两个输出分布都是伯努利；而 δ-正确把这两个伯努利钉死（一个 ≥1−δ、一个 <δ），于是二元 KL ≥ log(1/2.4δ)，再由数据处理不等式推回轨迹的 KL", "把求和换成积分", "把 KL 换成 TV"],
+    "a": 1,
+    "why": "<b>提炼：δ-正确给出输出端的硬约束，数据处理不等式把它推回数据端。</b><span class='k'>这个「从结论倒推所需信息量」是所有统计下界的通用骨架——换个问题只要换「输出端的约束」和「实例怎么造」两样。</span>"
+   },
+   {
+    "q": "散度分解在这里为什么只剩一项？这说明了什么？",
+    "o": ["因为取了 ε→0", "因为只有一条臂被拉过", "因为 δ 很小", "因为两个实例只在第 j 条臂上不同，其余臂的 KL(ν_i|ν^{(j)}_i)=0 —— 所以在别的臂上花再多次数，对分辨这两个实例毫无帮助"],
+    "a": 3,
+    "why": "<span class='w'>这是 p6「没拉过的臂贡献为零」的另一面：<b>拉了但不在差异处的臂，贡献同样为零</b>。</span>⚠ 另外板书的单臂 KL 写成 (Δ_j+ε)²/2，而按均值差 2Δ_j+ε 应得 4 倍大——只影响常数不影响形状。"
+   }
+  ],
+  "9": [
+   {
+    "q": "BAI 下界 Σ 2log(1/2.4δ)/Δ_j² 与 p7 回顾的上界对照，差在哪里？那个差有出处吗？",
+    "o": ["主体就不同，上界更大", "两者完全一致，没有差别", "下界更大，说明上界有误", "主体 Σ_j Δ_j⁻² 完全一致，差别只在 log 里的两个因子：n 来自并集界，log(Δ_j⁻²) 来自重对数律 —— 所以差距不是分析不紧，而是真实存在的代价"],
+    "a": 3,
+    "why": "<b>自适应停止的算法必须付那个 loglog，而知道何时该停的「先知」不必付。</b><span class='k'>每一个多出来的因子都有出处——这是本讲很漂亮的一个收束。</span>"
+   },
+   {
+    "q": "重对数律 limsup S_t/√(2t loglog t) = 1 刻画的是什么？",
+    "o": ["随机游走的方差", "随机游走的典型幅度", "随机游走的均值", "随机游走的上包络 —— 它会无穷多次触到这条线但不超出；而「对所有 t 同时成立」的界就得用这个量级，多出来的 loglog t 正是「随时有效」的价格"],
+    "a": 3,
+    "why": "<span class='w'>固定 t 时 |S_t| ≲ √(2t log(1/δ))；要对所有 t 同时成立就得换成 √(2t loglog t)。</span><b>而把 t ≈ Δ⁻² 代入，loglog t ≈ log(Δ⁻²)，正好对上上界 log 里那个因子。</b>"
+   }
+  ],
+  "10": [
+   {
+    "q": "实例相关的遗憾下界需要一个「一致性」前提。为什么？",
+    "o": ["为了保证收敛", "为了保证 Δ_i 有定义", "为了保证期望存在", "因为没有它定理是错的：「永远只拉臂 1」的算法若臂 1 恰好最优则遗憾恒为 0，远小于 log T —— 一致性排除这类「赌对就赢、赌错就死」的算法"],
+    "a": 3,
+    "why": "<b>所以定理真正说的是：想在所有实例上都不太差，就必须在每个实例上付 log T。</b><span class='k'>这与 p4 是同一个精神，只是从「最坏实例」换成了「一致性前提」来表述。</span>"
+   },
+   {
+    "q": "遗憾下界是 Σ Δ_i⁻¹，识别下界是 Σ Δ_j⁻²。为什么差一个幂次？",
+    "o": ["因为识别用了 δ", "因为遗憾是渐近的", "识别要把臂 j 测到能分辨 Δ_j，需要 Δ_j⁻² 次；而遗憾 = 次数 × 每次亏的 Δ_j，所以是 Δ_j⁻²·Δ_j = Δ_j⁻¹ —— 一个 Δ 被亏损抵掉了", "因为遗憾是累积的"],
+    "a": 2,
+    "why": "<b>这是很容易记混的一处，而选错会让下界差一整个数量级。</b><span class='w'>Σ log T/Δ_i 这个式子在文献里出现得最频繁，最容易被当成「标准答案」照抄——但离线识别问题要用的是 Δ⁻²。</span>"
+   }
+  ]
+ }
+}
