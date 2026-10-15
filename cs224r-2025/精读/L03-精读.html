@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CS224R 第三讲 · 中文精读</title>
+<style>
+:root{
+  --bg:#F5F3EE; --panel:#FFFFFF; --panel2:#FAF8F4; --sunken:#EDEAE3;
+  --stage:#E9E6DF; --hover:#F0EDE6;
+  --line:#E3DFD6; --line2:#D2CCC0;
+  --dot:#DDD8CE; --dot2:#B9B1A2; --errdot:#D08A8A;
+  --ink:#23272C; --ink2:#111417; --ink3:#4A525C; --dim:#616973;
+  --acc:#0E7355; --acc2:#845808; --warn:#B23540; --blue:#1C6AA6;
+  --mark:#FFF6DC; --codeink:#17506E; --eqink:#1E2833;
+  --okink:#0B5B43; --noink:#8F2A33; --violet:#6A4BA3; --tintviolet:rgba(106,75,163,.07);
+  --violetline:#D9CEEA; --warnline:#E0C6C9;
+  --okfill:rgba(14,115,85,.10); --nofill:rgba(178,53,64,.09);
+  --missbg:rgba(245,243,238,.97);
+  --tintacc:rgba(14,115,85,.07); --tintacc2:rgba(14,115,85,.05);
+  --tintblue:rgba(28,106,166,.06); --tintwarn:rgba(178,53,64,.05);
+  --tintwarn2:rgba(178,53,64,.06);
+  --lift:rgba(60,54,44,.022); --lift2:rgba(60,54,44,.028);
+  --scrim:rgba(58,52,42,.40);
+  --shadow:0 1px 2px rgba(40,34,20,.05), 0 6px 18px rgba(40,34,20,.05);
+
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑","Deng",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+  --bar:50px; --strip:36px;
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f15; --panel:#121823; --panel2:#0d141c; --sunken:#0a0e14;
+  --stage:#070a0f; --hover:#0d141c;
+  --line:#212c3c; --line2:#2a3b4f;
+  --dot:#18212e; --dot2:#2c3c52; --errdot:#7a3a3a;
+  --ink:#e7eef7; --ink2:#f4f8fd; --ink3:#c3d2e3; --dim:#8b9ab0;
+  --acc:#6fd3bb; --acc2:#f2bd63; --warn:#ff8f8f; --blue:#7fb8ff;
+  --mark:#16202e; --codeink:#cfe3f5; --eqink:#dbe8f7;
+  --okink:#d8fff4; --noink:#ffdede; --violet:#B48BF5; --tintviolet:rgba(180,139,245,.08);
+  --violetline:#3b2f4f; --warnline:#4a2b2e;
+  --okfill:rgba(111,211,187,.13); --nofill:rgba(255,143,143,.12);
+  --missbg:rgba(10,14,20,.97);
+  --tintacc:rgba(111,211,187,.09); --tintacc2:rgba(111,211,187,.07);
+  --tintblue:rgba(127,184,255,.055); --tintwarn:rgba(255,120,120,.055);
+  --tintwarn2:rgba(255,143,143,.08);
+  --lift:rgba(255,255,255,.022); --lift2:rgba(255,255,255,.025);
+  --scrim:rgba(6,9,13,.82);
+  --shadow:0 10px 34px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);font-size:15px;line-height:1.75}
+
+#bar{height:var(--bar);display:flex;align-items:center;gap:11px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--panel)}
+#bar h1{margin:0;font-size:14.5px;font-weight:650;white-space:nowrap}
+#bar h1 span{color:var(--acc)}
+.btn{background:var(--sunken);border:1px solid var(--line);border-radius:7px;color:var(--dim);
+  font:13px var(--cjk);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--acc);border-color:var(--acc)}
+#pnum{width:48px;background:var(--sunken);border:1px solid var(--line);border-radius:7px;
+  color:var(--ink);font:13px var(--mono);text-align:center;padding:5px 0}
+#bar .sp{flex:1}
+#tot{font:12px var(--mono);color:var(--dim)}
+
+#strip{height:var(--strip);display:flex;align-items:center;gap:2px;padding:0 14px;
+  background:var(--sunken);border-bottom:1px solid var(--line);overflow-x:auto}
+#strip::-webkit-scrollbar{height:0}
+#strip b{flex:0 0 auto;width:13px;height:16px;border-radius:3px;background:var(--dot);
+  cursor:pointer;font:0/0 a}
+#strip b.has{background:var(--dot2)}
+#strip b.on{background:var(--acc2)}
+#strip b:hover{background:var(--acc)}
+
+#main{display:flex;height:calc(100% - var(--bar) - var(--strip))}
+/* 左栏 = 一块板，板中央摆一张 4:3 的幻灯片。
+   幻灯片本身就是 363×272（4:3），把框裁成同样比例再用 view=FitH，
+   这一页正好铺满框，下一页落到框外 —— 这样才是「一页」，
+   而不是一个能上下滚、还露出半张下一页的阅读器。 */
+#left{width:50%;min-width:280px;position:relative;background:var(--stage);
+  display:flex;align-items:center;justify-content:center;padding:14px}
+#stage{aspect-ratio:4/3;width:100%;max-width:100%;max-height:100%;
+  border-radius:8px;overflow:hidden;background:#fff;
+  box-shadow:var(--shadow)}
+#stage iframe{width:100%;height:100%;border:0;display:block}
+#drag{width:6px;cursor:col-resize;background:var(--line);flex:0 0 6px}
+#drag:hover{background:var(--acc)}
+#right{flex:1;overflow-y:auto;padding:24px 28px 40px}
+
+.pg{font:11.5px var(--mono);color:var(--bg);background:var(--acc2);border-radius:999px;
+  padding:2px 11px;font-weight:700;display:inline-block;margin-bottom:12px}
+.pg.multi{background:var(--blue)}
+h2{margin:0 0 14px;font-size:21px;font-weight:680;line-height:1.4}
+/* 课件这一页自己说的话。放在最前面：先看原件怎么写，再看中文怎么讲。
+   14px，低于讲解正文 15px —— 它是引文，不是结论。 */
+.quote{font-size:14px;line-height:1.65;color:var(--ink3);font-style:normal;
+  border-left:3px solid var(--acc2);padding:9px 0 9px 14px;margin:0 0 14px;
+  background:linear-gradient(90deg,rgba(242,189,99,.07),transparent)}
+.quote em{font-style:italic;color:var(--acc2)}
+.quote b{color:var(--ink2)}
+.one{font-size:16.5px;line-height:1.7;color:var(--ink2);border-left:3px solid var(--acc);
+  padding:9px 0 9px 14px;margin:0 0 16px;
+  background:linear-gradient(90deg,var(--tintacc),transparent)}
+ul{margin:0 0 16px;padding-left:0;list-style:none}
+ul li{margin-bottom:11px;padding-left:22px;position:relative;line-height:1.72}
+ul li::before{content:"";position:absolute;left:6px;top:11px;width:5px;height:5px;
+  border-radius:50%;background:var(--acc)}
+b{font-weight:650;color:var(--ink2)}
+.k{color:var(--acc);font-weight:650}
+.w{color:var(--warn);font-weight:650}
+code{font-family:var(--mono);font-size:.9em;background:var(--mark);padding:1.5px 6px;
+  border-radius:4px;color:var(--codeink)}
+.eq{display:block;text-align:center;background:var(--mark);border-radius:8px;padding:12px 8px;
+  margin:14px 0;font-family:var(--mono);font-size:14px;color:var(--eqink);overflow-x:auto}
+.say{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintblue);font-size:14px;line-height:1.72}
+.say .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.tip{border:1px solid var(--line);border-radius:9px;padding:11px 15px;margin:14px 0;
+  background:var(--lift2);font-size:14px;line-height:1.72}
+.tip .t{font-weight:700;color:var(--acc);margin-right:7px}
+.tip.w2{border-color:var(--warnline);background:var(--tintwarn)}
+.tip.w2 .t{color:var(--warn)}
+
+/* 表格。ML 版那批自制笔记最有效的一件事就是表格密集 ——
+   对比表 / 情况表 / 数值表。13.5px，与「解释」同档，低于正文。
+   display:block + overflow-x:auto 是为了让窄窗口下表格**自己**横向滚，
+   而不是把右栏撑破 —— 「右栏没有横向溢出」那条断言会量这个。 */
+.tbl{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;
+  display:block;overflow-x:auto}
+.tbl th,.tbl td{border:1px solid var(--line);padding:7px 10px;text-align:left;
+  line-height:1.6;vertical-align:top}
+.tbl th{background:var(--mark);color:var(--acc);font-weight:650;white-space:nowrap}
+.tbl td b{color:var(--ink2)}
+
+/* 页级科研连接。紫色 —— 与既有语义色不冲突（绿=结论 黄=引文 蓝=讲稿 红=警示）。
+   tag 是出处档位，来自科研简报的原始标注，不许抹平成断言。 */
+/* 「你学过的对应」。蓝 —— 与 .say（讲稿里补的）同族，两者都是「别处说过的话」。
+   用的全是 theme.py 已有的变量，所以浅色暗色两套自动都成立。 */
+.lnk{border:1px solid var(--line2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:10px 15px;margin:12px 0;background:var(--tintblue);font-size:13.5px;line-height:1.7}
+.lnk .t{color:var(--blue);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.lnk a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue)}
+.lnk a:hover{opacity:.75}
+.res{border:1px solid var(--violetline);border-left:3px solid var(--violet);border-radius:0 8px 8px 0;
+  padding:11px 15px;margin:14px 0;background:var(--tintviolet);
+  font-size:14px;line-height:1.72}
+.res .t{color:var(--violet);font-weight:700;font-size:12.5px;display:block;margin-bottom:5px;
+  letter-spacing:.5px}
+.res .tag{font:11.5px var(--mono);border-radius:999px;padding:1px 8px;margin-left:7px;
+  border:1px solid currentColor;letter-spacing:0}
+.res .tag.t1{color:var(--acc)}
+.res .tag.t2{color:var(--acc2)}
+.res .tag.t3{color:var(--warn)}
+.res .ref{display:block;margin-top:6px;font:11.5px var(--mono);color:var(--dim)}
+.star{color:var(--acc2);font-size:14px;margin-left:8px;letter-spacing:1px}
+.nav{display:flex;gap:10px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.nav .btn{flex:1;text-align:center;padding:9px}
+.empty{color:var(--dim);font-size:14px;padding:36px 0;text-align:center;line-height:2}
+#miss{position:absolute;inset:0;background:var(--missbg);z-index:5;display:none;
+  padding:26px;color:var(--dim);font-size:13.5px;line-height:1.9}
+#miss code{background:var(--mark);padding:2px 6px;border-radius:4px;color:var(--acc2)}
+
+
+.qbadge{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;
+  margin-left:9px;border:1px solid var(--line);border-radius:999px;
+  padding:2px 9px;font:11.5px var(--mono);color:var(--acc);cursor:pointer;
+  background:var(--sunken);transition:border-color .12s}
+.qbadge:hover{border-color:var(--acc)}
+
+/* ── 自测 ── */
+.quiz{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.quiz>h3{margin:0 0 12px;font-size:13px;color:var(--dim);letter-spacing:.16em;
+  display:flex;align-items:center;gap:8px}
+.quiz>h3 b{color:var(--acc2);font-weight:700}
+.qq{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:11px;
+  background:var(--lift)}
+.qq .t{font-size:14.5px;font-weight:600;margin-bottom:10px;line-height:1.6}
+.opt{display:block;width:100%;text-align:left;background:var(--sunken);border:1px solid var(--line);
+  border-radius:8px;color:var(--ink);font:14px var(--cjk);padding:8px 12px;margin-bottom:7px;
+  cursor:pointer;line-height:1.5;transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--acc);background:var(--hover)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--acc);background:var(--okfill);color:var(--okink)}
+.opt.no{border-color:var(--warn);background:var(--nofill);color:var(--noink)}
+.opt .m{float:right;font-weight:700;margin-left:10px}
+.why{font-size:13.5px;line-height:1.7;color:var(--ink3);border-left:3px solid var(--acc);
+  padding:8px 0 8px 12px;margin-top:9px;background:linear-gradient(90deg,var(--tintacc2),transparent)}
+.qagain{background:none;border:0;color:var(--dim);font:12px var(--cjk);cursor:pointer;
+  text-decoration:underline;padding:0;margin-left:auto}
+.qagain:hover{color:var(--acc2)}
+.qhist2{margin-top:8px;display:flex;align-items:center}
+
+/* 科研主线卡。占的是上一版那个模态面板的槽位 —— 遮罩、居中盒、点背景关闭
+   这套交互已经验过，换的是内容不是机制。 */
+#threadPanel{position:fixed;inset:0;background:var(--scrim);z-index:80;display:none;
+  align-items:center;justify-content:center;padding:28px}
+#threadPanel.on{display:flex}
+#threadBox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  width:min(860px,100%);max-height:86vh;overflow:auto;padding:24px 26px}
+#threadBox h3{margin:0 0 4px;font-size:18px}
+#threadBox h3 .tag{font:11.5px var(--mono);color:var(--violet);border:1px solid var(--violet);
+  border-radius:999px;padding:1px 8px;margin-left:8px}
+#threadBox .arc{font-size:14.5px;line-height:1.8;color:var(--ink);margin:12px 0 18px;
+  border-left:3px solid var(--violet);padding-left:14px;
+  background:linear-gradient(90deg,var(--tintviolet),transparent)}
+#threadBox h4{margin:18px 0 9px;font-size:13px;color:var(--dim);letter-spacing:.14em}
+#threadBox ol{margin:0;padding-left:20px}
+#threadBox li{margin-bottom:9px;font-size:14px;line-height:1.72}
+#threadBox .q{color:var(--acc2);font-weight:650}
+#threadBox .rf{font:11.5px var(--mono);color:var(--dim);margin-left:6px}
+#threadFoot{display:flex;gap:10px;margin-top:18px;padding-top:14px;
+  border-top:1px solid var(--line)}
+#threadFoot .btn{flex:1;text-align:center}
+
+@media (max-width:900px){
+  #main{flex-direction:column} #left{width:100%;height:40%} #drag{display:none}
+  #right{padding:16px 16px 30px}
+}
+
+/* ══ 双主题补丁：浅色下的可读性与质感 ══ */
+html{color-scheme:light dark}
+:root:not([data-theme="dark"]) #right{background:var(--bg)}
+:root:not([data-theme="dark"]) .quiz,
+:root:not([data-theme="dark"]) details,
+:root:not([data-theme="dark"]) .opt{box-shadow:var(--shadow)}
+:root:not([data-theme="dark"]) body{-webkit-font-smoothing:antialiased}
+:root:not([data-theme="dark"]) h2{letter-spacing:-.1px}
+:root:not([data-theme="dark"]) .one{font-weight:520}
+:root:not([data-theme="dark"]) .pg{color:#fff}
+:root:not([data-theme="dark"]) #strip b.on{background:var(--acc2)}
+/* 主题切换按钮 */
+#themeBtn{min-width:34px;text-align:center;font-size:14px;line-height:1}
+
+</style>
+</head>
+<body data-key="cs224r-2025-l03">
+
+<div id="bar">
+  <h1>CS224R 第三讲 · <span>策略梯度</span></h1>
+  <button class="btn" id="prev">← 上一页</button>
+  <input id="pnum" value="1" inputmode="numeric">
+  <span id="tot">/ 28</span>
+  <button class="btn" id="next">下一页 →</button>
+  <div class="sp"></div>
+  <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <button class="btn" id="themeBtn" title="切换主题">☾</button>
+  <button class="btn" id="help">打不开？</button>
+</div>
+
+<div id="strip"></div>
+
+
+<div id="threadPanel"><div id="threadBox">
+  <h3 id="threadTitle"></h3>
+  <div class="arc" id="threadArc"></div>
+  <div id="threadBody"></div>
+  <div id="threadFoot"><button class="btn" id="threadClose">关闭</button></div>
+</div></div>
+
+<div id="main">
+  <div id="left">
+    <div id="stage"><iframe id="pdf" title="原课件"></iframe></div>
+    <div id="miss">
+      <p><b>左边没显示原课件？</b></p>
+      <p>本页直接引用你本地的原件：<code>../corpus/slides/03_cs224r_policy_gradients_2025.pdf</code>。</p>
+      <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>cs224r-2025</code> 目录下执行
+      <code>python -m http.server 8080</code>，再访问
+      <code>http://127.0.0.1:8080/精读/L03-精读.html</code>。</p>
+    </div>
+  </div>
+  <div id="drag"></div>
+  <div id="right"><div id="card"></div></div>
+</div>
+
+<script>
+
+/* ══ 主题切换：浅色默认，记住选择 ══ */
+(function(){
+  var KEY = "mlreader-theme";
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function apply(t){
+    root.setAttribute("data-theme", t);
+    if (btn) btn.textContent = (t === "dark" ? "☀" : "☾");
+    if (btn) btn.title = (t === "dark" ? "切到浅色" : "切到暗色");
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch(e){}
+  apply(saved === "dark" ? "dark" : "light");
+  if (btn) btn.addEventListener("click", function(){
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch(e){}
+  });
+})();
+
+/* 每页一条。r:[起,止] = 这几页是同一张图的不同阶段，点哪页都显示同一条。
+   one 一句话 · pts 要点 · say 讲稿里补的（课件上没有）· tip 提醒 */
+
+/* ══ 题库。键 = 该单元的起始页；a 是正确项下标；why 是判完给的解释 ══ */
+var Q = {
+3: [{"q": "轨迹分布 p_θ(τ) = p(s_1)·Π_t π_θ(a_t|s_t)p(s_{t+1}|s_t,a_t) 里，哪些因子含 θ？这件事为什么要紧？", "o": ["三个都含 θ，所以求梯度时要用链式法则逐项展开", "只有动力学含 θ，因为策略影响了状态转移", "初始分布与策略含 θ，动力学不含", "只有策略那一项含 θ；初始分布与动力学都不含，所以取对数求梯度时它们整块消失 —— 最终的式子里没有环境模型"], "a": 3, "why": "这是整段推导能走通的唯一理由。p9 把 log p_θ(τ) 拆成三项后，不含 θ 的两项导数为 0（讲义直接用红线划掉），于是 ∇_θJ 里只剩 ∇_θ log π_θ —— 一次反向传播就能算。「无模型」三个字就是从这里来的。"}],
+7: [{"q": "为什么不能直接对 J(θ) = E_{τ~p_θ}[r(τ)] 求导？讲稿给了两个理由。", "o": ["因为 J(θ) 是非凸的", "因为期望里有无穷多条轨迹", "① θ 只通过「采样出来的轨迹」影响 J，没法对采样过程求导；② 采样过程还依赖未知的环境动力学", "因为 r(τ) 不可导"], "a": 2, "why": "两条障碍是独立的，而且第二条更硬：就算你能对采样求导，你也不知道 p(s_{t+1}|s_t,a_t)。所以出路不是「让采样可导」，而是把 θ 从采样分布里挪进被平均的那个量里 —— 这正是下一页对数梯度技巧做的事。"}],
+8: [{"q": "对数梯度技巧 p·∇log p = ∇p 在这里是「反着用」的。反着用是指什么，买到了什么？", "o": ["指把梯度从积分里搬到积分外", "指看到 ∇p 就把它写成 p·∇log p，凭空造出一个 p —— 而那个 p 正是把积分重新读成期望所需要的", "指先求 log 再求梯度，顺序反过来", "指用数值微分代替解析微分"], "a": 1, "why": "∫∇p·r dτ 前面没有 p，不是期望、估不了；换成 ∫p·∇log p·r dτ 之后又有了 p_θ(τ)·(…) 的形状，于是能用样本估。关键词是讲稿说的 inside：θ 从下标（分布里）挪进了方括号（函数里）。注意它并没有让采样过程变得可导。"}],
+10: [{"q": "REINFORCE 的第三步写作 θ ← θ + α∇_θJ(θ)。实现时用 PyTorch 的 optimizer 要注意什么？", "o": ["不用注意，optimizer 会自动识别", "要关掉动量，否则方向会反", "这是梯度上升（在最大化回报），而 optimizer 默认做下降，所以喂进去的 loss 要取负号", "要把学习率设成负数"], "a": 2, "why": "J 是要最大化的期望回报，所以是加号。搞反了代码照样能跑，只是越训越差 —— 这是最容易出错又最不容易发现的一处。另外两处常见的坑：只取实际执行过的那个动作的概率；因果性修正后第二个求和要嵌在第一个里面。"}, {"q": "讲稿里讲者自己承认幻灯上有一处笔误（p10 与 p18 同一处）。是什么？", "o": ["r(τ) 应当写成 r(s,a) 的平均而不是求和", "第二个求和号应当在第一个求和号的里面（因果性修正之后）", "N 应当写成 N−1", "梯度符号应当是减号"], "a": 1, "why": "原话：Note that I actually do have a typo on these equations, where this second sum should be inside the first sum。这个笔误是课上被学生当场提醒的（p13 处）。注意 p10 那个两个求和并列的版本在因果性修正之前本身是对的，修正之后才必须嵌套。"}],
+11: [{"q": "幻灯用同一个浅青色底标出了策略梯度与行为克隆梯度里相同的那一块。这说明了什么？", "o": ["两个算法的收敛速度相同", "两者共用同一个超参数", "策略梯度的左半边逐字等于行为克隆的梯度 —— 策略梯度就是「模仿自己的数据，但每条数据带一个分数」", "行为克隆是策略梯度在 r(τ) = 0 时的特例"], "a": 2, "why": "不是比喻：两者共用同一段反向传播，差别只有右边那个回报权重。而因为权重可以是负的，策略梯度获得了行为克隆没有的能力——说「别像那个」。这也是它能越过示范者天花板的机制。"}],
+12: [{"q": "人形机器人例一里，τ⁴「前进一小步然后向后倒」为什么会拿到负梯度？这暴露了什么毛病？", "o": ["因为它的前进速度不够快", "因为整条轨迹的回报和为负，而权重用的是整条轨迹的回报 —— 那个正确的「迈一步」被坏结局连坐了", "因为它的轨迹长度比别的短", "因为策略是随机的，这一条只是噪声"], "a": 1, "why": "毛病的根源是「一条轨迹里的好动作与坏动作共用同一个分数」。修法是下一页的因果性：让每个动作只为它之后的奖励负责。注意这个例子里连「向前迈步」都被劝退了，而那正是我们想要的行为。"}, {"q": "讲稿给出了「为什么要采多条轨迹」的两个独立理由。是哪两个？", "o": ["策略本身是随机的（环境确定也一样）；环境可能是随机的（策略确定也一样）", "为了降低偏差、为了加快收敛", "为了估计基线、为了估计方差", "为了探索不同策略、为了填满 GPU 批量"], "a": 0, "why": "两个来源互相独立，各自单独存在就足以要求多条轨迹，而且两者都在给回报权重贡献方差。这一点在你把策略梯度用到真实系统上时很要紧：如果环境方差本身就大，那么再怎么降低策略的随机性也压不住梯度的噪声。"}],
+13: [{"q": "因果性修正把内层求和从 t′=1 改成 t′=t。它能剥掉什么、不能剥掉什么？", "o": ["能剥掉所有负奖励", "能剥掉未来的奖励；不能剥掉过去的奖励", "能剥掉过去的奖励（肯定与当前动作无关）；不能剥掉未来的奖励（可能正是当前动作造成的）", "两边都能剥，只是会引入偏差"], "a": 2, "why": "判据是因果方向。讲者特意点明它救不了「前进一步导致后来摔倒」那一类 —— 那个因果关系是真的，那笔账必须算在那一步上。另外她也坦白这件事不好严格写出来：it's really just about causality in the world。"}, {"q": "讲稿提到固定时域 T 会带来一个容易忽略的问题。是什么？", "o": ["T 固定时因果性修正不成立", "T 固定时状态不再是真正马尔可夫的，除非状态里带上「还剩几步」的信息", "T 太大会让梯度爆炸", "T 固定时必须用折扣因子"], "a": 1, "why": "如果时域固定为 10 而策略不知道还剩几步，那么同一个物理状态在 t=2 和 t=9 该做的事不同，策略却分辨不出来 —— 这时它就不是真正的马尔可夫状态。实现时要把剩余步数放进状态。"}],
+14: [{"q": "例二里四条轨迹回报全为正，梯度把四种行为都鼓励了。学生猜这是局部最优，讲者怎么回答？", "o": ["确认是局部最优，需要换一个优化器", "说这是因为批量太大", "明确否定：这是方差问题（it comes down to variance），最终仍会收敛到全局最优，只是会更慢", "说这取决于奖励函数是否连续"], "a": 2, "why": "这个区分很要紧：「会收敛到错的地方」要换算法，「会很慢地收敛到对的地方」只要更多样本或更低方差的估计量。幻灯在这一页新加的诊断是 sensitive to reward scale —— 给奖励整体加常数，策略好坏没变但梯度行为全变。"}, {"q": "有人问「这会鼓励机器人向前滚吗」，讲者的回答揭示了策略梯度的一个边界。是什么？", "o": ["它只会在采样到的行为之间重新分配概率，采不到的行为它鼓励不了", "它只在确定性环境下成立", "它需要奖励函数可导", "它只能处理连续动作空间"], "a": 0, "why": "原话：With this data, it will not encourage it to roll forward... If you had data of rolling forward, then it would encourage it to roll forward。这解释了为什么初始化（p6）和探索这么重要：没被采样到的行为，这个算法完全看不见。"}]
+};
+
+var N = [
+{"r": [1, 2], "t": "这一讲的位置：第一个在线 RL 算法，也是后面 PPO / RLHF 的地基", "star": 1, "quote": "<em><b>Policy Gradients</b> — CS 224R</em><br><em><b>Course reminders.</b> Start forming <b>final project groups</b> (survey due next Wednesday). <b>Homework 1</b> out, due Fri April 18.</em>", "one": "<b>标题页与课务页本身没有知识内容，但值得记一句：这一讲在课程里的位置是<span class='k'>分水岭</span> —— 前两讲（MDP、模仿学习）都不需要自己去试，从这一讲起策略要自己收集数据。</b>", "pts": ["<b>前两讲与这一讲的分界，讲稿第一段就点明了。</b> <span class='k'>L02 的模仿学习「cannot outperform the demonstrator and doesn't allow improvement through trial and error」</span>；<b>而这一讲要讲的是 <code>ways in which we can use reinforcement learning to outperform the demonstrator to improve from practice</code></b>。", "<b>讲者还交代了这一讲的分量</b>：<span class='w'>策略梯度是「用来训练腿式机器人的算法」「用来训练语言模型的算法」的基础，也是本课默认项目的一部分</span>。<b>⚠ 但她同时说清今天到不了终点</b>：<code>We won't get the complete algorithm that was used to train these today, but we'll get most of—or halfway there</code>。", "<b>所以读这一讲时要带着「这是半成品」的预期。</b> <span class='k'>真正能用的 PPO 要等 L05</span>，<b>这一讲给的是它的<b>全部零件</b></b>：<span class='w'>对数梯度技巧、因果性、基线、重要性采样、KL 约束</span>。<b>⇒ 看懂这五个零件，PPO 就只是把它们拼起来</b>。"], "tip": {"t": "这两页可以快速翻过", "v": "<b>p1 是标题页，p2 是课务提醒（组队调查、作业截止日期）。</b>这一讲 28 页里真正的内容是 <b>p3–p26</b>：p27 原样重复了 p5 的提纲，p28 是下一讲预告加同一份课务提醒。<b>⇒ 本精读在这两页只放一条「它在课程里的位置」，不硬凑。</b>", "w": 0}},
+{"r": [3, 4], "t": "回顾：目标是最大化期望回报，而模仿学习的天花板就是示范者本人", "star": 2, "quote": "<em><b>Recap.</b> state <b>s</b><sub>t</sub> · action <b>a</b><sub>t</sub> · trajectory τ · reward function r(<b>s</b>,<b>a</b>) · policy π(<b>a</b>|<b>s</b>)</em><br><em><b>Goal</b>: learn policy π<sub>θ</sub> that maximizes <em>expected</em> sum of rewards: max<sub>θ</sub> E<sub>τ~p<sub>θ</sub>(τ)</sub>[Σ<sub>t</sub><sup>T</sup> r(<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)]　where p(<b>s</b><sub>1</sub>,<b>a</b><sub>1</sub>,…) = p(<b>s</b><sub>1</sub>)Π<sub>t</sub>π<sub>θ</sub>(<b>a</b><sub>t</sub>|<b>s</b><sub>t</sub>)p(<b>s</b><sub>t+1</sub>|<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)</em><br><em>Imitation learning from demonstrations 𝒟: min<sub>θ</sub> −E<sub>(<b>s</b>,<b>a</b>)~𝒟</sub>[log π<sub>θ</sub>(<b>a</b>|<b>s</b>)]</em><br><em>+ Simple, scalable approach for learning performant behavior</em><br><em>− Cannot outperform demonstrator, doesn't allow improvement from practice</em><br><em><b>Definitions.</b> <em>offline</em>: using only an existing dataset, no new data from learned policy. <em>online</em>: using new data from learned policy</em>", "one": "<b>轨迹分布 <code>p_θ(τ)</code> 里只有<span class='k'>一个</span>因子含 <code>θ</code>（策略那一项），初始分布和动力学都不含 —— 这件事看着平凡，却是后面整段推导能走通的<span class='w'>唯一</span>理由。</b>", "pts": ["<b>先把那个乘积拆开看，因为后面要逐项对它求梯度。</b> <code>p_θ(τ) = p(s_1)·Π_t π_θ(a_t|s_t)·p(s_{t+1}|s_t,a_t)</code>：<span class='k'>三个因子，分别是「世界怎么开局」「你怎么选动作」「世界怎么回应」</span>。<b>⚠ 只有中间那个带 <code>θ</code></b>。", "<b>目标里那个 <b>expected</b> 是斜体的，讲义在强调它。</b> <span class='w'>期望同时对两种随机性取：策略自己的随机性，和环境的随机性</span>（<b>L01 的讲稿里专门有一段课堂问答在区分这两个来源</b>）。<b>⇒ 于是「这个策略有多好」不能靠看网络权重知道，只能跑</b>。", "<b>模仿学习那一行的两条评价要连起来读。</b> <span class='k'>「+ 简单、可扩展」与「− 打不过示范者、无法靠练习改进」说的是同一件事的两面</span>：<b>它只拟合了 <code>𝒟</code> 里的动作，而 <code>𝒟</code> 的质量就是它的天花板</b>。<span class='w'>⚠ L02 的讲稿里有一句幻灯上完全没有的话：「上界永远是专家」</span>。", "<b>offline / online 的定义框要原样记住，因为后面 p20 还会出现一个<b>长得很像但不是一回事</b>的框。</b> <span class='k'>这里分的是「有没有用学到的策略去采新数据」；p20 分的是 on-policy / off-policy，即「更新时用的数据是不是当前这个策略产生的」</span>。<b>⚠ 两组词的四个格子都存在，别混</b>。", "<b>讲稿把这一讲的目标说得比幻灯更直白</b>：<span class='w'>模仿学习「assumes that it's good data」</span>，<b>而策略梯度「actually using this reward, whereas in imitation learning, you're just blindly imitating all the data without any notion of how good the data is」</b>。<span class='k'>⇒ 两者的差别不在网络结构，在「要不要给数据打分」</span>。"], "eq": "p_θ(τ) = p(s_1) · Π_{t=1}^{T} π_θ(a_t|s_t) · p(s_{t+1}|s_t,a_t)\n         └ 不含 θ ┘  └── 含 θ ──┘   └──── 不含 θ ────┘\n\n目标：max_θ  J(θ) = E_{τ~p_θ(τ)}[ Σ_t r(s_t,a_t) ]\n\n模仿学习：min_θ  −E_{(s,a)~𝒟}[ log π_θ(a|s) ]\n  + 简单、可扩展\n  − 打不过示范者，无法靠练习改进", "tbl": {"head": ["两组容易混的词", "分的是什么", "出现在哪一页"], "rows": [["offline / online", "有没有用<b>学到的策略</b>去采集新数据", "p4 的定义框"], ["on-policy / off-policy", "更新时用的数据是不是<b>当前</b>策略产生的", "p20 的定义框"], ["⚠ 四个格子都存在", "在线 + off-policy 就是 p21–p24 要做的事", "—"]]}, "say": "<b>讲稿里这一段把「为什么不能直接看权重」说得很好，值得原样抄下来</b>：<br><em>“say you have some policy, and you want to actually understand how good that policy is, to do that, <b>we can't just actually look at the weights of the neural network. We actually have to run the policy</b> to understand how good it is.”</em><br><b>⇒ 这句话是整个在线 RL 的前提</b>：<span class='k'>目标函数 <code>J(θ)</code> 的值只能靠采样估计，不能解析计算</span>，<span class='w'>而这正是后面要费那么大力气去绕过「对采样过程求导」的原因</span>。", "link": {"t": "你学过的对应：CS224R L02 模仿学习：行为克隆与 DAgger（那一讲讲清了模仿学习的两个毛病——表达力不足与复合误差，而且它们会相乘。这一讲的出发点正是它的第二条评价「打不过示范者」）", "href": "L02-精读.html"}},
+{"r": [5, 6], "t": "在线 RL 的骨架：采一批数据、用它改进策略、再采 —— 以及初始化的三种办法", "star": 2, "quote": "<em><b>The plan for today.</b> Policy gradients: our first <b>online RL</b> algorithm. 1. On-policy policy gradient (a. Derivation and intuition b. Full algorithm c. How to make it better - causality and baselines) 2. Off-policy policy gradients (a. Importance sampling b. KL constraints)</em><br><em><b>Key learning goals</b>: Key intuition behind policy gradients · How to implement, when to use policy gradients</em><br><em><b>Online RL Outline.</b> First: Initialize the policy (randomly, with imitation learning, with heuristics) → Run policy to collect batch of data ⇄ Improve policy using batch of data</em>", "one": "<b>两个方框加一个箭头，就是这一讲之后所有在线 RL 算法的骨架。<span class='k'>真正要回答的只有一个问题：拿到那批数据之后，怎么改进策略。</span>采数据那一半在 L01 就讲完了。</b>", "pts": ["<b>先看初始化那三个选项，括号里写得很随意但它们的差别很大。</b> <span class='k'>随机初始化 · 用模仿学习初始化 · 用启发式初始化</span>。<b>讲稿把选择的判据说清了</b>：<span class='w'>「If you start completely from a randomly initialized policy, it will do random stuff. And if you have a very dense reward signal, that can be OK」</span>；<b>而有示范数据时，「initializing it with demonstrations can be a very good fit, and then it will allow you to improve on top of your initial policy」</b>。", "<b>⇒ 这给了一个很实用的判据：<span class='k'>奖励越稀疏，越需要一个像样的初始策略</span>。</b> <span class='w'>因为随机策略在稀疏奖励下几乎永远拿不到正信号，梯度就是 0</span>（<b>p17 的叠衣服例子会把这件事演一遍</b>）。", "<b>右边那三幅「iteration 1/2/3」的图在讲一件很具体的事：分布在收紧。</b> <span class='k'>第一轮：几条轨迹，有的差（✗）有的还行（✓）；第二轮：差的少了；第三轮：全是好的</span>。<b>⚠ 注意图里的轨迹束是<b>变细</b>的</b>——<span class='w'>这不只是「变好」，还是「变确定」</span>。", "<b>提纲页把这一讲切成两半，而这个切法值得记住</b>：<span class='k'>上半是 <b>on-policy</b>（推导 + 完整算法 + 两个改进），下半是 <b>off-policy</b>（重要性采样 + KL 约束）</span>。<b>两半之间的分界就是 p20 那个「每走一步梯度都得重采数据」的毛病</b>。", "<b>「Key learning goals」里第二条是 <code>when to use policy gradients</code>，这条在整讲里是用<b>反例</b>回答的。</b> <span class='w'>p12、p14、p17 三个「What does the gradient do?」各给一个让人不舒服的结果</span>，<b>最后收敛成一句：<span class='k'>best with dense rewards, large batches</span></b>。", "<b>⚠ 一处值得先知道的结构：这一讲的「改进」是<b>层层叠加</b>的，不是互相替代。</b> <span class='k'>因果性（p13）、基线（p16）、重要性采样（p21）三件事可以<b>同时</b>用</span>，<b>而且讲稿里有人专门问了因果性与基线能不能一起用</b>：<span class='w'>「You can combine them. You need to be a little bit—you need to think a little bit potentially more carefully about what the baseline will be」</span>。"], "eq": "在线 RL 的骨架：\n\n  初始化策略（随机 / 模仿学习 / 启发式）\n        ↓\n  ┌→ 跑策略，采一批数据 ─┐\n  │                      ↓\n  └─ 用这批数据改进策略 ←┘\n\n  采数据：L01 已经讲完（采动作 → 看下一个状态 → 再采）\n  改进：  ← 这一讲的全部内容", "tbl": {"head": ["初始化方式", "什么时候合适", "讲稿怎么说"], "rows": [["随机", "奖励很<b>稠密</b>时可以", "it will do random stuff... if you have a very dense reward signal, that can be OK"], ["模仿学习", "⭐ 手上有示范数据时", "a very good fit, and then it will allow you to improve on top of your initial policy"], ["启发式", "有现成的规则策略时", "依问题而定（讲义只列了选项，未展开）"]]}, "say": "<b>讲稿里有一段课堂问答，问的正是实践中最常见的那个组合，值得原样留下</b>：<br><em>“the question was, in practice, does it make sense to <b>start with imitation learning, run that for some number of iterations, and then switch to this</b>? That can definitely make sense.”</em><br><b>⇒ 「先模仿、再强化」是这门课后面反复出现的范式</b>（<span class='k'>RLHF 就是「先 SFT 再 RL」</span>），<span class='w'>而它的理由在这一页就说清了：模仿给你一个不差的起点，强化让你越过示范者的天花板</span>。<br><b>⚠ 另有一问被讲者明确泼了冷水</b>：有人问能不能用模仿学习反推出奖励函数，她答 <em>“We'll talk about reward learning in a few lectures... <b>In practice, it's challenging.</b>”</em>"},
+{"r": [7, 7], "t": "目标只能用样本估计 —— 而这恰恰是不能直接求导的原因", "star": 2, "quote": "<em><b>Evaluating the RL objective.</b> θ<sup>★</sup> = arg max<sub>θ</sub> E<sub>τ~p<sub>θ</sub>(τ)</sub>[Σ<sub>t</sub> r(<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)]　←<sub>J(θ)</sub></em><br><em>J(θ) = E<sub>τ~p<sub>θ</sub>(τ)</sub>[Σ<sub>t</sub> r(<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)] ≈ (1/N) Σ<sub>i</sub> Σ<sub>t</sub> r(<b>s</b><sub>i,t</sub>,<b>a</b><sub>i,t</sub>)　— sum over samples from π<sub>θ</sub></em><br><em>(Slide adapted from Sergey Levine)</em>", "one": "<b>评估一个策略只有一个办法：<span class='k'>跑它 N 次，把回报平均</span>。这一页看着只是「蒙特卡洛估计」四个字，但它把难点摆了出来 —— <code>θ</code> 是通过<span class='w'>采样过程</span>影响目标的，而采样过程不可导。</b>", "pts": ["<b>估计式本身平凡：<code>J(θ) ≈ (1/N)Σ_i Σ_t r(s_{i,t},a_{i,t})</code>，跑 <code>N</code> 条轨迹取平均。</b> <span class='k'>箭头注明 <code>sum over samples from π_θ</code>，强调这些样本必须来自<b>当前</b>策略</span>——<b>这个约束在 p20 会变成一个大麻烦</b>。", "<b>⭐ 真正的内容在讲稿里，幻灯没写：为什么不能直接对它求导。</b> <span class='w'>讲者原话：<em>“it's a little bit challenging to try to get a gradient of this thing directly because <b>the relationship that this has on theta is through the trajectories that we sampled. So we can't just differentiate through the sampling process.</b>”</em></span>", "<b>而且还有第二层障碍，比第一层更硬</b>：<span class='k'><em>“And that sampling process <b>also depends on the dynamics of the world, which we also don't know.</b>”</em></span> <b>⇒ 就算你能对采样求导，你也不知道 <code>p(s_{t+1}|s_t,a_t)</code> 是什么</b>。", "<b>这两条合起来决定了整段推导的形状</b>：<span class='w'>必须把 <code>θ</code> 从「采样分布」里挪到「被平均的那个量」里面去</span>。<b>下一页的对数梯度技巧做的正是这件事</b>——<span class='k'>讲稿里说得很准：<em>“the thing that's different here is that <b>theta actually appears inside the expectation</b>”</em></span>。", "<b>⚠ 一个常见的误解要在这里先堵掉：对数梯度技巧<b>并没有</b>让采样过程变得可导。</b> <span class='k'>讲者自己澄清了：<em>“Now we're not going to be able to differentiate through the sampling, still. But the thing that's useful here is that we will actually be able to differentiate with respect to theta.”</em></span> <b>⇒ 它换的是「求导的对象」，不是「采样可不可导」</b>。", "<b><code>N</code> 要多大？讲稿给的答案很朴素但是对的</b>：<span class='w'><em>“ideally, n is larger because the higher n is, the better an estimate you're going to get”</em></span>。<b>⚠ 这句话在这一页还只是统计常识，但到 p12/p14/p17 会变成这个算法的<b>主要缺陷</b></b>——<span class='k'>方差大到必须靠大批量硬压</span>。"], "eq": "J(θ) = E_{τ~p_θ(τ)}[ Σ_t r(s_t,a_t) ]  ≈  (1/N) Σ_{i=1}^{N} Σ_t r(s_{i,t}, a_{i,t})\n                                              └ 必须是从当前 π_θ 采的样本 ┘\n\n为什么不能直接求导（讲稿，幻灯未写）：\n  ① θ 只通过「采样出来的轨迹」影响 J  ⇒ 没法对采样过程求导\n  ② 采样过程还依赖未知的环境动力学 p(s_{t+1}|s_t,a_t)\n\n⇒ 必须把 θ 从「采样分布」挪进「被平均的那个量」里 —— 这就是下一页在做的事", "res": {"tag": "推断", "v": "<b>「只能跑才知道有多好」这一条，在你的场景里就是「只能真的调一次 API 才知道这个配置的 <code>Acc</code>」，而这正是整个课题的成本结构。</b> <span class='k'>区别在于：RL 里跑一次只花算力，你这里跑一次花钱，而且 <code>Cost</code> 那一半<b>本身就是你要优化的目标</b></span>。<b>⇒ 一个值得记下来的不对称：<span class='w'>评估一个配置的代价，与那个配置的 <code>Cost</code> 项正相关</span>——越贵的配置，评估它也越贵</b>。<span class='k'>这在标准 RL 里不存在（跑一条差轨迹和跑一条好轨迹一样贵）</span>，<b>而它意味着「均匀地评估所有配置」在你这里不仅低效、还系统性地偏向高估便宜配置被测的次数</b>。⚠ <b>这是推断，没有在任何一讲里见过</b>；但它可以直接接到简报 §4d 的穷举 oracle 上 —— <span class='w'>那张表的成本估算里「多数是 7B」正是在利用这个不对称</span>。", "ref": "本讲 p7（讲稿「we actually have to run the policy」）· 简报 §4d（穷举 oracle 的成本估算）"}},
+{"r": [8, 8], "t": "对数梯度技巧：一个两行的恒等式，把 θ 挪进期望里面", "star": 3, "quote": "<em><b>Can we get the gradient of the RL objective?</b> Let's start in terms of trajectories.</em><br><em><b>a convenient identity</b>: p<sub>θ</sub>(τ)∇<sub>θ</sub> log p<sub>θ</sub>(τ) = p<sub>θ</sub>(τ)·∇<sub>θ</sub>p<sub>θ</sub>(τ)/p<sub>θ</sub>(τ) = ∇<sub>θ</sub>p<sub>θ</sub>(τ)</em><br><em>J(θ) = E<sub>τ~p<sub>θ</sub>(τ)</sub>[r(τ)] = ∫ p<sub>θ</sub>(τ)r(τ)dτ　　(r(τ) = Σ<sub>t=1</sub><sup>T</sup> r(<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>))</em><br><em>∇<sub>θ</sub>J(θ) = ∫ <u>∇<sub>θ</sub>p<sub>θ</sub>(τ)</u>r(τ)dτ = ∫ <u>p<sub>θ</sub>(τ)∇<sub>θ</sub> log p<sub>θ</sub>(τ)</u>r(τ)dτ = E<sub>τ~p<sub>θ</sub>(τ)</sub>[∇<sub>θ</sub> log p<sub>θ</sub>(τ)r(τ)]</em>", "one": "<b>整个推导的转折点就一步：把 <code>∇p</code> 换成 <code>p·∇log p</code>。换完之后积分里重新出现了一个 <code>p_θ(τ)·(…)</code> 的形状，于是又可以读成<span class='k'>期望</span>，而期望是能用样本估的。</b>", "pts": ["<b>第一步是把期望写成积分：<code>J(θ) = ∫ p_θ(τ)r(τ)dτ</code>。</b> <span class='k'>这只是期望的定义</span>；<b>第二步把梯度搬进积分号里（<code>∇∫ = ∫∇</code>，因为积分是线性的）</b>，<span class='w'>得到 <code>∫ ∇_θp_θ(τ)·r(τ)dτ</code></span>。", "<b>⚠ 但到这里还没有任何进展，讲者自己也这么说</b>：<span class='w'><em>“this doesn't really help us directly in any way, because we don't want to have to evaluate this integral in order to take a gradient”</em></span>。<b><code>∫∇p·r</code> 不是一个期望——它前面没有 <code>p</code>，没法用采样估</b>。", "<b>恒等式本身只有两步，而且它是<b>反着</b>用的。</b> <span class='k'>正着看：<code>p·∇log p = p·(∇p/p) = ∇p</code>（对数求导 + 链式法则 + 约分）</span>；<b>反着用：看到 <code>∇p</code> 就把它写成 <code>p·∇log p</code></b>。<span class='w'>⇒ 凭空「造」出一个 <code>p</code> 来，而那个 <code>p</code> 正是把积分变回期望所需要的</span>。", "<b>⭐ 这一招的名字叫 log-derivative trick 或 score function estimator，值得单独记住，因为它远不止用在 RL 里。</b> <span class='k'>凡是「要对一个<b>分布的参数</b>求导，而被积的函数又不依赖那个参数」的场合，它都适用</span>——<b>变分推断、离散隐变量模型、乃至 p16 证明基线无偏时还会再用一次（而且是反着用）</b>。", "<b>换完之后的结果：<code>∇_θJ(θ) = E_{τ~p_θ}[∇_θ log p_θ(τ)·r(τ)]</code>。</b> <span class='w'>形状上很像原目标，只是被平均的量从 <code>r(τ)</code> 变成了 <code>∇log p_θ(τ)·r(τ)</code></span>。<b>⇒ 可以采样估了，但还剩一个问题：<code>∇log p_θ(τ)</code> 里有未知的动力学</b>。", "<b>讲稿里有一处很好的提醒，说明这一步到底买到了什么</b>：<span class='k'><em>“the thing that's useful here is that <b>theta actually appears inside the expectation</b>... we could potentially draw many, many samples. And then measure this quantity to get actually a pretty accurate representation of the gradient <b>in a way that actually depends on theta</b>.”</em></span> <b>⇒ 关键词是 <b>inside</b>：原来 <code>θ</code> 在下标上（分布里），现在在方括号里（函数里）</b>。"], "eq": "便利恒等式（反着用）：\n  p_θ(τ)·∇_θ log p_θ(τ)  =  p_θ(τ)·∇_θp_θ(τ)/p_θ(τ)  =  ∇_θ p_θ(τ)\n  └──── 这个形状能读成期望 ────┘                      └ 这个不能 ┘\n\n推导：\n  J(θ)      = ∫ p_θ(τ) r(τ) dτ                       （期望的定义）\n  ∇_θJ(θ)   = ∫ ∇_θ p_θ(τ) · r(τ) dτ                 （积分线性，梯度搬进去）\n              ↑ 这里卡住：前面没有 p，估不了\n            = ∫ p_θ(τ) ∇_θ log p_θ(τ) · r(τ) dτ      （恒等式反着用，造出一个 p）\n            = E_{τ~p_θ(τ)}[ ∇_θ log p_θ(τ) · r(τ) ]   ✔ 能采样估了\n\n⚠ θ 从「下标」（分布里）挪进了「方括号」（函数里）—— 这就是这一步买到的全部东西", "say": "<b>讲稿里这一段是课堂上现场推的，而且有一处问答值得留着 —— 它回答了「这一步到底有没有解决那个根本困难」</b>：<br><em>“So the question is, how is this more useful than the first term, because we still have the sampling, and the issue with the first case was that we can't differentiate through the sampling? ... <b>Now we're not going to be able to differentiate through the sampling, still.</b> But the thing that's useful here is that we will actually be able to differentiate with respect to theta.”</em><br><b>⇒ 答案是「没有解决，而是绕开了」</b>：<span class='k'>采样过程仍然不可导，但现在要求导的对象是 <code>log π_θ</code>，那是一个神经网络的输出，自动微分直接能算</span>。<span class='w'>⚠ 这个区别在实现时很要紧：你<b>不</b>反传穿过环境，只反传穿过策略网络</span>。", "link": {"t": "你学过的对应：CS234 L08 策略梯度（同一个对数梯度技巧在那边也推了一遍，可以对照着看两位讲者的记号差异；CS234 那边后面接的是 TRPO，这边接的是 PPO）", "href": "../../reinforcement learning/corpus/cs234-2019/中文精读/L08-精读.html"}},
+{"r": [9, 9], "t": "动力学自己消失了 —— 这是策略梯度最值钱的一条性质", "star": 3, "quote": "<em><b>Can we get the gradient of the RL objective?</b> From trajectories to final form.</em><br><em>p<sub>θ</sub>(τ) = p(<b>s</b><sub>1</sub>)Π<sub>t=1</sub><sup>T</sup> π<sub>θ</sub>(<b>a</b><sub>t</sub>|<b>s</b><sub>t</sub>)p(<b>s</b><sub>t+1</sub>|<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)</em><br><em>log p<sub>θ</sub>(τ) = <s>log p(<b>s</b><sub>1</sub>)</s> + Σ<sub>t=1</sub><sup>T</sup> log π<sub>θ</sub>(<b>a</b><sub>t</sub>|<b>s</b><sub>t</sub>) + <s>log p(<b>s</b><sub>t+1</sub>|<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>)</s></em><br><em>∇<sub>θ</sub>J(θ) = E<sub>τ~p<sub>θ</sub>(τ)</sub>[(Σ<sub>t=1</sub><sup>T</sup> ∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>t</sub>|<b>s</b><sub>t</sub>))(Σ<sub>t=1</sub><sup>T</sup> r(<b>s</b><sub>t</sub>,<b>a</b><sub>t</sub>))]</em>", "one": "<b>取完对数，乘积变成求和；对 <code>θ</code> 求梯度，初始分布那一项和动力学那一项<span class='k'>整块消失</span>（讲义用红线划掉）。于是最终的式子里<span class='w'>完全没有环境模型</span> —— 这就是「无模型」三个字的来历。</b>", "pts": ["<b>两步，都很机械。</b> <span class='k'>① <code>log</code> 把乘积变成求和：<code>log p_θ(τ) = log p(s_1) + Σ_t log π_θ(a_t|s_t) + Σ_t log p(s_{t+1}|s_t,a_t)</code></span>；<b>② 对 <code>θ</code> 求梯度，不含 <code>θ</code> 的项导数为 0</b>。<span class='w'>讲义直接在那两项上划了红线</span>。", "<b>⭐ 这一步的分量怎么强调都不过分，因为被划掉的正是<b>你不知道</b>的那部分。</b> <span class='k'>讲稿：<em>“theta doesn't affect the initial state distribution. It also doesn't affect the dynamics in any way.”</em></span> <b>⇒ 于是整个算法<b>不需要知道环境怎么运转</b></b>——<span class='w'>既不用学模型，也不用假设模型</span>。", "<b>剩下的那一项是能算的，而且算起来很便宜</b>：<span class='k'>讲稿说 <em>“this is just taking a backward pass through the log of the output of our neural network”</em></span>。<b>⇒ 一次反向传播，自动微分搞定</b>。", "<b>最终形式里有两个<b>互相独立</b>的求和，这个结构要看清楚：</b> <span class='w'>左边 <code>(Σ_t ∇_θ log π_θ(a_t|s_t))</code> 只和<b>策略</b>有关，右边 <code>(Σ_t r(s_t,a_t))</code> 只和<b>奖励</b>有关</span>。<b>⚠ 右边那一项对 <code>θ</code> 完全没有依赖，它在梯度里就是一个<b>标量权重</b></b>。", "<b>这个「梯度 × 标量」的结构解释了后面所有改进的空间在哪里。</b> <span class='k'>既然右边只是个权重，那么<b>换一个更好的权重</b>就是唯一能动的地方</span>：<b>p13 把它换成「只看未来」，p16 把它减掉一个基线，L04 会把它换成优势函数</b>。<span class='w'>⇒ 三个改进是同一个位置上的三次替换</span>。", "<b>⚠ 一个常被忽略的后果：动力学消失了，但它的<b>影响</b>没有消失。</b> <span class='k'>环境的随机性仍然进到了 <code>r(τ)</code> 这个权重的<b>方差</b>里</span>——<b>讲稿在后面解释「为什么要采多条轨迹」时专门提了这一点</b>：<span class='w'><em>“the environment might be stochastic. And so even if you have a deterministic policy, you might see different outcomes”</em></span>。"], "eq": "log p_θ(τ) = log p(s_1) + Σ_t log π_θ(a_t|s_t) + Σ_t log p(s_{t+1}|s_t,a_t)\n             ╰─ 不含 θ ─╯                            ╰──── 不含 θ ────╯\n\n∇_θ log p_θ(τ) =        0        + Σ_t ∇_θ log π_θ(a_t|s_t) +        0\n\n⇒  ∇_θJ(θ) = E_{τ~p_θ(τ)}[ ( Σ_t ∇_θ log π_θ(a_t|s_t) ) · ( Σ_t r(s_t,a_t) ) ]\n                            └──── 只和策略有关 ────┘    └─ 只和奖励有关，是个标量权重 ─┘\n\n⭐ 式子里没有环境模型 ⇒ 「无模型」；而后面所有改进都在换右边那个权重", "tbl": {"head": ["后面三次改进，换的都是右边那个权重", "权重变成什么", "在哪一页"], "rows": [["原始", "Σ_{t=1}^{T} r(s_t,a_t)（整条轨迹的回报）", "p9–p12"], ["因果性", "Σ_{t′=t}^{T} r(s_{t′},a_{t′})（只看未来）", "p13"], ["基线", "(Σ_{t′=t}^{T} r) − b（减掉平均回报）", "p16"], ["优势函数（下一讲）", "A(s_t,a_t) = Q − V", "L04"]]}, "res": {"tag": "推断", "v": "<b>「动力学整块消失」这件事落到你的 workflow 上，有一个相当直接的好处，也有一个容易被忽略的代价。</b> <b>好处</b>：<span class='k'>你<b>不需要</b>给「上一个节点的输出会怎样影响下一个节点」建模 —— 那正是 workflow 里最难建模、也最不稳定的一环</span>。<b>⇒ 若把 node-level fidelity assignment 做成策略梯度，整个「LLM 之间怎么互相影响」的建模负担一笔勾销</b>。<b>代价</b>：<span class='w'>环境随机性全部进了权重的方差里，而你的「环境」是 LLM 本身，方差极大</span>——<b>同一个配置跑两次 <code>Acc</code> 可能差很多（简报 §3【已核】记着 AFlow 在 <code>D_V</code> 上跑 5 次正是为了压这个）</b>。<span class='k'>⇒ 所以「无模型」在这里不是免费的：它把建模的难度换成了<b>采样量</b>的需求，而采样在你这里是真金白银</span>。⚠ <b>这是推断</b>；要检验它，最直接的就是先量一下同一配置重复跑的 <code>Acc</code> 方差有多大，再决定走不走这条路。", "ref": "本讲 p9 · 简报 §3（Executor 在 D_V 上跑 5 次）· 简报 §4e（两半分别用什么估计量）"}},
+{"r": [10, 10], "t": "REINFORCE：把期望换成样本平均，三行就是完整算法", "star": 2, "quote": "<em><b>Estimating the gradient.</b> ∇<sub>θ</sub>J(θ) ≈ (1/N) Σ<sub>i=1</sub><sup>N</sup>(Σ<sub>t=1</sub><sup>T</sup> ∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>i,t</sub>|<b>s</b><sub>i,t</sub>))(Σ<sub>t=1</sub><sup>T</sup> r(<b>s</b><sub>i,t</sub>,<b>a</b><sub>i,t</sub>))</em><br><em>θ ← θ + α∇<sub>θ</sub>J(θ)</em><br><em><b>Full algorithm:</b> 1. sample {τ<sup>i</sup>} from π<sub>θ</sub>(<b>a</b><sub>t</sub>|<b>s</b><sub>t</sub>) 2. ∇<sub>θ</sub>J(θ) ≈ Σ<sub>i</sub>(Σ<sub>t</sub>∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>t</sub><sup>i</sup>|<b>s</b><sub>t</sub><sup>i</sup>))(Σ<sub>t</sub> r(<b>s</b><sub>t</sub><sup>i</sup>,<b>a</b><sub>t</sub><sup>i</sup>)) 3. θ ← θ + α∇<sub>θ</sub>J(θ)</em><br><em>“REINFORCE algorithm”, vanilla policy gradient</em>", "one": "<b>算法只有三行：采样、算梯度、更新、回到第一行。注意第三步是 <code>θ <b>+</b> α∇J</code> —— <span class='k'>加号</span>，因为这是梯度<span class='w'>上升</span>（在最大化回报），不是常见的下降。</b>", "pts": ["<b>从上一页到这一页只换了一件事：把期望换成 <code>(1/N)Σ_i</code>。</b> <span class='k'>讲稿点明了这个 <code>N</code> 是什么：<em>“you can think of the first summation as collecting n samples for that expectation”</em></span>。<b>⚠ 估计是有偏还是无偏？讲稿有答</b>：<span class='w'><em>“this is an estimate because we're only going to be taking n samples... If you took infinite, then this would be exact.”</em></span>（<b>即无偏但有方差</b>）。", "<b>⚠ 符号要当心：第三步是 <code>θ ← θ + α∇_θJ(θ)</code>，是<b>加</b>。</b> <span class='k'>因为 <code>J</code> 是要<b>最大化</b>的回报</span>；<b>而实现时若用 PyTorch 的 optimizer（默认做下降），你喂进去的 loss 要取<b>负</b>号</b>。<span class='w'>⇒ 这是最容易在代码里搞反、而且搞反了也能跑（只是越训越差）的一处</span>。", "<b>讲稿把「这一步具体在算什么」描述得很细，值得照抄下来当实现清单</b>：<span class='k'><em>“taking the states and actions in those trajectories, passing the state through the policy as a forward pass to get the probability of our actions. We'll then evaluate the action in the data, the probability of that action in the data under the distribution... We'll then get the probability. We'll take the log of that probability. And then we take the gradient”</em></span>。", "<b>⇒ 拆成五步：前向得到动作分布 → 取出<b>数据里那个动作</b>的概率 → 取 log → 反向 → 乘上回报权重。</b> <span class='w'>⚠ 第二步是关键：不是对整个分布做什么，而是只取<b>实际执行过</b>的那个动作的概率</span>。", "<b>有人问梯度要不要手推，讲者的回答很干脆</b>：<span class='k'><em>“You can use automatic differentiation. So whatever library, PyTorch or whatever, that can compute that for you, so you don't have to write it out.”</em></span>", "<b>⚠ 这一页的公式有一处笔误，而且讲者在 p18 自己承认了。</b> <span class='w'>第二个求和号 <code>(Σ_t r)</code> 的位置：按因果性修正之后它<b>应当</b>在第一个求和号里面</span>。<b>原话：<em>“Note that I actually do have a typo on these equations, where this second sum should be inside the first sum.”</em></b> <span class='k'>⇒ p10 这个版本（两个求和并列）在因果性修正<b>之前</b>是对的；p13 之后就该改成嵌套的了</span>。"], "eq": "REINFORCE / vanilla policy gradient：\n\n  1. 从 π_θ(a_t|s_t) 采 N 条轨迹 {τ^i}\n  2. ∇_θJ(θ) ≈ (1/N) Σ_i ( Σ_t ∇_θ log π_θ(a^i_t|s^i_t) ) ( Σ_t r(s^i_t,a^i_t) )\n  3. θ ← θ + α ∇_θJ(θ)           ⚠ 加号：这是梯度上升\n  4. 回到 1（必须重新采数据 —— 见 p20）\n\n一次梯度的五个实现步骤（讲稿）：\n  state → 策略前向 → 取出「数据里那个动作」的概率 → log → 反向 → × 回报权重", "tbl": {"head": ["实现时最容易搞反的三处", "正确的做法", "搞反了会怎样"], "rows": [["梯度方向", "θ ← θ + α∇J（上升）；用 optimizer 则 loss 取负", "⚠ 能跑，但越训越差"], ["取哪个动作的概率", "只取<b>实际执行过</b>的那个动作", "取整个分布 ⇒ 不是这个目标了"], ["两个求和的嵌套", "因果性修正后第二个要在第一个<b>里面</b>", "⚠ 讲者自己也在幻灯上写错了（p18 承认）"]]}, "say": "<b>讲稿里有一问直指「这和模仿学习到底差在哪」，回答把两条差别都列出来了，值得原样留着</b>：<br><em>“One of the key differences with imitation learning is that <b>you're actually doing this on your own rollouts</b>. Actually, the policy is collecting its own data and then applying this objective to its own data. ... And then second is <b>we're actually using this reward</b>, whereas in imitation learning, you're just blindly imitating all the data without any notion of how good the data is. And it assumes that it's good data.”</em><br><b>⇒ 两条：① 数据是<b>自己</b>产生的；② 数据<b>带分数</b>。</b><span class='w'>⚠ 这两条合起来才是策略梯度，少一条都不是</span>——<span class='k'>只有 ① 没有 ② 就是在自我模仿（毫无意义）；只有 ② 没有 ① 就是加权模仿学习（有用，但天花板仍是数据）</span>。"},
+{"r": [11, 11], "t": "这个梯度在做什么：它就是模仿学习的梯度，只不过按回报加了权", "star": 3, "quote": "<em><b>What does the gradient mean?</b></em><br><em>∇<sub>θ</sub>J(θ) ≈ (1/N)Σ<sub>i</sub>(<span style=\"background:#d8eeee\">Σ<sub>t</sub>∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>i,t</sub>|<b>s</b><sub>i,t</sub>)</span>)(Σ<sub>t</sub> r(<b>s</b><sub>i,t</sub>,<b>a</b><sub>i,t</sub>))　— Imitation gradient, but weighted by reward</em><br><em><b>Recall</b>: imitation learning　min<sub>θ</sub> −E<sub>(<b>s</b>,<b>a</b>)~𝒟</sub>[log π<sub>θ</sub>(<b>a</b>|<b>s</b>)]　∇<sub>θ</sub>J<sub>BC</sub>(θ) ≈ (1/N)Σ<sub>i</sub>(<span style=\"background:#d8eeee\">Σ<sub>t</sub>∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>i,t</sub>|<b>s</b><sub>i,t</sub>)</span>)</em><br><em><b>Intuition:</b> <span style=\"color:#2a7d2a\">Increase likelihood</span> of actions you took in high reward trajectories. <span style=\"color:#c0392b\">Decrease likelihood</span> of actions you took in negative reward trajectories.</em><br><em>i.e. do more of the good stuff, less of the bad stuff. — formalization of “trial-and-error”</em>", "one": "<b>幻灯用同一个浅青色底把两个式子里<span class='k'>完全相同</span>的那一块标了出来：策略梯度的左半边，<span class='w'>逐字</span>等于行为克隆的梯度。差别只有右边那个回报权重。</b>", "pts": ["<b>先确认那个「完全相同」不是比喻。</b> <span class='k'>行为克隆的目标是 <code>min_θ −E_𝒟[log π_θ(a|s)]</code>，对它求梯度就是 <code>Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t})</code></span>；<b>而策略梯度的左半边一模一样</b>。<span class='w'>⇒ 两个算法在代码层面共用同一段反向传播</span>。", "<b>于是一句话就能说清策略梯度是什么：<span class='k'><b>它在模仿自己的数据，但每条数据带一个分数</b></span>。</b> <span class='w'>分数为正 ⇒ 往那边推；分数为负 ⇒ 往反方向推</span>。<b>讲稿说得更直白：<em>“you're actually going to be imitating your own data... If it's negative reward, that's actually going to push you away from the bad stuff and push you towards the good stuff.”</em></b>", "<b>⚠ 「往反方向推」这件事在行为克隆里<b>不存在</b>，这是一个结构性的新能力。</b> <span class='k'>行为克隆只能说「多像这个」，没法说「别像那个」</span>；<b>而策略梯度因为权重可以是负的，天然就能做负向更新</b>。<span class='w'>⇒ 这也是它能越过示范者天花板的机制</span>。", "<b>讲稿里有一段很好的几何描述，幻灯只画了个曲面</b>：<span class='k'><em>“say that we took a few trajectories—one of them had good reward, one of them had bad reward—and this red is showing our initial distribution over trajectories, what this gradient is going to do is it's going to <b>increase the likelihood on the green part</b>... And then it'll <b>decrease the likelihood on the red part</b>”</em></span>。<b>⇒ 分布被「捏」向好的那一侧</b>。", "<b>「trial-and-error 的形式化」这个说法值得停一下，因为它是这一讲的标题性论断。</b> <span class='w'>试错的日常含义是「试、看结果、调整」</span>；<b>而这三步恰好对应算法的三步：<code>sample</code> / <code>r(τ)</code> / <code>θ ← θ + α∇J</code></b>。<span class='k'>⇒ 不是打比方，是逐项对应</span>。", "<b>⚠ 有人问稀疏奖励能不能用，讲者答「原则上可以，但未必好使」</b>：<span class='k'><em>“you can actually apply it in scenarios where the reward is just 1 if you succeeded, and 0 otherwise. Now, this algorithm may not do very well in those scenarios, and we'll talk about that.”</em></span> <b>⇒ 这个伏笔在 p17 的叠衣服例子里兑现</b>。"], "eq": "行为克隆的梯度：  ∇_θ J_BC(θ) ≈ (1/N) Σ_i ( Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) )\n                                        └──────── 完全相同 ────────┘\n策略梯度：        ∇_θ J(θ)    ≈ (1/N) Σ_i ( Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) ) · ( Σ_t r )\n                                                                                 └ 唯一的差别 ┘\n\n⇒ 策略梯度 = 模仿自己的数据，但每条数据带一个分数\n     分数 > 0  →  往那边推（增大似然）\n     分数 < 0  →  往反方向推（减小似然）← 行为克隆做不到这件事", "tbl": {"head": ["", "行为克隆（L02）", "策略梯度（本讲）"], "rows": [["数据从哪来", "专家示范 𝒟", "⭐ 策略<b>自己</b>的 rollout"], ["每条数据的权重", "全是 1（默认都是好数据）", "⭐ 回报 r(τ)，<b>可以是负的</b>"], ["能不能说「别像那个」", "⚠ 不能", "能 —— 负权重就是"], ["天花板", "示范者本人", "没有（理论上）"], ["反向传播那一段代码", "一样", "一样"]]}, "say": "<b>讲稿里有一个问答把两者的关系又推进了一步，而且这正是 RLHF 时代最常见的做法之一</b>：<br><em>“the question is, can you use this to improve imitation learning by <b>weighting the trajectories by reward</b>? Yeah, you could definitely do that.”</em><br><b>⇒ 「加权的行为克隆」是一个真实存在、而且很好用的中间物种</b>：<span class='k'>它比纯模仿强（会挑数据），又比完整的策略梯度省（不必自己采样、不必在线）</span>。<span class='w'>⚠ 但它仍然受限于数据集里已有的行为 —— 加权只能在已有数据里重新分配注意力，不能凭空造出更好的行为</span>。<b>这条分界（「数据里有没有」vs「能不能自己试出来」）是离线 RL 整个领域的主线，L07 会专门讲。</b>", "res": {"tag": "推断", "v": "<b>「模仿自己的数据、但带分数」这个形状，正好描述了你可以给 AFlow 加的最小改动。</b> <span class='k'>AFlow 现在是「搜一批 workflow、按分数排序取 top-k、再让 LLM 基于经验日志生成下一批」【简报 §2 已核】—— 它<b>没有</b>任何参数化的策略，也就没有梯度可求</span>。<b>⇒ 若要把它变成可学习的，最小的改法正是这一页：把「下一个 workflow 怎么改」参数化成一个策略 <code>π_θ(修改|当前workflow)</code>，然后用 <code>(修改的 log 似然) × (改完之后 G 的变化)</code> 做更新</b>。<span class='w'>⚠ 两个必须先想清楚的问题</span>：<b>① 权重用什么 —— 直接用 <code>G</code> 的话，所有正分的修改都会被鼓励（p14 那个毛病）；应当用 <code>G − b</code>，而 <code>b</code> 取同一批里的平均（p16）</b>；<b>② 这条路要求每一步都重新采样（on-policy，p20），而「采样」= 真的跑一遍 workflow = 花钱</b>。<span class='k'>⇒ 所以若真要做，重要性采样那一半（p21–p24）不是可选项而是必需品</span>。", "ref": "本讲 p11、p14、p16、p20 · 简报 §2（AFlow 的选择与经验日志）· 简报 §3（cost 从不进 score）"}},
+{"r": [12, 12], "t": "第一个让人不舒服的例子：梯度会鼓励机器人「向前倒」而不是迈步", "star": 3, "quote": "<em><b>What does the gradient do?</b> Example: learning humanoid walking in simulation</em><br><em>reward: r(<b>s</b>,<b>a</b>) = forward velocity of robot　(can be negative if robot goes backwards)</em><br><em>τ<sup>1</sup>: falls backwards ✗　τ<sup>2</sup>: falls forwards ✓　τ<sup>3</sup>: manages to stand still ~　τ<sup>4</sup>: one small step forward then falls backwards ✗　τ<sup>5</sup>: one large step backwards then small step forwards ✗</em><br><em><b>Question</b>: what will the gradient encourage the policy to do?</em><br><em>-&gt; will encourage policy to fall forward, and not take step forward 😨　<b>Policy gradient is noisy / high-variance</b></em>", "one": "<b>五条轨迹里唯一拿到正回报的是「<span class='w'>向前倒</span>」。于是梯度认真地鼓励机器人向前倒，并且压制了那条真的迈了一步的轨迹（因为它后来向后摔了，整条的回报是负的）。讲者的评价是 <code>distressing</code>。</b>", "pts": ["<b>先把五条轨迹的回报算清楚，这是全页的关键。</b> <span class='k'>奖励是<b>前进速度</b>，所以向前为正、向后为负、不动为 0</span>；<b>而权重用的是<b>整条轨迹</b>的回报和</b>：<span class='w'>τ¹（向后倒）负 · τ²（向前倒）<b>正</b> · τ³（站住）≈0 · τ⁴（前进一小步然后向后倒）负 · τ⁵（后退一大步再前进一小步）负</span>。", "<b>⇒ 梯度的符号：τ² 正、τ³ 约 0、τ¹/τ⁴/τ⁵ 全负。</b> <span class='k'>讲稿逐条确认了这个算法：<em>“you'll get negative gradients for any actions that were taken in 1, 4, and 5. You'll get positive gradients for all the actions taken in 2.”</em></span>", "<b>⚠ 最刺眼的是 τ⁴：它<b>真的迈了一步</b>，而那一步正是我们想要的行为，却因为后面摔了而被整条打成负分、被压制。</b> <span class='w'>讲稿点名了这个后果：<em>“it will discourage it from taking steps backwards or forwards”</em></span>——<b>连<b>向前</b>迈步都被劝退了</b>。", "<b>这就是「用整条轨迹的回报当权重」的根本毛病：<span class='k'>一条轨迹里的好动作和坏动作共用同一个分数</span>。</b> <b>⇒ 修法就在下一页（因果性）</b>：<span class='w'>让每个动作只为它<b>之后</b>的奖励负责</span>。", "<b>讲者给这个现象下的定义要原样记住，因为它是本讲反复出现的那句话</b>：<span class='k'><em>“this is kind of an example of how the gradient that we're getting is <b>noisy, high variance</b>. It means that depending on what these trajectories are, the gradient might vary drastically.”</em></span> <b>⇒ 「方差大」的操作定义：<b>换一批样本，梯度可能完全不同</b></b>。", "<b>⚠ 顺带回答了一个基础问题：为什么要采<b>多条</b>轨迹？讲稿给了两个独立的理由。</b> <span class='k'>① <em>“the policy is not deterministic. And so if we want to explore different strategies, we will get different samples”</em>；② <em>“the environment might be stochastic. And so even if you have a deterministic policy, you might see different outcomes”</em></span>。<b>⇒ 一个来自策略、一个来自环境，两个都在给权重贡献方差</b>。"], "eq": "奖励 = 前进速度（向前为正、向后为负、不动为 0）\n权重 = 整条轨迹的回报和\n\n  τ¹  向后倒                        Σr < 0   → 负梯度\n  τ²  向前倒                        Σr > 0   → ⭐ 正梯度（唯一的）\n  τ³  站住不动                      Σr ≈ 0   → 约 0\n  τ⁴  前进一小步，然后向后倒        Σr < 0   → ⚠ 负梯度（那一小步被连坐）\n  τ⁵  后退一大步，再前进一小步      Σr < 0   → ⚠ 负梯度（同上）\n\n⇒ 鼓励「向前倒」，劝退「迈步」\n⇒ 毛病的根源：一条轨迹里的好动作与坏动作<b>共用同一个分数</b>", "tbl": {"head": ["方差的两个来源", "就算另一个没有也依然存在", "讲稿原话"], "rows": [["策略本身的随机性", "环境是确定的也一样", "the policy is not deterministic... we will get different samples of different strategies"], ["环境的随机性", "⭐ 策略是确定的也一样", "even if you have a deterministic policy, you might see different outcomes"]]}, "say": "<b>这一页讲者是真的让全班讨论了两分钟再公布答案的，而学生给的答案和标准答案有一处微妙的差别，值得留着</b>：<br><em>“So the gradient will encourage it to fall forwards and potentially stand still. Cool. <b>That's mostly correct.</b>”</em><br><b>⚠ 「mostly」那个保留在哪里：站住不动（τ³）的回报<b>约等于</b> 0，不是正</b>，<span class='k'>所以它既不被鼓励也不被压制 —— 而学生说的「potentially stand still」暗示了它会被鼓励</span>。<span class='w'>⇒ 这个细节恰好是下一步要引入基线的动机之一</span>：<b>在没有基线时，「0 分」的行为是<b>中性</b>的；而加了基线之后（p16），低于平均的行为会被<b>主动压制</b></b>。", "res": {"tag": "推断", "v": "<b>「好动作被坏结局连坐」这个毛病，在你的 workflow 上会以一种更严重的形式出现。</b> <span class='k'>你的奖励是<b>终局</b>的（整条 workflow 跑完才知道这个 query 对不对），所以一条轨迹里 <code>H</code> 个节点的档位选择<b>全部</b>共用同一个分数 —— 这正是 τ⁴ 那种情形，而且是 100% 发生，不是偶尔</span>。<b>⇒ 后果：某个节点明明该用强模型、而别处配错导致整体答错，这个正确的选择会拿到负梯度</b>。<span class='w'>⚠ 而下一页的因果性修正<b>救不了</b>这件事</span>——<b>因为「未来奖励」对终局奖励来说就是全部奖励，每个节点的权重还是同一个数</b>。<span class='k'>这与简报 §4e 那条「per-decision IS 对准确率这一半买不到任何东西（奖励在 t=H，算术上等同于轨迹 IS）」<b>是同一个结构事实</b>，只是从梯度那一侧看过去</span>。<b>⇒ 真正能拆开的只有<b>成本</b>那一半（逐节点可加），所以简报 §4e「两半用不同估计量」在这里又多了一条理由。</b>", "ref": "本讲 p12、p13 · 简报 §4e（per-decision IS 对准确率买不到东西）"}},
+{"r": [13, 13], "t": "因果性：时刻 t 的动作管不着 t 之前的奖励，于是只保留未来那一段", "star": 3, "quote": "<em><b>Improving the gradient.</b> Using causality</em><br><em>Policy behavior at time <b>t</b> does not affect rewards at time <b>t′ &lt; t</b></em><br><em>∇<sub>θ</sub>J(θ) ≈ (1/N)Σ<sub>i=1</sub><sup>N</sup>Σ<sub>t=1</sub><sup>T</sup> ∇<sub>θ</sub> log π<sub>θ</sub>(<b>a</b><sub>i,t</sub>|<b>s</b><sub>i,t</sub>)(Σ<sub>t′=t</sub><sup>T</sup> r(<b>s</b><sub>i,t′</sub>,<b>a</b><sub>i,t′</sub>))　— sum of <em>future</em> rewards</em>", "one": "<b>一个下标的改动：内层求和从 <code>t′=1</code> 改成 <code>t′=t</code>。于是每个动作只为它<span class='k'>之后</span>发生的事负责，τ⁵ 里那个「后来迈的一小步」终于能拿到正梯度了。</b>", "pts": ["<b>改动只有一处，但它同时要求把第二个求和号<b>挪进</b>第一个里面。</b> <span class='w'>⚠ 讲者在课上被学生提醒了这一点：<em>“Oh, yes. Sorry. One other thing that you have to do here—yes, good point—is to actually move this summation inside this summation here.”</em></span> <b>⇒ 这也是 p10/p18 那个笔误的由来</b>。", "<b>理由就是一句物理常识：<code>Policy behavior at time t does not affect rewards at time t′ < t</code>。</b> <span class='k'>讲稿举了具体的数：<em>“let's say our action at time equals 100... We know that this 100 is only going to influence rewards in the future... So this doesn't affect S50 or S51 or S99.”</em></span>", "<b>⚠ 但讲者坦白这件事<b>不好严格地写出来</b></b>：<span class='w'><em>“It's a little bit hard to write out mathematically why you can do that. I can maybe think about whether there's a nice mathematical expression for that, but <b>it's really just about causality in the world.</b>”</em></span> <b>⇒ 严格的论证要用「过去的奖励与当前动作的 score function 独立 ⇒ 交叉项期望为 0」，形式上和 p16 证明基线无偏是同一招</b>。", "<b>效果在 τ⁵（后退一大步、再前进一小步）上最明显。</b> <span class='k'>讲稿：<em>“we will be decreasing the likelihood of actions at the beginning of the trajectory. And then the future summations will become positive because you took a step forward. Then you'll actually start to be increasing the likelihood of taking a small step forward.”</em></span> <b>⇒ 同一条轨迹里，前半段挨罚、后半段受奖</b>。", "<b>⚠ 讲者同时点明了它<b>救不了</b>的情形，这一条很要紧</b>：<span class='w'><em>“this still doesn't help if you take a step forward and then you take a step backwards. And the reason why... it's possible that the step forwards actually <b>caused</b> you to fall backwards.”</em></span> <b>⇒ 因果性只能剥掉「肯定无关」的那部分（过去），不能剥掉「可能有关」的那部分（未来）</b>。", "<b>⭐ 一个很容易被忽略、但讲稿专门回答了的坑：固定时域 <code>T</code> 会破坏马尔可夫性。</b> <span class='k'><em>“if it's fixed at 10 and the policy doesn't know if the horizon is about to finish, then it's actually <b>not a truly Markovian state</b>. You need to actually give it information about how many time steps it has left”</em></span>。<b>⇒ 实现时状态里要带上「还剩几步」</b>，<span class='w'>否则同一个物理状态在 t=2 和 t=9 该做的事不同，而策略分辨不出来</span>。"], "eq": "改动只有一个下标（外加把求和挪进去）：\n\n  改前： (1/N) Σ_i ( Σ_{t=1}^{T} ∇log π )           ( Σ_{t′=1}^{T} r )\n                   └─── 两个求和并列，共用一个分数 ───┘\n\n  改后： (1/N) Σ_i  Σ_{t=1}^{T} ∇log π(a_{i,t}|s_{i,t}) ( Σ_{t′=t}^{T} r(s_{i,t′},a_{i,t′}) )\n                               └─ 第二个求和挪进来了 ─┘  └─ 只看未来 ─┘\n\n理由：时刻 t 的动作影响不了 t′ < t 的奖励\n救得了：τ⁵「后退一大步、再前进一小步」—— 后半段现在能拿正梯度\n⚠ 救不了：「前进一步导致后来摔倒」—— 那个因果关系是真的，不能剥", "tbl": {"head": ["因果性修正", "能剥掉的", "不能剥掉的"], "rows": [["判据", "过去的奖励（<b>肯定</b>与当前动作无关）", "未来的奖励（<b>可能</b>就是当前动作造成的）"], ["例子", "τ⁵ 前半段的负分不该连坐后半段那一步", "⚠ 「迈一步导致摔倒」—— 这笔账必须算在那一步上"], ["⚠ 附带条件", "—", "固定时域 T 时状态里要带「还剩几步」，否则不是马尔可夫的"]]}, "res": {"tag": "已核", "v": "<b>⚠ 这一页的改进在你的课题上<b>一分钱都买不到</b>，而想清楚这件事能省掉一次弯路。</b> <span class='k'>因果性修正的收益来自「把轨迹里<b>与我无关的那段</b>奖励剥掉」；而你的奖励是<b>终局</b>的（跑完整条 workflow 才知道这个 query 答对没有）</span>——<b><code>Σ_{t′=t}^{T} r</code> 对任何 <code>t</code> 都等于<b>同一个</b>终局奖励，剥不掉任何东西</b>。<b>⇒ 这与简报 §4e 的那条结论是同一个结构事实，只是换了个方向看</b>：<span class='w'>§4e 说「per-decision IS 对准确率那一半买不到任何东西，因为奖励在 t=H，算术上等同于轨迹 IS」；这一页说「因果性修正对终局奖励买不到任何东西」</span>。<b>两句话的算术是同一个。</b>⇒ <b>而它们对<b>成本</b>那一半都成立且有用</b>：<span class='k'>成本逐节点可加，<code>Σ_{t′=t}^{T} cost</code> 真的比 <code>Σ_{t′=1}^{T} cost</code> 少一截</span>，<b>所以「两半用不同估计量」这条建议在梯度这一侧也同样成立</b>。", "ref": "本讲 p13 · 简报 §4e（per-decision IS 对准确率这一半买不到任何东西）"}},
+{"r": [14, 14], "t": "第二个不舒服的例子：四条轨迹全是正回报，于是「踉跄」也被鼓励", "star": 3, "quote": "<em><b>What does the gradient do?</b> Example: learning humanoid walking in simulation</em><br><em>τ<sup>1</sup>: falls forwards ~　τ<sup>2</sup>: slowly stumbles forwards ✓　τ<sup>3</sup>: steadily walks forwards ✓　τ<sup>4</sup>: runs forwards ✓</em><br><em><b>Question</b>: what will the gradient encourage the policy to do?</em><br><em>-&gt; encourages policy to fall, stumble forward some of the time 😨</em><br><em><b>Policy gradient is noisy / high-variance</b> · <b>sensitive to reward scale</b></em>", "one": "<b>这一次策略已经不差了，四条轨迹<span class='k'>全部</span>向前、回报全为正。可正因为全为正，梯度把<span class='w'>四种</span>行为都鼓励了一遍 —— 包括「向前倒」和「踉跄」。问题不在局部最优，在<span class='k'>奖励的尺度</span>。</b>", "pts": ["<b>关键观察只有一句：<code>r(τ)</code> 只要是正数，<code>∇log π · r(τ)</code> 就是在<b>增大</b>那条轨迹的似然。</b> <span class='k'>讲稿：<em>“when this term is nonnegative, when it's positive, you're still going to be increasing the likelihood on the actions in these trajectories”</em></span>。<b>⇒ 「跑」的权重最大，但「踉跄」也拿到了正权重</b>。", "<b>⚠ 学生提了一个很自然的猜测，而讲者明确否定了它 —— 这一处值得记住。</b> <span class='w'>问：这是不是局部最优？</span> <b>答：<em>“The reason for this is because the gradient is noisy. <b>It comes down to variance.</b>”</em></b> <span class='k'>并补了一句很重要的保证：<em>“eventually, it will converge to the global optimum, but it will get there <b>more slowly</b> because the gradient has a lot of variance”</em></span>。", "<b>⇒ 所以这不是「会收敛到错的地方」，而是「会很慢地收敛到对的地方」。</b> <span class='w'>两者在实践里的后果完全不同</span>：<b>前者要换算法，后者只要更多样本或更低方差的估计</b>。", "<b>幻灯在这一页新加了一行诊断：<code>sensitive to reward scale</code>（上一页只有 noisy / high-variance）。</b> <span class='k'>讲稿把它和「全负」的情形连起来说了：<em>“on the flip side, if everything was negative... we would actually only be getting negative gradients to our policy and no actual positive gradients. And that's actually a big problem”</em></span>。", "<b>⭐ 于是毛病的形状清楚了：<span class='k'>重要的不是回报的<b>绝对值</b>，而是它相对于<b>同批其他轨迹</b>的位置</span>。</b> <b>给奖励函数整体加一个常数，策略的好坏一点没变，梯度的行为却完全变了</b>——<span class='w'>全正时只会「都鼓励」，全负时只会「都压制」</span>。<b>⇒ 修法就是下一页的基线</b>。", "<b>⚠ 讲稿里还有一问值得留着，因为它澄清了这个算法<b>不会</b>凭空发明行为</b>：<span class='k'>问「这会鼓励机器人向前滚吗？」答 <em>“With this data, it will not encourage it to roll forward... <b>If you had data of rolling forward, then it would encourage it to roll forward.</b>”</em></span> <b>⇒ 策略梯度只会在<b>采样到的行为</b>之间重新分配概率，采不到的东西它鼓励不了</b>。"], "eq": "四条轨迹，回报全为正：\n  τ¹ 向前倒              Σr > 0（小）  → 正梯度 ⚠\n  τ² 慢慢踉跄前进        Σr > 0        → 正梯度 ⚠\n  τ³ 稳步前进            Σr > 0        → 正梯度\n  τ⁴ 向前跑              Σr > 0（最大）→ 正梯度（最强）\n\n⇒ 四种都被鼓励，只是强弱不同\n⇒ 诊断：不是局部最优，是方差 + 对奖励尺度敏感\n     给奖励整体加常数 ⇒ 策略好坏没变，梯度行为全变\n     全正 → 只会「都鼓励」；全负 → 只会「都压制」\n⇒ 修法：减掉一个基线（p16）", "tbl": {"head": ["两页例子的毛病不是同一个", "p12 的毛病", "p14 的毛病"], "rows": [["症状", "好动作被坏结局连坐", "所有正回报的行为都被鼓励"], ["根源", "一条轨迹共用一个分数", "⭐ 权重只看绝对值，不看相对位置"], ["修法", "因果性（p13）—— 只看未来奖励", "基线（p16）—— 减掉平均回报"], ["⚠ 是不是局部最优", "不是", "不是 —— 讲者明确否定，「it comes down to variance」"]]}, "say": "<b>讲稿里有一问直指实践中最常见的那个念头，而且回答承认了它的局限，这一段值得完整留着</b>：<br><em>“So the question was, can we just improve the reward function? Yes. So if we had a more dense reward function, that would definitely help in these cases. <b>There are actually scenarios still where we could do better.</b> Especially if you, for example, folded the sleeves, you got positive reward for this, and then dropped it on the ground or something after that, then <b>that's still dissatisfying because we wouldn't use the first part successfully.</b>”</em><br><b>⇒ 两层意思：① 把奖励做稠密确实管用，而且常常是性价比最高的一招；② 但它<b>解决不了</b>「一条轨迹里前半段好、后半段毁了」那一类</b>。<span class='k'>讲者两次预告那一类要等「Friday」（即 L04 的 actor-critic / 优势函数）才有办法</span>——<span class='w'>因为真正的修法是给<b>每个状态</b>一个基线，而不是给整批一个常数</span>。"}
+];
+
+var TH = null;
+
+(function(){
+  var PDF="../corpus/slides/03_cs224r_policy_gradients_2025.pdf", MAX=28;
+  var frame=document.getElementById("pdf"), card=document.getElementById("card"),
+      pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
+      right=document.getElementById("right");
+  var cur=0, map={}, cells=[];
+  /* 科研格出处档位 → 类名。三档与 research/00-BRIEFING 的原始标注一致。 */
+  var RESC={"已核":"t1","推断":"t2","待核":"t3"};
+
+  /* 存档键带课程前缀 —— file:// 下所有本地页面共用一个 origin，
+     两门课都用 "l01quiz" 会互相覆盖。 */
+  var KEY = document.body.dataset.key;
+  try {                       // 一次性迁移：早期版本用的是不带课程前缀的键
+    if(!localStorage.getItem(KEY+"quiz")){
+      var _old = localStorage.getItem("l03quiz");
+      if(_old){
+        localStorage.setItem(KEY+"quiz", _old);
+        var _p = localStorage.getItem("l03p");
+        if(_p) localStorage.setItem(KEY+"p", _p);
+      }
+      /* 搬完就把旧键删掉。不删的话它会一直躺在那儿，
+         用户「清空全部记录」之后下次打开又被复活一遍。 */
+      localStorage.removeItem("l03quiz");
+      localStorage.removeItem("l03p");
+    }
+  } catch(e) {}
+
+  N.forEach(function(n,i){ for(var p=n.r[0];p<=n.r[1];p++) map[p]=i; });
+
+  for(var p=1;p<=MAX;p++){
+    var b=document.createElement("b");
+    b.title="第 "+p+" 页";
+    if(map[p]!=null) b.className="has";
+    b.onclick=(function(x){ return function(){ go(x); }; })(p);
+    strip.appendChild(b); cells.push(b);
+  }
+
+  function navHtml(){
+    return '<div class="nav"><button class="btn" id="p2">← 上一页</button>'+
+           '<button class="btn" id="n2">下一页 →</button></div>';
+  }
+  function bindNav(){
+    var a=document.getElementById("p2"), b=document.getElementById("n2");
+    if(a) a.onclick=function(){ step(-1); };
+    if(b) b.onclick=function(){ step(1); };
+  }
+  function render(p){
+    var i=map[p];
+    if(i==null){
+      card.innerHTML='<div class="empty">这一页没有单独的讲解。<br>'+
+        '它多半是上一页的<b>增量构建</b>——往前翻一页即可。</div>'+navHtml();
+      bindNav(); return;
+    }
+    var n=N[i], multi=n.r[0]!==n.r[1], h="";
+    h+='<span class="pg'+(multi?" multi":"")+'">p'+n.r[0]+(multi?"–"+n.r[1]:"")+'</span>';
+    h+='<h2>'+n.t+(n.star?'<span class="star">'+Array(n.star+1).join("★")+'</span>':'')+
+        qBadge(n.r[0])+'</h2>';
+    if(n.quote) h+='<div class="quote">'+n.quote+'</div>';
+    if(n.one) h+='<div class="one">'+n.one+'</div>';
+    if(n.eq)  h+='<span class="eq">'+n.eq.replace(/\n/g,"<br>")+'</span>';
+    if(n.pts) h+='<ul>'+n.pts.map(function(x){ return "<li>"+x+"</li>"; }).join("")+'</ul>';
+    if(n.tbl && n.tbl.head) h+='<table class="tbl"><thead><tr>'+
+      n.tbl.head.map(function(x){ return "<th>"+x+"</th>"; }).join("")+
+      '</tr></thead><tbody>'+
+      (n.tbl.rows||[]).map(function(r){
+        return "<tr>"+r.map(function(c){ return "<td>"+c+"</td>"; }).join("")+"</tr>";
+      }).join("")+'</tbody></table>';
+    if(n.say) h+='<div class="say"><span class="t">讲稿里补的</span>'+n.say+'</div>';
+    /* 你学过的对应：指回已经学完的那一讲。排在 say 之后、tip 之前 ——
+       say 与 link 都是「别处说过的话」，tip 与 res 是更尖的提示，放最后。 */
+    if(n.link) h+='<div class="lnk"><span class="t">你学过的对应</span>'+
+      '<a href="'+n.link.href+'" target="_blank" rel="noopener">'+n.link.t+'</a></div>';
+    if(n.tip) h+='<div class="tip'+(n.tip.w?" w2":"")+'"><span class="t">'+n.tip.t+'</span>'+n.tip.v+'</div>';
+    /* 科研连接。tag 的三档映射成 ASCII 类名（中文类选择器在转义上脆），
+       可见文字仍是中文 —— 判据要的是「档位在页面上真的可见」。 */
+    if(n.res) h+='<div class="res"><span class="t">科研连接'+
+      '<span class="tag '+(RESC[n.res.tag]||"t3")+'">'+n.res.tag+'</span></span>'+
+      n.res.v+'<span class="ref">出处：'+n.res.ref+'</span></div>';
+    card.innerHTML=h+quizHtml(n.r[0])+navHtml();
+    bindNav();
+    bindQuiz();
+    bindBadge();
+  }
+  function go(p){
+    p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
+    if(p===cur) return;
+    cur=p; pnum.value=p;
+    // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
+    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    render(p);
+    paintStrip();
+    right.scrollTop=0;
+    var on=strip.querySelector("b.on");
+    if(on) on.scrollIntoView({block:"nearest",inline:"center"});
+    try{ localStorage.setItem(KEY+"p",p); }catch(e){}
+  }
+
+
+  /* ══ 自测 ════════════════════════════════════════════════════════
+     记录形状： ST["起始页#题号"] = {a: 选了哪一项}
+     只记「答过什么」，不记次数、不记错数、不排名 —— 这一页是为理解服务的，
+     不是为考试服务的。换页回来能看见自己上次怎么答的，就够了。 */
+  var ST = {};
+  try { ST = JSON.parse(localStorage.getItem(KEY+"quiz") || "{}") || {}; } catch(e){ ST = {}; }
+  function save(){ try{ localStorage.setItem(KEY+"quiz", JSON.stringify(ST)); }catch(e){} }
+
+  function quizHtml(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    var h = '<div class="quiz"><h3>想一想 <b>'+qs.length+'</b> 题</h3>';
+    qs.forEach(function(q,i){
+      var key = start+"#"+i, d = ST[key], done = d && typeof d.a === "number";
+      h += '<div class="qq" data-k="'+key+'" data-a="'+q.a+'">';
+      h += '<div class="t">'+q.q+'</div>';
+      q.o.forEach(function(o,j){
+        /* 答过的题直接渲染成已判定态 —— 正解点亮、错项标红、选项锁死。
+           上一版每次换页都重置成未答，于是「记录下来」只体现在一行计数里。 */
+        var cls = "opt", mark = "";
+        if(done){
+          if(j === q.a){ cls += " ok"; mark = '<span class="m">✓</span>'; }
+          else if(j === d.a){ cls += " no"; mark = '<span class="m">✗</span>'; }
+        }
+        h += '<button class="'+cls+'" data-j="'+j+'"'+(done?" disabled":"")+'>'+
+             o+mark+'</button>';
+      });
+      h += '<div class="why"'+(done?"":' style="display:none"')+'>'+
+           (done ? q.why : "")+'</div>';
+      h += '<div class="qhist2"><button class="qagain">重做</button></div>';
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+
+  function bindQuiz(){
+    document.querySelectorAll(".qq").forEach(function(box){
+      var key = box.dataset.k, ans = +box.dataset.a;
+      var why = box.querySelector(".why"), opts = box.querySelectorAll(".opt");
+      var qs = Q[key.split("#")[0]], q = qs[+key.split("#")[1]];
+      opts.forEach(function(b){
+        b.onclick = function(){
+          var j = +b.dataset.j;
+          opts.forEach(function(x){
+            x.disabled = true;
+            if(+x.dataset.j === ans){ x.classList.add("ok"); x.innerHTML += '<span class="m">✓</span>'; }
+          });
+          if(j !== ans){ b.classList.add("no"); b.innerHTML += '<span class="m">✗</span>'; }
+          why.innerHTML = q.why; why.style.display = "block";
+          ST[key] = {a: j}; save();
+        };
+      });
+      bindAgain(box);
+    });
+  }
+  function bindBadge(){
+    var b = document.querySelector("#card>h2 .qbadge");
+    if(b) b.onclick = function(){
+      var q = document.querySelector(".quiz");
+      if(q) q.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+  }
+  function bindAgain(box){
+    var a = box.querySelector(".qagain");
+    if(a) a.onclick = function(){
+      delete ST[box.dataset.k]; save(); render(cur);
+    };
+  }
+
+  function paintStrip(){
+    cells.forEach(function(c,k){
+      var cls = (map[k+1]!=null ? "has" : "");
+      if(k+1===cur) cls += " on";
+      c.className = cls;
+    });
+  }
+
+  /* 标题角标：不用滚到底就知道这页有没有题 */
+  function qBadge(start){
+    var qs = Q[start];
+    if(!qs || !qs.length) return "";
+    return '<span class="qbadge" title="跳到想一想">'+qs.length+' 题 ↓</span>';
+  }
+
+  function step(d){ go(cur + d); }
+
+  document.getElementById("prev").onclick=function(){ step(-1); };
+  document.getElementById("next").onclick=function(){ step(1); };
+  pnum.addEventListener("change",function(){ go(pnum.value); });
+  pnum.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ go(pnum.value); this.blur(); }
+  });
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement===pnum) return;
+    if(e.key==="ArrowLeft"||e.key==="PageUp"){ step(-1); e.preventDefault(); }
+    if(e.key==="ArrowRight"||e.key===" "||e.key==="PageDown"){ step(1); e.preventDefault(); }
+  });
+
+  var miss=document.getElementById("miss");
+  frame.addEventListener("error",function(){ miss.style.display="block"; });
+  frame.addEventListener("load", function(){ miss.style.display="none"; });
+  document.getElementById("help").onclick=function(){
+    miss.style.display = miss.style.display==="block" ? "none" : "block";
+  };
+
+  var drag=document.getElementById("drag"), left=document.getElementById("left"), dragging=0;
+  drag.addEventListener("mousedown",function(){ dragging=1; document.body.style.userSelect="none"; });
+  document.addEventListener("mouseup",function(){ dragging=0; document.body.style.userSelect=""; });
+  document.addEventListener("mousemove",function(e){
+    if(!dragging) return;
+    left.style.width=Math.max(20,Math.min(78,e.clientX/window.innerWidth*100))+"%";
+  });
+
+  /* ── 科研主线卡：讲级粒度 ──
+     pitfalls 与 ammo 是**整讲**的结论，挂不到某一页上；
+     逐页的那一半在卡片里的 .res 格。两种粒度本来就存在，压成一种会丢东西。 */
+  var tp = document.getElementById("threadPanel");
+  if(typeof TH !== "undefined" && TH){
+    var tbtn = document.getElementById("threadBtn");
+    tbtn.hidden = false;
+    document.getElementById("threadTitle").innerHTML =
+      TH.title + '<span class="tag">科研</span>';
+    document.getElementById("threadArc").innerHTML = TH.arc || "";
+    var sect = function(title, items, fmt){
+      if(!items || !items.length) return "";
+      return '<h4>'+title+'</h4><ol>'+items.map(fmt).join("")+'</ol>';
+    };
+    document.getElementById("threadBody").innerHTML =
+      sect("容易踩的坑", TH.pitfalls, function(x){
+        return '<li>'+x.v+'<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("审稿人会问的", TH.ammo, function(x){
+        return '<li><span class="q">'+x.q+'</span><br>'+x.a+
+               '<span class="rf">['+x.tag+'] '+x.ref+'</span></li>'; }) +
+      sect("要读的论文", TH.papers, function(x){
+        return '<li>'+x.t+' <span class="rf">'+x.id+'</span><br>'+x.why+'</li>'; });
+    tbtn.onclick = function(){ tp.classList.add("on"); };
+    document.getElementById("threadClose").onclick =
+      function(){ tp.classList.remove("on"); };
+    tp.onclick = function(e){ if(e.target === tp) tp.classList.remove("on"); };
+  }
+
+  var s=1; try{ s=parseInt(localStorage.getItem(KEY+"p"),10)||1; }catch(e){}
+  go(s);
+})();
+</script>
+</body></html>
