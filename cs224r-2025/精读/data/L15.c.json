@@ -1,0 +1,577 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "p25/p26/p37/p42 **例子的四宫格**：1. Hierarchical imitation learning（a. with language subgoals · b. with image subgoals）2. Hierarchical reinforcement learning（a. with language subgoals · b. with state subgoals）",
+  "p27 **数据**：**Segmented demonstration data with associated language command** —— 一条完整长任务的演示，被切成若干段，每段配一句语言标签",
+  "⚠ p27 讲稿点明：**数据里的段长是可变的**（variable length），**但系统运行时用的是固定频率**（re-query 比数据里的典型段长更频繁）",
+  "⚠ 讲稿：语言标签有两种采法 —— **采集时现说**（先说「我要拿起袋子」再演示）或 **事后标注**（录完整段再用标注界面切段打标签）",
+  "p28 **架构**（ALOHA Workcell 双臂平台）：obs（RGB images）→ **High-level Language Policy** → language；language + obs（RGB images, joints）→ **Low-level LCBC Policy** → action（joint targets）",
+  "⚠ p28 两层的观测可以**不一样**（高层只吃 RGB，低层还吃关节角），讲稿说这种 mismatch 是 **okay** 的",
+  "p28 两句旁注：**Could we also use DAgger on either policy? Yes!** · **Note: Can update the high-level policy with only language supervision!**",
+  "⇒ 讲稿给的频率：低层 **50 Hz**，高层约 **1 Hz**",
+  "p30 **做法（逐字）**：**One approach: Freeze low-level policy. Update high-level policy by supervising on language corrections.** · **Language corrections override high-level policy prediction**",
+  "p29–p33 出处：**Shi, Hu, Zhao, Sharma, Pertsch, Leo, Levine, Finn. Yell At Your Robot: Improving On-the-Fly from Language Corrections. RSS 2024**",
+  "p34 **对比的五条**：Flat VLA policy · Hierarchical VLA policy · Base hierarchical policy · With high-level DAgger · **With human corrections (oracle)**；出处 **Lucy Shi et al. Hi Robot. ICML 2025**",
+  "⚠ p34 讲稿给的数：**分层相对单一扁平策略，任务进度（task progress）提升 34%**；另有 instruction accuracy 的差距；DAgger 相对 vanilla 模仿学习也有提升",
+  "p36 出处：**Pi team. π0.5. arXiv 2025**（「clean the bedroom」那个例子）",
+  "p38 **图像子目标**：高层输出**目标图像**（In practice: **use an image editing model**），低层改成**目标图像条件**的策略",
+  "p38 **两条好处（逐字）**：**No need for segmented videos with language annotations.** · **High-level policy can incorporate unlabeled video data!**",
+  "p38–p40 出处：**Black*, Nakamoto*, Atreya, Walke, Finn, Kumar, Levine. SuSIE: Subgoal Synthesis via Image Editing. ICLR 2024**",
+  "⚠ p38 讲稿：低层可以理解成一个**多步逆模型**（multi-step inverse model）—— 吃当前图像与未来目标图像，输出到达它所需的动作；高层用的是**扩散模型**",
+  "p40 **消融**：Robot data only vs **Robot data + videos of humans** → 加入人类视频训练高层，性能**提升**",
+  "p41 **逐字**：**Note: Fine-tuning large-scale hierarchical robot learning systems with RL is an open (and important!) research direction.**",
+  "p43 **分层 RL · 状态目标**：低层 = goal-conditioned policy + goal-reaching reward；高层 = 输出目标状态（**these are the HL actions**）；**Use hindsight relabeling on HL actions, using off-policy algorithm**。出处 **Nachum, Gu, Lee, Levine. Data-Efficient Hierarchical Reinforcement Learning. NeurIPS '18**",
+  "p43 **分层 RL · 语言目标**：低层 = language-conditioned policy + **hindsight language relabeling**；高层 = 输出语言。出处 **Jiang, Gu, Murphy, Finn. Language as an Abstraction for Hierarchical Deep Reinforcement Learning. NeurIPS '19**",
+  "p44 **无监督技能发现**：**Can you discover a set of diverse skills without supervision?** 出处 **Eysenbach, Gupta, Ibarz, Levine. Diversity is all you need: Learning diverse skills without a reward function. ICLR 2019**",
+  "p46 **下次**：RL for robotics —— learning with autonomy · sim2real transfer（客座：Ashish Kumar, Tesla Optimus）"
+ ],
+ "notes": [
+  {
+   "r": [
+    25,
+    28
+   ],
+   "t": "语言子目标：数据怎么切，两层怎么接",
+   "star": 3,
+   "quote": "<b>Let's cover a few examples</b> — <em>1. Hierarchical imitation learning（a. with language subgoals · b. with image subgoals）&nbsp; 2. Hierarchical reinforcement learning（a. with language subgoals · b. with state subgoals）</em><br><b>Hierarchical imitation with language subgoals · Data</b><br><em><b>Segmented demonstration data with associated language command</b></em>（Segment label / Robot data 交替）<br><em>Train high level and low-level policy with imitation learning.</em><br><b>架构</b>：<em>obs (RGB images) → <b>High-level Language Policy</b> → language &nbsp;;&nbsp; language + obs (RGB images, joints) → <b>Low-level LCBC Policy</b> → action (joint targets)</em>（ALOHA Workcell）<br><em><b>Could we also use DAgger on either policy? Yes!</b> &nbsp;·&nbsp; <b>Note: Can update the high-level policy with only language supervision!</b></em>",
+   "one": "<b>数据是一条完整的长任务演示，被切成若干段、每段配一句话。于是高层学「看到这个画面该说哪句话」，低层学「听到这句话该怎么动」——两层都只是模仿学习。</b>",
+   "pts": [
+    "<b>先看那个四宫格，它把后面所有例子的坐标定下来了：<b>两个轴——模仿还是强化、目标用语言还是用图像/状态</b>。</b> <span class='k'>⇒ 四格里讲义重点讲了三格（模仿×语言、模仿×图像、强化×状态/语言），而<b>模仿×语言</b>是讲得最细的那一格。</span>",
+    "<b>数据的形态是整件事的起点：<b>一条完整长任务的演示，被切成若干段，每段配一句语言标签</b>。</b> <span class='w'>讲义的任务是做什锦干果（trail mix）并装袋；标签像「拿起袋子」「拿起金属勺」「取 M&amp;M 豆」</span>。",
+    "<b>⚠ 讲稿点出一个很容易忽略、但很重要的不对称：<b>数据里的段长是可变的，系统运行时却用固定频率</b>。</b> <span class='k'>原话：「you'll have <b>variable frequency in the data</b> uh but the actual system will later be using a <b>fixed frequency</b> where it's re-querying <b>more frequently</b> than the typical segment length in the data」</span>。<b>⇒ 这正是 p21 那个「选项二」的落地：<b>训练时按语义切段，运行时按固定步数重问</b>，而且问得比段长更密。</b>",
+    "<b>语言标签怎么来？讲稿给了两条路，各有代价。</b> <span class='w'><b>① 采集时现说</b>：演示者先说「我要拿起袋子」再做这一段——标签天然对齐，但采集过程变慢、也更累；<b>② 事后标注</b>：先录完整段，再用一个标注界面切段打标签——采集快，但要多一道人工</span>。",
+    "<b>架构只有两个框，但每个框的输入输出都要看准。</b> <span class='k'><b>高层</b>：吃 RGB 图像，<b>输出一句语言</b>；<b>低层</b>（LCBC = language-conditioned behavior cloning，语言条件的行为克隆）：吃语言 + RGB + <b>关节角</b>，输出关节目标</span>。",
+    "<b>⚠ 注意两层的观测<b>不一样</b>：高层只看 RGB，低层还看关节角。</b> <span class='w'>讲稿明说这是允许的：「it's <b>okay</b> to have actually this sort of mismatch between observations for the high level and the low-level policy」</span>。<b>⇒ 这和 L15.a p14 那条「一般不抽象状态空间」不矛盾——那里说的是「别刻意砍掉信息」，这里是「两层各取所需」。</b>",
+    "<b>两层都只用<b>模仿学习</b>训练，这一点值得强调：<b>整个系统没有用到任何强化学习</b>。</b> <span class='k'>高层学的是「图像 → 语言标签」（一个图像描述任务），低层学的是「语言 + 观测 → 动作」（一个语言条件的行为克隆）</span>。<b>⇒ 分层在这里是一个<b>纯粹的结构选择</b>，不需要新的学习算法。</b>",
+    "⚠️ <b>p28 那句小字是整页最该带走的一句：<b><em>Can update the high-level policy with only language supervision!</em></b></b> <span class='w'>因为高层的输出空间就是语言，所以纠正它<b>只需要说一句话</b>，不需要示教任何动作</span>。<b>⇒ 这把「给系统纠错」的成本降了一个数量级——而下一页整页都在用这件事。</b>",
+    "<b>频率记一下：<b>低层 50 Hz，高层约 1 Hz</b></b>。 <span class='k'>⇒ 高层每说一句话，低层要动约 50 步</span>。<b>这正是 L15.a p9 第 ④ 条「不同频率」的实际数字。</b>"
+   ],
+   "eq": "**四宫格**（后面所有例子的坐标）：两个轴 —— 模仿 / 强化 × 语言 / 图像·状态\n   讲义重点讲三格；**模仿 × 语言**是讲得最细的那一格\n\n**数据形态**（整件事的起点）：\n   **一条完整长任务的演示，被切成若干段，每段配一句语言标签**\n   任务：做什锦干果并装袋；标签如「拿起袋子」「拿起金属勺」「取 M&M 豆」\n\n⚠ 容易忽略但重要的不对称：\n   「you'll have **variable frequency in the data** but the actual system will\n     later be using a **fixed frequency**, re-querying **more frequently** than\n     the typical segment length in the data」\n   ⇒ 正是 p21「选项二」的落地：\n     **训练时按语义切段，运行时按固定步数重问，而且问得比段长更密**\n\n语言标签的两条采法：\n   ① **采集时现说**：先说「我要拿起袋子」再做 ⇒ 天然对齐，但采集慢、累\n   ② **事后标注**：先录整段，再用标注界面切段打标签 ⇒ 采集快，多一道人工\n\n**架构**（两个框，输入输出要看准）：\n   **高层**：RGB 图像 → **一句语言**\n   **低层**（LCBC = language-conditioned behavior cloning）：\n           语言 + RGB + **关节角** → 关节目标\n\n   ⚠ 两层观测**不一样**（高层只看 RGB，低层还看关节角）\n     讲稿明说允许：「it's **okay** to have this sort of mismatch between\n       observations for the high level and the low-level policy」\n     ⇒ 与 L15.a p14「一般不抽象状态空间」不矛盾 ——\n       那里说「别刻意砍掉信息」，这里是「两层各取所需」\n\n**两层都只用模仿学习** —— 整个系统没有用到任何强化学习\n   高层：图像 → 语言标签（一个图像描述任务）\n   低层：语言 + 观测 → 动作（语言条件的行为克隆）\n   ⇒ 分层在这里是一个**纯粹的结构选择**，不需要新的学习算法\n\n⚠⚠ 整页最该带走的一句：\n   **Can update the high-level policy with only language supervision!**\n   高层的输出空间就是语言 ⇒ 纠正它**只需要说一句话**，不需要示教任何动作\n   ⇒ 把「给系统纠错」的成本降了一个数量级 —— 下一页整页都在用这件事\n\n频率：**低层 50 Hz，高层 ≈1 Hz** ⇒ 高层每说一句话，低层动约 50 步\n   = L15.a p9 第 ④ 条「不同频率」的实际数字",
+   "tbl": {
+    "head": [
+     "",
+     "高层策略",
+     "低层策略（LCBC）"
+    ],
+    "rows": [
+     [
+      "输入",
+      "<b>RGB 图像</b>",
+      "<b>语言 + RGB + 关节角</b>"
+     ],
+     [
+      "输出",
+      "<b>一句语言</b>",
+      "<b>关节目标</b>"
+     ],
+     [
+      "学的是什么任务",
+      "<b>图像 → 语言（描述）</b>",
+      "<b>语言条件的行为克隆</b>"
+     ],
+     [
+      "频率",
+      "<b>≈1 Hz</b>",
+      "<b>50 Hz</b>"
+     ],
+     [
+      "怎么纠正它",
+      "<b>⚠ 说一句话就行</b>",
+      "<span class='w'>要示教动作</span>"
+     ]
+    ]
+   },
+   "say": "原话（数据里段长可变、运行时却是固定频率）：<em>“the segments in the data can have a variable length… you might kind of if for example the robot trajectory looks something like this then you might have like the first subtask is something like this, the second subtask is maybe shorter, the third subtask is maybe longer so you'll have <b>variable frequency in the data</b> uh but the actual system will later be using a <b>fixed frequency</b> where it's kind of re-querying <b>more frequently than the typical segment length in the data</b>.”</em><br><br>原话（语言标签的两种采法）：<em>“These labels can either be kind of <b>recorded during data collection</b> where you're actually saying I'm going to pick up the bag and then do a demonstration of picking up the bag, then say I'm going to pick up the metal scoop… <b>or you could do it post hoc</b> where you just collect the full demonstration and then with a <b>labeling interface</b> label like this segment is picking up the bag, this segment is picking up the metal scoop.”</em><br><br>原话（两层观测不一样是可以的）：<em>“the work chooses to use not just RGB images but also <b>joint angles</b> uh as input to the low-level policy and generally you can have <b>it's okay to have actually this sort of mismatch between observations for the high level and the low-level policy</b>.”</em>"
+  },
+  {
+   "r": [
+    29,
+    33
+   ],
+   "t": "在语言空间里做 DAgger：冻住低层，只改高层",
+   "star": 3,
+   "quote": "<b>Fine-tuning high-level policy with DAgger</b><br><em><b>Language corrections override high-level policy prediction</b></em><br><em><b>One approach: Freeze low-level policy. Update high-level policy by supervising on language corrections.</b></em><br>〔演示视频标题〕<em>Language correction on-the-fly (e.g. avoid pouring outside the bag)</em> · <em>After fine-tuning high-level policy with DAgger (<b>the policy can self-correct</b>)</em><br>〔出处〕<em>Shi, Hu, Zhao, Sharma, Pertsch, Leo, Levine, Finn. <b>Yell At Your Robot: Improving On-the-Fly from Language Corrections.</b> RSS 2024</em>",
+   "one": "<b>人看着机器人干活，快出错时喊一句话盖掉高层的指令。这些「喊话」就是 DAgger 的标注，而且因为高层的输出本来就是语言，一句话就是一条训练数据。</b>",
+   "pts": [
+    "<b>这一页是 p18 那句「至少一边要适配另一边的毛病」的<b>字面实现</b>，而且实现得极其轻。</b> <span class='k'>做法三步：① <b>冻住低层</b>；② 人在运行时用语言<b>覆盖</b>高层的输出；③ 拿这些覆盖当标注，<b>梯度更新高层</b></span>。",
+    "<b>先回忆 DAgger 要解决什么（上一讲 L02 的内容）：<b>训练分布与执行分布不一致</b>。</b> <span class='w'>光靠离线数据训出来的策略，一旦走偏就进入没见过的状态</span>；<b>DAgger 的解法是「让策略自己跑，在它<b>实际到达</b>的状态上问专家该怎么做」。</b>",
+    "<b>⇒ 用在这里，被纠正的是<b>高层</b>，而它实际到达的状态正是「低层把它带到的地方」。</b> <span class='k'>⇒ 所以这个 DAgger 天然就在适配低层的毛病——<b>它收集的数据来自真实的两层联合执行</b>，而不是想象中的。</b>",
+    "<b>关键的便利还是 p28 那句：<b>高层的输出空间是语言，所以标注成本只是「说一句话」</b>。</b> <span class='w'>讲稿：「dagger on the high level policy is actually <b>in language space, not in joint space</b>」</span>。<b>⇒ 对比一下：在关节空间做 DAgger 意味着人要<b>手把手拖着机械臂</b>示教，那是完全不同量级的代价。</b>",
+    "<b>讲稿把演示视频逐步讲了一遍，而<b>那个纠正发生的瞬间</b>最值得看清。</b> <span class='k'>高层依次说「拿起勺子」「把勺子移向我」「把勺子移进袋子」；而在最后这一步，「you'll actually notice that <b>the robot's about to make a mistake</b>」</span>。<b>⇒ 人于是插话，但说的不是重复那句指令，而是<b>把它拆得更细</b>：「把左臂往左移」「再高一点」，然后才是「把勺子移进袋子」。</b>",
+    "⚠️ <b>这个细节是整页的技术核心：<b>纠正的方式是「换一个低层做得到的指令」，而不是「把同一个指令说得更大声」</b>。</b> <span class='w'>人类纠正者在做的事，正是把一个低层会失手的目标，<b>替换成一串低层能完成的更小目标</b></span>。<b>⇒ 这就是在「适配低层的 deficiencies」。</b>",
+    "<b>微调之后的效果（p33 的视频标题）是 <b><em>the policy can self-correct</em></b>——高层学会了在同样的情形下<b>自己</b>先说「再高一点」。</b> <span class='k'>⇒ 注意这不是低层变强了（它被冻住了），而是<b>高层学会了绕开低层的弱点</b>。</b>",
+    "<b>⚠ 这里有一个很重要、但容易被跳过的含义：<b>系统整体变好了，而其中一半完全没有改变</b>。</b> <span class='w'>低层的能力一个字节都没动</span>；<b>⇒ 所以「提升系统性能」和「提升组件能力」是两件事，而前者往往便宜得多。</b>",
+    "<b>讲稿还提了一句，说明这个方向是<b>双向</b>可行的：<b>DAgger 在两层上都能做</b>。</b> <span class='k'>原话「in principle you can do dagger on both low-level and high level」——只是在高层上做便宜得多，所以这篇工作选了高层</span>。",
+    "<b>最后记一下这篇工作的名字，它起得很直白：<b><em>Yell At Your Robot</em></b>（朝你的机器人喊话），RSS 2024。</b> <span class='w'>⇒ 论文名字本身就把方法说清了，这种起名方式值得学。</span>"
+   ],
+   "eq": "这一页 = p18「至少一边要适配另一边的毛病」的**字面实现**，而且极轻：\n   ① **冻住低层**\n   ② 人在运行时用语言**覆盖**高层的输出\n   ③ 拿这些覆盖当标注，**梯度更新高层**\n\n先回忆 DAgger 要解决什么（L02）：**训练分布与执行分布不一致**\n   离线数据训出的策略一旦走偏就进入没见过的状态\n   DAgger：让策略自己跑，在它**实际到达**的状态上问专家该怎么做\n\n⇒ 用在这里，被纠正的是**高层**，而它实际到达的状态正是「低层把它带到的地方」\n   ⇒ 这个 DAgger **天然就在适配低层的毛病** ——\n     它收集的数据来自**真实的两层联合执行**，不是想象中的\n\n关键便利（p28 那句）：**高层的输出空间是语言 ⇒ 标注成本只是「说一句话」**\n   讲稿：「dagger on the high level policy is actually\n           **in language space, not in joint space**」\n   ⇒ 对比：在关节空间做 DAgger = 人要**手把手拖着机械臂**示教，完全不同量级\n\n演示视频里**纠正发生的瞬间**（最值得看清）：\n   高层依次说「拿起勺子」→「把勺子移向我」→「把勺子移进袋子」\n   最后这步：「you'll notice that **the robot's about to make a mistake**」\n   人插话，说的**不是**重复那句指令，而是**把它拆得更细**：\n     「把左臂往左移」「再高一点」，然后才是「把勺子移进袋子」\n\n⚠⚠ 整页的技术核心：\n   **纠正的方式是「换一个低层做得到的指令」，不是「把同一个指令说得更大声」**\n   人类纠正者在做的，正是把一个低层会失手的目标\n   **替换成一串低层能完成的更小目标** ⇒ 这就是在适配低层的 deficiencies\n\n微调之后（p33 标题）：**the policy can self-correct**\n   高层学会在同样情形下**自己**先说「再高一点」\n   ⚠ 注意**不是低层变强了**（它被冻住了），而是**高层学会了绕开低层的弱点**\n\n⚠ 一个容易跳过的含义：\n   **系统整体变好了，而其中一半完全没有改变**\n   ⇒ 「提升系统性能」与「提升组件能力」是两件事，**前者往往便宜得多**\n\n讲稿：DAgger **两层上都能做**（「in principle you can do dagger on both」）\n   只是在高层上做便宜得多，所以这篇工作选了高层\n\n出处：**Yell At Your Robot**（朝你的机器人喊话），RSS 2024\n   ⇒ 论文名字本身就把方法说清了",
+   "tbl": {
+    "head": [
+     "",
+     "在低层做 DAgger",
+     "在高层做 DAgger（本页）"
+    ],
+    "rows": [
+     [
+      "纠正的形式",
+      "<span class='w'>手把手示教动作</span>",
+      "<b>说一句话</b>"
+     ],
+     [
+      "标注成本",
+      "<span class='w'>很高</span>",
+      "<b>极低</b>"
+     ],
+     [
+      "改变了谁",
+      "<b>低层的能力</b>",
+      "<b>高层的指令选择</b>"
+     ],
+     [
+      "低层变强了吗",
+      "<b>是</b>",
+      "<span class='w'>⚠ 否（被冻住）</span>"
+     ],
+     [
+      "适配了谁的毛病",
+      "—",
+      "<b>低层的（p18 的字面实现）</b>"
+     ]
+    ]
+   },
+   "say": "原话（为什么在高层做 DAgger 特别划算）：<em>“one thing that's pretty cool is that actually for the high level policy we can actually update the high-level policy with <b>language supervision</b> and so <b>dagger on the high level policy is actually in language space not in joint space</b>… you would then kind of <b>type or speak a language command that is going to override the high-level policy</b>… and then you can fine-tune and actually do gradient steps on data that has these kinds of language interventions.”</em><br><br>原话（纠正发生的那一瞬间——换成低层做得到的指令）：<em>“at this point you'll actually notice that <b>the robot's about to make a mistake</b>. And so that's when you can intervene. And um instead of telling the robot move the scoop in the bag because it seems like <b>the low-level policy isn't going to do that correctly</b>, you could then intervene and say… <b>move the left arm to the left, go higher</b> um move the scoop into the bag then. And so these user commands are <b>overriding the high level policy</b>.”</em><br><br>原话（微调之后高层自己会绕开低层的弱点）：<em>“after you fine-tune the high level policy on those kinds of interventions, the high level policy can then <b>self-correct</b> and know that the low-level policy is making a mistake where it was about to make kind of the same sort of mistake again. And then the high level policy says <b>go higher</b> and then move the scoop into the bag to kind of prevent that sort of mistake. And so this is an example of like the high level and low-level policy <b>adapting together</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给你的是一个<b>便宜得不合理</b>的改进思路，而且它和 L15.b p18 科研格那条「把档位信息喂给规划节点」是同一件事的两个强度。</b><br><span class='k'>这里的做法是：<b>冻住执行者，只改规划者，而且用语言来改</b></span>。<b>⇒ 映射到你的工作流，这意味着：<b>当某个节点在某个档位上表现不好时，你不一定要给它升档——你可以改上游，让它下达一个这个档位做得到的子任务</b>。</b><br><b>⇒ 两条路的成本差得很远：<b>升档</b>是每条 query 都要持续付的（更贵的模型调用）；<b>改上游 prompt</b> 是<b>一次性</b>的。</b> <span class='w'>⇒ 如果后者能换来同样的 <code>G</code>，那它在 <code>G = Acc − λ·Cost</code> 上是严格占优的。</span><br><b>⇒ 这给了你一个值得做的对照，而且它直接针对你的目标函数</b>：<span class='k'>对同一个「弱节点」，比较 <b>(i) 给它升档</b> 与 <b>(ii) 保持低档但让上游把子任务拆得更细</b> 两种修法的 <code>G</code></span>。<b>⚠ 如果 (ii) 经常够用，那是一个很强的结果——<b>它说明「该用大模型的地方」比人们以为的少</b>，而这正是你这类工作最想讲的故事。</b><br><b>而这一页的 DAgger 结构本身也可以搬：<b>在系统<b>实际到达</b>的状态上收集纠正</b>。</b> <span class='w'>对应到你这里：<b>不要</b>用「上游全是基线档位」时的输入去调某个节点的 prompt（那正是 L15.b p17 科研格说的失配）；要用<b>最终配置下真实产生的</b>上游输出</span>。<b>⇒ 这是一个数据管线上的具体要求：调 prompt 的那批样本，必须从目标配置下跑出来，而不是从基线配置下跑出来。</b><br><b>⚠ 最后一条很重要的观察，也是这一页最该记住的：<b>系统整体变好了，而其中一半完全没动</b>。</b> <span class='k'>低层被冻住，提升全部来自高层学会绕开它的弱点</span>。<b>⇒ 这提醒你在归因时小心：<b>「这个节点换了大模型之后整体 G 提升了」</b>，不等于<b>「这个节点本身变好了」</b>——也可能是它的输出更规整，于是<b>下游</b>更容易处理。</b><br><b>⇒ 要区分这两者，需要一个<b>节点级</b>的中间指标</b>（<span class='w'>比如该节点输出的某种质量评分</span>），<b>而不是只看端到端的 <code>G</code>。这是一个该现在就加进日志的字段。</b>",
+    "ref": "本讲 p29–p30（逐字核对）· 讲稿（纠正瞬间、语言空间 DAgger）· L15.b p17 p18 科研格 · 简报 §2 §4b（已核）"
+   },
+   "link": {
+    "t": "你学过的对应：本课 L02 精读（DAgger）——那里讲的是「让策略自己跑、在它实际到达的状态上问专家」；这一页把被问的对象换成了高层，于是标注成本从「手把手示教」降成「说一句话」",
+    "href": "L02-精读.html"
+   }
+  },
+  {
+   "r": [
+    34,
+    36
+   ],
+   "t": "真的有用吗：那个 34%，和它该怎么读",
+   "star": 3,
+   "quote": "<b>Hierarchical imitation with language abstraction</b><br><em><b>Does hierarchy help compared to flat policy? Does high-level DAgger help vs. vanilla imitation?</b></em><br><em>对比的五条：Flat VLA policy · Hierarchical VLA policy · Base hierarchical policy · <b>With high-level DAgger</b> · <b>With human corrections (oracle)</b></em><br><em><b>With hierarchy, the robot is better at long-horizon tasks</b></em><br>〔出处〕<em>Lucy Shi et al. <b>Hi Robot.</b> ICML 2025</em> · <em>Pi team. <b>π0.5.</b> arXiv 2025</em>",
+   "one": "<b>两个比较都往好的方向走：分层比扁平好，高层 DAgger 比普通模仿好。但读这种数之前要先问清楚「跟谁比、在什么指标上、算力对齐了没有」。</b>",
+   "pts": [
+    "<b>这一页问了两个干净的问题，而且它们正好对应前面两段内容。</b> <span class='k'><b>问题一</b>：分层相对扁平策略有没有用？（对应 L15.a p10–11 那张三选一的表）<b>问题二</b>：高层 DAgger 相对普通模仿学习有没有用？（对应上一页）</span>",
+    "<b>讲稿给的数是：<b>任务进度（task progress）上，分层相对单一扁平策略提升 34%</b>。</b> <span class='w'>原话：「it finds that for in terms of like task progress there's a <b>34% improvement from using hierarchy versus training a single policy</b> to do the full long horizon imitation learning task」</span>。<b>另外在「指令遵循准确率」（instruction accuracy）这个指标上也有差距。</b>",
+    "⚠️ <b>但讲稿立刻加了一个限定，这个限定在引用时<b>绝不能漏</b>：<b>这个比较来自另一篇论文</b>。</b> <span class='k'>原话：「this comparison is actually from a <b>different research paper</b> but it has basically the same approach」</span>。<b>⇒ 所以这个 34% 严格说<b>不是</b> Yell At Your Robot 那篇的数，而是 Hi Robot（ICML 2025）的。引用时要引对。</b>",
+    "<b>读这类数字有三个问题必须先问，而这一页只明确回答了第一个。</b> <span class='w'><b>① 指标是什么？</b>——「任务进度」而不是成功率。长任务上成功率往往全是 0，所以要用进度这种连续指标，这是合理的，但它也更容易看起来好看</span>。",
+    "<b><b>② 跟谁比？</b>——「Flat VLA policy」。</b> <span class='k'>⚠ 这里要留意：扁平基线<b>有没有拿到同样的中间监督</b>？</span><b>⇒ 回忆 L15.a p9，老师自己说过扁平策略也可以用塑形奖励/中间标签。如果扁平基线<b>没有</b>用上那些语言标签，那这个比较就不只是在比「分层 vs 扁平」，<b>也在比「有没有用中间标注」</b>。</b>",
+    "<b><b>③ 算力对齐了吗？</b>——分层系统每步要跑两个模型（虽然高层频率低）。</b> <span class='w'>如果两边的总计算量不同，那么一部分提升可能只是「花得多」</span>。<b>⇒ 这一页没有给这个信息。</b>",
+    "<b>⇒ 这三问不是在怀疑结论，而是在定位它<b>到底支持了什么</b>。</b> <span class='k'>而它们正是 L15.b p16 那句「想清楚好处从哪来」的操作化版本</span>。<b>⇒ 老师在 p16 教了这个态度，在这一页就给了一个可以拿来练手的例子。</b>",
+    "<b>第二个比较（DAgger vs 普通模仿）的设计值得单独夸一句，因为它多了一条<b>上界</b>。</b> <span class='w'>五条里的最后一条是 <b><em>With human corrections (oracle)</em></b>——即「每次都有人实时纠正」</span>。<b>⇒ 这是这套方法<b>能达到的天花板</b>：如果高层 DAgger 微调之后接近它，说明方法把人的纠正学进去了；差得远，说明还有空间。</b>",
+    "<b>⚠ 有一条上界的比较，比只有「我的方法 vs 基线」强得多，这是值得学的实验设计。</b> <span class='k'>它把「提升了多少」变成了「<b>把可获得的提升吃掉了多大比例</b>」，后者是一个有意义的、可跨论文比较的量</span>。",
+    "<b>p35–p36 是两段视频，展示分层能做多长的任务</b>：<span class='w'>往自封袋里装<b>三个</b>物件；以及「clean the bedroom」——高层依次输出「捡起衬衫」「把衬衫放进篮子」……「捡起枕头」「整理被子」「把枕头放到床头」「捡起纸巾」「扔进垃圾桶」</span>。<b>⇒ 讲稿评价：这些任务「would be <b>very hard</b> to do if you just trained like a single flat policy」。</b>"
+   ],
+   "eq": "两个干净的问题（正好对应前面两段）：\n   **问题一**：分层 vs 扁平策略？   ← L15.a p10–11 那张三选一的表\n   **问题二**：高层 DAgger vs 普通模仿？ ← 上一页\n\n讲稿给的数：**任务进度（task progress）上，分层相对单一扁平策略提升 34%**\n   另在「指令遵循准确率」（instruction accuracy）上也有差距\n\n⚠⚠ 引用时**绝不能漏**的限定：**这个比较来自另一篇论文**\n   「this comparison is actually from a **different research paper**\n     but it has basically the same approach」\n   ⇒ 34% 不是 Yell At Your Robot 的数，是 **Hi Robot（ICML 2025）**的\n\n**读这类数字必须先问的三个问题**（这一页只明确回答了第一个）：\n   ① **指标是什么？** 「任务进度」而非成功率\n      长任务上成功率往往全是 0 ⇒ 用连续指标是合理的，但也更容易看起来好看\n   ② **跟谁比？** 「Flat VLA policy」\n      ⚠ 扁平基线**有没有拿到同样的中间监督**？\n        L15.a p9 里老师自己说过扁平也能用塑形奖励/中间标签\n        若扁平基线**没有**用上那些语言标签，这个比较就不只在比\n        「分层 vs 扁平」，**也在比「有没有用中间标注」**\n   ③ **算力对齐了吗？** 分层每步要跑两个模型（虽然高层频率低）\n      总计算量不同 ⇒ 一部分提升可能只是「花得多」。这一页没给这个信息\n\n⇒ 三问不是怀疑结论，是定位它**到底支持了什么**\n   正是 L15.b p16「想清楚好处从哪来」的操作化版本\n   ⇒ p16 教了态度，这一页给了练手的例子\n\n第二个比较的设计值得夸：**多了一条上界**\n   五条里最后一条是 **With human corrections (oracle)**（每次都有人实时纠正）\n   = 这套方法**能达到的天花板**\n   接近它 ⇒ 方法把人的纠正学进去了；差得远 ⇒ 还有空间\n\n⚠ **有一条上界的比较，比只有「我的方法 vs 基线」强得多**\n   它把「提升了多少」变成「**把可获得的提升吃掉了多大比例**」\n   后者是一个有意义的、可跨论文比较的量\n\np35–p36 两段视频（分层能做多长的任务）：\n   往自封袋里装**三个**物件\n   「clean the bedroom」：捡起衬衫 → 放进篮子 → … → 捡起枕头 → 整理被子\n     → 把枕头放到床头 → 捡起纸巾 → 扔进垃圾桶\n   讲稿：这些任务「would be **very hard** to do if you just trained\n                   like a single flat policy」",
+   "tbl": {
+    "head": [
+     "读一个「提升 X%」要先问",
+     "这一页的答案",
+     "为什么要问"
+    ],
+    "rows": [
+     [
+      "<b>指标是什么</b>",
+      "<b>任务进度（非成功率）</b>",
+      "<span class='w'>长任务成功率常全是 0</span>"
+     ],
+     [
+      "<b>跟谁比</b>",
+      "<b>Flat VLA policy</b>",
+      "<span class='w'>⚠ 基线有没有拿到中间标注？</span>"
+     ],
+     [
+      "<b>算力对齐吗</b>",
+      "<span class='w'>⚠ 没给</span>",
+      "<b>否则在比「花得多」</b>"
+     ],
+     [
+      "<b>有上界吗</b>",
+      "<b>有：human corrections (oracle)</b>",
+      "<b>把提升变成「吃掉了多大比例」</b>"
+     ]
+    ]
+   },
+   "say": "原话（34% 这个数，以及它来自另一篇论文）：<em>“you can actually do a comparison like in this particular setup does hierarchy outperform using a single flat policy to do the long horizon task. Uh <b>this comparison is actually from a different research paper but it has basically the same approach</b> and it finds that for in terms of like task progress there's a <b>34% improvement from using hierarchy versus training a single policy</b> to do the full long horizon imitation learning task. Um and in terms of like following instructions there's also a gap. This is kind of this <b>instruction accuracy</b> metric. Um and you can also actually compare Dagger to imitation learning uh in the high level for the high level policy and you can also see that there's like an improvement from using Dagger compared to just using vanilla imitation learning.”</em><br><br>原话（分层能做多长的任务——清理卧室那段）：<em>“with a similar system, you can also get a robot to — the high level command is <b>clean the bedroom</b> and then the low-level policy will output things like uh <b>pick up shirt, put shirt in basket, pick up shirt, put shirt in basket</b> um and later <b>pick up the pillow, adjust the blanket, put the pillow at the top of the bed, adjust the pillow, pick up tissue, put the tissue in the trash can</b>, and so forth. And so these are things that would be <b>very hard to do if you just trained like a single flat policy</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你最大的用处不是那个 34%，而是<b>怎么报一个提升</b>——而你马上就要报一个。</b><br><b>那三个问题你都得回答，而且第二、三个在你这里特别容易出问题：</b><br><b>① <b>指标是什么</b>。</b> <span class='k'>你的主指标是 <code>G = Acc − λ·Cost</code>，而它<b>依赖 λ</b>——同一组结果在不同 <code>λ</code> 下可以给出完全不同的排名</span>。<b>⇒ 所以绝不能只报一个 <code>λ</code> 下的数：<b>要画整条 <code>λ</code> 扫描曲线</b>（而且这是免费的，L16 p13 那条说过）。</b><br><b>② <b>跟谁比</b>。</b> <span class='w'>⚠ 这一页的隐患在你这里有一个尖锐的版本：<b>你的基线有没有被同等地调过？</b></span> <b>最容易被质疑的对比是「我们的逐节点分配 vs 全用小模型」和「vs 全用大模型」——这两个基线都<b>太弱</b>了。</b><span class='k'>⇒ 真正该比的基线至少还要有：<b>(i) 随机分配同样数量的大模型节点</b>（控住「用了几次大模型」这个变量）；<b>(ii) 按某个简单启发式分配</b>（比如只给最后一个节点升档）。</span><b>⇒ 如果你的方法赢不过 (i)，那说明<b>分配的位置不重要，只有数量重要</b>——这是一个必须排除的解释。</b><br><b>③ <b>算力对齐</b>。</b> <span class='w'>你的方法本身要花调用去<b>搜索</b>配置，而基线不用</span>。<b>⇒ 报告时必须说清：<b>这些搜索开销算不算进 Cost？</b></b><span class='k'>两种算法都可以，但要说明——如果不算，就要说明它是一次性的摊销成本并给出摊销到多少条 query 才回本。</b><br><b>而那条<b>上界</b>（oracle）的做法，你应该直接抄过来，这是这一页最值得学的实验设计。</b> <span class='w'>你的 oracle 很好定义：<b>在全部 <code>2^H</code> 个配置上穷举（或在一个小 <code>H</code> 的子问题上穷举），取真正的最优 <code>G</code></b></span>。<b>⇒ 于是你报的就不再是「比基线好 X%」，而是 <b>「我们用 Y 次调用，达到了穷举最优的 Z%」</b>——后者是一个<b>可跨论文比较</b>的量，而且审稿人一眼就懂。</b><br><b>⇒ ⚠ 这件事有一个很实际的好处：<b>在小 <code>H</code>（比如 6–8 个节点）上穷举是真的做得到的</b>（64–256 个配置）。</b><span class='k'>所以你完全可以在一个小规模设置上把 oracle 做出来，再把结论外推到大 <code>H</code>。<b>有 oracle 的那张图，会是你论文里最有说服力的一张。</b></span>",
+    "ref": "本讲 p34（逐字核对）· 讲稿（34% 与出处限定）· L15.b p16 · L16 p13 · 简报 §2 §4b §4d（已核）"
+   }
+  },
+  {
+   "r": [
+    37,
+    40
+   ],
+   "t": "图像子目标：省掉语言标注，还能吃无标注视频",
+   "star": 3,
+   "quote": "<b>Hierarchical imitation with image subgoals</b><br><em>Robot obs → <b>High-level Policy</b> → <b>goal image</b>（In practice: <b>use an image editing model</b>）;&nbsp; goal image + obs → <b>Low-level Policy</b>（goal image conditioned policy）→ action</em><br><em><b>Benefits: No need for segmented videos with language annotations.</b> &nbsp;·&nbsp; <b>High-level policy can incorporate unlabeled video data!</b></em><br><em>Is it helpful to include <b>videos of humans</b> in high-level policy training? &nbsp; Robot data only &nbsp;vs&nbsp; <b>Robot data + videos of humans</b></em><br>〔出处〕<em>Black*, Nakamoto*, Atreya, Walke, Finn, Kumar, Levine. <b>SuSIE: Subgoal Synthesis via Image Editing.</b> ICLR 2024</em>",
+   "one": "<b>把中间表示从语言换成图像，算法几乎没变，变的是「你能用什么数据训它」——不需要人工切段打标签，而且可以直接吃 YouTube 上的人类视频。</b>",
+   "pts": [
+    "<b>换法很直接：<b>高层不再输出一句话，而是输出一张「未来应该长这样」的图像</b>；低层从语言条件变成<b>目标图像条件</b>。</b> <span class='k'>实现上高层用的是<b>图像编辑模型</b>——吃当前帧，把它「编辑」成一张若干秒后的目标帧</span>。<b>讲稿说架构是<b>扩散模型</b>（所以视频里能看到噪声逐渐收敛成图像）。</b>",
+    "<b>讲稿给了低层一个很好的刻画：<b>它本质上是一个「多步逆模型」</b>。</b> <span class='w'>原话：「you can think of this as a kind of like a <b>multi-step inverse model</b> that takes as input the current image, some future image, and then outputs the actions that you can take to get to that goal image」</span>。<b>⇒ 「逆模型」是指它反过来问：<b>要从这里到那里，该做什么动作</b>。</b>",
+    "⚠️ <b>两条好处都<b>不是</b>关于算法的，而是关于<b>你能用什么数据</b>——这是这一页真正的要点。</b>",
+    "<b><b>好处一</b>：<em>No need for segmented videos with language annotations</em>。</b> <span class='k'>语言子目标那条路要求人把演示切段并逐段打标签（p27 的两种采法都要人工）；而图像子目标<b>不需要</b>——「you just need the <b>videos</b> of the long horizon task」</span>。<b>⇒ 目标图像可以<b>自动</b>从轨迹里取：拿当前帧的 1 秒后、5 秒后、10 秒后那一帧当标签。</b>",
+    "<b><b>好处二</b>更有意思：<em>High-level policy can incorporate <b>unlabeled video data</b>!</em></b> <span class='w'>既然高层学的是「给定当前帧和目标，预测未来帧」，那它<b>完全不需要动作标签</b></span>；<b>⇒ 于是<b>人类做任务的视频</b>也能拿来训高层——而这类数据比机器人数据多得多。</b>",
+    "<b>p40 就是这条好处的消融，而结论是肯定的</b>：<span class='k'>「Robot data only」vs「Robot data + videos of humans」，加入人类视频之后高层性能<b>提升</b></span>。<b>⇒ 讲稿补了一句很重要的限定：那些人类视频<b>不是随机的 YouTube 视频</b>，而是「videos of people doing different tasks that have a single language annotation for what the person is doing in the whole video」——<b>任务相关</b>的视频。</b>",
+    "<b>⚠ 老师对「完全随机的 YouTube 视频」的评价是克制的：「it's a little bit harder. Um but it might <b>still</b> teach it about… what are images that could happen in the future? And that is useful <b>pre-training</b>」。</b> <span class='w'>⇒ 即：泛泛的视频可以当预训练，但真正有用的是任务相关的。</span>",
+    "<b>图像表示还有一个语言给不了的好处，讲稿单独提了：<b>对付叫不出名字的物体</b>。</b> <span class='k'>原话：「if your policy sees objects that it's <b>never seen before that are hard to describe in language</b>, then… it can more easily <b>generalize across the objects</b> and generate pixels for those images <b>if it doesn't know what the semantic name for that object is</b>」</span>。<b>⇒ 语言要求你能<b>命名</b>，图像不要求。</b>",
+    "<b>p39 那三个例子展示了子目标的粒度</b>：<span class='w'>「把木碗移到桌子上方」「把牙膏放进木碗」「打开抽屉」——而打开抽屉那个的子目标依次是「把夹爪放到把手上」「把夹爪往右移」</span>。<b>⇒ 生成的子目标图像带粉色边框，是<b>几秒后</b>的尺度（讲稿说目标大约一分钟、子目标大约 10 秒）。</b>",
+    "<b>⇒ 把这一页和上一段并排，结论是：<b>中间表示的选择，主要决定的不是算法好不好，而是你能训在什么数据上</b>。</b> <span class='k'>语言：要人工切段标注，但可解释、可干预（能「喊话」纠正）；图像：标注自动、能吃无标注视频，但<b>没法用一句话去纠正它</b></span>。<b>⇒ 这是一个真实的取舍，不是谁更先进。</b>"
+   ],
+   "eq": "换法：**高层不再输出一句话，而是输出一张「未来应该长这样」的图像**\n   低层：语言条件 → **目标图像条件**\n   实现：高层用**图像编辑模型**（吃当前帧，编辑成若干秒后的目标帧）\n         讲稿说架构是**扩散模型**（视频里能看到噪声逐渐收敛成图像）\n\n讲稿对低层的刻画：**它本质上是一个「多步逆模型」**\n   「a **multi-step inverse model** that takes as input the current image,\n     some future image, and then **outputs the actions** that you can take\n     to get to that goal image」\n   ⇒ 「逆模型」= 反过来问：**要从这里到那里，该做什么动作**\n\n⚠⚠ **两条好处都不是关于算法的，而是关于「你能用什么数据」** —— 这是真正的要点\n\n**好处一**：No need for segmented videos with language annotations\n   语言子目标那条路要人工切段打标签（p27 两种采法都要人工）\n   图像子目标**不需要** —— 「you just need the **videos** of the long horizon task」\n   ⇒ 目标图像可以**自动**从轨迹里取：当前帧的 1 秒 / 5 秒 / 10 秒后那一帧\n\n**好处二**（更有意思）：High-level policy can incorporate **unlabeled video data**!\n   高层学的是「给定当前帧和目标，预测未来帧」⇒ **完全不需要动作标签**\n   ⇒ **人类做任务的视频**也能训高层 —— 而这类数据比机器人数据多得多\n\np40 就是这条的消融，结论肯定：\n   Robot data only  vs  **Robot data + videos of humans** → **提升**\n\n   ⚠ 讲稿的限定：那些人类视频**不是随机 YouTube 视频**，而是\n     「videos of people doing different tasks that have a single language\n       annotation for what the person is doing in the whole video」= **任务相关**\n   对完全随机的 YouTube 视频，老师的评价很克制：\n     「it's a little bit harder… but it might **still** teach it about what are\n       images that could happen in the future. And that is useful **pre-training**」\n   ⇒ 泛泛视频可当预训练，真正有用的是任务相关的\n\n图像表示还有一个语言给不了的好处：**对付叫不出名字的物体**\n   「if your policy sees objects that it's **never seen before that are hard to\n     describe in language**… it can more easily **generalize across the objects**\n     and generate pixels **if it doesn't know what the semantic name is**」\n   ⇒ **语言要求你能命名，图像不要求**\n\np39 三个例子（子目标的粒度）：\n   「把木碗移到桌子上方」「把牙膏放进木碗」「打开抽屉」\n   打开抽屉的子目标依次是：把夹爪放到把手上 → 把夹爪往右移\n   生成的子目标图像带粉色边框；目标 ≈ 一分钟，子目标 ≈ 10 秒\n\n⇒ **中间表示的选择，主要决定的不是算法好不好，而是你能训在什么数据上**\n   语言：要人工切段标注，但**可解释、可干预**（能「喊话」纠正）\n   图像：标注自动、能吃无标注视频，但**没法用一句话去纠正它**\n   ⇒ 真实的取舍，不是谁更先进",
+   "tbl": {
+    "head": [
+     "",
+     "语言子目标",
+     "图像子目标"
+    ],
+    "rows": [
+     [
+      "高层输出",
+      "<b>一句话</b>",
+      "<b>一张目标图像</b>"
+     ],
+     [
+      "要人工标注吗",
+      "<span class='w'>⚠ 要（切段+打标签）</span>",
+      "<b>不要（自动取未来帧）</b>"
+     ],
+     [
+      "能吃无标注视频吗",
+      "<span class='w'>不能</span>",
+      "<b>能（含人类视频）</b>"
+     ],
+     [
+      "能用一句话纠正吗",
+      "<b>能（p29–33）</b>",
+      "<span class='w'>⚠ 不能</span>"
+     ],
+     [
+      "叫不出名字的物体",
+      "<span class='w'>难</span>",
+      "<b>容易</b>"
+     ],
+     [
+      "低层是什么",
+      "语言条件行为克隆",
+      "<b>多步逆模型</b>"
+     ]
+    ]
+   },
+   "say": "原话（低层是一个多步逆模型，高层是扩散模型）：<em>“you can think of this as a kind of like <b>a multi-step inverse model</b> that takes as input and the current image, some future image, and then <b>outputs the actions that you can take to get to that goal image</b>… in terms of the architecture, um, it's using a <b>diffusion model</b> to generate these images. That's why you saw the noise kind of moving into the image.”</em><br><br>原话（不需要语言标注，而且能吃人类视频）：<em>“one of the things that's pretty nice is that you <b>no longer need to segment videos with language annotations</b> to do this. Uh, you just need the <b>videos of the long horizon task</b>. And to train this high level policy, you can train it on like robot data and predict like future images in the trajectory like from 1 second or 5 seconds into the future… but you can also actually train this high level policy using like <b>YouTube videos</b> or something like that to predict what are future images that might accomplish some long-term goal.”</em><br><br>原话（图像能对付叫不出名字的物体）：<em>“if your policy sees objects that it's <b>never seen before that are hard to describe in language</b>, then that's something that it can more easily describe in images because it can more easily <b>generalize across the objects</b> that it's seeing and <b>generate pixels for those images if it doesn't know like what the semantic name for that object is</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页的结构性结论可以直接搬：<b>中间表示的选择，主要决定的不是算法好不好，而是「你能用什么数据、能怎么干预」</b>——而你的工作流里<b>也有</b>一个中间表示要选。</b><br><span class='k'>你的节点之间传递的是什么？多数 agentic 框架传的是<b>自然语言</b>（上游节点的文本输出）。但这不是唯一选择——也可以传<b>结构化对象</b>（JSON、AST、表格、调用图）</span>。<b>⇒ 而这个选择的后果，和讲义这一页列的几乎一一对应：</b><br><b>· <b>自然语言</b>：可解释、<b>可用一句 prompt 干预</b>（就是 p29–33 那套）、任何节点都能消费；但<b>格式松散</b>，下游要先解析，而小模型在解析上更容易出错。</b><br><b>· <b>结构化对象</b>：下游解析零成本、<b>错误可以被 schema 直接检出</b>；但不可能用自然语言去「喊话」纠正，而且上游必须能稳定产出合法结构——<b>这恰恰是小模型做不好的事</b>。</b><br><b>⇒ 这里有一个<b>和档位直接相关</b>的取舍，值得做成一个实验</b>：<span class='w'><b>结构化输出对小模型是双刃剑</b>——它让下游更安全，但让上游更容易失败（输出不合法 JSON）</span>。<b>⇒ 所以「某个节点能不能降档」可能<b>取决于它的输出格式</b>，而这是一个你现在多半没有控制的变量。</b><br><b>⇒ 建议把「输出格式」加进你的配置空间，或者至少在论文里把它作为固定项声明清楚。</b> <span class='k'>⚠ 如果不声明，别人复现时换一种格式，结论可能就变了——这是一个很隐蔽的可复现性问题。</b><br><b>而「能吃无标注数据」这条好处，在你这里有一个相当直接的对应，而且可能很值钱</b>：<span class='w'>图像子目标之所以能用人类视频，是因为高层学的任务<b>不需要动作标签</b></span>。<b>⇒ 类比：你的 <code>G</code> 需要<b>正确答案</b>才能算 Acc，这限制了你只能在有标注的 benchmark 上工作。但<b>Cost 那一半完全不需要标注</b>——任何一次真实运行都能给你成本数据。</b><br><b>⇒ 于是有一个很实际的做法：<b>用无标注的真实流量来估计 Cost 模型（以及各节点的调用次数分布），只用有标注的 benchmark 来估 Acc</b>。</b> <span class='k'>两者的数据量可以差几个数量级，而 Cost 那一半恰好是你<b>线性假设最站得住</b>的那一半（L07 主线卡：成本可加是精确的）。</b><b>⇒ 这能让你的成本估计精确得多，而代价只是多跑一些不需要标注的 query。</b>",
+    "ref": "本讲 p38–p40（逐字核对）· 讲稿（多步逆模型、人类视频的限定）· p29–33 · L07 主线卡 · 简报 §2 §4b §4c（已核）"
+   }
+  },
+  {
+   "r": [
+    41,
+    42
+   ],
+   "t": "思维链版本，和那个被点名的公开问题",
+   "star": 2,
+   "quote": "<b>Let's cover a few examples</b> — <em><b>Chain of thought version:</b></em><br><em>Visual from Chen, Belkhale, et al. <b>Training Strategies for Efficient Embodied Reasoning</b>, 2025.</em><br><em><b>Note: Fine-tuning large-scale hierarchical robot learning systems with RL is an open (and important!) research direction.</b></em>",
+   "one": "<b>前面讲的全是模仿学习。而把这些大规模分层系统用 RL 微调——老师明确说这是一个公开且重要的研究方向，还给了为什么重要的理由。</b>",
+   "pts": [
+    "<b>这一页先补上 L15.a p10–11 那个思维链选项的<b>落地版本</b>。</b> <span class='k'>做法是：同一个策略，吃高层任务和当前观测，<b>先</b>输出一个中间表示，<b>再</b>输出动作</span>。<b>而中间表示不限于语言或图像——讲稿提到还可以是 <b>边界框</b>（bounding boxes）或 <b>路径点</b>（waypoints）。</b>",
+    "<b>⇒ 这呼应了 L15.a p14 那条「表示是领域相关的」：<b>边界框和路径点都是比语言更「结构化」的表示</b></b>（<span class='w'>性质 b），<b>而且比图像更紧凑</b></span>。<b>⇒ 它们在「表达力」上弱于语言，但在「结构」上强得多——这正是那三条性质之间的取舍。</b>",
+    "<b>讲稿强调这类工作<b>很新</b>：「there are some like recent approaches from the last like <b>one year</b> basically」。</b> <span class='k'>⇒ 和 p23 那四个系统一样，这是一个正在快速变动的区域。</span>",
+    "⚠️ <b>这一页真正的分量在那句加了感叹号的注记：<b><em>Fine-tuning large-scale hierarchical robot learning systems with RL is an open (and important!) research direction.</em></b></b>",
+    "<b>讲稿把「为什么重要」说得很具体，而理由是<b>性能还不够好</b>。</b> <span class='w'>原话：「the performance of these systems is <b>still not like super super reliable</b>」</span>；<b>⇒ 而且老师加了一个重要的限定：这些数字是在相当困难的条件下测的——「with <b>held out objects</b> that the robot hasn't seen before, so it's kind of <b>out of distribution</b> compared to what it saw during training」。</b>",
+    "<b>⇒ 那么为什么 RL 会有帮助？因为前面所有系统都是<b>模仿学习</b>，而模仿学习有一个天花板。</b> <span class='k'>L02 讲过：<b>模仿学习的上界永远是专家</b>——它只能学会数据里有的东西，不能超过示教者</span>。<b>⇒ 而 RL 可以从<b>自己的</b>经验里改进，理论上能突破那个天花板。</b>",
+    "<b>讲稿的原话是：「if we had a way to train these with reinforcement learning then we <b>should be able to get these performances to be much higher</b> compared to using imitation learning」。</b> <span class='w'>注意用的是 <em>should be able to</em>——这是期望，不是已经做到的结果。</span>",
+    "<b>⚠ 那么难在哪？讲稿只说了「what is the <b>best recipe</b> for accomplishing that <b>at large scales</b>」是个公开问题，没有展开。</b> <span class='k'>但从前面几页可以推出几个明显的障碍：① <b>真实机器人上的 RL 样本效率</b>（每次试错都要真实时间与磨损）；② <b>两层该怎么联合微调</b>（p17 那个先有鸡先有蛋在 RL 下更难）；③ <b>奖励从哪来</b>（长时程任务的奖励本来就稀疏，这正是分层最初要解决的问题）</span>。",
+    "<b>⇒ 读到这种「老师明确点名的公开问题」要留心：它通常意味着<b>这个方向上有位置</b>，而且导师认为它重要。</b> <span class='w'>对正在找题目的人，这类句子比任何综述都有信息量。</span>"
+   ],
+   "eq": "先补上 L15.a p10–11 那个**思维链选项的落地版本**：\n   同一个策略，吃高层任务 + 当前观测，**先**输出中间表示，**再**输出动作\n   中间表示不限于语言或图像 —— 讲稿还提到\n     **边界框**（bounding boxes）· **路径点**（waypoints）\n\n   ⇒ 呼应 L15.a p14「表示是领域相关的」：\n     边界框与路径点比语言更**结构化**（性质 b），且比图像更**紧凑**\n     在**表达力**上弱于语言，在**结构**上强得多\n     —— 正是那三条性质之间的取舍\n\n讲稿强调这类工作**很新**：「recent approaches from the last like **one year**」\n   ⇒ 和 p23 那四个系统一样，是一个正在快速变动的区域\n\n⚠⚠ 这一页真正的分量：\n   **Fine-tuning large-scale hierarchical robot learning systems with RL\n     is an open (and important!) research direction.**\n\n为什么重要（讲稿说得很具体）：**性能还不够好**\n   「the performance of these systems is **still not like super super reliable**」\n   ⚠ 重要限定：这些数字是在相当困难的条件下测的 ——\n     「with **held out objects** that the robot hasn't seen before,\n       so it's kind of **out of distribution** compared to what it saw during training」\n\n为什么 RL 会有帮助：前面所有系统都是**模仿学习**，而模仿学习有天花板\n   L02：**模仿学习的上界永远是专家** —— 只能学会数据里有的，不能超过示教者\n   RL 可以从**自己的**经验里改进 ⇒ 理论上能突破那个天花板\n\n   讲稿：「if we had a way to train these with reinforcement learning then we\n           **should be able to get these performances to be much higher**」\n   ⚠ 用的是 *should be able to* —— **是期望，不是已经做到的结果**\n\n难在哪？讲稿只说「what is the **best recipe**… **at large scales**」是公开问题\n   从前面几页可推出几个明显障碍：\n     ① **真实机器人上的 RL 样本效率**（每次试错都要真实时间与磨损）\n     ② **两层怎么联合微调**（p17 的先有鸡先有蛋在 RL 下更难）\n     ③ **奖励从哪来**（长时程奖励本来就稀疏 —— 这正是分层最初要解决的问题）\n\n⇒ 读到「老师明确点名的公开问题」要留心：\n   通常意味着**这个方向上有位置**，而且导师认为它重要\n   对正在找题目的人，这类句子比任何综述都有信息量",
+   "say": "原话（为什么用 RL 微调分层系统是重要的公开问题）：<em>“generally for these large scale systems uh to date for the most part they use <b>imitation learning</b> more so than reinforcement learning and <b>fine-tuning them with reinforcement learning is in some ways an open kind of research question for like what is the best recipe for accomplishing that at large scales</b>. Uh and it's also a <b>pretty important research direction</b> because if we think about this slide right here, the performance of these systems is <b>still not like super super reliable</b>. Um and these are in pretty challenging situations with like <b>held out objects</b> that the robot hasn't seen before. So that it's kind of <b>out of distribution</b> compared to what it saw during training. Um but if we had a way to train these with reinforcement learning then we <b>should be able to get these performances to be much higher</b> compared to using imitation learning.”</em>",
+   "link": {
+    "t": "你学过的对应：本课 L02 精读——「上界永远是专家」那一句（讲稿里有、幻灯上没有）正是这一页要用 RL 突破的那个天花板",
+    "href": "L02-精读.html"
+   }
+  },
+  {
+   "r": [
+    43,
+    44
+   ],
+   "t": "分层强化学习：两种目标空间，和事后重标注",
+   "star": 3,
+   "quote": "<b>Hierarchical reinforcement learning</b><br><em><b>State reaching goals</b>（e.g. relative target position of agent &amp; objects）<br>&nbsp;&nbsp;Low-level: <b>Goal-conditioned policy, with goal-reaching reward</b><br>&nbsp;&nbsp;High-level: Train policy to output goal states（<b>these are the HL actions</b>）<br>&nbsp;&nbsp;<b>Use hindsight relabeling on HL actions, using off-policy algorithm</b></em><br><em>〔出处〕Nachum, Gu, Lee, Levine. <b>Data-Efficient Hierarchical Reinforcement Learning.</b> NeurIPS '18.</em><br><em><b>Language goals</b>（for simple semantic tasks）<br>&nbsp;&nbsp;Low-level: <b>Language-conditioned policy, with hindsight language relabeling</b><br>&nbsp;&nbsp;High-level: Train policy to output language</em><br><em>〔出处〕Jiang, Gu, Murphy, Finn. <b>Language as an Abstraction for Hierarchical Deep RL.</b> NeurIPS '19.</em><br><b>Another active research area</b>: <em>Can you discover a set of <b>diverse skills without supervision</b>?</em>（Eysenbach et al. <b>Diversity is all you need</b>, ICLR 2019）",
+   "one": "<b>两条路线的差别只在目标空间：状态还是语言。而两条都靠同一个技巧活下来——事后重标注：把「我本来想去 A，结果到了 B」改写成「我本来就想去 B」。</b>",
+   "pts": [
+    "<b>先看<b>状态目标</b>那条（Nachum 等，NeurIPS'18）：目标就是<b>一个状态</b>（比如智能体与物体的相对目标位置）。</b> <span class='k'>低层是<b>目标条件策略</b>，奖励就是「离目标状态有多近」；高层输出目标状态，而<b>这些目标状态就是高层的动作</b></span>。<b>⇒ 这正好兑现了 L15.a p7 那个视角：<code>g_t</code> 是高层的动作，于是 RL 的整套机器可以原样搬上去。</b>",
+    "<b>讲稿描述的任务很能说明「长时程」的意思：一个四足蚂蚁智能体要到达某处，<b>但必须先把一个物体推到右边</b>才能过去；另一个任务里它要<b>给自己搭一座桥</b>再走过去。</b> <span class='w'>原话：「if you just try to take actions <b>greedily</b>, you won't be able to get to the goal」</span>。",
+    "⚠️ <b>整页的技术核心是那句 <b><em>Use hindsight relabeling on HL actions</em></b>，而它要解决的问题很具体。</b>",
+    "<b>问题是这样的：高层下达目标 <code>g</code>，低层<b>没做到</b>，实际到了 <code>g'</code>。</b> <span class='k'>于是这条数据对高层来说是「我选了动作 <code>g</code>，得到了一个（基于 <code>g'</code> 的）结果」——<b>可是低层一直在变</b>，同样的 <code>g</code> 明天可能就能做到了</span>。<b>⇒ 这是 p17 那个先有鸡先有蛋在 RL 里的具体形态：<b>高层的「动作」的效果，取决于一个正在变化的低层</b>。</b>",
+    "<b><b>事后重标注</b>的解法很巧：既然实际到了 <code>g'</code>，那就把这条数据<b>改写</b>成「高层本来就想去 <code>g'</code>」。</b> <span class='w'>讲稿：「it used hindsight relabeling for the high level policy to <b>relabel the goals that the high level policy should output</b> in certain circumstances」</span>。<b>⇒ 这样这条数据就变成了一条<b>成功</b>的数据，而且它描述的是低层<b>真实</b>的能力，不是你希望的能力。</b>",
+    "<b>⇒ 还要配一个 <b>off-policy 算法</b>，原因也在这里：重标注之后的数据<b>不是</b>当前策略产生的（当前策略本来不会选 <code>g'</code>）。</b> <span class='k'>on-policy 算法要求数据来自当前策略，用不了这些改写过的数据</span>。",
+    "<b><b>语言目标</b>那条（Jiang 等，NeurIPS'19）结构一样，只是目标空间换成语言，重标注也在<b>语言空间</b>里做。</b> <span class='w'>老师提醒这篇比较旧（2019），所以任务相对简单：把若干物体按特定顺序推成某种排列</span>。<b>⇒ 而且他说「high-level policy is trained to output language, which is actually a <b>pretty difficult task</b>」。</b>",
+    "<b>⚠ 讲稿对整个分层 RL 的评价相当坦率，值得照录</b>：<span class='k'>「I think that the hierarchical <b>imitation</b> learning systems are quite recent and I <b>don't have too many exciting examples</b>… with regard to hierarchical <b>reinforcement</b> learning」</span>。<b>⇒ 和 p41 那句「用 RL 微调是公开问题」是同一个判断：<b>分层 + 模仿已经很能打，分层 + RL 还没有。</b></b>",
+    "<b>p44 提了另一个活跃方向：<b>能不能不用监督就发现一组多样的技能</b>（DIAYN，ICLR 2019）。</b> <span class='w'>示例是半猎豹智能体自己学会了后退、前进、前空翻等技能</span>；<b>⇒ 想法是：先无监督地发现技能，再把它们<b>串起来</b>做难任务。</b>",
+    "<b>⚠ 但老师对它的评价也很克制：「this is generally still an <b>active research area</b> and something that's <b>pretty challenging to scale up</b>, especially in very large state spaces」。</b> <span class='k'>⇒ 两个「active research area」挨在一起，说明这一整块（分层 RL + 技能发现）在 2025 年仍然是开放的。</b>"
+   ],
+   "eq": "**状态目标**（Nachum 等 NeurIPS'18）：目标就是**一个状态**\n   低层：**目标条件策略**，奖励 = 「离目标状态有多近」\n   高层：输出目标状态，而**这些目标状态就是高层的动作**\n   ⇒ 兑现 L15.a p7 那个视角：g_t 是高层的动作\n     于是 **RL 的整套机器可以原样搬上去**\n\n   讲稿的任务（很能说明「长时程」）：\n     四足蚂蚁要到达某处，**但必须先把一个物体推到右边**才能过去\n     另一个任务里它要**给自己搭一座桥**再走过去\n     「if you just try to take actions **greedily**, you won't be able to get to the goal」\n\n⚠⚠ 技术核心：**Use hindsight relabeling on HL actions**\n\n   问题：高层下达目标 g，低层**没做到**，实际到了 g'\n     于是这条数据对高层是「我选了动作 g，得到一个（基于 g' 的）结果」\n     **可是低层一直在变** —— 同样的 g 明天可能就能做到了\n   ⇒ 这是 p17 先有鸡先有蛋在 RL 里的具体形态：\n     **高层「动作」的效果，取决于一个正在变化的低层**\n\n   **事后重标注**的解法：既然实际到了 g'，就把这条数据**改写**成\n     「高层本来就想去 g'」\n     讲稿：「hindsight relabeling… to **relabel the goals that the high level\n             policy should output** in certain circumstances」\n   ⇒ 这条数据变成一条**成功**的数据，\n     而且它描述的是低层**真实**的能力，不是你希望的能力\n\n   ⇒ 还要配 **off-policy 算法**：重标注后的数据**不是**当前策略产生的\n     （当前策略本来不会选 g'）；on-policy 算法用不了这些改写过的数据\n\n**语言目标**（Jiang 等 NeurIPS'19）：结构一样，目标空间换成语言\n   重标注也在**语言空间**里做\n   比较旧（2019）⇒ 任务相对简单（把物体按特定顺序推成某种排列）\n   「high-level policy is trained to output language, which is actually a\n     **pretty difficult task**」\n\n⚠ 讲稿对整个分层 RL 的坦率评价：\n   「the hierarchical **imitation** learning systems are quite recent and I\n     **don't have too many exciting examples**… with regard to hierarchical\n     **reinforcement** learning」\n   ⇒ 与 p41 同一个判断：**分层+模仿已经很能打，分层+RL 还没有**\n\np44 另一个活跃方向：**能不能不用监督就发现一组多样的技能**（DIAYN, ICLR 2019）\n   半猎豹智能体自己学会后退、前进、前空翻\n   想法：先无监督发现技能，再把它们**串起来**做难任务\n   ⚠ 老师的克制评价：「still an **active research area**… **pretty challenging\n     to scale up**, especially in very large state spaces」\n   ⇒ 两个 active research area 挨在一起 ——\n     这一整块（分层 RL + 技能发现）在 2025 年仍然开放",
+   "tbl": {
+    "head": [
+     "",
+     "状态目标（'18）",
+     "语言目标（'19）"
+    ],
+    "rows": [
+     [
+      "g 是什么",
+      "<b>一个状态（相对位置）</b>",
+      "<b>一句话</b>"
+     ],
+     [
+      "低层奖励",
+      "<b>离目标状态多近</b>",
+      "<b>语言条件 + 事后重标注</b>"
+     ],
+     [
+      "高层输出",
+      "<b>目标状态（= 高层动作）</b>",
+      "<b>语言（更难）</b>"
+     ],
+     [
+      "重标注在哪做",
+      "<b>HL 动作上</b>",
+      "<b>语言空间</b>"
+     ],
+     [
+      "要 off-policy 吗",
+      "<b>要</b>",
+      "<b>要</b>"
+     ],
+     [
+      "成熟度",
+      "<span class='w'>⚠ 两条都「还没有令人兴奋的例子」</span>",
+      "<span class='w'>⚠ 同左</span>"
+     ]
+    ]
+   },
+   "say": "原话（蚂蚁要先推开障碍/搭桥——贪心走不到）：<em>“it has this like four-legged ant agent that you might have worked with in homework one, and its goal is to get over here. Uh, and to get over there, it actually <b>needs to push this object to the right</b> and then move there as a result. Uh, and then there's also this example where it needs to get over here. If it tries to go directly there, <b>it will fall in this crevasse</b>. And instead, it needs to push and <b>make a little bridge for itself</b> and then walk over. Um, and these are pretty long horizon problems where <b>if you just try to take actions greedily, you won't be able to get to the goal</b>.”</em><br><br>原话（对分层 RL 现状的坦率评价）：<em>“when I was bringing up examples of this, I think that the hierarchical <b>imitation</b> learning systems are are like quite recent and <b>I don't have too many exciting examples or examples that I was excited about with regard to hierarchical reinforcement learning</b>… but generally getting these kinds of systems to work really well like potentially <b>on top of the initialized hierarchical imitation learning systems</b> is something that I think really exciting and important to explore.”</em><br><br>原话（无监督技能发现仍然难以放大）：<em>“in principle, if you discovered skills without supervision, then you could try to <b>sequence those together to do harder tasks</b>. Um but this is generally <b>still an active research area</b> and something that's <b>pretty challenging to scale up especially in very large state spaces</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b><b>事后重标注</b>是这一页你最该带走的技巧，因为它正面回答了你那个最难的问题：<b>信用分配</b>。</b><br><span class='k'>重标注的精神是：<b>一次「失败」的尝试，换一个角度看就是一次「成功」的尝试——只要你把它的目标改写成它实际达成的那个</b></span>。<br><b>⇒ 映射到你这里：你跑了一个配置 <code>x</code>，整条 query 最终答错了。按端到端的记法，这是一个「<code>x</code> 不好」的证据。<b>但这条数据里其实含有更多信息</b>：</b><span class='w'>中间某些节点的输出可能是<b>完全正确</b>的，只是某一个节点拖垮了全局</span>。<b>⇒ 如果你只记端到端的 <code>G</code>，这些信息全扔了。</b><br><b>⇒ 重标注在你这里的形态是：<b>给每个节点的输出单独打一个「这一步做对了没有」的标签</b>，而不是只给整条 query 打一个标签。</b> <span class='k'>于是一次失败的运行，可以为 <code>H</code> 个节点各贡献一条<b>节点级</b>的证据</span>。<b>⇒ 信息量从「每条 query 一个比特」变成「每条 query <code>H</code> 个比特」，而<b>调用成本一分没多花</b>。</b><br><b>⇒ 这对你的样本复杂度是实打实的改善，而且和你的线性假设天然契合</b>：<span class='w'><code>G(x) = x^⊤θ</code> 里的 <code>θ</code> 本来就是逐（节点,档位）的参数，而节点级标签<b>直接</b>给这些参数提供证据，不必经过端到端的加总再反推</span>。<br><b>⚠ 但要诚实说清这件事的代价，它和讲义里的情形是一样的：<b>节点级标签需要一个「这一步对不对」的判别器</b>。</b> <span class='k'>在讲义里那是「goal-reaching reward」（离目标状态多近），在你这里得自己造</span>——<b>可能的做法：用一个强模型当裁判、用可执行性检查（代码能不能跑、JSON 合不合法）、或者用下游节点的表现当代理。</b><b>⚠ 每一种都会引入噪声或偏差，必须在论文里说明，并最好报告这个判别器自身的准确率。</b><br><b>⇒ 一个风险要先想到：<b>节点级标签可能与端到端正确性不一致</b></b>（<span class='w'>每一步看起来都对，合起来却错；或者中间错了但后面自己纠回来了</span>）。<b>⇒ 所以节点级证据应当<b>补充</b>而不是<b>替代</b>端到端的 <code>G</code>——两种信号一起用，而且要报告它们吻合的程度。</b><br><b>最后一条小而重要的：<b>重标注要配 off-policy 算法</b>，这个限制对你同样成立。</b> <span class='k'>你的淘汰/选择过程如果只用「本轮采集的数据」（L07 p6 那个算法就是这么写的），那就用不上重标注带来的历史数据</b></span>。<b>⇒ 而 L07 主线卡已经记过：实现时用全部数据、论文里注明保证因此变成启发式。这两条在这里合流了。</b>",
+    "ref": "本讲 p43（逐字核对）· 讲稿（蚂蚁例子、分层 RL 现状）· L15.b p17 科研格 · L07 p6 与主线卡 · 简报 §2 §4b §4e（已核）"
+   }
+  },
+  {
+   "r": [
+    45,
+    46
+   ],
+   "t": "收尾：把三个设计选择再看一遍",
+   "star": 2,
+   "quote": "<b>Hierarchy for Imitation and Reinforcement Learning</b><br><em>1. What's the problem — a. Why long-horizon tasks are hard &nbsp; b. Why hierarchy may help<br>2. Key design choices — a. How to represent skills/goals? &nbsp; b. Supervision for each level &nbsp; c. When to move on from one goal to the next?<br>3. Example systems</em><br><b>Next time</b> — <em>Specific considerations with RL for robotics: <b>learning with autonomy</b> · <b>sim2real transfer</b>: guest lecture from Ashish Kumar! (Tesla Optimus)</em>",
+   "one": "<b>回到开头那张提纲。整讲真正给出「答案」的只有三个问题，而三个答案都是「取决于你的领域」加一条经验法则。</b>",
+   "pts": [
+    "<b>收尾页把开头那张提纲原样重放了一遍，而这正是检验自己有没有读懂的最好方式：<b>对着三个设计选择，看能不能各说出一条经验法则</b>。</b>",
+    "<b><b>① 目标怎么表示？</b>经验法则：<b>领域相关</b>，但要同时满足三条性质——表达力、<b>结构化</b>、合适的抽象层级。</b> <span class='k'>而结构化是最容易被忽略的那条，它决定了低层能不能跨子任务共享数据</span>。<b>⇒ 常见选择：语言（表达力强、可干预）· 图像（不需标注、能吃无标注视频）· 状态/坐标（结构最强）· 边界框/路径点（紧凑且结构化）。</b>",
+    "<b><b>② 每一层怎么监督？</b>经验法则：<b>可以先分开训，但至少有一边要适配另一边的毛病</b>。</b> <span class='w'>原因是两层互为前提（p17 的先有鸡先有蛋）</span>；<b>⇒ 实践上常让高层适配低层，因为高层更便宜、而且能用现成 LLM 初始化；而「适配」最轻的实现就是在<b>语言空间</b>里做 DAgger（p29–33）。</b>",
+    "<b><b>③ 什么时候换下一个子目标？</b>经验法则：<b>多数系统用固定步数</b>，尽管「判完成」原理上更优。</b> <span class='k'>理由不是它更准，而是<b>两种错误的后果不对称</b>——判完成出错会永久卡死，而固定步数最多白走 n 步</span>。<b>⇒ 最务实的是两者结合：以判完成为主，加一个超时兜底。</b>",
+    "<b>⚠ 而贯穿这三条之上的，是 p16 那句方法论：<b>想清楚你的好处到底从哪里来</b>。</b> <span class='w'>它既是判断「这是不是真的分层」的标准（端到端的两层网络 = 扁平策略），也是读别人的 34% 时该带的态度</span>。",
+    "<b>把整讲的结论压成一句话：<b>分层不是一个算法，而是一组设计选择；它带来的好处有四条，而你必须说得出自己拿到的是哪几条</b>。</b>",
+    "<b>最后记两个老师明确点名的<b>公开问题</b>，它们是这一讲留下的研究线索</b>：<span class='k'>① <b>分层 vs 思维链，还没有定论</b>（p11）；② <b>用 RL 微调大规模分层系统，是公开且重要的方向</b>（p41）；<b>外加</b> ③ 无监督技能发现仍难以放大（p44）</span>。",
+    "<b>下一讲转向机器人上的 RL 的具体考虑：<b>自主学习</b>（learning with autonomy）与 <b>sim2real 迁移</b>（客座讲者来自 Tesla Optimus 团队）。</b> <span class='w'>⇒ 从「怎么组织策略」转到「怎么在真实机器人上把它训出来」。</span>"
+   ],
+   "eq": "收尾页把开头那张提纲原样重放 —— 检验读懂没有的最好方式：\n   **对着三个设计选择，看能不能各说出一条经验法则**\n\n**① 目标怎么表示？**\n   法则：**领域相关**，但要同时满足三条性质\n         —— 表达力 · **结构化** · 合适的抽象层级\n   结构化最容易被忽略，它决定低层能不能**跨子任务共享数据**\n   常见选择：语言（表达力强、可干预）· 图像（不需标注、能吃无标注视频）\n             · 状态/坐标（结构最强）· 边界框/路径点（紧凑且结构化）\n\n**② 每一层怎么监督？**\n   法则：**可以先分开训，但至少有一边要适配另一边的毛病**\n   原因：两层互为前提（p17 的先有鸡先有蛋）\n   实践：常让高层适配低层（更便宜、能用现成 LLM 初始化）\n         「适配」最轻的实现 = 在**语言空间**里做 DAgger（p29–33）\n\n**③ 什么时候换下一个子目标？**\n   法则：**多数系统用固定步数**，尽管「判完成」原理上更优\n   理由不是它更准，而是**两种错误的后果不对称** ——\n     判完成出错会**永久卡死**，固定步数最多白走 n 步\n   最务实：两者结合（以判完成为主 + 超时兜底）\n\n⚠ 贯穿三条之上的是 p16 那句方法论：\n   **想清楚你的好处到底从哪里来**\n   既是判断「这是不是真的分层」的标准（端到端两层网络 = 扁平策略）\n   也是读别人的 34% 时该带的态度\n\n**整讲压成一句话**：\n   **分层不是一个算法，而是一组设计选择；\n     它带来的好处有四条，而你必须说得出自己拿到的是哪几条**\n\n老师明确点名的三个**公开问题**（这一讲留下的研究线索）：\n   ① **分层 vs 思维链，还没有定论**（p11）\n   ② **用 RL 微调大规模分层系统，是公开且重要的方向**（p41）\n   ③ 无监督技能发现仍难以放大（p44）\n\n下一讲：机器人上的 RL 的具体考虑\n   **learning with autonomy**（自主学习）· **sim2real transfer**\n   客座讲者 Ashish Kumar（Tesla Optimus 团队）\n   ⇒ 从「怎么组织策略」转到「怎么在真实机器人上把它训出来」",
+   "tbl": {
+    "head": [
+     "三个设计选择",
+     "经验法则",
+     "出自哪一页"
+    ],
+    "rows": [
+     [
+      "<b>① 目标怎么表示</b>",
+      "<b>领域相关 + 表达力/结构化/抽象层级三条性质</b>",
+      "<b>p14</b>"
+     ],
+     [
+      "<b>② 每层怎么监督</b>",
+      "<b>可分开训，但至少一边要适配另一边的毛病</b>",
+      "<b>p17–p18</b>"
+     ],
+     [
+      "<b>③ 何时换子目标</b>",
+      "<b>多数用固定步数（错误后果不对称）</b>",
+      "<b>p21</b>"
+     ],
+     [
+      "<span class='w'>贯穿其上</span>",
+      "<b>想清楚好处从哪来</b>",
+      "<b>p16</b>"
+     ]
+    ]
+   }
+  }
+ ],
+ "quiz": {
+  "25": [
+   {
+    "q": "语言子目标那条路，训练数据长什么样？讲稿点出了一个什么不对称？",
+    "o": [
+     "一条完整长任务的演示被切成若干段、每段配一句语言标签；不对称在于数据里的段长是可变的，而系统运行时用固定频率重问高层，而且问得比典型段长更密",
+     "每条数据是一个子任务的演示；没有不对称",
+     "数据是机器人自己探索出来的；不对称在于奖励稀疏",
+     "数据只有语言没有动作；不对称在于模态"
+    ],
+    "a": 0,
+    "why": "<b>这正是 p21 那个「选项二」的落地：训练时按语义切段，运行时按固定步数重问。</b><span class='k'>语言标签有两种采法——采集时现说（天然对齐但慢）或事后用标注界面切段打标签（快但多一道人工）。</span>"
+   },
+   {
+    "q": "p28 那句「Can update the high-level policy with only language supervision!」为什么重要？",
+    "o": [
+     "因为低层不需要语言输入",
+     "因为高层的输出空间就是语言，所以纠正它只需要说一句话、不需要示教任何动作 —— 把给系统纠错的成本降了一个数量级",
+     "因为语言比图像占用内存少",
+     "因为语言模型训练更快"
+    ],
+    "a": 1,
+    "why": "<b>下一页整页都在用这件事。</b><span class='w'>⚠ 另注意两层的观测可以不一样（高层只吃 RGB，低层还吃关节角），讲稿说这种 mismatch 是 okay 的；而两层都只用模仿学习训练——分层在这里是一个纯粹的结构选择。</span>"
+   }
+  ],
+  "29": [
+   {
+    "q": "在高层做 DAgger 时，人类纠正的方式是什么？这个细节为什么是技术核心？",
+    "o": [
+     "降低低层的执行速度",
+     "把同一句指令重复说得更清楚",
+     "直接接管机械臂手动示教",
+     "换一个低层做得到的指令 —— 不是重复「把勺子移进袋子」，而是拆成「把左臂往左移」「再高一点」，即把低层会失手的目标替换成一串它能完成的更小目标"
+    ],
+    "a": 3,
+    "why": "<b>这就是 p18 说的「适配低层的 deficiencies」的字面实现。</b><span class='k'>微调之后高层能 self-correct——注意不是低层变强了（它被冻住了），而是高层学会了绕开低层的弱点。</span>"
+   },
+   {
+    "q": "这一页有一个容易跳过、但很重要的含义，是什么？",
+    "o": [
+     "语言纠正比动作纠正更准确",
+     "高层策略必须比低层大",
+     "系统整体变好了，而其中一半完全没有改变 —— 低层被冻住、能力一个字节没动，提升全部来自高层学会绕开它；所以「提升系统性能」和「提升组件能力」是两件事，前者往往便宜得多",
+     "DAgger 只能用于模仿学习"
+    ],
+    "a": 2,
+    "why": "<span class='w'>讲稿还提到 DAgger 在两层上都能做，只是在高层上做便宜得多（语言空间 vs 关节空间：后者意味着人要手把手拖着机械臂示教）。</span><b>这篇工作的名字起得很直白：Yell At Your Robot。</b>"
+   }
+  ],
+  "34": [
+   {
+    "q": "讲稿给的「分层相对扁平提升 34%」，引用时有什么必须注意的？",
+    "o": [
+     "这个比较来自另一篇论文（Hi Robot, ICML 2025），不是 Yell At Your Robot 那篇的数；而且指标是「任务进度」而非成功率",
+     "这个数来自本课的作业",
+     "这个数只在单臂机器人上成立",
+     "这个数是仿真里测的"
+    ],
+    "a": 0,
+    "why": "<b>读这类数字要先问三个问题：指标是什么、跟谁比、算力对齐了没有。</b><span class='k'>⚠ 尤其第二个：扁平基线有没有拿到同样的中间监督？如果没有，那这个比较就不只在比「分层 vs 扁平」，也在比「有没有用中间标注」。</span>"
+   },
+   {
+    "q": "p34 的实验设计里，五条对比中最后一条「With human corrections (oracle)」起什么作用？",
+    "o": [
+     "它用来校准指标",
+     "它用来估计标注成本",
+     "它是上界：如果方法微调后接近它，说明把人的纠正学进去了；有上界的比较把「提升了多少」变成了「把可获得的提升吃掉了多大比例」，后者可跨论文比较",
+     "它是一个失败的基线"
+    ],
+    "a": 2,
+    "why": "<b>有一条上界的比较，比只有「我的方法 vs 基线」强得多——这是值得学的实验设计。</b><span class='w'>而「算力对齐了吗」这个问题，这一页没有给信息：分层系统每步要跑两个模型，如果总计算量不同，一部分提升可能只是「花得多」。</span>"
+   }
+  ],
+  "37": [
+   {
+    "q": "把中间表示从语言换成图像，带来的两条好处本质上是关于什么的？",
+    "o": [
+     "关于算法效率",
+     "关于模型容量",
+     "关于推理延迟",
+     "关于「你能用什么数据」：不需要人工切段打语言标注（目标图像可自动从轨迹里取未来帧），而且高层能吃无标注的视频数据，包括人类做任务的视频"
+    ],
+    "a": 3,
+    "why": "<span class='k'>⚠ 讲稿的限定：那些人类视频不是随机 YouTube 视频，而是任务相关、带一句整体语言标注的；完全随机的视频「只能当预训练」。</span><b>图像还有一个语言给不了的好处：对付叫不出名字的物体——语言要求你能命名，图像不要求。</b>"
+   },
+   {
+    "q": "图像子目标那条路里，低层策略可以理解成什么？",
+    "o": [
+     "一个多步逆模型：吃当前图像与未来目标图像，输出到达它所需的动作",
+     "一个世界模型",
+     "一个奖励模型",
+     "一个价值函数"
+    ],
+    "a": 0,
+    "why": "<span class='w'>而高层用的是扩散模型（所以视频里能看到噪声逐渐收敛成图像）。</span><b>⇒ 这一页的结构性结论：中间表示的选择，主要决定的不是算法好不好，而是你能训在什么数据上、能怎么干预——语言可解释可干预但要标注，图像标注自动但没法用一句话纠正。这是真实的取舍，不是谁更先进。</b>"
+   }
+  ],
+  "41": [
+   {
+    "q": "老师说「用 RL 微调大规模分层系统」是重要的公开方向。为什么重要？",
+    "o": [
+     "因为模仿学习训练太慢",
+     "因为模仿学习无法处理图像",
+     "因为 RL 需要的数据更少",
+     "因为这些系统的性能「还不够可靠」（而且那些数字是在见过的物体之外、分布外的困难条件下测的），而模仿学习的上界永远是专家；RL 能从自己的经验里改进，理论上可以突破那个天花板"
+    ],
+    "a": 3,
+    "why": "<span class='k'>⚠ 讲稿用的是 should be able to——这是期望，不是已经做到的结果。</span><b>读到「老师明确点名的公开问题」要留心：它通常意味着这个方向上有位置，而且导师认为它重要。</b>"
+   }
+  ],
+  "43": [
+   {
+    "q": "分层 RL 里的「事后重标注（hindsight relabeling）」解决什么问题？怎么解决？",
+    "o": [
+     "解决「高层下达目标 g、低层没做到而到了 g'」这类数据没法用的问题；办法是把这条数据改写成「高层本来就想去 g'」，于是它变成一条成功的数据，而且描述的是低层真实的能力",
+     "解决探索不足；办法是加噪声",
+     "解决过拟合；办法是数据增强",
+     "解决奖励稀疏；办法是加塑形奖励"
+    ],
+    "a": 0,
+    "why": "<b>这是 p17 那个先有鸡先有蛋在 RL 里的具体形态：高层「动作」的效果取决于一个正在变化的低层。</b><span class='w'>⇒ 还要配 off-policy 算法，因为重标注后的数据不是当前策略产生的——on-policy 算法用不了。</span>"
+   },
+   {
+    "q": "讲稿对分层强化学习现状的评价是什么？",
+    "o": [
+     "相当坦率地说「没有太多令人兴奋的例子」—— 与 p41 那句「用 RL 微调是公开问题」是同一个判断：分层+模仿已经很能打，分层+RL 还没有",
+     "已经在工业界大规模部署",
+     "已经比分层模仿学习更成熟",
+     "只适用于仿真环境"
+    ],
+    "a": 0,
+    "why": "<span class='k'>p44 的无监督技能发现（DIAYN）也被评价为「still an active research area」且「pretty challenging to scale up」。</span><b>两个 active research area 挨在一起，说明这一整块在 2025 年仍然是开放的。</b>"
+   }
+  ],
+  "45": [
+   {
+    "q": "把整讲压成一句话，该怎么说？",
+    "o": [
+     "分层只适用于机器人任务",
+     "分层不是一个算法，而是一组设计选择；它带来的好处有四条，而你必须说得出自己拿到的是哪几条",
+     "分层是一种新的强化学习算法",
+     "分层总是优于扁平策略"
+    ],
+    "a": 1,
+    "why": "<b>而贯穿三个设计选择之上的，是 p16 那句方法论：想清楚你的好处到底从哪里来。</b><span class='w'>它既是判断「这是不是真的分层」的标准（端到端的两层网络 = 扁平策略），也是读别人的 34% 时该带的态度。</span>"
+   }
+  ]
+ }
+}

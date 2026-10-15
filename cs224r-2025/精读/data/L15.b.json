@@ -1,0 +1,254 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p16 **那个反问与答案（逐字）**：**Why not train everything end-to-end, with latent goal representation?** → **Result: a flat policy**",
+  "p16 **全讲最该记住的一句方法论（逐字）**：**Key: Think carefully about where the benefits are coming from!** 旁注：**Generally good to do in any kind of research!!**",
+  "p17 **低层策略**：**Trained to accomplish g, not the original task!** · Key question: **For which distribution of goals?** Ideally whatever the high-level policy will output **… but we haven't learned a high-level policy yet.**",
+  "p17 **高层策略**：**Trained to accomplish original, long-horizon task** · Key question: **For which low-level policy?** Ideally with the learned low-level policy **… but we haven't learned a low-level policy yet.**",
+  "⚠ p17 这就是一个**先有鸡还是先有蛋**：两层各自的训练分布都由**对方**决定，而对方还不存在",
+  "p18 **解法（逐字）**：**Can be trained separately first. But, at least one policy should be adapted to the deficiencies of the other. (if not both fine-tuned jointly)**",
+  "p18 旁注：**Note: LLMs are often good high-level policies!**",
+  "p20/p21 **问题**：**How often do you re-query the HL policy?**（即 p8 滚动循环里那个被留白的「Until new goal is selected」）",
+  "p21 **选项一**：**When the low-level policy has completed g_t**（e.g. by estimating progress towards g）—— **+ ideal in principle** · **− hard to estimate when done** · **− need to account for mistakes that require redoing past goals**",
+  "p21 **选项二**：**After fixed number of n timesteps**（e.g. by choosing fairly frequent interval to replan）—— **+ simple** · **− tradeoff between more compute vs more delay in transition to new goal** · **− with small n, more burden on HL policy**",
+  "p21 **两种错误的后果（逐字）**：选项一 **Errors in estimating when done → agent easily gets perpetually stuck.**；选项二 **Errors in predicting subtask → LL policy may take wrong actions for n steps.**",
+  "⚠⚠ p21 的判决（逐字）：**These errors are more fatal!** —— 指的是**选项一**那一类（估计「做完没有」出错）",
+  "⇒ 讲稿给出实践上的选择：**generally option two is typically what people do**（按固定频率重新询问高层），理由是简单、而且高层偶尔预测错子任务的后果**没那么致命**",
+  "⇒ 讲稿还提了一个折中：**you could potentially combine these where you try to estimate progress, but then if it's been a long period of time, then you re-query anyway**",
+  "p23/p24 **分层正热**：四个系统，全部是最近四五个月内发布的，**全部采用分层架构** —— **Physical Intelligence 0.5** · **NVIDIA Gr00t N1** · **Figure Helix** · **Gemini Robotics**"
+ ],
+ "notes": [
+  {
+   "r": [15, 16],
+   "t": "端到端训一个「隐式目标」的两层网络？那就是个扁平策略",
+   "star": 3,
+   "quote": "<b>How to supervise each level?</b><br><em><b>Why not train everything end-to-end, with latent goal representation?</b></em><br><em><b>Result: a flat policy</b></em><br><em><b>Key: Think carefully about where the benefits are coming from!</b></em><br>〔旁注〕<em><b>Generally good to do in any kind of research!!</b></em>",
+   "one": "<b>画两个方框、中间连一根线，不等于你做出了分层。如果中间那个「目标」只是网络的激活值、没有任何独立的监督，那整件事就是一个扁平策略换了个画法。</b>",
+   "pts": [
+    "<b>这一页提了一个几乎每个人第一次都会想到的问题：<b>既然分层有那么多好处，为什么不干脆端到端训？</b></b> <span class='k'>做法是：让高层输出一个<b>隐式</b>的目标表示（就是一串激活值，不规定它是语言、图像还是坐标），然后把两层接起来，只用最终任务的奖励训整个系统</span>。",
+    "<b>幻灯的回答只有四个字：<b><em>Result: a flat policy</em></b>（结果是一个扁平策略）。</b> <span class='w'>讲稿解释得更直白：「that's basically just a flat policy with a particular architecture that has some sort of activations when you feed in the observation twice. You can kind of just think about that as <b>basically a single neural network architecture</b>」</span>。",
+    "<b>⇒ 关键在于：<b>「两个网络」这件事本身没有任何意义</b>。</b> <span class='k'>把一个大网络在中间某一层切开、给那一层起个名字叫「目标」，并不会改变它是什么</span>。<b>⇒ 梯度照样从最终奖励一路传回输入，中间那层激活值<b>没有被任何独立的东西约束</b>。</b>",
+    "<b>那么分层的好处到底<b>从哪里来</b>？回到 p9 那四条，逐条对一遍就清楚了。</b> <span class='w'>① <b>中间监督</b>——端到端没有，中间层不受任何独立监督；② <b>知识共享</b>——没有，因为隐式目标没有「相似任务相似 <code>g</code>」的结构保证；③ <b>结构化探索</b>——没有，探索仍然发生在原始动作空间；④ <b>不同频率</b>——<b>这一条倒是能保留</b>（你确实可以让上半截跑得慢一些）</span>。",
+    "<b>⇒ 所以准确的说法是：<b>端到端的两层网络能拿到第 ④ 条，拿不到前三条</b>。</b> <span class='k'>而前三条才是分层在<b>学习</b>上的全部价值</span>。",
+    "⚠️ <b>幻灯接着写的那句话是全讲最该带走的一条，而且它超出了分层这个话题：<b><em>Key: Think carefully about where the benefits are coming from!</em></b></b>（想清楚你的好处到底从哪里来）<span class='w'>旁边还加了一句 <em><b>Generally good to do in any kind of research!!</b></em>（在任何研究里这都是值得做的）。</span>",
+    "<b>讲稿把这条方法论说得更具体，而且点明了它防的是什么毛病</b>：<span class='k'>「if you don't think carefully about this, you could end up in a situation where kind of intuitively if you haven't thought about it, it's like <b>ideally my high level policy will do this, my low level policy will do this</b>… without actually seeing benefits compared to just naively training things with a single policy」</span>。<b>⇒ 防的是「<b>我以为它会这样工作</b>」——一个在纸上自洽、但在实现里没有任何机制去保证的故事。</b>",
+    "<b>讲稿最后那段是直接对着做研究的人说的，值得逐字记住</b>：<span class='w'>「you <b>never really know</b> if the systems that you're developing are going to improve over some existing state-of-the-art method. Uh and if you're <b>very honest with yourself about what might go wrong</b> um and <b>why you might not actually see benefits from your new idea</b> uh then you can think more critically about what sorts of things will actually improve the final results」</span>。",
+    "<b>⇒ 这条的操作化版本是：<b>在跑实验之前，先写下「如果我的方法没效果，最可能的原因是什么」</b>。</b> <span class='k'>而且把那个原因变成一个<b>可以单独测的消融</b></span>。<b>⇒ 这比事后解释为什么有效要诚实得多，也有用得多。</b>"
+   ],
+   "eq": "反问：**Why not train everything end-to-end, with latent goal representation?**\n   做法：高层输出一个**隐式**目标表示（就是一串激活值，不规定是语言/图像/坐标），\n         两层接起来，只用最终任务的奖励训整个系统\n\n幻灯的回答（四个字）：**Result: a flat policy**\n   讲稿：「that's basically just a flat policy with a particular architecture…\n           You can think about that as **basically a single neural network architecture**」\n\n   ⇒ 关键：**「两个网络」这件事本身没有任何意义**\n     把一个大网络在中间切开、给那层起名叫「目标」，不会改变它是什么\n     梯度照样从最终奖励一路传回输入\n     中间那层激活值**没有被任何独立的东西约束**\n\n**好处到底从哪来**（回到 p9 四条逐条对）：\n   ① 中间监督     ✗ 端到端没有，中间层不受独立监督\n   ② 知识共享     ✗ 隐式目标没有「相似任务相似 g」的结构保证\n   ③ 结构化探索   ✗ 探索仍发生在原始动作空间\n   ④ 不同频率     ✓ **这一条能保留**（确实可以让上半截跑慢些）\n\n   ⇒ **端到端两层网络拿得到第 ④ 条，拿不到前三条**\n     而前三条才是分层在**学习**上的全部价值\n\n⚠⚠ **全讲最该带走的一句**（超出分层这个话题）：\n   **Key: Think carefully about where the benefits are coming from!**\n   旁注：**Generally good to do in any kind of research!!**\n\n   讲稿点明它防的毛病：\n     「if you don't think carefully about this… it's like **ideally my high level\n       policy will do this, my low level policy will do this**… without actually\n       seeing benefits compared to just naively training things with a single policy」\n   ⇒ 防的是「**我以为它会这样工作**」——\n     一个在纸上自洽、但在实现里没有任何机制去保证的故事\n\n讲稿对做研究的人说的那段（逐字值得记）：\n   「you **never really know** if the systems that you're developing are going to\n     improve over some existing state-of-the-art method. and if you're **very honest\n     with yourself about what might go wrong** and **why you might not actually see\n     benefits from your new idea** then you can think more critically about what\n     sorts of things will actually improve the final results」\n\n   ⇒ 操作化版本：**跑实验之前，先写下「如果我的方法没效果，最可能的原因是什么」**\n     并把那个原因变成一个**可以单独测的消融**\n     比事后解释为什么有效要诚实得多，也有用得多",
+   "tbl": {
+    "head": ["p9 的四条好处", "真·分层", "端到端两层网络", "扁平策略"],
+    "rows": [
+     ["① 中间监督", "<b>有</b>", "<span class='w'>✗ 没有</span>", "<span class='w'>靠塑形奖励</span>"],
+     ["② 知识共享", "<b>有</b>", "<span class='w'>✗ 没有</span>", "<span class='w'>✗</span>"],
+     ["③ 结构化探索", "<b>有</b>", "<span class='w'>✗ 没有</span>", "<span class='w'>✗</span>"],
+     ["④ 不同频率", "<b>有</b>", "<b>✓ 能保留</b>", "<span class='w'>✗</span>"],
+     ["⇒ 实质上是什么", "<b>分层</b>", "<b>⚠ 扁平策略</b>", "扁平策略"]
+    ]
+   },
+   "say": "原话（为什么端到端的两层网络就是扁平策略）：<em>“we could also just train the high level policy and the low-level policy end to end without any intermediate goal representation… we'd have some sort of kind of <b>latent goal representation that's just the activations of the neural network</b>… if you do that, um <b>that's basically just a flat policy with a different like a particular architecture</b> um that has some sort of like kind of activations when you feed in the observation twice. You can kind of just think about that as <b>basically a single neural network architecture</b>.”</em><br><br>原话（那条方法论，以及它防的是什么毛病）：<em>“when designing these kinds of systems, it's important to <b>think about where the benefits are coming from</b>. Whether it's coming from additional supervision, whether it's coming from structured exploration. Uh and <b>if you don't think carefully about this, you could end up in a situation where kind of intuitively if you haven't thought about it, it's like uh like ideally my high level policy will do this, my low level policy will do this — without actually seeing benefits compared to just kind of naively training things with a single policy</b>.”</em><br><br>原话（直接对做研究的人说的那段）：<em>“This actually also if um for those of you that are doing research is also just generally something that's good to do in any kind of research uh because you <b>never really know</b> if the systems that you're developing or the methods that you're developing are going to improve over some existing kind of state-of-the-art method. Uh and <b>if you're very honest with yourself about what might go wrong um and why you might not actually see benefits from your new idea</b> uh then you can think more critically about <b>what sorts of things will actually improve the final results</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页是整讲对你<b>方法论</b>上最该带走的一条，而且它指向一个你现在就能做的具体动作。</b><br><span class='k'>老师说的「想清楚好处从哪来」，在你这里就是：<b>你报告 <code>G</code> 提升了 X%，这个提升来自哪一条机制？</b></span><b>你的方法里有<b>三个</b>可以各自单独解释提升的东西，而它们<b>必须分开测</b>，否则你无法回答这个问题：</b><br><b>① <b>逐节点分配</b>本身</b>（不同节点用不同档位，而不是全局一个档位）；<br><b>② <b>逐 query 自适应</b></b>（同一个节点在不同 query 上用不同档位）；<br><b>③ <b>搜索/选择算法</b></b>（G-最优设计 + 逐次淘汰，相对于随便扫一遍）。<br><span class='w'>⇒ 三者的消融是独立的：<b>固定全局档位</b>（关掉①②）· <b>逐节点但不逐 query</b>（只关②）· <b>逐节点逐 query 但用均匀采样选</b>（只关③）</span>。<b>⇒ 这三行消融表就是「好处从哪来」的答案，而且它<b>必须在跑主实验之前就设计好</b>。</b><br><b>而 p16 那个「端到端 = 扁平策略」的论证，在你这里有一个<b>非常</b>具体的对应，值得警惕</b>：<span class='k'>如果你的「逐节点档位分配」最后退化成了「所有节点都选同一个档位」，那你做的其实是<b>全局模型选择</b>，而不是逐节点分配</b></span>。<b>⇒ 这<b>完全可能发生</b>——如果成本与准确率在各节点上同向且幅度相近，最优解就是全局统一的。</b><br><b>⇒ 所以有一个<b>必须报告</b>的数：<b>你搜出来的最优配置，到底有多「不均匀」</b>。</b> <span class='w'>比如「<code>H=10</code> 个节点里有 3 个用了大模型」，或者直接报配置的熵</span>。<b>如果最优配置几乎总是全大或全小，那么你这套机器就是在用一把牛刀切豆腐——<b>而审稿人一定会问这个</b>。</b><br><b>⚠ 反过来，如果它确实不均匀，<b>那就是你最有力的一张图</b>：它直接证明了「不同节点对模型能力的需求确实不同」这个核心前提。</b><br><b>最后把老师那句话原样用上：<b>现在就写下「如果我的方法没效果，最可能的原因是什么」</b></b>。<span class='k'>我的猜测是前两名：(i) 最优配置其实是均匀的（上面那条）；(ii) <code>G</code> 的节点间交互太强，线性假设不成立（L07 主线卡那条可加性检验）。<b>这两条都该在主实验之前先用小规模数据查一遍。</b></span>",
+    "ref": "本讲 p16（逐字核对）· 讲稿（那段研究方法论）· p9 · L07 主线卡 · 简报 §1 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [17, 17],
+   "t": "先有鸡还是先有蛋：两层各自的训练分布都由对方决定",
+   "star": 3,
+   "quote": "<b>How to supervise each level?</b><br><em><b>Low-level policy: Trained to accomplish g, not the original task!</b><br>Key question: <b>For which distribution of goals?</b> Ideally whatever the high-level policy will output … <b>but we haven't learned a high-level policy yet.</b></em><br><em><b>High-level policy: Trained to accomplish original, long-horizon task</b><br>Key question: <b>For which low-level policy?</b> Ideally with the learned low-level policy … <b>but we haven't learned a low-level policy yet.</b></em>",
+   "one": "<b>低层要在「高层会下达的那些目标」上训练，高层要在「低层真正能做到的事」上训练。两边都要先知道对方，而对方还不存在——这是分层系统最本质的困难。</b>",
+   "pts": [
+    "<b>先把两层的目标函数分清楚，这是最容易混的一处：<b>它们优化的<b>不是</b>同一个东西</b>。</b> <span class='k'><b>低层</b>：<em>Trained to accomplish <b>g</b>, not the original task!</em>——它<b>根本不知道</b>原始任务是什么，它只负责完成当前被下达的那个子目标</span>；<b><b>高层</b>：<em>Trained to accomplish original, long-horizon task</em>——它对最终结果负责。</b>",
+    "<b>⇒ 这个分工本身是分层的全部要点，但它立刻带出两个<b>互为前提</b>的问题。</b>",
+    "<b><b>低层那一侧</b>：训练它去完成目标，可以——但是<b>哪些</b>目标？</b> <span class='w'>幻灯：<em>Ideally whatever the high-level policy will output … <b>but we haven't learned a high-level policy yet</b></em></span>。<b>⇒ 你想让低层在「高层真会下达的目标分布」上表现好，可那个分布要等高层训完才知道。</b>",
+    "<b><b>高层那一侧</b>：训练它去完成长任务，可以——但是配着<b>哪个</b>低层？</b> <span class='k'>幻灯：<em>Ideally with the learned low-level policy … <b>but we haven't learned a low-level policy yet</b></em></span>。<b>⇒ 高层该下达什么目标，取决于低层<b>做得到什么</b>；而低层做得到什么，要等它训完才知道。</b>",
+    "<b>⇒ 这就是一个标准的<b>先有鸡还是先有蛋</b>，而且它<b>不是</b>实现上的麻烦，是分层这个结构自带的。</b>",
+    "<b>讲稿用一个做意面的例子把后果讲得非常具体，这个例子值得完整跟一遍。</b> <span class='w'>子任务有：找锅 → 烧水 → 找意面 → 煮面。假设你先把「找锅」训得非常好（从初始状态出发，很可靠）</span>；<b>然后训「找意面」——如果你<b>图省事也从初始状态开始训</b>它，问题就来了。</b>",
+    "<b>⚠ 因为高层实际上会在<b>烧完水之后</b>（人站在灶台边）才下达「找意面」。</b> <span class='k'>原话：「when it's finding the pasta… if the high level policy actually wanted it to find the pasta <b>after boiling the water where you're at the stove</b>. Then we actually try to string together this low-level policy… <b>it'll actually then struggle to transition</b> from going to the stove over to finding where the pasta is」</span>。<b>⇒ 每个子技能单独测都很好，<b>串起来就垮</b>——而原因纯粹是训练时的起始状态分布不对。</b>",
+    "<b>老师给这个现象起的名字是 <b>mismatch</b>（失配），并点明它是<b>模块化系统</b>的通病</b>：<span class='w'>「when you're training these modular systems… and you're training them <b>completely independently</b>, you might not actually get a system that works effectively if they're not actually at some point <b>connected together</b>」</span>。",
+    "<b>讲稿里还有一句很重要的宽慰，它把要求降到了可达成的程度</b>：<span class='k'>「<b>you don't necessarily need your low-level policy to work from every state.</b> It just needs to work for the <b>state-goal combinations that the high-level policy is going to command</b>」</span>。<b>⇒ 所以目标不是「低层万能」，而是「低层在高层真会用到的那一小块上可靠」。</b>",
+    "<b>⇒ 由此引出一个很实用的概念：<b>相邻技能的状态要有「重叠」，而且重叠要带「余量」</b>。</b> <span class='w'>原话：「you need to make sure that there's at least <b>some overlap</b> in the states from one skill to the next. And ideally that overlap <b>has some buffer</b>. Because if when you're trying to find the pasta, it only works if you're standing <b>exactly</b> in front of the boiled water and not if you're <b>a little bit to the right</b>… then you'll get a <b>brittle</b> final result」</span>。<b>⇒ 没有余量的衔接 = 脆的系统。</b>",
+    "<b>最后记一个学生提问带出的好结论：<b>顺序不必固定</b>。</b> <span class='k'>老师说「找锅」和「烧水」这两步本来就可以任意顺序，高层可以自己决定——而且它的依据可以是「哪个顺序更高效」，<b>也可以是「低层在哪个顺序上更可靠」</b></span>。<b>⇒ 后一条很有意思：<b>高层会去迁就低层的能力边界</b>，而这正是下一页「至少一个要适配另一个」的具体形态。</b>"
+   ],
+   "eq": "**两层优化的不是同一个东西**（最容易混的一处）：\n   **低层**：Trained to accomplish **g**, not the original task!\n     ——它**根本不知道**原始任务是什么，只负责完成当前被下达的子目标\n   **高层**：Trained to accomplish **original, long-horizon task**\n     ——它对最终结果负责\n\n立刻带出两个**互为前提**的问题：\n\n   **低层侧**：训它完成目标，但是**哪些**目标？\n     Ideally whatever the HL will output … **but we haven't learned a HL yet**\n   **高层侧**：训它完成长任务，但是配着**哪个**低层？\n     Ideally with the learned LL … **but we haven't learned a LL yet**\n\n   ⇒ 标准的**先有鸡还是先有蛋**，而且**不是实现上的麻烦，是结构自带的**\n\n**讲稿的意面例子**（后果非常具体）：\n   子任务：找锅 → 烧水 → 找意面 → 煮面\n   先把「找锅」训得很好（从初始状态出发，很可靠）\n   然后训「找意面」—— 若**图省事也从初始状态开始训**，问题就来了\n\n   ⚠ 高层实际上会在**烧完水之后**（人站在灶台边）才下达「找意面」\n     「…if the HL wanted it to find the pasta **after boiling the water where\n       you're at the stove**. Then… **it'll actually then struggle to transition**」\n   ⇒ **每个子技能单独测都很好，串起来就垮** —— 原因纯粹是起始状态分布不对\n\n   老师给它起的名字：**mismatch**（失配），**模块化系统**的通病\n     「training them **completely independently**… you might not get a system that\n       works effectively if they're not at some point **connected together**」\n\n讲稿里的宽慰（把要求降到可达成）：\n   「**you don't necessarily need your low-level policy to work from every state.**\n     It just needs to work for the **state-goal combinations that the HL is going\n     to command**」\n   ⇒ 目标不是「低层万能」，而是「低层在高层真会用到的那一小块上可靠」\n\n⇒ 由此引出：**相邻技能的状态要有「重叠」，而且重叠要带「余量」**\n   「there's at least **some overlap** in the states from one skill to the next.\n     And ideally that overlap **has some buffer**. Because if… it only works if\n     you're standing **exactly** in front of the boiled water and not if you're\n     **a little bit to the right**… you'll get a **brittle** final result」\n   ⇒ **没有余量的衔接 = 脆的系统**\n\n学生提问带出的结论：**顺序不必固定**\n   「找锅」与「烧水」本可任意顺序，高层自己决定\n   依据可以是「哪个顺序更高效」，**也可以是「低层在哪个顺序上更可靠」**\n   ⇒ **高层会去迁就低层的能力边界** —— 正是下一页「至少一个要适配另一个」的形态",
+   "tbl": {
+    "head": ["", "低层策略", "高层策略"],
+    "rows": [
+     ["训练目标", "<b>完成 g（不是原任务）</b>", "<b>完成原始长任务</b>"],
+     ["知道原任务吗", "<span class='w'>不知道</span>", "<b>知道</b>"],
+     ["关键问题", "<b>在哪些目标的分布上训？</b>", "<b>配着哪个低层训？</b>"],
+     ["理想答案", "高层会输出的那些", "学好的那个低层"],
+     ["⚠ 问题", "<b>高层还没训出来</b>", "<b>低层还没训出来</b>"]
+    ]
+   },
+   "say": "原话（意面例子：分开训会在衔接处垮掉）：<em>“say that you've kind of trained um you could for example think about training a policy to find the pot and maybe you've like gotten to a good policy that's like really good at kind of finding the pot… And then say for example when you train the policy for finding the pasta, if you weren't exactly careful with how you did this maybe you would think about okay maybe I could actually just start from this state and also try to find the pasta from this state over here — and <b>that's not taking into account that actually when it's finding the pasta, the high level policy actually wanted it to find the pasta after boiling the water where you're at the stove</b>. Then we actually try to string together this low-level policy with the low-level policy for these two. Uh <b>it'll actually then struggle to transition</b> from going to the stove over to finding where the pasta is. Uh and this is basically like a <b>mismatch</b>.”</em><br><br>原话（要求没那么高：低层不必从每个状态都能работ，只要覆盖高层真会下达的组合）：<em>“<b>you don't necessarily need your low-level policy to work from every state. It just needs to work for the state goal combinations that the high-level policy is going to command.</b>”</em><br><br>原话（重叠要有余量，否则系统很脆）：<em>“one way to think about it is you need to make sure that there's like <b>at least some overlap in the states from one skill to the next</b>. Uh and <b>ideally that overlap has some buffer</b>. Uh because if for example when you're trying to find the pasta, it only works like if you're like <b>standing exactly in front of the boiled water and not if you're like a little bit to the right</b>, then if your policy ends up deciding to boil the water standing a little bit to the right of it, then you'll get a <b>brittle</b> final result.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页是整讲对你课题最直接、也最该认真对待的一条：<b>你的问题里有一模一样的先有鸡先有蛋，而且你现在的做法很可能正踩在那个失配上</b>。</b><br><span class='k'>你的循环是：<b>AFlow 搜出一个工作流</b>（高层结构），然后<b>你在这个工作流上分配逐节点档位</b>（低层能力）</span>。<b>⇒ 但 AFlow 搜索时假定了某个档位（通常是统一的某个模型）；而一旦你把档位改掉，<b>原来那个工作流就不一定还是最优的了</b>。</b><br><b>这就是幻灯那两行的逐字对应</b>：<span class='w'><b>「档位该怎么配？取决于工作流长什么样……但最优工作流还没定。」</b>／<b>「工作流该怎么搜？取决于各节点有多强……但档位还没定。」</b></span><br><b>⇒ 而 p18 给的解法（下一页）正好可以搬过来：<b>可以先分开做，但至少有一边要适配另一边</b>。</b> <span class='k'>最省事的一边显然是<b>你这边</b>——固定 AFlow 搜出的工作流，然后把档位配好；但<b>论文里必须声明这个限制</b>，否则审稿人会问「换了档位之后工作流不该重搜吗」</span>。<b>⇒ 一个便宜且有力的回应是做一轮<b>重搜</b>：拿你配好档位的系统重跑一次 AFlow，看搜出来的工作流变不变。变化不大 ⇒ 你的解耦是合理的；变化很大 ⇒ 那本身就是一个值得报告的发现。</b><br><b>而那个意面例子对应的失配，在你这里有一个<b>非常具体</b>的形态，而且比上面那条更容易踩</b>：<span class='w'><b>如果你逐节点地做「一步偏离扫描」——固定其余节点在基线档位、只改第 <code>j</code> 个节点——那么你测到的是「<b>在上游全是基线档位的输入分布下</b>，节点 <code>j</code> 换档位的效果」</b></span>。<b>⇒ 但最终系统里，上游节点<b>也</b>可能被降档，于是节点 <code>j</code> 面对的输入会更脏。</b><span class='k'>⇒ 这正是讲稿说的「低层只在它<b>实际会遇到</b>的状态分布上可靠才算数」。</b><br><b>⇒ 后果很实在：<b>你的一步偏离测量会系统性地<b>高估</b>降档的安全性</b></b>，<span class='w'>因为每个节点都是在「别人都很好」的前提下被评估的，而最终它们要同时降档</span>。<b>⇒ 这也正是「可加性/线性假设」失败的<b>主要机制</b>——不是什么抽象的交互项，就是这个「上游变脏」的效应。</b><br><b>⇒ 两条可操作的建议：① <b>可加性检验要专门测「多节点同时降档」</b>，而不只是测两两组合（L07 主线卡那条可以据此细化）；② <b>报告时按「偏离基线的节点数」分层看残差</b>——如果残差随偏离节点数单调增大，那就坐实了这个机制，而且这本身是一个干净、好讲的结果。</b>",
+    "ref": "本讲 p17（逐字核对）· 讲稿（意面失配、重叠与余量）· p18 · L07 主线卡 · L16.a p18 科研格 · 简报 §2 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [18, 18],
+   "t": "解法：可以分开训，但至少有一边要去适配另一边",
+   "star": 3,
+   "quote": "<b>How to supervise each level?</b><br><em>Low-level policy: Trained to accomplish g, not the original task!<br>High-level policy: Trained to accomplish original, long-horizon task</em><br><em><b>Key: Can be trained separately first. But, at least one policy should be adapted to the deficiencies of the other.</b> (if not both fine-tuned jointly)</em><br>〔旁注〕<em><b>Note: LLMs are often good high-level policies!</b></em>",
+   "one": "<b>不必一开始就联合训练——分开训是可以的，但不能就此交差。必须至少有一边去适配另一边的毛病，而「毛病」这个词是故意用的。</b>",
+   "pts": [
+    "<b>这一页给的是上一页那个死结的解法，而它的措辞很克制，值得逐字读</b>：<b><em>Can be trained separately first. But, at least one policy should be adapted to the <b>deficiencies</b> of the other.</em></b>",
+    "<b>三层意思要拆开看。</b> <span class='k'>① <b>分开训是允许的</b>——不必一开始就解那个死结；② <b>但不能就此结束</b>——「separately <b>first</b>」里那个 first 是关键；③ <b>至少一边要适配</b>——不要求双向，单向就够</span>。<b>⇒ 括号里补了更理想的情形：<code>(if not both fine-tuned jointly)</code>。</b>",
+    "⚠️ <b><b><code>deficiencies</code></b>（缺陷、毛病）这个词是故意选的，它比「适配对方」要准确得多。</b> <span class='w'>要适配的不是对方的<b>平均</b>行为，而是对方<b>做不好的那些地方</b></span>。<b>⇒ 一个完美的低层策略不需要高层去迁就；正因为它在某些状态、某些目标上会失手，高层才需要知道并绕开。</b>",
+    "<b>那么该让<b>哪一边</b>去适配？实践上答案基本是「让高层适配低层」，理由有两个。</b> <span class='k'>① 高层通常小得多、也便宜得多（输出一句话 vs 输出一串高频动作）；② <b>高层往往可以用现成模型初始化</b>（见下一条）</span>。",
+    "<b>旁注那句 <b><em>LLMs are often good high-level policies!</em></b> 点出了一个很实际的捷径。</b> <span class='w'>讲稿：「if you know that you want to cook pasta, if you ask a language model <b>what are the steps involved with that</b>, often times they can actually give you that」</span>。<b>⇒ 高层策略可以<b>完全不训练</b>就先用起来——这也是为什么「分开训」在实践中是默认起点。</b>",
+    "<b>⚠ 但讲稿紧接着说明了<b>为什么仍然必须适配</b>，而这两个例子都很具体。</b> <span class='k'><b>例一</b>：语言模型「might not know which order the low-level policy is best suited for, um or other things about the <b>capabilities</b> of the low-level policy」——它不知道你的低层<b>擅长什么</b></span>。",
+    "<b><b>例二</b>更形象，而且点出了一个专有概念：<b>affordance</b>（可供性，即「做得到什么」）。</b> <span class='w'>原话：「if a robot is in front of a coffee machine and you ask the robot to get some coffee for you, if the language model doesn't actually pay attention to that image, it might tell the robot like <b>oh can you go out and buy coffee at Starbucks</b>? Uh and the robot <b>might not have that sort of affordance</b>」</span>。<b>⇒ 语言模型给出的是一个<b>对人合理</b>的计划，但它超出了这个躯体的能力范围。</b>",
+    "<b>⇒ 所以「LLM 是好的高层」这句话要加一个限定：<b>它给的是「对一般智能体合理的计划」，不是「对<b>你这个</b>低层可行的计划」</b>。</b> <span class='k'>两者的差距就是必须靠适配去补的那一块</span>。",
+    "<b>适配具体怎么做？讲稿在后面（p29–30）给了一个完整的例子：<b>冻住低层，用 DAgger 在<b>语言空间</b>里微调高层</b>。</b> <span class='w'>人看到机器人快要出错时，用一句话覆盖高层的指令；这些干预数据再拿去更新高层</span>。<b>⇒ 于是高层学会了「在这种情形下，别给低层下那个它做不好的指令」——这正是「适配对方的毛病」的字面实现。</b>",
+    "<b>把 p17 和 p18 连起来，这一块的完整结论是三句话</b>：<span class='k'>① 两层互为前提（p17）；② 所以分开训必然有失配；③ 解法不是「一定要联合训」，而是<b>至少有一边要见过对方的真实毛病</b>（p18）</b>。"
+   ],
+   "eq": "解法（措辞很克制，逐字读）：\n   **Can be trained separately first. But, at least one policy should be adapted\n     to the deficiencies of the other. (if not both fine-tuned jointly)**\n\n三层意思：\n   ① **分开训是允许的** —— 不必一开始就解那个死结\n   ② **但不能就此结束** —— 「separately **first**」里那个 first 是关键\n   ③ **至少一边要适配** —— 不要求双向，单向就够\n\n⚠ **deficiencies（缺陷、毛病）这个词是故意选的**\n   要适配的不是对方的**平均**行为，而是对方**做不好的那些地方**\n   ⇒ 完美的低层不需要高层迁就；正因为它在某些状态/目标上会失手，\n     高层才需要知道并绕开\n\n该让**哪一边**适配？实践上基本是**让高层适配低层**：\n   ① 高层通常小得多、便宜得多（输出一句话 vs 一串高频动作）\n   ② **高层往往可以用现成模型初始化**\n\n旁注：**LLMs are often good high-level policies!**\n   讲稿：「if you ask a language model **what are the steps involved with that**,\n           often times they can actually give you that」\n   ⇒ 高层可以**完全不训练**就先用起来 —— 这也是「分开训」成为默认起点的原因\n\n⚠ 但**为什么仍然必须适配**（两个具体例子）：\n   **例一**：语言模型「might not know **which order the low-level policy is best\n     suited for**… or other things about the **capabilities** of the LL」\n     —— 它不知道你的低层**擅长什么**\n   **例二**（点出 **affordance** 可供性这个概念）：\n     「if a robot is in front of a coffee machine and you ask it to get coffee,\n       if the language model doesn't pay attention to that image, it might say\n       **go out and buy coffee at Starbucks** — and the robot\n       **might not have that sort of affordance**」\n     —— 给出的是**对人合理**的计划，但超出了这个躯体的能力范围\n\n⇒ 「LLM 是好的高层」要加限定：\n   **它给的是「对一般智能体合理的计划」，不是「对你这个低层可行的计划」**\n   两者的差距 = 必须靠适配去补的那一块\n\n适配具体怎么做（p29–30 的完整例子）：\n   **冻住低层，用 DAgger 在语言空间里微调高层**\n   人看到机器人快出错时用一句话覆盖高层指令，干预数据再去更新高层\n   ⇒ 高层学会「在这种情形下别给低层下那个它做不好的指令」\n     = **「适配对方的毛病」的字面实现**\n\n**p17 + p18 的完整结论**（三句话）：\n   ① 两层互为前提（p17）\n   ② 所以分开训必然有失配\n   ③ 解法不是「一定要联合训」，而是**至少有一边要见过对方的真实毛病**（p18）",
+   "say": "原话（为什么 LLM 常是好的高层，以及为什么仍然必须适配）：<em>“LLMs are actually often pretty good at some of the higher level reasoning that you might want to do. Uh and so for example, if you know that you want to cook pasta, uh <b>if you ask a language model what are the steps involved with that, often times they can actually give you that</b>… because the language model for example <b>might not know which order the low-level policy is best suited for um or other things about the capabilities of the low-level policy</b>. Um and so that sort of <b>adaptation process</b>, even though language models are pretty good, that sort of adaptation process is <b>really important</b>.”</em><br><br>原话（可供性的例子：计划对人合理，但这个躯体做不到）：<em>“if like a robot is in front of a coffee machine and you ask the robot to get some coffee for you um <b>if the language model doesn't actually pay attention to that image, it might tell the robot like oh can you like go out and buy coffee um like at Starbucks or something?</b> Uh and <b>the robot might not have that sort of affordance</b>, that sort of ability to do that.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>那个<b>可供性</b>的例子在你的工作流里有一个几乎逐字的对应，而且它是一个真实的失败模式。</b><br><span class='k'>你的规划/分解节点（高层）产出子任务，交给执行节点（低层）去做。而<b>执行节点的能力取决于你给它配的档位</b></span>。<b>⇒ 如果规划节点不知道「这个子任务会交给 7B 去做」，它就会按「交给一个很强的模型」去分解——产出<b>对 72B 合理、但 7B 做不了</b>的子任务。</b><br><b>⇒ 这正是 Starbucks 那个例子：计划本身没错，错在它<b>超出了执行者的能力</b>。</b><br><b>⇒ 而这给了你一个<b>很具体、很可能有效</b>的改进，而且实现成本极低：<b>把档位信息喂给规划节点</b>。</b> <span class='w'>在规划节点的 prompt 里加一句「下游执行者是一个较小的模型，请把步骤拆得更细、更明确」</span>——<b>这就是讲义说的「让高层适配低层的毛病」，而它<b>一行 prompt 就能做到</b>。</b><br><b>⚠ 这件事对你的主线有一个不小的含义：<b>它意味着节点之间的交互<b>不是</b>不可控的，而是可以通过「让上游知道下游的配置」来<b>主动削弱</b>的</b>。</b> <span class='k'>而交互一旦被削弱，你的<b>线性/可加性假设就更站得住</b></span>。<b>⇒ 所以这不只是一个性能优化，<b>它是在为你的建模假设创造条件</b>——这个论证写进论文会很有力。</b><br><b>⇒ 具体可以做成一个干净的两行消融：<b>① 规划节点不知道下游档位；② 规划节点知道下游档位</b>，各自测可加性残差与最终 <code>G</code>。</b> <span class='w'>我的预期是 ② 的残差明显更小——如果成立，这是一个既提升性能、又支撑建模假设的双赢结果。</span><br><b>另外把 p18 那个克制的措辞原样借来，它能帮你写好限制一节</b>：<span class='k'><b>「可以先分开做，但至少有一边要适配另一边」</b></span>。<b>⇒ 你的版本：<b>我们固定 AFlow 搜出的工作流，然后分配档位；为了弥补解耦带来的失配，我们让规划节点感知下游档位（单向适配），并报告重搜工作流后的变化幅度。</b></b><span class='w'>这样写既承认了限制，又给出了补救和证据，比只说「我们假设工作流固定」强得多。</span>",
+    "ref": "本讲 p18（逐字核对）· 讲稿（affordance 与 Starbucks 例子）· p17 科研格 · L07 主线卡 · 简报 §2 §4c（已核）"
+   }
+  },
+  {
+   "r": [19, 21],
+   "t": "设计选择③：什么时候换下一个子目标——两种错误，一种更致命",
+   "star": 3,
+   "quote": "<b>When to move on from one subgoal to the next?</b> — <em><b>How often do you re-query the HL policy?</b></em><br><em><b>Option 1: When the low-level policy has completed g<sub>t</sub></b>（e.g. by estimating progress towards g）<br>+ <b>ideal in principle</b> &nbsp;−&nbsp; <b>hard to estimate when done</b> &nbsp;−&nbsp; <b>need to account for mistakes that require redoing past goals</b><br>→ <b>Errors in estimating when done → agent easily gets perpetually stuck. These errors are more fatal!</b></em><br><em><b>Option 2: After fixed number of n timesteps</b>（e.g. by choosing fairly frequent interval to replan）<br>+ <b>simple</b> &nbsp;−&nbsp; <b>tradeoff between more compute vs more delay in transition to new goal</b> &nbsp;−&nbsp; <b>with small n, more burden on HL policy</b><br>→ <b>Errors in predicting subtask → LL policy may take wrong actions for n steps.</b></em>",
+   "one": "<b>两个选项的差别不在「哪个更优雅」，而在「出错之后有多糟」。判完成出错会让智能体永久卡死，预测子任务出错只是浪费 n 步——所以大家都选那个笨办法。</b>",
+   "pts": [
+    "<b>这一页填的是 p8 滚动循环里那个被故意留白的 <code>Until new goal is selected</code>。</b> <span class='k'>问题被重述成一句话：<b>多久重新问一次高层？</b></span>",
+    "<b><b>选项一</b>：等低层<b>完成</b>了当前目标再换。</b> <span class='w'>幻灯标它 <em>+ ideal in principle</em>（原理上最理想）</span>；<b>讲稿解释了为什么理想：「this should be the <b>most compute efficient</b> because you're waiting for the low-level policy and you don't need to rethink how you're doing the task while the low-level policy is executing」</b>。<b>⇒ 不浪费一次高层调用。</b>",
+    "<b>但它要求低层<b>多做一件事</b>：除了输出动作，还要判断「我做完了没有」。</b> <span class='k'>讲稿：「your low-level policy not only needs to predict action, but it also needs to <b>predict whether or not it successfully completed the task</b>. And this could be either with some sort of <b>binary indicator</b> or through some sort of <b>progress indicator</b>」</span>。<b>⇒ 本质上是一个<b>成功分类器</b>。</b>",
+    "<b>两个减号各说一件事，而第二个比第一个更难。</b> <span class='w'><b>① 判完成本身就难</b>（<em>hard to estimate when done</em>）；<b>② 还要能处理「需要重做过去目标」的错误</b></span>。",
+    "<b>第 ② 条讲稿给了一个很好的例子</b>：<span class='k'>「if you are trying to organize some things on a table, you go grab something and then you <b>accidentally drop it on the ground</b>. Uh your subgoal should <b>no longer</b> be like put that object on the table and instead it should be to <b>pick it up off the ground</b>」</span>。<b>⇒ 所以你要估计的不只是「做完没有」，还有「<b>这个子目标现在还成不成立</b>」——原话：「whether or not you've actually <b>exited the states in which that subtask makes sense</b>」。</b>",
+    "<b><b>选项二</b>：固定 <code>n</code> 步之后换，简单粗暴。</b> <span class='w'>讲稿给了数：低层 50 Hz、高层约 1 Hz ⇒ <code>n = 50</code></span>。<b>它的两个减号都是<b>权衡</b>而不是难题</b>：<span class='k'><code>n</code> 大 → 省计算但换目标<b>有延迟</b>（「它找到锅了，然后就捧着锅在那儿站着」）；<code>n</code> 小 → 响应快但<b>高层负担重</b>（要在更多状态上做准确预测）、也更费计算</span>。",
+    "⚠️ <b>决定性的比较在最后两行，而它比的是<b>出错的后果</b>，不是出错的概率。</b> <span class='w'><b>选项一出错</b>：<em>agent easily gets <b>perpetually stuck</b></em>——讲稿：「if it thinks that it's not done but it is actually done then it will just stay in that state… won't actually be making any more further progress」</span>；<b><b>选项二出错</b>：<em>LL policy may take wrong actions for <b>n steps</b></em>——错了也就错 <code>n</code> 步，下一次重新询问就有机会纠正。</b>",
+    "<b>⇒ 幻灯的判决是一句带感叹号的话：<b><em>These errors are more fatal!</em></b>（指选项一那类错误）</b> <span class='k'>原话补充：「this actually has a pretty rough outcome for these kinds of errors <b>even if they're infrequent</b>」——<b>即使很少发生也很糟</b>，因为后果是永久性的。</b></span>",
+    "<b>⇒ 这正好接上 p5 第三条「卡住」：<b>选项一的失败模式就是制造一个吸收态</b>。</b> <span class='w'>而选项二<b>天然免疫</b>——不管发生什么，<code>n</code> 步之后高层一定会被重新询问，死循环一定会被打断</span>。<b>⇒ 这是「笨办法」胜出的真正原因：它提供了一个<b>无条件的</b>逃生通道。</b>",
+    "<b>所以实践上的结论是：<b>大多数系统选选项二</b>。</b> <span class='k'>讲稿：「a lot of the hierarchical systems out there <b>opt for choosing option two</b> because of the simplicity and because some of the mistakes that the high-level policy might make when it's queried more frequently are <b>less fatal</b>」</span>。",
+    "<b>最后记一个讲稿提到、幻灯上没有的<b>折中</b>方案，它其实是最务实的做法</b>：<span class='w'>「you could potentially <b>combine these</b> where you try to estimate progress, but then <b>if it's been a long period of time, then you re-query anyway</b>」</span>。<b>⇒ 即「以判完成为主 + 一个超时兜底」——拿到选项一的效率，同时用超时堵死卡住那条路。</b>"
+   ],
+   "eq": "这一页填的是 p8 滚动循环里那个留白的 **Until new goal is selected**\n   问题重述：**多久重新问一次高层？**\n\n**选项一：等低层完成了当前目标再换**\n   + **ideal in principle**\n     讲稿：「the **most compute efficient**… you don't need to rethink how you're\n             doing the task while the LL is executing」⇒ 不浪费一次高层调用\n   要求低层**多做一件事**：除了动作，还要判断「我做完了没有」\n     「**predict whether or not it successfully completed the task**…\n       either with a **binary indicator** or a **progress indicator**」\n     ⇒ 本质上是一个**成功分类器**\n   − **hard to estimate when done**\n   − **need to account for mistakes that require redoing past goals**\n     讲稿的例子：「you go grab something and then you **accidentally drop it on\n       the ground**. your subgoal should **no longer** be put that object on the\n       table and instead it should be to **pick it up off the ground**」\n     ⇒ 要估的不只是「做完没有」，还有「**这个子目标现在还成不成立**」\n       「whether you've **exited the states in which that subtask makes sense**」\n\n**选项二：固定 n 步之后换**\n   讲稿的数：低层 50 Hz、高层 ≈1 Hz ⇒ **n = 50**\n   + **simple**\n   − n 大 → 省计算但换目标**有延迟**（「找到锅了，就捧着锅站着」）\n   − n 小 → 响应快但**高层负担重**（更多状态上要准确预测）、也更费计算\n     ⇒ 两个减号都是**权衡**，不是难题\n\n⚠⚠ **决定性的比较：比的是出错的后果，不是出错的概率**\n   选项一出错 → **agent easily gets perpetually stuck**\n     「if it thinks that it's not done but it is actually done then it will just\n       stay in that state… won't be making any further progress」\n   选项二出错 → **LL policy may take wrong actions for n steps**\n     错了也就错 n 步，下次重新询问就有机会纠正\n\n   判决：**These errors are more fatal!**（指选项一那类）\n   「this has a pretty rough outcome for these kinds of errors **even if they're\n     infrequent**」—— **即使很少发生也很糟，因为后果是永久性的**\n\n⇒ 正好接上 p5 第三条「卡住」：**选项一的失败模式就是制造一个吸收态**\n   而选项二**天然免疫** —— 不管发生什么，n 步后高层一定被重新询问，\n   死循环一定被打断\n   ⇒ **「笨办法」胜出的真正原因：它提供一个无条件的逃生通道**\n\n实践结论：**大多数系统选选项二**\n   「a lot of the hierarchical systems out there **opt for choosing option two**\n     because of the simplicity and because… are **less fatal**」\n\n讲稿提到、幻灯没有的**折中**（最务实）：\n   「you could **combine these** where you try to estimate progress, but\n     **if it's been a long period of time, then you re-query anyway**」\n   ⇒ 「以判完成为主 + 超时兜底」——拿选项一的效率，用超时堵死卡住那条路",
+   "tbl": {
+    "head": ["", "选项一：判完成", "选项二：固定 n 步"],
+    "rows": [
+     ["原理上", "<b>+ 最理想、最省计算</b>", "<span class='w'>会浪费一些计算</span>"],
+     ["低层要多做什么", "<b>判断「做完没有」（成功分类器）</b>", "<b>什么都不用多做</b>"],
+     ["主要难点", "<b>判完成难 · 还要判子目标是否已失效</b>", "<b>n 的大小是个权衡</b>"],
+     ["出错的后果", "<span class='w'>⚠ 永久卡死（吸收态）</span>", "<b>白走 n 步，之后可纠正</b>"],
+     ["能打断死循环吗", "<span class='w'>不能</span>", "<b>能（无条件）</b>"],
+     ["⇒ 实践怎么选", "<span class='w'>少</span>", "<b>多数系统选它</b>"]
+    ]
+   },
+   "say": "原话（选项一为什么原理上最优，以及它要求低层多做一件事）：<em>“for the first case where we're doing something after we've completed a goal, uh this is actually ideal. Like if you're to do this well, this should be the <b>most compute efficient</b> uh because you're waiting for the low-level policy and you don't need to kind of rethink how you're doing the task while the low-level policy is executing… at this point, your low-level policy <b>not only needs to predict action, but it also needs to predict whether or not it successfully completed the task</b>. Uh, and this could be either with some sort of <b>binary indicator</b> or through some sort of <b>progress indicator</b>.”</em><br><br>原话（掉到地上那个例子：子目标本身失效了）：<em>“you actually need to account for mistakes that require actually redoing some past goal. So for example uh if you are trying to I don't know organize some things on a table you go grab something and then you <b>accidentally drop it on the ground</b>. Uh your sub goal should <b>no longer be like put that object on the table</b> and instead it should be to <b>pick it up off the ground</b>. And this means that actually you need to now estimate <b>not just when you're done but also whether or not you've actually like kind of exited the states in which that subtask makes sense</b>.”</em><br><br>原话（为什么多数系统选那个笨办法）：<em>“if you actually make a mistake in estimating when you're done, then you could actually end up in a situation where the agent is like <b>perpetually stuck</b>… so this actually has a pretty rough outcome uh for these kinds of errors <b>even if they're infrequent</b>… and generally between these two things uh <b>these errors are more fatal</b>. Uh and as a result they kind of typically <b>a lot of the hierarchical systems out there opt for choosing option two</b> because of the simplicity.”</em><br><br>原话（幻灯上没有的折中方案）：<em>“It's also worth mentioning that you could potentially <b>combine these where you try to estimate progress, but then if it's been a long period of time, then you re-query anyway</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给你的是一条<b>工程上立刻能用</b>的结论，而且它正好补上 p5 那条「卡住」的解法。</b><br><span class='k'>你的工作流里的「何时换目标」，对应的是<b>反思/重试环什么时候退出</b></span>：<b>选项一 = 「等到反思节点说『这次对了』才往下走」；选项二 = 「最多重试 <code>n</code> 次，到了就往下走（或放弃）」。</b><br><b>⇒ 讲义的判决可以原样搬：<b>必须有一个无条件的次数上限</b>。</b> <span class='w'>理由和讲义完全一样——判完成（让 LLM 自己说「这次对了」）<b>会出错</b>，而且出错的方向往往是「永远不满意」，于是死循环</span>。<b>⚠ 而且 LLM 自评有一个已知的系统性偏差：它对自己的输出往往<b>过于</b>满意或<b>反复</b>不满意，两头都会坏事。</b><br><b>⇒ 最务实的配置就是讲稿那个折中：<b>以自评为主 + 硬性次数上限兜底</b>。</b> <span class='k'>如果你现在的实现没有那个上限，<b>这是一个应该今天就补上的 bug</b></span>——<b>因为它正是 p5 科研格说的那种「把一条 query 的 Cost 推到预算上限、而 Acc 为 0」的重尾来源。</b><br><b>而「两种错误的致命性不对称」这个<b>思路</b>比这条具体结论更值得带走，因为它在你的问题里还有别的用处。</b><br><span class='w'>你的逐次淘汰也面对一对不对称的错误：<b>① 误砍</b>（把真正最优的配置砍掉了）；<b>② 误留</b>（把一个劣配置留到了下一轮）</span>。<b>⇒ 这两者的后果<b>极不对称</b>：误留只是多花一点预算，下一轮还能再砍；<b>误砍是不可逆的</b>——最优配置一旦出局就永远回不来，而你最终报告的「最优」就是错的。</b><br><b>⇒ 所以淘汰判据应当<b>偏向保守</b>，这不是谨慎，是由后果的不对称性决定的</b>：<span class='k'>① 用<b>随时有效</b>的置信界（L12 那套），别用固定样本量的；② 判据里留一个 <code>ε</code> 的宽容带，只砍「劣于最优者超过 <code>2ε_ℓ</code>」的（L07 p6 正是这么做的）；③ <b>把 <code>δ</code> 更多地分配给「不误砍」这个事件</b>，而不是平均分配。</span><br><b>⇒ 而且这个不对称性该在论文里<b>明说</b>：<b>我们的保证是「以概率 ≥1−δ，最优配置始终存活」，因为误砍不可逆而误留只是多花预算。</b></b><span class='w'>这句话一写，审稿人就知道你想过这件事了。</span>",
+    "ref": "本讲 p21（逐字核对）· 讲稿（掉落例子、折中方案）· p5 科研格 · L07 p6 · L12 主线卡 · 简报 §4b §4c（已核）"
+   }
+  },
+  {
+   "r": [22, 24],
+   "t": "分层正热：四个系统，四五个月内，全是两层",
+   "star": 2,
+   "quote": "<b>Hierarchy is hot 🔥</b><br><em><b>Physical Intelligence π0.5</b> &nbsp;·&nbsp; <b>NVIDIA Gr00t N1</b> &nbsp;·&nbsp; <b>Figure Helix</b> &nbsp;·&nbsp; <b>Gemini Robotics</b></em>",
+   "one": "<b>四个最近几个月才发布的系统，做的任务各不相同，架构却都是同一个形状：一个高层模型预测中间目标，一个低层模型输出动作。</b>",
+   "pts": [
+    "<b>这一页只有四个名字和一个火焰表情，但它是全讲的「这不是纸上谈兵」那一页。</b> <span class='k'>讲稿：「here are four systems that were all kind of announced in the <b>last like 5 months, four months</b>. Uh, and they <b>actually all use hierarchical systems</b>」</span>。",
+    "<b>四个系统分别是：<b>Physical Intelligence π0.5</b>（创业公司）· <b>NVIDIA Gr00t N1</b> · <b>Figure Helix</b>（人形机器人公司）· <b>Gemini Robotics</b>（Google DeepMind）。</b> <span class='w'>⇒ 覆盖了创业公司、芯片厂、人形机器人公司和大型实验室——<b>四条完全不同的技术路线，收敛到了同一个架构</b>。</span>",
+    "<b>讲稿列了它们做的任务，都是典型的长时程</b>：<span class='k'>「cleaning a bedroom, handing over objects and kind of pouring them or putting them into bins, putting away objects into a fridge, putting fruit into bowls」</span>。",
+    "<b>而共同的架构被一句话概括：<b>「they all have some sort of <b>higher level model that's predicting intermediate goals</b> and some <b>lower level model that is predicting low-level actions</b>」</b>。</b> <span class='w'>⇒ 正是 p7 那张图。</span>",
+    "<b>⚠ 讲稿紧接着把范围扩大到了语言模型，这一句对你尤其值得注意</b>：<span class='k'>「Likewise, in language model domains, things like <b>chain of thought</b> where you're kind of reasoning through intermediate steps and then actually outputting tokens for those steps is <b>also really popular</b> for completing more challenging language tasks」</span>。<b>⇒ 老师明确把<b>思维链</b>归到了同一类现象里。</b>",
+    "<b>⇒ 所以这一页真正的意思是：<b>「分层」不是机器人学的一个小众技巧，而是当前做长时程任务的<b>默认架构</b>，在机器人和语言两个领域同时成立</b>。</b>",
+    "<b>⚠ 但读这一页要带一点克制，因为「大家都这么做」不是证据。</b> <span class='w'>p11 刚刚说过「分层 vs 思维链<b>还没有定论</b>」，p16 又刚警告过「要想清楚好处从哪来」</span>。<b>⇒ 四个系统都用分层，可能是因为它真的更好，也可能只是因为<b>工程上更好组织</b>（两个模型可以分别迭代、分别换、分别部署在不同硬件上）。</b>",
+    "<b>⇒ 而工程上的理由其实很充分，值得单独说一句：<b>两层可以独立替换</b>。</b> <span class='k'>低层策略是和具体机器人本体绑定的，换一台机器人就要重训；而高层可以是一个通用的视觉语言模型，<b>跨本体复用</b></span>。<b>⇒ 这个「可替换性」在论文里往往不被当成贡献，但在工业界是决定性的。</b>",
+    "<b>最后留意一下时间尺度：<b>四五个月</b>。</b> <span class='w'>这意味着你读到的任何关于这些系统的具体结论都可能很快过时</span>；<b>⇒ 而<b>设计选择的框架</b>（目标表示、两层监督、何时换目标）不会——这也是这一讲按设计选择而不是按系统来组织的理由。</b>"
+   ],
+   "eq": "这一页只有四个名字和一个火焰表情，但它是「这不是纸上谈兵」那一页\n   讲稿：「four systems that were all announced in the **last like 5 months, four\n           months**. and they **actually all use hierarchical systems**」\n\n四个系统（覆盖四条完全不同的技术路线，收敛到同一架构）：\n   **Physical Intelligence π0.5**（创业公司）\n   **NVIDIA Gr00t N1**（芯片厂）\n   **Figure Helix**（人形机器人公司）\n   **Gemini Robotics**（大型实验室）\n\n它们做的任务（都是典型长时程）：\n   「cleaning a bedroom, handing over objects and pouring them or putting them\n     into bins, putting away objects into a fridge, putting fruit into bowls」\n\n共同架构（一句话）：\n   「they all have some sort of **higher level model that's predicting intermediate\n     goals** and some **lower level model that is predicting low-level actions**」\n   ⇒ 正是 p7 那张图\n\n⚠ 讲稿把范围扩大到语言模型（这一句尤其值得注意）：\n   「in language model domains, things like **chain of thought**… is **also really\n     popular** for completing more challenging language tasks」\n   ⇒ 老师明确把**思维链**归到了同一类现象里\n\n⇒ 这一页真正的意思：\n   **「分层」不是机器人学的小众技巧，而是当前做长时程任务的默认架构，\n     在机器人和语言两个领域同时成立**\n\n⚠ 但要带一点克制：**「大家都这么做」不是证据**\n   p11 刚说过「分层 vs 思维链**还没有定论**」\n   p16 刚警告过「要想清楚好处从哪来」\n   ⇒ 四个系统都用分层，可能因为它真更好，\n     也可能只是因为**工程上更好组织**\n\n⇒ 工程理由其实很充分：**两层可以独立替换**\n   低层与具体机器人本体绑定，换一台就要重训\n   高层可以是通用视觉语言模型，**跨本体复用**\n   ⇒ 这个「可替换性」在论文里常不算贡献，在工业界却是决定性的\n\n留意时间尺度：**四五个月**\n   ⇒ 关于这些系统的任何**具体结论**都可能很快过时\n     而**设计选择的框架**（目标表示、两层监督、何时换目标）不会\n     —— 这也是这一讲按设计选择而不是按系统组织的理由",
+   "tbl": {
+    "head": ["", "机器人领域", "语言模型领域"],
+    "rows": [
+     ["高层做什么", "<b>预测中间目标（语言/图像）</b>", "<b>推理出中间步骤</b>"],
+     ["低层做什么", "<b>输出关节动作</b>", "<b>输出这些步骤的 token</b>"],
+     ["叫什么", "<b>分层策略</b>", "<b>思维链</b>"],
+     ["是两个模型吗", "<b>是</b>", "<span class='w'>⚠ 通常不是（同一个）</span>"],
+     ["代表系统", "<b>π0.5 · Gr00t N1 · Helix · Gemini Robotics</b>", "<b>各种推理模型</b>"]
+    ]
+   },
+   "say": "原话（四个系统，以及把思维链归到同一类）：<em>“hierarchy is like uh pretty popular these days. So, um, here are four systems that were all, um, kind of announced in the <b>last like 5 months, four months</b>. Uh, and they <b>actually all use hierarchical systems</b>. So, these are all like fairly long horizon tasks where you're like <b>cleaning a bedroom</b>, uh, putting like handing over objects and and kind of pouring them or putting them into bins, uh, <b>putting away objects into a fridge</b>, putting fruit into bowls. And if you look at the architectures for these things, they uh they all have some sort of <b>higher level model that's predicting intermediate goals</b> and some <b>lower level model that is kind of predicting low-level actions</b>. Um these are in robotics domains. Likewise, in uh language model domains, things like <b>chain of thought</b> where you're kind of reasoning through intermediate steps and then actually outputting tokens for those steps is also uh really popular for completing more challenging uh language tasks.”</em>"
+  }
+ ],
+ "quiz": {
+  "15": [
+   {
+    "q": "端到端训练一个带「隐式目标表示」的两层网络，结果是什么？",
+    "o": ["一个多任务策略", "一个更好的分层策略", "一个思维链策略", "一个扁平策略 —— 把大网络在中间切开、给那层激活值起名叫「目标」，不改变它是什么；梯度照样从最终奖励一路传回，中间层不受任何独立约束"],
+    "a": 3,
+    "why": "<b>⇒ 按 p9 四条好处逐条对：端到端两层网络只拿得到第④条（不同频率），拿不到前三条——而前三条才是分层在<b>学习</b>上的全部价值。</b><span class='k'>「两个网络」这件事本身没有任何意义。</span>"
+   },
+   {
+    "q": "p16 那句「Think carefully about where the benefits are coming from!」防的是什么毛病？",
+    "o": ["防止数据泄漏", "防止学习率设得太大", "防止过拟合", "防的是「我以为它会这样工作」—— 一个在纸上自洽、但在实现里没有任何机制去保证的故事"],
+    "a": 3,
+    "why": "<b>讲稿把它操作化了：跑实验之前先写下「如果我的方法没效果，最可能的原因是什么」，并把那个原因变成一个可以单独测的消融。</b><span class='w'>原话：if you're very honest with yourself about what might go wrong and why you might not actually see benefits from your new idea, then you can think more critically about what sorts of things will actually improve the final results。</span>"
+   }
+  ],
+  "17": [
+   {
+    "q": "两层监督的「先有鸡还是先有蛋」具体是什么？",
+    "o": ["低层该在「高层会输出的目标分布」上训，但高层还没训出来；高层该配着「学好的低层」训，但低层还没训出来 —— 两边的训练分布都由对方决定", "低层要先训，高层才能训", "高层的奖励依赖低层的奖励", "两层必须用同一个数据集"],
+    "a": 0,
+    "why": "<b>⚠ 这不是实现上的麻烦，是分层这个结构自带的。</b><span class='k'>而两层优化的本来就不是同一个东西：低层被训来完成 g（它根本不知道原始任务是什么），高层被训来完成原始长任务。</span>"
+   },
+   {
+    "q": "讲稿那个意面例子说明了什么？",
+    "o": ["低层策略必须能从任意状态出发工作", "子任务要按固定顺序执行", "高层策略必须知道低层的网络结构", "分开训会在衔接处垮掉：「找意面」如果从初始状态训，而高层实际上在「烧完水、人在灶台边」时才下达它，串起来就会卡在过渡上 —— 每个子技能单独测都很好"],
+    "a": 3,
+    "why": "<b>老师给这个现象起的名字是 mismatch，并点明它是<b>模块化系统</b>的通病。</b><span class='w'>但要求没那么高：「低层不必从每个状态都能工作，它只需要在高层真会下达的 state-goal 组合上可靠」——而且相邻技能的状态要有<b>重叠</b>，重叠还要带<b>余量</b>，否则系统很脆。</span>"
+   }
+  ],
+  "18": [
+   {
+    "q": "p18 给的解法是「可以先分开训，但至少有一边要适配另一边的 deficiencies」。为什么用 deficiencies 这个词？",
+    "o": ["因为这是文献里的标准术语", "因为两层都有缺陷", "因为要适配的不是对方的平均行为，而是对方做不好的那些地方 —— 完美的低层不需要高层迁就，正因为它在某些状态和目标上会失手，高层才需要知道并绕开", "因为缺陷可以被量化"],
+    "a": 2,
+    "why": "<span class='k'>实践上基本是让高层适配低层：高层更小更便宜，而且往往可以用现成模型初始化。</span><b>p29–30 给了字面实现：冻住低层，用 DAgger 在语言空间里微调高层。</b>"
+   },
+   {
+    "q": "「LLMs are often good high-level policies!」这句话要加什么限定？讲稿用哪个例子说明？",
+    "o": ["限定是 LLM 必须看过机器人数据；例子是模仿学习", "限定是：它给的是「对一般智能体合理的计划」，不是「对你这个低层可行的计划」；例子是机器人站在咖啡机前，LLM 却让它去星巴克买咖啡 —— 机器人没有那个 affordance", "限定是 LLM 必须是多模态的；例子是图像输入", "限定是 LLM 必须足够大；例子是参数量对比"],
+    "a": 1,
+    "why": "<b>两者的差距就是必须靠适配去补的那一块。</b><span class='w'>讲稿还给了另一个理由：语言模型不知道你的低层策略<b>擅长什么顺序</b>，也不知道它的其他能力边界。</span>"
+   }
+  ],
+  "19": [
+   {
+    "q": "「何时换下一个子目标」的两个选项，决定性的比较是什么？",
+    "o": ["哪个实现更简单", "比的是出错的后果而不是出错的概率：判完成出错会让智能体永久卡死（吸收态），预测子任务出错只是白走 n 步、下次重新询问还能纠正", "哪个计算更省", "哪个需要的数据更少"],
+    "a": 1,
+    "why": "<b>幻灯的判决是一句带感叹号的话：These errors are more fatal!（指选项一那类）。</b><span class='k'>讲稿补充：即使这类错误很少发生也很糟，因为后果是永久性的——而选项二天然免疫，n 步之后高层一定被重新询问，死循环一定被打断。</span>"
+   },
+   {
+    "q": "选项一（判完成才换）要求低层多做一件事，而且比「判断做完没有」还要难一层。难的那一层是什么？",
+    "o": ["要输出置信度", "要估计剩余时间", "还要判断「这个子目标现在还成不成立」—— 比如你抓起一个东西又掉到地上了，子目标就不该再是「把它放到桌上」而该是「把它从地上捡起来」", "要预测下一个子目标"],
+    "a": 2,
+    "why": "<span class='w'>讲稿原话：你要估计的不只是 when you're done，还有 whether or not you've actually exited the states in which that subtask makes sense。</span><b>而讲稿还给了一个幻灯上没有的折中：以判完成为主 + 超时兜底（if it's been a long period of time, then you re-query anyway）。</b>"
+   }
+  ],
+  "22": [
+   {
+    "q": "「分层正热」那四个系统说明了什么？读这一页该带什么保留？",
+    "o": ["说明分层是当前做长时程任务的默认架构（机器人与语言两个领域同时成立）；但保留在于「大家都这么做」不是证据 —— p11 刚说过分层 vs 思维链还没定论，而且两层也可能只是工程上更好组织（可独立替换）", "说明分层已被证明优于思维链；无需保留", "说明机器人领域进展很快；保留在于数据不公开", "说明工业界比学界领先；保留在于缺少理论"],
+    "a": 0,
+    "why": "<b>工程上的理由其实很充分：低层与具体本体绑定、换机器人就要重训，而高层可以是通用视觉语言模型、跨本体复用。</b><span class='k'>⚠ 还要留意时间尺度是四五个月——关于这些系统的具体结论会很快过时，而设计选择的框架不会。</span>"
+   }
+  ]
+ }
+}

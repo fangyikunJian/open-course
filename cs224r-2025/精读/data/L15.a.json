@@ -1,0 +1,502 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "p3 回顾与今天的接口（原文）：多任务模仿/强化学习（任务描述符 z_i 或目标状态 s_g）· 元强化学习（few-shot experience s_1,a_1,r_1,…）⇒ **Today: can we string together behaviors from multiple (sub)tasks?**",
+  "p4/p12/p15/p19/p22 **今天的提纲**（重复出现五次，是全讲的骨架）：1. What's the problem（a. Why long-horizon tasks are hard · b. Why hierarchy may help）2. Key design choices（a. How to represent skills/goals? · b. Supervision for each level · c. When to move on from one goal to the next?）3. Example systems",
+  "p5 **长时程任务的四个例子**：Cook focaccia · **Fix a bug that is causing neural network training loss to explode** · Drive to Yosemite · Give feedback on an 8-page report",
+  "p5 **为什么难（三条，逐字）**：1. **Very large # of states visited.** 2. **Many opportunities to make mistakes.** 3. **Many opportunities to get “stuck”.**",
+  "p6 **蛋糕梯子**（从难到易）：Bake a cheesecake ←doing this is really hard / Buy ingredients / Go to the store / Walk to the door / Take a step / **Contract quad muscle** ←doing this is easy",
+  "p7 两层：**High-level policy predicts intermediate goals g_t**；**Low-level policy tries to accomplish g_t by predicting actions a_t**；**It operates at a higher frequency than the high-level policy**",
+  "p7 ⚠ **g_t 的五个名字（原文逐字）**：**subgoals, subtasks, skills, options, high-level actions**；并注明 **Could have more than 2 levels of hierarchy!**",
+  "p8 **滚动分层策略**（逐字）：0. Observe initial observation o_1 at t = 1；1. Plan goal g_t according to **HL(· | o_t, prompt)**；2. Until new goal is selected：a. Execute predicted action a_t according to **LL(· | o_t, g_t)**；b. t ← t+1, observe new observation o_t",
+  "p9 **分层为什么可能有帮助（四条，逐字）**：1. **Supervision signal on how to complete the task** 2. **More direct knowledge sharing across similar subtasks** 3. **In RL: structured exploration in higher-level space** 4. **Practical challenge: Address speed requirements by running policies at different frequencies**",
+  "p10/p11 三种做法并列：**Hierarchy**（o_t → HL → g_t → LL → a_t）· **Flat policy**（o_t → a_t）· **Chain of thought**（o_t → g_t, a_t 同一个策略顺序输出）",
+  "p11 对思维链版本的三句评语（逐字）：**Can benefit from same supervision!** · **May be too computationally expensive (e.g. 50 Hz control)** · ⚠ **No conclusive empirical comparison (yet).**",
+  "p13 **课堂练习（think-pair-share）的四个任务**：1. Cook Italian dishes. 2. Bike to various campus locations（e.g. “Bike to the dish entrance.”）3. Draft legal briefs. 4. Plan and book 1-week vacations for users.",
+  "p14 **结论一**：**Best goal representations will likely be domain specific!**",
+  "p14 **结论二 · 好的目标表示的三条性质（逐字）**：a. **Expressive**（can communicate many different low-level behaviors）b. **Structured**（similar behaviors should have similar g）c. **Appropriate level of abstraction**（not too hard for low-level or for high-level）",
+  "⚠ 讲稿里的频率数字：机器人低层约 **20 Hz**（后面 p28 的真实系统是 **50 Hz**），高层「after you've completed a paragraph」或约 **1 Hz**；语言模型的低层是「outputting word by word」",
+  "⚠ 讲稿里讲「卡住」为什么特别毒（原文）：**when you end up in the same state again, your policy will keep on kind of deterministically staying in that state and never making forward progress towards the goal**"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    4
+   ],
+   "t": "接口：从「会做多个任务」到「把多个任务串起来」",
+   "star": 2,
+   "quote": "<b>Brief recap</b> — <em>Multi-task imitation and reinforcement learning</em>（Task descriptor z<sub>i</sub> / Goal state s<sub>g</sub> + State s<sub>t</sub> → a<sub>t</sub>）· <em>Meta-reinforcement learning</em>（Few-shot experience s<sub>1</sub>,a<sub>1</sub>,r<sub>1</sub>,… + State s<sub>t</sub> → a<sub>t</sub>）<br><em><b>Today: can we string together behaviors from multiple (sub)tasks?</b></em><br><b>Plan for today</b><br><em>1. What's the problem — a. Why long-horizon tasks are hard &nbsp; b. Why hierarchy may help<br>2. Key design choices — a. How to represent skills/goals? &nbsp; b. Supervision for each level &nbsp; c. When to move on from one goal to the next?<br>3. Example systems</em>",
+   "one": "<b>前两讲解决的是「一个策略能做多件事」，今天解决的是「把这些事按顺序接起来完成一件大事」。而接起来之后冒出来的全部问题，就是那三条设计选择。</b>",
+   "pts": [
+    "<b>p3 把前两讲压成一张图，而它正好标出了今天的接口在哪。</b> <span class='k'><b>多任务模仿/强化学习</b>：策略除了状态 <code>s_t</code> 还吃一个<b>任务描述符</b> <code>z_i</code>（或者一个<b>目标状态</b> <code>s_g</code>）；<b>元强化学习</b>：不给描述符，而是给<b>少量带奖励的经验</b>，让策略自己认出这是什么任务</span>。",
+    "<b>⇒ 共同点是：<b>这些策略都只做「一件事」，只是那件事可以换</b>。</b> <span class='w'>今天那一句 <em>can we string together behaviors from multiple (sub)tasks?</em> 问的正是下一步：<b>能不能把这些「一件事」串成一条长链</b>。</span>",
+    "<b>注意这个提法里已经埋了一个结构性的假设：<b>长任务是由若干短任务<b>按顺序</b>组成的</b>。</b> <span class='k'>⚠ 这不是显然的——有些长任务是整体性的（比如写一篇连贯的文章），很难干净地切成互不干扰的段</span>。<b>⇒ 整讲的成立与否，很大程度上取决于你的任务能不能这么切。</b>",
+    "<b>讲稿里补了一句幻灯上没有的限定，值得记：<b>有些子任务之间有依赖，有些没有</b>。</b> <span class='w'>原话是「some of those steps might be <b>interdependent</b> on one another where it makes sense to do one before the other. Uh and other tasks might be something where they're <b>less interdependent</b> and it's actually okay to do those in parallel」</span>。<b>⇒ 这一点在后面（讲稿里学生提问「要是需要同时做多件事呢」）还会回来：<b>高层策略的职责之一就是判断顺序到底重不重要</b>。</b>",
+    "<b>p4 那张提纲在整讲里<b>重复出现了五次</b>（p4/p12/p15/p19/p22），每讲完一块就回来一次。</b> <span class='k'>⇒ 这不是凑页数，而是在说「这一讲是按<b>设计选择</b>组织的，不是按算法组织的」</span>。<b>所以读这一讲要抓的不是「某个方法叫什么」，而是「做一个分层系统，有哪几个地方必须做决定」。</b>",
+    "<b>那三个决定就是全讲的骨架，先记住它们的名字：<b>① 目标怎么表示？② 每一层怎么监督？③ 什么时候从一个子目标换到下一个？</b></b> <span class='w'>⚠ 注意 p4 与后面几页的顺序略有不同（p4 把「何时换」排在第二，p12 之后改成第三），<b>以 p12/p15/p19/p22 的顺序为准</b></span>。",
+    "<b>最后记一下这一讲在课程里的位置：它是 <b>CS224R 后半块的第一讲</b>，而下一讲（p46）转去讲机器人上的 RL。</b> <span class='k'>⇒ 分层是「把前面学的多任务能力用起来」的那一步，所以它<b>不引入新的学习算法</b>，只引入<b>怎么组合</b>。</b>"
+   ],
+   "eq": "p3 把前两讲压成一张图，标出今天的接口：\n   **多任务模仿/强化学习**：策略吃 s_t + **任务描述符 z_i**（或**目标状态 s_g**）→ a_t\n   **元强化学习**：不给描述符，给**少量带奖励的经验**，让策略自己认出任务\n   共同点：**这些策略都只做「一件事」，只是那件事可以换**\n\n今天那一句：**can we string together behaviors from multiple (sub)tasks?**\n   = 能不能把这些「一件事」串成一条长链\n\n⚠ 提法里已埋了一个结构性假设：**长任务 = 若干短任务按顺序组成**\n   不显然 —— 有些长任务是整体性的（写一篇连贯的文章），很难干净切段\n   ⇒ 整讲成立与否，很大程度取决于你的任务能不能这么切\n\n讲稿补的限定（幻灯上没有）：\n   「some of those steps might be **interdependent**… and other tasks\n     might be **less interdependent** and it's actually okay to do those in parallel」\n   ⇒ 后面学生提问「要是需要同时做多件事呢」会回来：\n     **高层策略的职责之一就是判断顺序到底重不重要**\n\n**p4 提纲在整讲里重复五次**（p4/p12/p15/p19/p22），每讲完一块回来一次\n   ⇒ 这一讲是按**设计选择**组织的，不是按算法组织的\n   ⇒ 要抓的不是「某个方法叫什么」，而是\n     **「做一个分层系统，有哪几个地方必须做决定」**\n\n三个决定（全讲骨架）：\n   ① **目标怎么表示？**\n   ② **每一层怎么监督？**\n   ③ **什么时候从一个子目标换到下一个？**\n   ⚠ p4 与后面顺序略不同（p4 把「何时换」排第二，p12 后改第三）\n     **以 p12/p15/p19/p22 为准**\n\n位置：CS224R 后半块第一讲；下一讲（p46）转去机器人上的 RL\n   分层 = 「把前面学的多任务能力用起来」那一步\n   ⇒ **不引入新的学习算法，只引入怎么组合**",
+   "say": "原话（今天要接的那一段）：<em>“In the past couple lectures, we've been talking about training RL and imitation learning systems that can do multiple different tasks. … Now today um we'll be kind of building on some of these concepts and trying to not just train a policy to do multiple tasks but to actually <b>string together behaviors for multiple tasks into a longer horizon task</b>.”</em><br><br>原话（子任务之间的依赖——幻灯上完全没有）：<em>“you can think about how there are often times different steps that you need to complete. Uh some of those steps might be <b>interdependent</b> on one another where it makes sense to do one before the other. Uh and other tasks might be something where they're <b>less interdependent</b> and it's actually okay to do those in parallel.”</em>"
+  },
+  {
+   "r": [
+    5,
+    5
+   ],
+   "t": "长时程任务为什么难：三条，而第三条最毒",
+   "star": 3,
+   "quote": "<b>Long horizon tasks</b><br><em>Cook focaccia.<br><b>Fix a bug that is causing neural network training loss to explode.</b><br>Drive to Yosemite.<br>Give feedback on an 8-page report.</em><br><em><b>Why are these hard?</b><br>1. <b>Very large # of states visited.</b><br>2. <b>Many opportunities to make mistakes.</b><br>3. <b>Many opportunities to get “stuck”.</b></em>",
+   "one": "<b>前两条是「量」的问题——状态多、出错机会多；第三条是「质」的问题：卡住意味着你永远停在同一个状态上，而策略是确定性的，于是会把同一个错误无限重复下去。</b>",
+   "pts": [
+    "<b>先看那四个例子，它们故意跨了四个完全不同的领域。</b> <span class='k'>做佛卡夏（机器人）· <b>修一个让神经网络训练损失爆炸的 bug</b>（LLM 智能体）· 开车去优胜美地（自动驾驶）· 给一份八页的报告写反馈（LLM）</span>。<b>⇒ 「长时程」不是机器人专有的毛病，<b>它是任何需要多步才能完成的任务共有的</b>。</b>",
+    "<b>⚠ 第二个例子对你尤其该留意：<b>「修一个让训练损失爆炸的 bug」就是一个典型的 agentic 工作流任务</b>。</b> <span class='w'>老师把它和机器人任务并列，说明在他看来这两者是<b>同一类问题</b></span>。",
+    "<b>第一条「访问的状态数非常多」说的是<b>分布宽度</b>，不是步数本身。</b> <span class='k'>讲稿原话：「when you are doing a task that takes a long time, you're visiting a large number of states along the way… <b>you basically just have a much broader distribution that your policy needs to be successful on</b>」</span>。<b>⇒ 关键不是「要走 100 步」，而是「这 100 步会把你带到各种各样你没见过的地方」。</b>",
+    "<b>第二条「出错机会多」有一个复利效应，而这正是上一讲（L02 模仿学习）的复合误差。</b> <span class='w'>每一步都有出错概率，步数越多，整条轨迹至少错一次的概率越接近 1</span>；<b>⇒ 而且错了之后你会偏离训练分布，于是下一步更容易错——这是 L02 讲透的那个恶性循环。</b>",
+    "⚠️ <b>第三条「卡住」是三条里性质最不同的一条，而讲稿把它解释得比幻灯清楚得多。</b> <span class='k'>原话：「if you're not making progress, then you'll actually just <b>end up in the same state again</b>. And you'll keep on making that same mistake over and over again and essentially just get stuck」</span>。",
+    "<b>⇒ 为什么这特别毒？因为<b>策略是状态的函数</b>。</b> <span class='w'>讲稿：「these kinds of mistakes are kind of particularly gnarly because when you end up in the same state again, <b>your policy will keep on kind of deterministically staying in that state and never making forward progress</b>」</span>。<b>⇒ 同一个状态 → 同一个动作 → 同一个状态，<b>死循环，而且是确定性的，不会自己跳出来</b>。</b>",
+    "<b>这和第二条的区别值得说清：<b>「犯错」是走偏了但还在走，「卡住」是根本不走了</b>。</b> <span class='k'>走偏了还有机会纠回来（或者至少会走到别的状态去）；卡住则是一个<b>吸收态</b></span>。<b>⇒ 所以「卡住」不是「错得多一点」，而是一种<b>定性</b>不同的失败。</b>",
+    "<b>⚠ 注意这条对<b>随机性</b>的依赖：如果策略是随机的，理论上迟早会跳出来。</b> <span class='w'>但实践中策略在某个状态上的分布可能极度集中，「迟早」可能是几千步之后</span>；<b>⇒ 所以靠随机性自救不是一个可靠的方案，真正的解法是<b>让上层看见「我卡住了」并换一个目标</b>——这正是后面 p20–21 要处理的事。</b>",
+    "<b>把三条和后面的解法对上，这一页就不只是列举了</b>：<span class='k'>① 状态多 → 分层让每个低层策略只负责一小块状态空间；② 出错多 → 中间监督让错误在子任务内部就被纠正；③ 卡住 → 高层周期性重新决策，天然打断死循环</span>。"
+   ],
+   "eq": "四个例子（故意跨四个领域）：\n   做佛卡夏（机器人）\n   **修一个让神经网络训练损失爆炸的 bug**（LLM 智能体）\n   开车去优胜美地（自动驾驶）\n   给一份八页的报告写反馈（LLM）\n   ⇒ 「长时程」**不是机器人专有的毛病**，是任何多步任务共有的\n   ⚠ 第二个例子就是一个典型的 agentic 工作流任务，老师把它与机器人并列\n\n**为什么难（三条）**：\n\n① **Very large # of states visited** —— 说的是**分布宽度**，不是步数\n   讲稿：「you basically just have a **much broader distribution**\n           that your policy needs to be successful on」\n   ⇒ 关键不是「要走 100 步」，是「这 100 步会把你带到各种没见过的地方」\n\n② **Many opportunities to make mistakes** —— 有复利效应\n   每步都有出错概率，步数越多，整条轨迹至少错一次的概率越接近 1\n   错了之后偏离训练分布 ⇒ 下一步更容易错 = **L02 的复合误差**\n\n③ **Many opportunities to get “stuck”** —— 性质最不同的一条\n   讲稿：「you'll actually **end up in the same state again**.\n           And you'll keep on making that same mistake over and over again」\n\n   为什么特别毒：**策略是状态的函数**\n   讲稿：「your policy will keep on kind of **deterministically staying in that state**\n           and never making forward progress」\n   ⇒ 同一状态 → 同一动作 → 同一状态，**死循环，确定性的，不会自己跳出来**\n\n   与 ② 的区别：**「犯错」是走偏了但还在走；「卡住」是根本不走了**\n     走偏了还有机会纠回来（至少会走到别的状态）\n     卡住是一个**吸收态** ⇒ 不是「错得多一点」，是**定性**不同的失败\n\n   ⚠ 对随机性的依赖：策略随机则理论上迟早跳出来\n     但实践中分布可能极度集中，「迟早」可能是几千步之后\n     ⇒ 靠随机性自救不可靠；真正的解法是\n       **让上层看见「我卡住了」并换一个目标**（p20–21）\n\n三条 ↔ 后面的解法：\n   ① 状态多 → 分层让每个低层策略只负责一小块状态空间\n   ② 出错多 → 中间监督让错误在子任务内部就被纠正\n   ③ 卡住   → 高层周期性重新决策，天然打断死循环",
+   "tbl": {
+    "head": [
+     "",
+     "犯错（第 2 条）",
+     "卡住（第 3 条）"
+    ],
+    "rows": [
+     [
+      "还在前进吗",
+      "<b>在（只是走偏）</b>",
+      "<span class='w'>不在</span>"
+     ],
+     [
+      "状态会变吗",
+      "<b>会</b>",
+      "<span class='w'>⚠ 不会，回到同一个</span>"
+     ],
+     [
+      "能自己纠回来吗",
+      "<b>有机会</b>",
+      "<span class='w'>确定性策略下不能</span>"
+     ],
+     [
+      "是什么性质",
+      "量的问题",
+      "<b>吸收态，定性不同</b>"
+     ],
+     [
+      "靠什么解",
+      "<b>中间监督</b>",
+      "<b>高层周期性重新决策</b>"
+     ]
+    ]
+   },
+   "say": "原话（第一条到底在说什么——「分布更宽」而不是「步数更多」）：<em>“when you are doing a task that takes a long time, you're visiting a large number of states uh along the way to get there. And every new state that you visit, you need to be able to make decisions for. Uh so you basically just have a <b>much broader distribution that your policy needs to be successful on</b>.”</em><br><br>原话（为什么「卡住」特别毒——幻灯上只有 get “stuck” 三个字）：<em>“if there's kind of one kind of mistake that might, for example, not lead you to actually make progress on the task. And if you're not making progress, then you'll actually just <b>end up in the same state again</b>. And you'll keep on making that same mistake over and over again and essentially just get stuck at performing the task. Uh, and these kinds of mistakes are kind of <b>particularly gnarly</b> because they um when you end up in the same state again, <b>your policy will keep on kind of deterministically staying in that state and never making forward progress towards the goal</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>那三条难点对你的 agentic 工作流是逐条对得上的，而且第三条你很可能已经在实验里见过。</b><br><span class='k'><b>① 状态多</b> → 你的工作流有 <code>H</code> 个节点，每个节点的输入都是上游节点输出的函数，<b>下游节点面对的输入分布由上游决定、而且极难枚举</b></span>；<b>② 出错多</b> → <span class='w'>任何一个节点给出低质量输出，后面全部节点都在这个坏输入上工作</span>；<b>③ 卡住</b> → <b>这一条在 LLM 工作流里有一个非常具体的形态：<b>循环</b></b>。<br><span class='k'>带反思/重试环的工作流，如果某个节点反复产出同样的错误输出，反思节点就会反复给出同样的批评，于是整个工作流在同一组消息上空转到预算耗尽</span>。<b>⇒ 这正是讲稿说的「同一个状态 → 同一个动作 → 同一个状态」，而且 LLM 在低温度下几乎是确定性的，所以它<b>不会自己跳出来</b>。</b><br><b>⇒ 对你的实验有两条直接含义：</b><br><b>① <b>「卡住」会严重污染你的成本测量，而且是单向的</b></b>。<span class='w'>一次卡住把那条 query 的 Cost 推到预算上限，而 Acc 是 0</span>；<b>⇒ 它在 <code>G = Acc − λ·Cost</code> 上是一个<b>双重</b>打击，而且是重尾的——<b>少数几条卡住的 query 可能主导整个配置的平均 G</b>。</b><span class='k'>这会让你的方差估计失真（L01.a p18 那条 Bernstein 的前提是有界且方差可控）。</span><br><b>⇒ 建议：<b>把「卡住」单独统计，不要只报平均 G</b></b>。<span class='w'>报「卡住率」这一个数，再报剔除卡住之后的 G 分布</span>——<b>两个配置平均 G 相同但卡住率差三倍，是完全不同的两个东西，而平均值会把这件事藏起来。</b><br><b>② <b>「卡住」是一个可以被<b>档位</b>影响的失败模式，这对你是个机会</b></b>。<span class='k'>小模型更容易产出重复/退化的输出，从而更容易触发循环</span>；<b>⇒ 所以「在哪个节点上用大模型」这个决策，对卡住率的影响可能<b>远大于</b>对平均准确率的影响。</b><span class='w'>如果你只看平均 Acc，会低估大模型在关键节点上的价值。</span><br><b>⚠ 最后一条方法上的提醒：三条难点里只有第 ③ 条<b>不能</b>靠「多测几次取平均」解决</b>——<span class='k'>它不是噪声，是一个确定性的陷阱</span>。<b>必须靠结构性手段（超时、循环检测、强制换路径）处理，而这正是分层在做的事。</b>",
+    "ref": "本讲 p5（逐字核对）· 讲稿（卡住的机制）· p20–21 · L01.a p18 · 简报 §2 §4b（已核）"
+   },
+   "link": {
+    "t": "你学过的对应：本课 L02 精读（模仿学习）——「出错机会多」那条复合误差，L02 讲透了那个恶性循环：学得差 ⇒ 更早偏离 ⇒ 偏离之后错得更多",
+    "href": "L02-精读.html"
+   }
+  },
+  {
+   "r": [
+    6,
+    8
+   ],
+   "t": "主意：拆成子任务，两层策略，和怎么滚动起来",
+   "star": 3,
+   "quote": "<b>The main idea</b> — <em>Can we break up hard tasks into easier subtasks?</em><br><em>Bake a cheesecake ← doing this is really hard / Buy ingredients / Go to the store / Walk to the door / Take a step / <b>Contract quad muscle</b> ← doing this is easy</em><br><em><b>High-level policy predicts intermediate goals g<sub>t</sub></b>. <b>Low-level policy tries to accomplish g<sub>t</sub> by predicting actions a<sub>t</sub></b>. It operates at a <b>higher frequency</b> than the high-level policy.</em><br><em>Many names for g<sub>t</sub>: <b>subgoals, subtasks, skills, options, high-level actions</b> &nbsp;·&nbsp; <b>Could have more than 2 levels of hierarchy!</b></em><br><em><b>Rolling out the hierarchical policy</b>: 0. Observe initial observation o₁ at t = 1 &nbsp; 1. Plan goal g<sub>t</sub> according to HL(· | o<sub>t</sub>, prompt) &nbsp; 2. Until new goal is selected: a. Execute predicted action a<sub>t</sub> according to LL(· | o<sub>t</sub>, g<sub>t</sub>) &nbsp; b. t ← t+1, observe new observation o<sub>t</sub></em>",
+   "one": "<b>那把梯子是全讲最该记住的一张图：越往下越容易训，越往上越是你真正想要的。分层就是在这把梯子上切一刀，上面交给一个策略，下面交给另一个。</b>",
+   "pts": [
+    "<b>p6 那把梯子要从下往上读才看得出意思</b>：<span class='k'>收缩股四头肌 → 迈一步 → 走到门口 → 去商店 → 买原料 → 烤一个芝士蛋糕</span>。<b>幻灯在两头各标了一句：最上面「<em>doing this is really hard</em>」，下面「<em>doing this is easy</em>」。</b>",
+    "<b>⇒ 这把梯子说的是一个连续谱：<b>抽象层级越低越好训，越高越接近你真正要的东西</b>。</b> <span class='w'>而「分层」就是在这个谱上<b>切一刀</b>：刀以上交给高层策略，刀以下交给低层策略</span>。<b>⇒ 切在哪里，就是后面 p14「合适的抽象层级」那条性质要回答的问题。</b>",
+    "<b>讲稿把这个递归过程讲得更清楚，而且它用的是<b>自问自答</b>的形式</b>：<span class='k'>「what's the first step for accomplishing this? Maybe you need to buy ingredients. Okay then what's the first step of buying ingredients? Well maybe you need to go to the store. And how do you get to the store? Well, maybe you need to walk to the door」</span>。<b>⇒ 注意这就是<b>递归分解</b>，而梯子只是把递归展开画出来了。</b>",
+    "<b>两层的分工要记准，因为后面所有讨论都建立在它上面。</b> <b><code>HL(· | o_t, prompt)</code> 输出<b>目标</b> <code>g_t</code>；<code>LL(· | o_t, g_t)</code> 输出<b>动作</b> <code>a_t</code>。</b><span class='w'>⚠ 注意两者<b>都</b>吃当前观测 <code>o_t</code>——高层不是只看任务描述就拍板，它也要看现在到哪一步了。</span>",
+    "<b>⚠ 频率差是一个<b>实质性</b>的设计点，不是实现细节。</b> <span class='k'>讲稿给了数：机器人低层约 <b>20 Hz</b>（后面 p28 的真实系统是 <b>50 Hz</b>），高层「after you've completed a paragraph」或约 <b>1 Hz</b>；语言模型的低层是「outputting word by word」</span>。<b>⇒ 高层慢、低层快，这是 p9 第 4 条「实际好处」的全部内容。</b>",
+    "<b>p7 那行「<code>g_t</code> 的许多名字」值得单独背下来，因为读文献时这五个词指的是同一个东西</b>：<b><code>subgoals</code>（子目标）· <code>subtasks</code>（子任务）· <code>skills</code>（技能）· <code>options</code>（选项）· <code>high-level actions</code>（高层动作）</b>。",
+    "<b>其中 <b><code>options</code></b> 这个词有历史包袱，值得留意：它来自经典的 options 框架（Sutton 等），在那里 option 是一个三元组（启动集、内部策略、终止条件）。</b> <span class='w'>⇒ 而本讲用的是更宽松的用法，<b>没有显式的终止条件</b>——「什么时候终止」被单独拎出来当成了设计选择 ③（p20–21）。</span>",
+    "<b>讲稿里还点明了一个很有用的视角：<b><code>g_t</code> 就是高层策略的「动作」</b>。</b> <span class='k'>原话「you could also think about these as <b>high-level actions</b>. So these are actions but for a different policy that's operating at a higher level of abstraction」</span>。<b>⇒ 这个视角之所以重要，是因为它让你可以<b>原样</b>把 RL 的全套机器搬到高层上去（p43 的分层 RL 正是这么做的）。</b>",
+    "<b>p8 那个滚动循环只有四行，但第 2 步那个「<em>Until new goal is selected</em>」是故意留白的。</b> <span class='w'>幻灯没有说「什么时候算选了新目标」</span>——<b>⇒ 这正是设计选择 ③，老师在 p20 才回来填这个坑。</b><span class='k'>读的时候注意到这个留白，比读完 p21 再回头看要省力。</span>",
+    "<b>最后记一条 p7 的小字：<b><em>Could have more than 2 levels of hierarchy!</em></b></b> <span class='w'>讲稿举的例子是：一层做「去商店、买东西、拿回来」，另一层做「控制机器人的电机」</span>。<b>⇒ 两层只是最常见的情形，不是定义。</b>"
+   ],
+   "eq": "**p6 那把梯子**（从下往上读）：\n   收缩股四头肌 → 迈一步 → 走到门口 → 去商店 → 买原料 → 烤一个芝士蛋糕\n   两头各标一句：最上 **doing this is really hard**；下面 **doing this is easy**\n\n   ⇒ 一个连续谱：**抽象层级越低越好训，越高越接近你真正要的东西**\n     「分层」= 在这个谱上**切一刀**：刀以上给高层，刀以下给低层\n     切在哪里 = p14「合适的抽象层级」要回答的问题\n\n   讲稿把递归分解讲得更清楚（自问自答）：\n     「what's the first step…? buy ingredients. then what's the first step of\n       buying ingredients? go to the store. And how do you get to the store?\n       walk to the door」\n   ⇒ 梯子只是把**递归**展开画出来了\n\n**两层分工**（后面所有讨论都建立在它上面）：\n   **HL(· | o_t, prompt) → 目标 g_t**\n   **LL(· | o_t, g_t)   → 动作 a_t**\n   ⚠ 两者**都**吃当前观测 o_t —— 高层不是只看任务描述就拍板，也要看现在到哪一步\n\n⚠ **频率差是实质性设计点，不是实现细节**：\n   机器人低层 ≈ **20 Hz**（p28 的真实系统是 **50 Hz**）\n   高层「after you've completed a paragraph」或 ≈ **1 Hz**\n   语言模型低层 = outputting word by word\n   ⇒ 高层慢、低层快 = p9 第 4 条「实际好处」的全部内容\n\n**g_t 的五个名字**（读文献时指同一个东西）：\n   subgoals · subtasks · skills · **options** · high-level actions\n\n   ⚠ **options** 有历史包袱：经典 options 框架里它是一个三元组\n     （启动集、内部策略、**终止条件**）\n     本讲用的是更宽松的用法，**没有显式终止条件**\n     —— 「什么时候终止」被单独拎出来当成了设计选择 ③（p20–21）\n\n讲稿的有用视角：**g_t 就是高层策略的「动作」**\n   「you could also think about these as **high-level actions**.\n     So these are actions but for a different policy operating at a higher level」\n   ⇒ 重要在于：可以**原样**把 RL 的全套机器搬到高层上去（p43 的分层 RL）\n\n**p8 滚动循环**（四行）：\n   0. Observe o_1 at t = 1\n   1. Plan g_t ~ **HL(· | o_t, prompt)**\n   2. **Until new goal is selected**:\n        a. Execute a_t ~ **LL(· | o_t, g_t)**\n        b. t ← t+1, observe o_t\n\n   ⚠ 第 2 步那个 **Until new goal is selected** 是**故意留白**的\n     幻灯没说「什么时候算选了新目标」⇒ 正是设计选择 ③，p20 才回来填\n\np7 小字：**Could have more than 2 levels of hierarchy!**\n   讲稿例子：一层做「去商店、买东西、拿回来」，另一层控制电机\n   ⇒ 两层只是最常见的情形，不是定义",
+   "tbl": {
+    "head": [
+     "",
+     "高层策略 HL",
+     "低层策略 LL"
+    ],
+    "rows": [
+     [
+      "输入",
+      "<b>o<sub>t</sub> + 长时程任务</b>",
+      "<b>o<sub>t</sub> + 目标 g<sub>t</sub></b>"
+     ],
+     [
+      "输出",
+      "<b>目标 g<sub>t</sub></b>",
+      "<b>动作 a<sub>t</sub></b>"
+     ],
+     [
+      "频率",
+      "<b>慢（≈1 Hz / 每段）</b>",
+      "<b>快（20–50 Hz / 逐词）</b>"
+     ],
+     [
+      "它的「动作」是什么",
+      "<b>g<sub>t</sub>（高层动作）</b>",
+      "a<sub>t</sub>"
+     ],
+     [
+      "目标是什么",
+      "<b>完成原始长任务</b>",
+      "<b>完成 g<sub>t</sub>（不是原始任务）</b>"
+     ]
+    ]
+   },
+   "say": "原话（递归分解，自问自答）：<em>“if you're just starting out, you can think about okay <b>what's the first step for accomplishing this? Maybe you need to buy ingredients. Okay then what's the first step of buying ingredients? Well maybe you need to go to the store. And how do you get to the store? Well, maybe you need to walk to the door. To walk to the door, you might take a step.</b> Um, how do you take a step? You might contract a muscle.”</em><br><br>原话（频率差的具体数字，幻灯上只写了 higher frequency）：<em>“this low-level policy uh this needs to be acting at the original kind of frequency. So if you're controlling a robot maybe this is operating at like <b>20 hertz</b>. If you're controlling a language model then this is going to be <b>outputting like word by word</b>. Uh whereas the high level policy it could actually predict goals for the low-level policy at a <b>coarser time scale</b>. Uh and so for example, it could be outputting goals <b>after you've completed a paragraph</b> for a language model.”</em><br><br>原话（g<sub>t</sub> 就是高层的动作——这个视角让 RL 能直接搬上去）：<em>“there's a number of other names for these as well like skills or options. Um you could also think about these as <b>high-level actions</b>. So these are these are actions but for a different policy that's operating at a higher level of abstraction than the original policy.”</em>"
+  },
+  {
+   "r": [
+    9,
+    9
+   ],
+   "t": "分层为什么可能有帮助：四条，各管一件事",
+   "star": 3,
+   "quote": "<b>Why may hierarchy help?</b><br><em>1. <b>Supervision signal on how to complete the task</b><br>2. <b>More direct knowledge sharing across similar subtasks</b><br>3. <b>In RL: structured exploration in higher-level space</b><br>4. <b>Practical challenge: Address speed requirements by running policies at different frequencies</b></em>",
+   "one": "<b>四条好处来自四个完全不同的机制，而且只有第三条是 RL 专有的。读的时候要分清哪一条在你的场景里真的成立——因为 p16 马上就要问「你的好处到底从哪来」。</b>",
+   "pts": [
+    "<b>第一条<b>中间监督</b>是最主要的那条，而讲稿给了它两个层面的解释。</b> <span class='k'>⇒ <b>RL 层面</b>：原话「if your goal is to make a cheesecake and you only get rewards when the cheesecake is baked… those rewards are going to be <b>really sparse</b> and not actually allow you to progress」</span>。<b>中间目标把一个稀疏奖励问题切成了若干密集奖励问题。</b>",
+    "<b><b>模仿学习层面</b>的解释更有意思，而且幻灯上完全没有</b>：<span class='w'>原话「if the policy isn't explicitly thinking about what part of that task it might be doing it might kind of <b>oscillate between different subtasks</b>, especially if it doesn't have a history of past observations」</span>。<b>⇒ 没有明确的当前子目标，策略会在几个子任务之间<b>来回摇摆</b>——因为同一个状态下，做 A 和做 B 看起来都合理。</b>",
+    "<b>⚠ 但老师自己提了一个反驳，值得记：<b>扁平策略也可以有中间监督</b>。</b> <span class='k'>原话「you could always have intermediate supervision when training a big flat policy as well where you give it <b>shaped rewards</b> and you give it rewards for completing individual subtasks」</span>。<b>⇒ 所以第一条<b>不是</b>分层独有的，这一点在 p16 会变得很要紧。</b>",
+    "<b>第二条<b>知识共享</b>才是分层比「扁平+塑形奖励」真正多出来的东西。</b> <span class='w'>低层策略把 <code>g</code> 当<b>输入</b>，所以两个相似的子任务会自动共享参数与数据</span>；<b>⇒ 讲稿：「if two subtasks are quite similar to one another then this policy will be able to kind of <b>share data across those tasks</b> in order to more efficiently learn」。</b><span class='k'>⚠ 而这依赖于 <code>g</code> 的表示是「相似任务有相似 <code>g</code>」——正是 p14 的性质 (b)。两页要连起来读。</span>",
+    "<b>第三条<b>结构化探索</b>是 RL 专有的，幻灯自己标了「In RL」。</b> <span class='w'>原话：「when this high level policy is proposing goals to reach that's structuring the exploration process to encourage it to explore <b>not just in the original action space but also in this higher level goal space</b>」</span>。<b>⇒ 在原始动作空间里随机探索，走不了多远；在目标空间里探索，一步就跨过去一大段。</b>",
+    "<b>第四条<b>频率</b>是纯工程的，但它是唯一一条「扁平策略和思维链都<b>拿不到</b>」的好处。</b> <span class='k'>讲稿：「if your robot is operating at 20 hertz… you're going to be reasoning through like what is the next thing I should be doing… at <b>every single time step</b>, where here we can run this reasoning computation at a <b>lower frequency</b>」</span>。<b>⇒ 省的是<b>计算</b>，不是样本。</b>",
+    "<b>⇒ 把四条按「谁能拿到」分一下，这一页的用处就出来了</b>：<span class='w'>① 中间监督——扁平（用塑形奖励）、思维链、分层<b>都能</b>；② 知识共享——思维链部分能，分层最直接；③ 结构化探索——分层与思维链能，扁平不能；④ 频率——<b>只有分层能</b></span>。",
+    "⚠️ <b>最后一条读法上的提醒，它是这一页和 p16 的连接点：<b>这四条是「可能」的好处，不是「必然」的</b></b>。 <span class='k'>幻灯的标题用的是 <em>may</em> help</span>。<b>⇒ 而 p16 会把这件事挑明：如果你端到端训练一个带「隐式目标表示」的两层网络，<b>四条好处一条都拿不到</b>，因为那本质上就是一个扁平策略。</b>"
+   ],
+   "eq": "**四条好处，四个不同机制**（只有第三条是 RL 专有的）：\n\n① **中间监督**（主要那条，讲稿给了两个层面）\n   **RL 层面**：「you only get rewards when the cheesecake is baked…\n                 those rewards are going to be **really sparse**」\n     ⇒ 中间目标把**稀疏奖励**切成若干**密集奖励**\n   **模仿学习层面**（幻灯完全没有）：\n     「if the policy isn't explicitly thinking about what part of that task it\n       might be doing it might **oscillate between different subtasks**,\n       especially if it doesn't have a history of past observations」\n     ⇒ 没有明确的当前子目标，策略会**来回摇摆**\n       （同一状态下做 A 和做 B 看起来都合理）\n\n   ⚠ 老师自己的反驳：**扁平策略也可以有中间监督**\n     「you could always have intermediate supervision… where you give it\n       **shaped rewards**… for completing individual subtasks」\n     ⇒ 第一条**不是**分层独有的 —— p16 会变得很要紧\n\n② **知识共享**（分层比「扁平+塑形奖励」真正多出来的东西）\n   低层策略把 g 当**输入** ⇒ 相似子任务自动共享参数与数据\n   「if two subtasks are quite similar… **share data across those tasks**」\n   ⚠ 依赖 g 的表示满足「相似任务有相似 g」= **p14 的性质 (b)**，两页连读\n\n③ **结构化探索**（RL 专有，幻灯自标 In RL）\n   「…explore **not just in the original action space but also in this\n     higher level goal space**」\n   ⇒ 原始动作空间里随机探索走不远；目标空间里一步跨一大段\n\n④ **频率**（纯工程，但唯一一条扁平与思维链都**拿不到**的）\n   「if your robot is operating at 20 hertz… reasoning… at **every single time step**,\n     where here we can run this reasoning computation at a **lower frequency**」\n   ⇒ 省的是**计算**，不是样本\n\n**按「谁能拿到」分**：\n   ① 中间监督     扁平（塑形奖励）· 思维链 · 分层  —— **都能**\n   ② 知识共享     思维链部分能，**分层最直接**\n   ③ 结构化探索   分层与思维链能，**扁平不能**\n   ④ 频率         **只有分层能**\n\n⚠ 标题用的是 **may** help —— 是「可能」不是「必然」\n   p16 会挑明：端到端训练一个带隐式目标表示的两层网络，\n   **四条好处一条都拿不到**，因为那本质上就是一个扁平策略",
+   "tbl": {
+    "head": [
+     "四条好处",
+     "扁平策略",
+     "思维链",
+     "分层",
+     "是 RL 专有吗"
+    ],
+    "rows": [
+     [
+      "① 中间监督",
+      "<b>能（塑形奖励）</b>",
+      "<b>能</b>",
+      "<b>能</b>",
+      "<span class='w'>否</span>"
+     ],
+     [
+      "② 知识共享",
+      "<span class='w'>弱</span>",
+      "<b>部分</b>",
+      "<b>最直接</b>",
+      "<span class='w'>否</span>"
+     ],
+     [
+      "③ 结构化探索",
+      "<span class='w'>不能</span>",
+      "<b>能</b>",
+      "<b>能</b>",
+      "<b>是</b>"
+     ],
+     [
+      "④ 不同频率",
+      "<span class='w'>不能</span>",
+      "<span class='w'>⚠ 不能</span>",
+      "<b>只有它能</b>",
+      "<span class='w'>否</span>"
+     ]
+    ]
+   },
+   "say": "原话（为什么中间监督有用——两个层面，第二个幻灯上完全没有）：<em>“if you're in a reinforcement learning setting and your goal is to make a cheesecake and you only get rewards when the cheesecake is baked um versus not, then uh those rewards are going to be <b>really sparse</b> and not actually allow you to progress. Um the second is that even if you say you were in an imitation learning setting… if the policy isn't explicitly thinking about what part of that task it might be doing it might kind of <b>oscillate between different subtasks</b>, especially if it doesn't have a history of past uh past observations.”</em><br><br>原话（老师自己的反驳：扁平策略也能有中间监督）：<em>“you could always have intermediate supervision when training a big flat policy as well where you give it <b>shaped rewards</b> and you give it rewards for completing individual subtasks. But compared to that, the other difference here is that this low-level multitask policy is going to be able to <b>more explicitly share knowledge across the different subtasks</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这四条里，<b>第 ③ 条</b>是你那套方法最该拿去说理的一条，因为它正是「为什么在配置空间里搜索」的理论说法。</b><br><span class='k'>「结构化探索」说的是：<b>不要在原始动作空间里探索，要在一个更高层、更有结构的空间里探索</b></span>。<b>⇒ 映射到你这里：你<b>不</b>去调 prompt 的字句、不去改采样温度的小数点，你在「<b>每个节点用哪个档位</b>」这个 <code>H×k</code> 维的离散空间里搜</b>。<span class='w'>那就是一个高层动作空间，而它比「所有可能的 prompt 与输出」小了无法比拟的量级。</span><br><b>⇒ 这句话可以直接写进 motivation：<b>我们把搜索从「不可枚举的输出空间」提升到「结构化的节点配置空间」，这正是分层方法带来的 structured exploration</b>。</b><br><b>而 <b>第 ② 条</b>（知识共享）是你那个<b>线性假设</b>的另一种说法，这个对应关系值得想清楚。</b> <span class='k'>低层策略把 <code>g</code> 当输入，于是「相似的 <code>g</code>」共享数据；你的模型 <code>G(x) = x^⊤θ</code> 把配置当输入，于是「相似的配置」共享参数</span>。<b>⇒ 两者都依赖同一条前提：<b>表示要有结构，相似的东西要有相似的编码</b>（p14 的性质 b）。</b><span class='w'>你的指示向量 <code>x ∈ {0,1}^{H×k}</code> 恰好满足它——只改一个节点的两个配置，<code>x</code> 只差一个坐标。</span><br><b>⚠ 但 <b>第 ④ 条</b>（频率）在你这里有一个<b>反向</b>的版本，值得单独想</b>：<span class='k'>讲义说「高层慢、低层快，所以省计算」；而你的工作流里<b>高层（规划/反思节点）往往比低层更贵</b>，因为它要读更长的上下文</span>。<b>⇒ 所以「降低高层频率」在你这里不只是省一点计算，<b>可能是成本结构里最大的那一项</b>。</b><span class='w'>一个很具体的实验：把反思节点的触发频率减半，看 <code>G</code> 怎么变——这是一个只改一个数、却可能显著影响 Cost 的消融。</span><br><b>⚠ 最后一条是写作上的，也是这一页最该带走的态度：<b>标题用的是 “may help”</b>。</b> <span class='k'>老师列四条好处，紧接着（p16）就要问「你的好处到底从哪一条来」</span>。<b>⇒ 你报告「用了逐节点档位分配，G 提升了 X%」时，必须能回答<b>这个提升来自哪一条机制</b>——是省了成本，还是真的提高了准确率？是所有 query 上都提升，还是只在某一类上？<b>不能回答这个问题的提升，审稿人会当成调参运气。</b></b>",
+    "ref": "本讲 p9（逐字核对）· 讲稿（两个层面的中间监督）· p14 · p16 · 简报 §1 §4c（已核）"
+   }
+  },
+  {
+   "r": [
+    10,
+    11
+   ],
+   "t": "真的需要两个策略吗：扁平、分层、思维链",
+   "star": 3,
+   "quote": "<b>Do we really need multiple policies?</b><br><em><b>Hierarchy</b>: “Bake a cheesecake” + o<sub>t</sub> → HL → g<sub>t</sub> ; o<sub>t</sub> + g<sub>t</sub> → LL → a<sub>t</sub><br><b>Flat policy</b>: “Bake a cheesecake” + o<sub>t</sub> → a<sub>t</sub><br><b>Chain of thought</b>: “Bake a cheesecake” + o<sub>t</sub> → g<sub>t</sub> , a<sub>t</sub></em><br>〔对思维链的三句评语〕<em><b>Can benefit from same supervision!</b> &nbsp;·&nbsp; <b>May be too computationally expensive (e.g. 50 Hz control)</b> &nbsp;·&nbsp; <b>No conclusive empirical comparison (yet).</b></em>",
+   "one": "<b>思维链是分层的「单策略版」：先想一步要做什么，再输出动作。它拿得到中间监督的好处，拿不到频率的好处——而除此之外，哪个更好目前没有定论。</b>",
+   "pts": [
+    "<b>三种做法的区别只在「<code>g_t</code> 由谁产生、在哪里」，看清这一点就够了。</b> <span class='k'><b>分层</b>：两个策略，<code>g_t</code> 在它们之间传递；<b>扁平</b>：一个策略，<b>没有</b> <code>g_t</code>；<b>思维链</b>：一个策略，<b>先输出 <code>g_t</code> 再输出 <code>a_t</code></b></span>。",
+    "<b>思维链这一行对你应该最眼熟，因为它就是 LLM 里那个「先想后答」。</b> <span class='w'>讲稿：「this is kind of combining these two policies into one. Um but now you're just kind of <b>predicting them in sequence</b>. You're first predicting the goal and then the action」</span>。",
+    "<b>第一句评语 <b><em>Can benefit from same supervision!</em></b> 说的是：中间监督那条好处，思维链<b>照样拿得到</b>。</b> <span class='k'>因为 <code>g_t</code> 被显式地写出来了，你可以直接监督它</span>。<b>⇒ 所以 p9 第 ① 条不是分层的专利。</b>",
+    "<b>第二句 <b><em>May be too computationally expensive (e.g. 50 Hz control)</em></b> 是思维链唯一确定的劣势，而它完全来自频率。</b> <span class='w'>讲稿：「this doesn't have the kind of practical computational benefits of separating them into two because then you <b>still have to run this at the full frequency</b>」</span>。<b>⇒ 既然 <code>g_t</code> 和 <code>a_t</code> 由同一个策略在同一次前向里产出，那么 <code>a_t</code> 要多快，「想」就得多快。</b>",
+    "<b>⚠ 50 Hz 这个数字是针对机器人控制的，<b>换个领域这条劣势可能完全不存在</b>。</b> <span class='k'>语言模型本来就是逐词输出的，「多想几个 token」的边际成本远没有机器人那么致命</span>。<b>⇒ 这解释了为什么思维链在 LLM 里大行其道，而在机器人控制里要做成两层。</b>",
+    "<b>第三句 <b><em>No conclusive empirical comparison (yet)</em></b> 是这一页最诚实、也最值得记的一句。</b> <span class='w'>讲稿：「there isn't like entirely a conclusion yet empirically on whether this is just as good as a hierarchical approach… <b>this is like an open area of research</b>」</span>。<b>⇒ 一个很活跃、很多人在做的方向，<b>基本问题还没有定论</b>——这种地方往往就是机会。</b>",
+    "<b>讲稿还提了一个<b>尚无定论</b>的猜测，不要当成结论：<b>分层可能在「与低层策略共享知识」上更有优势</b>。</b> <span class='k'>原话「you could imagine that like there might be benefits in terms of like sharing some knowledge with low-level policies versus with a combined approach」——注意 <em>could imagine</em> 和 <em>might</em></span>。",
+    "<b>⇒ 所以这一页的净结论只有一条是硬的：<b>思维链确定性地失去「不同频率」这个好处，其余都还在争论中</b>。</b> <span class='w'>原话：「the only like really conclusive downside would be the computational upside of having reasoning at a lower frequency than taking actions for the first one」</span>。",
+    "<b>⚠ 还有一个更根本的判据藏在 p16，这里先埋一句：<b>扁平策略和「端到端训练的两层网络」是同一个东西</b>。</b> <span class='k'>所以这张表真正的分界不是「几个网络」，而是 <b>「<code>g_t</code> 有没有被显式地、带着独立监督写出来」</b></span>。<b>⇒ 按这个判据，思维链站在分层那一边，而「隐式目标的两层网络」站在扁平那一边。</b>"
+   ],
+   "eq": "三种做法的区别只在「g_t 由谁产生、在哪里」：\n   **分层**   两个策略，g_t 在它们之间传递\n   **扁平**   一个策略，**没有** g_t\n   **思维链** 一个策略，**先输出 g_t 再输出 a_t**\n\n思维链 = LLM 里那个「先想后答」\n   讲稿：「combining these two policies into one…\n           **predicting them in sequence**. first the goal and then the action」\n\n**三句评语**：\n\n① **Can benefit from same supervision!**\n   g_t 被显式写出来了，可以直接监督 ⇒ p9 第 ① 条不是分层的专利\n\n② **May be too computationally expensive (e.g. 50 Hz control)**\n   唯一确定的劣势，完全来自频率\n   讲稿：「**still have to run this at the full frequency**」\n   g_t 与 a_t 由同一策略在同一次前向产出 ⇒ a_t 要多快，「想」就得多快\n\n   ⚠ 50 Hz 是针对机器人控制的；**换个领域这条劣势可能完全不存在**\n     语言模型本来逐词输出，「多想几个 token」的边际成本远没那么致命\n     ⇒ 解释了为什么思维链在 LLM 里大行其道，在机器人控制里要做两层\n\n③ **No conclusive empirical comparison (yet)** —— 最诚实也最值得记的一句\n   讲稿：「there isn't entirely a conclusion yet empirically…\n           **this is like an open area of research**」\n   ⇒ 一个很活跃的方向，**基本问题还没定论** —— 这种地方往往就是机会\n\n讲稿的猜测（**不要当结论**）：分层可能在「与低层共享知识」上更有优势\n   原话用的是 *could imagine* 和 *might*\n\n⇒ **净结论只有一条是硬的**：\n   **思维链确定性地失去「不同频率」这个好处，其余都还在争论中**\n\n⚠ 更根本的判据藏在 p16，先埋一句：\n   **扁平策略 = 端到端训练的两层网络**（同一个东西）\n   ⇒ 这张表真正的分界不是「几个网络」，而是\n     **「g_t 有没有被显式地、带着独立监督写出来」**\n     按这个判据：思维链站分层那边，隐式目标的两层网络站扁平那边",
+   "tbl": {
+    "head": [
+     "",
+     "扁平策略",
+     "思维链",
+     "分层"
+    ],
+    "rows": [
+     [
+      "几个策略",
+      "<b>1</b>",
+      "<b>1</b>",
+      "<b>2</b>"
+     ],
+     [
+      "g<sub>t</sub> 显式写出来吗",
+      "<span class='w'>否</span>",
+      "<b>是</b>",
+      "<b>是</b>"
+     ],
+     [
+      "中间监督",
+      "<span class='w'>靠塑形奖励</span>",
+      "<b>能</b>",
+      "<b>能</b>"
+     ],
+     [
+      "不同频率",
+      "<span class='w'>不能</span>",
+      "<b>⚠ 不能</b>",
+      "<b>能</b>"
+     ],
+     [
+      "谁更好",
+      "—",
+      "<b>⚠ 尚无定论</b>",
+      "<b>⚠ 尚无定论</b>"
+     ]
+    ]
+   },
+   "say": "原话（思维链就是把两个策略合成一个、顺序输出）：<em>“There's actually also an intermediate approach that you can take as well that actually retains a lot of the benefits of hierarchy uh and actually in some ways has a lot of the same design choices. Uh which is something that's a little bit like <b>chain of thought in language models</b>… if you have some long horizon task, you could have the policy <b>first like reason through what goal or what subtask it should be completing and then predict the low-level action</b>.”</em><br><br>原话（唯一确定的劣势，和那句「还没定论」）：<em>“this doesn't have the benefits of the kind of practical computational benefits of separating them into two because then you <b>still have to run this at the full frequency</b>. Um there isn't like entirely a conclusion yet empirically on whether this is um like just as good as a hierarchical approach… so this is like an <b>open area of research</b> on whether or not you could just do this. Um, and the only like really conclusive downside would be the kind of the computational upside of having reasoning at a lower frequency than taking actions for the first one.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这张表对你有一个很直接的用处：<b>它给了「为什么要做成一个有显式节点的工作流，而不是一个长 prompt」一个可引用的框架</b>。</b><br><span class='k'>你的 AFlow 工作流 = <b>分层</b>那一列（显式的节点、显式的中间产物、每个节点可以单独配置）；而「把整个任务写成一个长 prompt 让模型一次答完」= <b>思维链</b>那一列；「不给任何中间结构」= <b>扁平</b></span>。<br><b>⇒ 而你那套方法<b>只在分层那一列里才有意义</b>，这一点值得明说</b>：<span class='w'>「逐节点选档位」这个动作，<b>前提是存在可单独寻址的节点</b></span>。<b>思维链版本里没有节点，你无从分配——最多只能选一个全局模型。</b><br><b>⇒ 所以这张表其实是你方法的<b>适用条件声明</b>：我们的方法适用于显式分解的 agentic 工作流，不适用于单体 CoT。</b><span class='k'>把限制说在前面，比被审稿人问出来好。</span><br><b>而那句 <b>“No conclusive empirical comparison (yet)”</b> 对你是个<b>机会</b>，这是这一页最值得动心的地方。</b> <span class='w'>讲义说的是「分层 vs 思维链，哪个更好还没定论」——而你手上恰好有做这个比较的全部条件</span>：<b>同一批 query、同一个模型家族、一边跑显式工作流、一边跑等价的单体 CoT prompt，比较 <code>G = Acc − λ·Cost</code>。</b><br><b>⇒ 而且你有一个别人没有的角度：<b>把成本放进来比</b>。</b> <span class='k'>现有的比较多半只看准确率；而分层的好处里有一条（第 ④ 条频率）本质上是<b>成本</b>上的——在 LLM 场景里就是「贵的规划节点可以少调用几次」</span>。<b>⇒ 在 <code>G</code> 这个带成本的指标上比较分层与 CoT，很可能得到和只看 Acc 不同的结论，而这正是一个干净的贡献点。</b><br><b>⚠ 做这个比较时有一个必须控住的混杂因素：<b>两边的总 token 预算要对齐</b>。</b> <span class='w'>工作流天然会多调用几次模型，如果不控预算，你比的其实是「花得多 vs 花得少」</span>。<b>⇒ 正确的做法是画出两条「预算—准确率」曲线再比，而不是比两个点。</b>",
+    "ref": "本讲 p10–p11（逐字核对）· 讲稿（唯一确定的劣势）· p9 · 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [
+    12,
+    14
+   ],
+   "t": "设计选择①：目标该怎么表示——三条性质",
+   "star": 3,
+   "quote": "<b>What goal representation would you use?</b><br><em>Think-pair-share: for one task, discuss (1) intermediate goals, (2) the best representation for those goals</em><br><em>1. Cook Italian dishes. &nbsp; 2. Bike to various campus locations（e.g. “Bike to the dish entrance.”）&nbsp; 3. Draft legal briefs. &nbsp; 4. Plan and book 1-week vacations for users.</em><br><em>1. <b>Best goal representations will likely be domain specific!</b><br>2. Properties of good goal representations:<br>&nbsp;&nbsp;a. <b>Expressive</b>（can communicate many different low-level behaviors）<br>&nbsp;&nbsp;b. <b>Structured</b>（similar behaviors should have similar g）<br>&nbsp;&nbsp;c. <b>Appropriate level of abstraction</b>（not too hard for low-level or for high-level）</em>",
+   "one": "<b>三条性质里，(b)「结构化」最容易被忽略，却决定了低层策略能不能跨子任务共享数据——它正是 p9 第二条好处的前提。</b>",
+   "pts": [
+    "<b>这一页是课堂练习，而练习本身的设计值得注意：<b>四个任务跨了机器人、自动驾驶、法律文书、网页智能体</b></b>。 <span class='k'>⇒ 目的就是逼出「<b>表示会随领域变</b>」这个结论，所以第一条写的是 <em>Best goal representations will likely be <b>domain specific</b>!</em></span>",
+    "<b>讲稿里记下了学生给的答案，比幻灯有用得多，值得逐个看。</b> <span class='w'><b>骑车（任务 2）</b>：中间目标是<b>路径点</b>，表示用 <b>GPS 坐标</b>，低层奖励是「离那个坐标多近」</span>；<b><b>订假期（任务 4）</b>：可以按天切（订第一天、第二天），也可以按类别切（订交通、订酒店、订活动）</b>。<span class='k'>老师还补了一条学生没说的：<b>「先搞清楚用户到底想要什么」本身就该是一个中间目标</b>。</span>",
+    "<b><b>做菜（任务 1）</b>的答案给出了「多模态目标」这个点：中间目标是「打开柜子、打鸡蛋」，表示可以是<b>自然语言字符串</b>。</b> <span class='w'>但老师补了一句：「if you're cooking something where you want it to look in a particular way, you could even have an <b>image</b> as an intermediate goal representation… like <b>I want the bread to look like this</b>」</span>。<b>⇒ 这正是后面 p38 图像子目标那一节的伏笔。</b>",
+    "<b>性质 (a) <b>表达力</b>：<code>g</code> 要能描述足够多种不同的低层行为。</b> <span class='k'>自然语言是表达力的天花板——几乎任何子任务都能用一句话说出来</span>。<b>⇒ 这是语言成为最流行的目标表示的首要原因。</b>",
+    "⚠️ <b>性质 (b) <b>结构化</b>是最容易被忽略、也最有技术含量的一条：<b>相似的行为应当有相似的 <code>g</code></b>。</b> <span class='w'>讲稿的反例很直白：「if your different goals are just like <b>do subtask one, do subtask two</b>, it's going to be kind of hard for your low-level policy to figure out how those relate to one another」</span>。",
+    "<b>⇒ 对照正例就清楚了：<b>GPS 坐标</b>天然有结构。</b> <span class='k'>原话「two GPS coordinates that are very close to each other are going to have <b>similar actions</b> and that sort of structure will make the learning problem a lot easier for the low-level policy」</span>。<b>⇒ 「子任务 1 / 子任务 2」这种编号表示，表达力够（能指代任何任务），但<b>结构为零</b>——低层策略只能把每个子任务当成完全无关的新任务从头学。</b>",
+    "<b>⇒ 所以 (b) 正是 <b>p9 第 ② 条「知识共享」的前提</b>，两页必须连起来读。</b> <span class='w'>没有结构，就没有共享；没有共享，分层相对「扁平+塑形奖励」就只剩频率那一条好处了。</span>",
+    "<b>性质 (c) <b>合适的抽象层级</b>：既不能太低也不能太高，而讲稿给了骑车任务上的两个反例。</b> <span class='k'><b>太低</b>：「exact velocity for the next second」——这几乎就是动作本身，高层等于什么都没分解；<b>太高</b>：「go to the quad」——「which might not be particularly helpful in terms of breaking the problem down into smaller steps」</span>。",
+    "<b>⇒ 可以把 (c) 理解成在 p6 那把梯子上<b>切一刀切在哪</b>：切得太低，高层没减轻负担；切得太高，低层仍然面对一个长时程问题。</b> <span class='w'>老师自己说这件事「often somewhat tricky」而且「can also be domain dependent」。</span>",
+    "<b>讲稿里还答了一个很好的学生提问：<b>要不要给每一层也抽象「状态空间」</b>？</b> <span class='k'>老师的回答是：一般<b>不</b>——「even for the high level policy it's helpful for it to have <b>all of the information</b> about the current state」，而且「you don't lose too much from doing that」</span>。<b>⇒ 可以让语言模型把状态<b>总结</b>一下给高层用，但默认做法是<b>两层看同样的完整状态</b>，只有<b>动作空间</b>分层。</b><span class='w'>⚠ 这一点很容易搞错：分层分的是动作/目标，不是观测。</span>"
+   ],
+   "eq": "课堂练习的四个任务（故意跨四个领域）：\n   1. 做意大利菜  2. 骑车到校园各处  3. 起草法律文书  4. 为用户规划预订一周假期\n   ⇒ 逼出结论一：**Best goal representations will likely be domain specific!**\n\n讲稿记下的学生答案（比幻灯有用）：\n   **骑车**：中间目标 = **路径点**；表示 = **GPS 坐标**；低层奖励 = 离坐标多近\n   **订假期**：按天切（第一天/第二天）或按类别切（交通/酒店/活动）\n     老师补：**「先搞清楚用户到底想要什么」本身就该是一个中间目标**\n   **做菜**：中间目标 = 打开柜子、打鸡蛋；表示 = **自然语言字符串**\n     老师补：也可以用**图像**——「**I want the bread to look like this**」\n     ⇒ p38 图像子目标那一节的伏笔\n\n**三条性质**：\n\n(a) **Expressive 表达力** —— g 要能描述足够多种不同的低层行为\n    自然语言是天花板 ⇒ 它成为最流行目标表示的首要原因\n\n(b) **Structured 结构化** —— **相似的行为应当有相似的 g**（最容易忽略，最有技术含量）\n    反例（讲稿）：「if your different goals are just like **do subtask one,\n      do subtask two**, it's going to be hard for your low-level policy\n      to figure out **how those relate to one another**」\n    正例：**GPS 坐标**天然有结构 ——\n      「two GPS coordinates that are very close to each other are going to have\n        **similar actions**… make the learning problem a lot easier」\n\n    ⇒ 「子任务 1 / 子任务 2」这种编号：表达力够，**结构为零**\n      低层只能把每个子任务当完全无关的新任务从头学\n    ⇒ **(b) 正是 p9 第 ② 条「知识共享」的前提**，两页必须连读\n      没有结构 → 没有共享 → 分层相对「扁平+塑形奖励」只剩频率那一条好处\n\n(c) **Appropriate level of abstraction 合适的抽象层级**\n    **太低**：「exact velocity for the next second」—— 几乎就是动作本身，等于没分解\n    **太高**：「go to the quad」—— 「not particularly helpful in terms of\n              breaking the problem down into smaller steps」\n    ⇒ 即 **在 p6 那把梯子上切一刀切在哪**\n      切太低：高层没减轻负担；切太高：低层仍面对长时程问题\n    老师：「often somewhat tricky」「can also be domain dependent」\n\n讲稿里的好提问：**要不要给每一层也抽象「状态空间」？**\n   回答：一般**不** —— 「even for the high level policy it's helpful for it to have\n     **all of the information** about the current state」「you don't lose too much」\n   可以让语言模型把状态**总结**一下给高层用，但默认是**两层看同样的完整状态**\n   ⚠ **分层分的是动作/目标，不是观测** —— 很容易搞错",
+   "tbl": {
+    "head": [
+     "目标表示",
+     "(a) 表达力",
+     "(b) 结构化",
+     "适合什么"
+    ],
+    "rows": [
+     [
+      "<b>GPS 坐标</b>",
+      "<span class='w'>低（只能表示位置）</span>",
+      "<b>高（近的坐标动作相似）</b>",
+      "<b>导航</b>"
+     ],
+     [
+      "<b>自然语言</b>",
+      "<b>很高</b>",
+      "<b>中（语义相近即向量相近）</b>",
+      "<b>做菜 · 文书 · 订行程</b>"
+     ],
+     [
+      "<b>目标图像</b>",
+      "<b>高</b>",
+      "<b>中高</b>",
+      "<b>难用语言描述的物体</b>"
+     ],
+     [
+      "<span class='w'>「子任务 1/2/3」编号</span>",
+      "<b>够</b>",
+      "<span class='w'>⚠ 为零</span>",
+      "<span class='w'>⚠ 基本不可用</span>"
+     ]
+    ]
+   },
+   "say": "原话（结构化的反例与正例——这一条幻灯只有一行括号）：<em>“ideally, it also has some <b>structure</b>. Uh and so for example, if your different goals are just like <b>do task subtask one, do subtask two</b>, it's going to be kind of hard for your low-level policy to figure out <b>how those relate to one another</b>. Whereas if you have something like GPS coordinates, then um <b>two GPS coordinates that are very close to each other are going to have similar actions</b> and that sort of structure will make the learning problem a lot easier for the low-level policy.”</em><br><br>原话（抽象层级的两个反例）：<em>“for the biking task for example um you can have like a level of abstraction that's like potentially too low level. So you could have something that's like uh <b>exact velocity for the next second</b>. Um you could also have something <b>too high level</b> which is like uh <b>go to the quad</b> or something which might <b>not be particularly helpful in terms of breaking the problem down into smaller steps</b>.”</em><br><br>原话（学生问「要不要也抽象状态空间」——答案是基本不用）：<em>“often times uh even for the high level policy it's helpful for it to have <b>all of the information about the current state</b> uh in order to make kind of even high level goal predictions… but generally in practice uh you'll often use like the same low-level like the <b>full state information</b>. You don't lose too much from doing that as well.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>性质 (b)「结构化」是这一页对你最有用的一条，因为<b>它就是你那个线性假设的通俗版，而且给了你一个解释它为什么合理的说法</b>。</b><br><span class='k'>讲义说「相似的行为应当有相似的 <code>g</code>」，并用「子任务 1 / 子任务 2」这种<b>编号</b>做反例——因为编号把相似性信息全扔了</span>。<b>⇒ 完全对应到你这里：如果你把 <code>2^H</code> 个配置<b>编号</b>成 1…2^H 然后去学一个「编号 → G」的映射，那是不可能学的；而你用的是<b>指示向量</b> <code>x ∈ {0,1}^{H×k}</code>，<b>只改一个节点的两个配置在 <code>x</code> 上只差一个坐标</b>。</b><br><b>⇒ 这给了你一句很好用的话：<b>我们的配置表示是「结构化」的——相似的配置有相似的编码，于是在一个配置上的测量能迁移到相邻配置上。这正是样本复杂度从 <code>|𝒳|</code> 降到 <code>d</code> 的原因。</b></b><span class='w'>比直接说「我们假设 G 是线性的」好讲得多，因为它说明了<b>为什么</b>该这么假设。</span><br><b>而性质 (c)「合适的抽象层级」对你是一个<b>还没定的设计决定</b>，值得当成一个真问题来想。</b> <span class='k'>你现在的「层级」是<b>节点</b>：每个节点选一个档位。但这不是唯一的切法</span>——<b>更粗</b>：整个工作流选一个档位（<code>k</code> 个配置，太粗，丢掉了「不同节点难度不同」这个全部的红利）；<b>更细</b>：每个节点的<b>每次调用</b>各选一个档位（<span class='w'>同一个节点在重试时可以升档</span>，配置空间大得多，但可能抓住「第一次用小模型、失败了再用大模型」这个很自然的策略）。<br><b>⇒ ⚠ 这第三种切法值得认真考虑，因为它可能是你方法最自然的延伸</b>：<span class='k'>它把「逐节点」升级成「逐节点×逐次调用」，而<b>成本可加性仍然成立</b>，线性结构也还在</span>。<b>代价是 <code>d</code> 变大（乘上最大重试次数）。</b><br><b>⚠ 最后一条很具体、也很容易做错：<b>分层分的是动作，不是观测</b>。</b> <span class='w'>讲稿明确说两层都该看完整状态</span>。<b>⇒ 映射过来：你给每个节点选档位时，<b>决策依据应该是整条 query 的全部可见信息</b>（query 本身、上游节点的输出、已花的预算），而不是只看该节点的局部输入。</b><span class='k'>如果你现在的策略是「按节点类型静态查表」，那它丢掉了这些信息——而「按 query 自适应地分配档位」正是你简报里写的「per-query」，这一条在讲义上有依据。</span>",
+    "ref": "本讲 p14（逐字核对）· 讲稿（结构化的反例、状态不分层）· p9 · L01.a p10 科研格 · 简报 §2 §4c（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "5": [
+   {
+    "q": "长时程任务难的三条理由里，第三条「卡住」为什么性质和前两条不同？",
+    "o": [
+     "因为它只在模仿学习里出现",
+     "因为策略是状态的函数：回到同一个状态就会输出同一个动作，于是同一状态→同一动作→同一状态，形成确定性死循环，不会自己跳出来",
+     "因为它导致的奖励更稀疏",
+     "因为它只在机器人任务里出现"
+    ],
+    "a": 1,
+    "why": "<b>「犯错」是走偏了但还在走，「卡住」是根本不走了——后者是一个吸收态，定性不同。</b><span class='k'>讲稿原话：your policy will keep on kind of deterministically staying in that state and never making forward progress。</span>"
+   },
+   {
+    "q": "第一条「访问的状态数非常多」讲稿是怎么解释的？",
+    "o": [
+     "说的是分布宽度：你的策略需要在一个宽得多的状态分布上都成功，而不只是「要走 100 步」",
+     "状态空间维数高",
+     "步数多所以耗时长",
+     "需要更多内存"
+    ],
+    "a": 0,
+    "why": "<span class='w'>⚠ 另注意那四个例子故意跨了四个领域，其中「修一个让神经网络训练损失爆炸的 bug」就是典型的 agentic 工作流任务——老师把它和机器人任务并列。</span><b>「长时程」不是机器人专有的毛病。</b>"
+   }
+  ],
+  "6": [
+   {
+    "q": "p6 那把从「收缩股四头肌」到「烤芝士蛋糕」的梯子，说的是什么？",
+    "o": [
+     "奖励的折扣结构",
+     "任务的执行顺序",
+     "神经网络的层数",
+     "一个连续谱：抽象层级越低越好训、越高越接近你真正要的东西；而「分层」就是在这个谱上切一刀，刀以上给高层策略、刀以下给低层"
+    ],
+    "a": 3,
+    "why": "<b>切在哪里，正是 p14「合适的抽象层级」要回答的问题。</b><span class='k'>讲稿把它讲成递归自问自答：「怎么烤蛋糕？买原料。怎么买原料？去商店。怎么去商店？走到门口。」——梯子只是把递归展开画出来。</span>"
+   },
+   {
+    "q": "g_t 在文献里有五个名字。其中 options 这个词要注意什么？",
+    "o": [
+     "它和其余四个完全等价，没有区别",
+     "它只在模仿学习里使用",
+     "它来自经典 options 框架，在那里 option 是三元组（启动集、内部策略、终止条件）；而本讲用的是更宽松的用法，没有显式终止条件——「什么时候终止」被单独拎出来当成了设计选择③",
+     "它只用于连续控制"
+    ],
+    "a": 2,
+    "why": "<span class='w'>五个名字：subgoals, subtasks, skills, options, high-level actions。</span><b>而「g_t 就是高层策略的动作」这个视角很有用——它让你可以原样把 RL 的全套机器搬到高层上去，p43 的分层 RL 正是这么做的。</b>"
+   }
+  ],
+  "9": [
+   {
+    "q": "分层的四条好处里，哪一条是「扁平策略和思维链都拿不到」的？",
+    "o": [
+     "知识共享",
+     "不同频率（高层慢、低层快）—— 扁平和思维链都必须以低层的全频率运行",
+     "中间监督",
+     "结构化探索"
+    ],
+    "a": 1,
+    "why": "<b>⚠ 而第一条「中间监督」不是分层的专利：老师自己说扁平策略也能用塑形奖励拿到它。</b><span class='k'>所以分层相对「扁平+塑形奖励」真正多出来的是第二条「知识共享」——而它依赖于目标表示是结构化的（p14 性质 b）。</span>"
+   },
+   {
+    "q": "讲稿给了「中间监督为什么有用」在模仿学习里的一个解释，幻灯上完全没有。是什么？",
+    "o": [
+     "中间监督能降低方差",
+     "模仿学习不需要中间监督",
+     "没有明确的当前子目标，策略会在几个子任务之间来回摇摆——尤其当它看不到历史观测时，因为同一个状态下做 A 和做 B 看起来都合理",
+     "中间监督能加速收敛"
+    ],
+    "a": 2,
+    "why": "<span class='w'>RL 层面的解释则是奖励稀疏：只有蛋糕烤好才给奖励，中间什么信号都没有。</span><b>⚠ 注意这一页标题用的是 “may” help——而 p16 马上就要问「你的好处到底从哪一条来」。</b>"
+   }
+  ],
+  "10": [
+   {
+    "q": "思维链相对分层，唯一<b>确定</b>的劣势是什么？",
+    "o": [
+     "失去「不同频率」这个好处：g_t 和 a_t 由同一个策略在同一次前向里产出，所以 a_t 要多快、「想」就得多快（幻灯举的例子是 50 Hz 控制）",
+     "无法做中间监督",
+     "准确率更低",
+     "无法并行"
+    ],
+    "a": 0,
+    "why": "<b>⚠ 但 50 Hz 是针对机器人控制的——语言模型本来就逐词输出，「多想几个 token」的边际成本远没那么致命。</b><span class='k'>这解释了为什么思维链在 LLM 里大行其道，而在机器人控制里要做成两层。</span>"
+   },
+   {
+    "q": "幻灯对「分层 vs 思维链哪个更好」给了什么结论？",
+    "o": [
+     "No conclusive empirical comparison (yet) —— 还没有定论，讲稿称之为 an open area of research",
+     "两者数学上等价",
+     "分层明显更好",
+     "思维链明显更好"
+    ],
+    "a": 0,
+    "why": "<b>一个很活跃、很多人在做的方向，基本问题还没定论——这种地方往往就是机会。</b><span class='w'>讲稿里关于「分层可能在共享知识上更有优势」的那句用的是 could imagine / might，不要当成结论。</span>"
+   }
+  ],
+  "12": [
+   {
+    "q": "好的目标表示的三条性质里，(b)「结构化」说的是什么？为什么它最关键？",
+    "o": [
+     "目标要可度量；关键在于能定义奖励",
+     "相似的行为应当有相似的 g；关键在于它是「知识共享」那条好处的前提 —— 像「子任务1/子任务2」这种编号表示表达力够但结构为零，低层只能把每个子任务当完全无关的新任务从头学",
+     "目标要有固定长度；关键在于便于神经网络处理",
+     "目标要能被分解成子目标；关键在于递归"
+    ],
+    "a": 1,
+    "why": "<span class='k'>正例是 GPS 坐标：两个很近的坐标对应相似的动作，这种结构让低层的学习问题容易得多。</span><b>⇒ 没有结构就没有共享；没有共享，分层相对「扁平+塑形奖励」就只剩频率那一条好处了。</b>"
+   },
+   {
+    "q": "讲稿里学生问「要不要也给每一层抽象状态空间」。老师怎么答？",
+    "o": [
+     "要，高层应该只看抽象后的状态",
+     "一般不用 —— 即使是高层策略，拿到当前状态的全部信息也是有帮助的，实践中两层常用同样的完整状态；分层分的是动作/目标，不是观测",
+     "必须抽象，否则高层学不动",
+     "取决于是模仿还是强化学习"
+    ],
+    "a": 1,
+    "why": "<b>⚠ 这一点很容易搞错。</b><span class='w'>老师补充说可以让语言模型把状态「总结」一下给高层用，但默认做法是两层看同样的完整状态，「you don't lose too much from doing that」。</span>"
+   },
+   {
+    "q": "抽象层级「太低」和「太高」的反例分别是什么（以骑车任务为例）？",
+    "o": [
+     "太低 = 「下一秒的精确速度」（几乎就是动作本身，等于没分解）；太高 = 「去四方院」（对把问题拆小没什么帮助）",
+     "太低=GPS 坐标，太高=自然语言",
+     "太低=单步奖励，太高=总回报",
+     "太低=踩踏板，太高=到达目的地"
+    ],
+    "a": 0,
+    "why": "<b>即「在那把梯子上切一刀切在哪」：切太低，高层没减轻负担；切太高，低层仍然面对一个长时程问题。</b><span class='k'>老师自己说这件事 often somewhat tricky，而且 can also be domain dependent。</span>"
+   }
+  ]
+ }
+}
