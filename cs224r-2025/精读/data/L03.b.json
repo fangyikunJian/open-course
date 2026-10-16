@@ -1,0 +1,630 @@
+{
+ "_目标": { "密度": 600, "quote覆盖": 0.8, "表格每N页": 4 },
+ "_守住的数字": [
+  "本片覆盖 p15–p28（基线 → 代理目标 → 离策略与重要性采样 → KL 约束）。`.a` 片覆盖 p1–14。",
+  "带基线的梯度（p16）：∇_θJ(θ) = E_{τ~p_θ(τ)}[ ∇_θ log p_θ(τ)·(r(τ) − b) ]",
+  "p16 原话：**Subtracting a constant baseline does not change the gradient in expectation. It is unbiased.** · **Average reward is a pretty good baseline** · **can reduce variance of the gradient**",
+  "⚠ 讲稿补充（幻灯没有）：**平均回报不是最优基线**。「You can actually derive the variance, and then take the derivative of the variance set equal to 0 to find the optimal baseline… The optimal baseline is very close to average reward, but there's some additional weighting terms.」",
+  "⚠ 讲稿澄清 b 为什么算「常数」：**We'll use the same value of b for an entire batch**（整批共用一个 b）；而且要随策略变好**持续更新**它。",
+  "叠外套例（p17）：r = **1 叠得整齐 / 0.5 叠了但有褶 / 0 没叠**；τ¹ 没碰外套 · τ² 只叠了袖子 · τ³ 摊平但没叠 · τ⁴ 叠好了",
+  "p17 原话：**will encourage folding, but gradient is constant for all but one trajectory** · **Policy gradient is still noisy / high-variance** · **Best with dense rewards, large batches**",
+  "代理目标（p18）：J̃(θ) ≈ (1/N)Σ_{i=1}^N Σ_{t=1}^T [ log π_θ(a_{i,t}|s_{i,t}) · ( Σ_{t'=t}^T r(s_{i,t'},a_{i,t'}) − b ) ]，讲义称之为 **weighted maximum likelihood**",
+  "p18 原话：**Cross-entropy for discrete action policy, squared error for Gaussian policy**；不做代理目标的话要 **N*T backwards passes**",
+  "⚠ 同一处笔误（`.a` 片已记）：p10 与 p18 的公式里**第二个求和号应当在第一个里面**，讲者当场承认。",
+  "on-policy / off-policy 定义（p20）：**on-policy: update uses only data from current policy** · **off-policy: update can reuse data from other, past policies**；**Vanilla policy gradient is on-policy**",
+  "重要性采样的前提（p21）：**Important for q to have non-zero support for high probability p(x)**",
+  "轨迹级比值（p22）：Π_{t=1}^T [π_θ'(a_t|s_t)/π_θ(a_t|s_t)]，**This can become very small or very large, for larger T**",
+  "逐时刻的常见最终形式（p23）：(1/N)Σ_i Σ_t [π_θ'(a_{i,t}|s_{i,t})/π_θ(a_{i,t}|s_{i,t})]·∇_θ' log π_θ'(a_{i,t}|s_{i,t})·(Σ_{t'≥t} r − b)；**Much less likely to explode/vanish …but, hard to measure**；状态比值 π_θ'(s_{i,t})/π_θ(s_{i,t}) **often approximated as 1**",
+  "p24：**Can take multiple gradient steps on the same batch**；代价是 **Data no longer reflects states that policy will visit. Gradient estimate less accurate.**",
+  "KL 约束（p25）：E_{s~π_θ}[ D_KL( π_θ'(·|s) ‖ π_θ(·|s) ) ] ≤ δ",
+  "p28 预告：actor critic → **basis for popular algorithms like PPO**"
+ ],
+ "notes": [
+  {
+   "r": [15, 16],
+   "t": "基线：减掉一个常数，期望一点不变，方差却降下来了",
+   "star": 5,
+   "quote": "Improving the gradient — Introducing baselines.  ∇_θJ(θ) = E_{τ∼p_θ(τ)}[∇_θ log p_θ(τ) (r(τ) − b)].  τ_1: falls forwards.  τ_4: runs forwards.  subtracting a constant.  If we subtract average reward, we get negative gradients for below-average behavior. 🥳  But, can we even do that? 🤔  Subtracting a constant baseline does not change the gradient in expectation.  It is unbiased.  Average reward is a pretty good baseline.  \"baseline\" and can reduce variance of the gradient.  a convenient identity.",
+   "one": "<b>`.a` 片最后那个例子的毛病是「四条轨迹回报全为正，于是踉跄也被鼓励」。</b><span class='k'>这一页的修法朴素得可爱：减掉一个常数 b</span> —— <b>低于平均的行为就拿到负梯度了。</b>而惊人的地方是：<span class='w'>这么做居然不改变梯度的期望。</span>",
+   "eq": "带基线的梯度（p16）：\n\n  ∇_θ J(θ) = E_{τ∼p_θ(τ)} [ ∇_θ log p_θ(τ) · ( r(τ) − b ) ]\n                                                  └─ 减掉一个常数 ─┘\n\n  效果：回报**高于** b 的轨迹 → 正梯度（被鼓励）\n        回报**低于** b 的轨迹 → **负梯度**（被压制）\n\n  而在 `.a` 片那个例子里，四条轨迹回报全为正 ⇒ 全被鼓励，只是程度不同。\n  减掉平均回报之后，「踉跄」就真的被压下去了。\n\n────────────────────────────────────────\n为什么可以这么减（讲稿里的三行证明，幻灯只写了结论）：\n\n  要证多出来的那一项期望为零：\n\n    E_{τ∼p_θ}[ ∇_θ log p_θ(τ) · b ]\n      = ∫ p_θ(τ) · ∇_θ log p_θ(τ) · b  dτ\n      = ∫ ∇_θ p_θ(τ) · b  dτ              ← **便利恒等式反着用**（`.a` 片 p8）\n      = b · ∇_θ ∫ p_θ(τ) dτ               ← b 是常数，提到外面；梯度与积分交换\n      = b · ∇_θ 1\n      = **0**                              ∎\n\n  ⇒ 所以它是**无偏**的：期望一点没变，变的只有方差。\n\n────────────────────────────────────────\np16 的三句结论（原文）：\n  · Subtracting a constant baseline does not change the gradient in expectation\n  · **It is unbiased.**\n  · **Average reward is a pretty good baseline**，and can reduce variance of the gradient",
+   "pts": [
+    "<b>那三行证明的关键是「<code>∫ p_θ(τ) dτ = 1</code>，而 1 的梯度是 0」。</b><span class='k'>概率密度积分为一这件事，被当成了一个可求导的恒等式来用</span>。<b>这是一个在整个 RL 里反复出现的手法</b> —— <span class='w'>凡是看到「某一项的期望为零」的论证，十有八九就是这一招</span>。",
+    "<b>「无偏」与「降方差」是两件独立的好事，而这里同时拿到了，这很少见。</b><span class='k'>通常降方差要付偏差的代价</span>（偏差-方差权衡）；<b>而常数基线是一个白给的降方差</b>。<span class='w'>代价只在后面：当基线不再是常数（比如用 V(s) 当基线，那是下一讲 Actor-Critic 的做法），「无偏」这件事就要重新论证。</span>",
+    "<b>讲稿补了一个幻灯上没有的事实：平均回报<span class='w'>不是</span>最优基线。</b><span class='k'>「You can actually derive the variance, and then take the derivative of the variance set equal to 0 to find the optimal baseline」</span> —— <b>把方差写出来、对 b 求导置零，能解出真正的最优基线</b>。<span class='w'>它「很接近平均回报，但带一些额外的加权项」。</span><b>实践中没人用它，因为平均回报已经够好而且好算。</b>",
+    "<b>「b 真的是常数吗？它看起来依赖轨迹啊」—— 这是课堂上真有人问的问题，答案很实际。</b><span class='k'>讲稿：「We'll use the same value of b for an entire batch」</span> —— <b>整批数据共用一个 b</b>。<span class='w'>所以对那一批而言它确实是常数，证明成立；而换一批会换一个 b。</span>",
+    "<b>还有一问也值得记：基线要不要随训练更新？</b>讲稿的答案是<span class='k'>要</span>：<b>「as the policy gets better, above average and below average [changes]」</b> —— <span class='w'>策略变好之后，「平均水平」本身在往上移</span>。<b>基线不更新的话，很快就全是正梯度，又退回 `.a` 片那个毛病。</b>"
+   ],
+   "tbl": {
+    "cap": "加基线前后，`.a` 片那个例子会怎样",
+    "head": ["轨迹", "回报", "不减基线", "<b>减掉平均回报后</b>"],
+    "rows": [
+     ["τ¹ 向前倒", "小正数", "被鼓励（弱）", "<b>被压制（负梯度）</b>"],
+     ["τ² 慢慢踉跄前进", "中等正数", "被鼓励", "<b>被压制或几乎不动</b>"],
+     ["τ³ 稳步前进", "较大正数", "被鼓励", "<b>被鼓励</b>"],
+     ["τ⁴ 向前跑", "最大", "被鼓励（最强）", "<b>被鼓励（最强）</b>"],
+     ["<b>效果</b>", "—", "<b>全都鼓励，只是程度不同</b>", "<b>低于平均的真的被压下去</b>"],
+     ["<b>代价</b>", "—", "—", "<b>零 —— 期望不变，方差还降了</b>"]
+    ]
+   },
+   "say": "<b>讲稿里那段证明说得比我上面还干脆，而且点出了它用的是哪一招：</b><br><br>「<span class='k'>the expectation of the gradient of log p times b … We can write that as the integral. We can then use the log trick in reverse. We can move b and the gradient outside of the integral. This integral is equal to 1, the gradient of 1 is 0, and then we get 0.</span>」<br><br><b>「use the log trick in reverse」—— 把 `.a` 片 p8 那个对数梯度技巧<span class='w'>反着</span>用一次</b>：<br>正着用是 <code>∇p = p·∇log p</code>（把 ∇ 挪进期望里），<br>反着用是 <code>p·∇log p = ∇p</code>（把它变回一个可以直接积的东西）。<br><br><span class='k'>同一个恒等式，两个方向，各解决一个问题。</span>认出这件事，后面碰到类似的「证明某项期望为零」就不会卡住。<br><br>讲者还补了一句定位：「<span class='w'>it's a way to reduce the variance of your estimate of this expectation, and it's an unbiased way to do that</span>」—— <b>降的是「你对期望的估计」的方差，不是期望本身的性质。</b>",
+   "link": {
+    "t": "你学过的对应：本片 `.a` p8（对数梯度技巧，这里把它反着用了一次）",
+    "href": "L03-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「减一个基线来降方差，而且不引入偏差」这个手法，对你的课题是现成可用的。</b><br><br>你比较两个配置时，<span class='k'>两次评估的分数都带噪声，而噪声里有一大块是「这一批测试样本本身难易」造成的，对两个配置是共同的</span>。<b>减掉这个共同成分（= 一个基线），差值的方差会明显下降，而差值的期望一点不变</b> —— 和这一页是同一个道理。<br><br><b>具体怎么做</b>：<span class='w'>用<b>同一批</b>测试样本评估所有候选配置</span>，然后比较「配置分数 − 该批样本上的平均分数」。<span class='k'>这在实验设计里叫配对比较（paired comparison），统计效力比独立两组高得多</span>。<br><br><b>对评估预算吃紧的你，这是一个几乎白给的改进</b>：不增加任何评估次数，只是换一种配样本的方式。<br><br>⚠ 前提是<span class='w'>同一批样本可以重复用于不同配置</span>。若你的评估本身有随机性（LLM 采样温度），还要固定随机种子才能真正配对。",
+    "ref": "本讲 p16 的无偏性证明；对照 CSE 541 L05 的方差与置信半径"
+   }
+  },
+  {
+   "r": [17, 17],
+   "t": "叠外套：加了基线之后，梯度对四条轨迹里的三条是同一个数",
+   "star": 4,
+   "quote": "What does the gradient do?  Example: learning to fold a jacket.  reward: r(s,a) = 1 neatly folded, 0.5 folded with some wrinkles, 0 not folded.  τ_1: doesn't touch the jacket.  τ_2: folds only the sleeves.  τ_3: flattens the jacket but does not fold it.  τ_4: folds the jacket.  Question: what will the gradient encourage the policy to do?  → will encourage folding, but gradient is constant for all but one trajectory 😨  Policy gradient is still noisy / high-variance.  Best with dense rewards, large batches.  (baseline edition)",
+   "one": "<b>基线修好了上一个毛病，这一页立刻给出下一个。</b><span class='k'>四条轨迹里有三条回报都是 0</span>，减掉基线之后它们的梯度<b>完全一样</b> —— <span class='w'>而其中一条（只叠了袖子）明明做对了一半。</span>",
+   "eq": "奖励函数（p17）：\n\n  r(s,a) =  1    叠得整齐\n            0.5  叠了但有褶\n            0    没叠\n\n四条采样轨迹：\n  τ¹  没碰外套                        → r = 0\n  τ²  **只叠了袖子**（没叠完整件）      → r = 0     ← 做对了一半，但拿 0\n  τ³  把外套摊平了，但没叠            → r = 0\n  τ⁴  叠好了                          → r > 0\n\n减掉基线 b（= 这一批的平均回报）之后：\n\n  τ¹, τ², τ³ :  0 − b  = **同一个负数**   ← 梯度对这三条**完全一样**\n  τ⁴         :  r − b  = 正数             ← 被鼓励\n\np17 的三句结论（原文）：\n  · will encourage folding, but **gradient is constant for all but one trajectory** 😨\n  · **Policy gradient is still noisy / high-variance**\n  · **Best with dense rewards, large batches**",
+   "pts": [
+    "<b>这一页的要害是 τ²：它只叠了袖子，这是朝着正确方向走的一步，但奖励函数给它 0。</b><span class='k'>于是它和「完全没碰外套」拿到一模一样的（负）梯度</span> —— <b>策略学不到「叠袖子是个好开头」这件事</b>。<span class='w'>讲稿说得更直接：「there is a good thing about folding the sleeves, and it would be nice to be able to use that data… And right now, it will actually be discouraged」。</span>",
+    "<b>根子在奖励稀疏，不在算法。</b><span class='k'>策略梯度只能看到「整条轨迹的总回报」这一个数</span>；<b>轨迹内部哪一步做得好、哪一步做砸了，它完全分辨不出来</b>。<span class='w'>这正是 L01 p8 那条「indirect feedback」带来的信用分配问题，在这里具体化了。</span>",
+    "<b>「Best with dense rewards, large batches」这两条是对称的两种补救，值得分开看。</b><span class='k'>密集奖励</span>：把信号变细，让「叠了袖子」也能拿到一点分 —— <b>改问题</b>。<span class='k'>大批量</span>：多采一些轨迹，让噪声平均掉 —— <b>改算法的用法</b>。<span class='w'>前者更治本，但往往你没法随便改奖励函数（那是 L08 奖励学习的话题）。</span>",
+    "<b>讲者明确说了下一讲会修这个洞。</b><span class='k'>「we'll actually see how to get a good gradient for that first part on Friday」</span> —— <b>Friday 就是 L04 Actor-Critic</b>。<span class='w'>用值函数估出「从这个状态往后还能拿多少」，于是「叠了袖子」这个中间状态本身就有了正的评价</span>，不必等整条轨迹结束。",
+    "<b>注意这个例子和 `.a` 片那两个人形机器人例子构成了一个递进，三个都不该跳过。</b><span class='k'>例一：全负 ⇒ 鼓励「向前倒」</span>；<span class='k'>例二：全正 ⇒ 连「踉跄」也鼓励</span>；<span class='k'>例三（本页）：加了基线，但稀疏奖励让三条轨迹不可区分</span>。<b>讲者用三个例子逐层逼出了「为什么需要 Actor-Critic」。</b>"
+   ],
+   "tbl": {
+    "cap": "三个例子逐层逼出下一讲",
+    "head": ["例子", "毛病", "<b>这一讲怎么修</b>", "还剩什么"],
+    "rows": [
+     ["`.a` p12 人形机器人（一）", "回报全负 ⇒ 鼓励「向前倒」", "<b>因果性（只看未来奖励）</b>", "—"],
+     ["`.a` p14 人形机器人（二）", "回报全正 ⇒ 连踉跄也鼓励", "<b>基线（p16）</b>", "—"],
+     ["<b>p17 叠外套</b>", "<b>稀疏奖励 ⇒ 三条轨迹梯度相同</b>", "<b>修不了</b>", "<b>→ L04 Actor-Critic</b>"],
+     ["共同的根", "<b>只看得到整条轨迹的总回报，分不清内部哪一步好</b>", "—", "—"]
+    ]
+   },
+   "say": "<b>课堂上有人直接问了「如果奖励更密集会不会好一些」，讲者的回答里有一个很实在的补充：</b><br><br>「<span class='k'>if we had a more dense reward function, that would definitely help in these cases. There are actually scenarios still where we could do better. Especially if you, for example, folded the sleeves, you got positive reward for this, and then dropped it on the ground or something after that, then that's still dissatisfying because we wouldn't use the first part successfully.</span>」<br><br><b>注意她举的那个新情形：先叠好了袖子（拿到正奖励），后来又掉地上了。</b><br><br><span class='w'>整条轨迹的总回报可能还是低的，于是「叠袖子」那一段<b>仍然</b>被连坐</span>。<b>所以密集奖励只是缓解，不是根治</b> —— <span class='k'>根治要能把奖励<b>归到具体的时间步</b>上，而那正是值函数要干的事</span>。<br><br>她接着确认：「<span class='w'>we'll actually see how to get a good gradient for that first part on Friday</span>」。<b>这一讲到此为止的所有不适，都在为下一讲铺路。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p8（indirect feedback 与信用分配问题，这一页是它的具体形态）",
+    "href": "L01-精读.html"
+   }
+  },
+  {
+   "r": [18, 19],
+   "t": "代理目标：别真去求那个梯度，去求一个梯度和它相同的东西",
+   "star": 5,
+   "quote": "How to implement policy gradients?  Can we use automatic differentiation on full objective?  Computing these individually is inefficient. (N*T backwards passes)  Implement \"surrogate objective\" whose gradient is the same as ∇J.  J̃(θ) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T ( log π_θ(a_{i,t}|s_{i,t}) ) ( ( Σ_{t'=t}^T r(s_{i,t'}, a_{i,t'}) ) − b ).  weighted maximum likelihood.  Cross-entropy for discrete action policy, squared error for Gaussian policy.  Summary so far — Estimating gradient of RL objective: log gradient trick; weigh policy likelihood by future rewards; subtract baseline (e.g. average reward); even with tricks, gradient is noisy.  First reinforcement learning algorithm: collect batch of data, improve policy by applying gradient; formalizes trial-and-error learning.  Key intuition: do more high reward stuff, less low reward stuff.",
+   "one": "<b>前面推了一整讲的梯度，到实现这一步有个很实际的问题：你不能对 N×T 个 <code>∇log π</code> 分别做反传。</b><span class='k'>解法是写一个「代理目标」—— 它本身没有意义，但它的梯度恰好等于你要的那个</span>，<b>于是一次反传就完事。</b>",
+   "eq": "问题（p18）：\n  我们要的梯度是\n\n    ∇_θ J(θ) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T  ∇_θ log π_θ(a_{i,t}|s_{i,t}) · ( Σ_{t'=t}^T r − b )\n\n  直接算的话要对 **N×T 个** ∇log π 分别反传 —— **N*T backwards passes**，太慢。\n\n────────────────────────────────────────\n解法：代理目标（surrogate objective）\n\n    J̃(θ) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T  [ log π_θ(a_{i,t}|s_{i,t}) · ( Σ_{t'=t}^T r − b ) ]\n                                        └─ 没有 ∇ 了 ─┘  └── 当成**常数** ──┘\n\n  对它做一次自动微分，得到的正是上面那个 ∇J。\n  ⇒ **一次前向、一次反传**。\n\n  ⚠ 关键在于：**括号里那个回报项要当成常数**（不参与求导）。\n     代码里就是 `.detach()` / `stop_gradient`。漏了这一步就全错。\n\n────────────────────────────────────────\n它长得像什么（p18 的点题）：**weighted maximum likelihood**（加权最大似然）\n\n  普通的最大似然：      Σ  log π_θ(a|s)\n  这里的代理目标：      Σ  log π_θ(a|s) · **权重**\n                                          └ 权重 = 未来回报 − 基线\n\n  所以实现上就是「**模仿学习，但每条样本带一个权重**」：\n    离散动作 → **交叉熵**，乘上权重\n    高斯策略 → **平方误差**，乘上权重\n\n────────────────────────────────────────\np19 小结（原文）：\n  · log gradient trick\n  · weigh policy likelihood by future rewards\n  · subtract baseline (e.g. average reward)\n  · **even with tricks, gradient is noisy**\n  · **First reinforcement learning algorithm** —— formalizes trial-and-error learning\n  · **Key intuition: do more high reward stuff, less low reward stuff**",
+   "pts": [
+    "<b>「代理目标」这个词在这里和 L02 的「凸替代损失」不是一回事，别混。</b><span class='k'>L02 的替代是<b>换了一个目标</b>（0/1 换成凸损失），所以保证也跟着换了</span>；<b>这里的代理目标<span class='w'>梯度完全相同</span>，只是换了一种算法上更便宜的写法</b>。<span class='k'>前者有代价，后者纯赚。</span>讲者自己点了名：「I'm calling it surrogate because it's not the same as the very first objective」。",
+    "<b>「回报项要当成常数」是实现时最容易漏的一步，而且漏了不会报错。</b><span class='w'>如果让梯度也流进 <code>Σ r − b</code> 那一项，你算出来的就不是 ∇J 了</span>。<b>在 PyTorch 里就是对权重张量调 <code>.detach()</code></b>。<span class='k'>这类「静默地算错一个梯度」的 bug 最难查，因为训练照跑，只是学不动。</span>",
+    "<b>「weighted maximum likelihood」这个说法把策略梯度和模仿学习接上了，而且接得很紧。</b><span class='k'>模仿学习是 <code>max Σ log π_θ(a|s)</code>（L02 p11）；策略梯度是同一个式子，每项乘一个权重</span>。<b>权重为正就「多做这个」，为负就「少做这个」</b> —— <span class='w'>这就是 p19 那句 do more high reward stuff, less low reward stuff 的数学形态</span>。",
+    "<b>所以实现策略梯度，代码上离模仿学习只差一行。</b><span class='k'>离散动作：交叉熵损失乘上权重；高斯策略：平方误差乘上权重</span>。<b>你的训练循环、你的网络、你的数据加载全都不用改</b> —— <span class='w'>这解释了为什么 L02 要先讲模仿学习：它是策略梯度的代码骨架。</span>",
+    "<b>p19 把策略梯度称为「第一个强化学习算法」，并配了一句定位：formalizes trial-and-error learning。</b><span class='k'>试错学习这个几百年的朴素想法，到这里终于被写成了一个可以求导、可以收敛分析的式子</span>。<b>这一讲之前的模仿学习不算 RL</b> —— <span class='w'>它没有「试」，只有「抄」。</span>",
+    "<b>⚠ 讲者当场承认 p18（以及 `.a` 片的 p10）的公式有笔误</b>：<span class='k'>「Note that I actually do have a typo on these equations, where this second sum should be inside the first sum」</span> —— <b>第二个求和号应当在第一个<span class='w'>里面</span></b>。<span class='w'>按幻灯原样抄会抄错，上面的 eq 格里已经写成正确的形式。</span>"
+   ],
+   "tbl": {
+    "cap": "两种「代理」，性质完全不同",
+    "head": ["", "L02 的凸替代损失", "<b>本页的代理目标</b>"],
+    "rows": [
+     ["换掉了什么", "<b>目标函数本身</b>（0/1 → 凸损失）", "<b>只换写法，梯度不变</b>"],
+     ["梯度一样吗", "<b>不一样</b>", "<b>完全一样</b>"],
+     ["有代价吗", "<b>有 —— 保证只对替代目标成立</b>", "<b>没有 —— 纯粹是算得快</b>"],
+     ["为什么要它", "0/1 算不动、没梯度", "<b>避免 N×T 次反传</b>"],
+     ["实现要点", "选一个好的替代损失", "<b>回报项必须 detach</b>"]
+    ]
+   },
+   "say": "<b>讲稿里那段推进说得很清楚，而且把「为什么不直接做」讲明白了：</b><br><br>「<span class='k'>…and this would be rather inefficient. And it'd be nice if we could just actually do automatic differentiation on the full objective and only do one forward pass and one backward pass. And we can do that. So it's possible to implement essentially a surrogate objective whose gradient is the same as this objective. I'm calling it surrogate because it's not the same as the very first objective of maximizing expected rewards.</span>」<br><br><b>「it's not the same as the very first objective」这句自我澄清很重要</b>：<span class='w'>代理目标的<b>数值</b>没有意义（它不是期望回报），只有它的<b>梯度</b>有意义</span>。<br><br><b>这在实践上有一个直接后果：训练时打印出来的那个 loss 数值是没法解读的。</b><span class='k'>它既不是回报、也不是误差，它上升下降都不说明什么</span>。<b>要看训练有没有进展，得另外记录真实的平均回报。</b><br><br><span class='w'>这是初学策略梯度时最常见的困惑之一 —— 盯着 loss 看，然后纳闷它为什么乱跳。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L02 p11（模仿学习的 max Σ log π_θ(a|s)，这里给它加了权重就成了策略梯度）",
+    "href": "L02-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「代理目标的数值没有意义，只有梯度有意义」这件事，推广开来是一条很有用的读论文习惯：<span class='k'>看到一个被优化的量，先问它本身可不可解读</span>。</b><br><br>对你的课题有一个直接对应：<span class='w'>你的搜索过程里会有若干个「内部分数」</span> —— 代理模型的预测、UCB 的上界、剪枝的阈值。<b>它们中有些是可解读的（预测分数），有些不是（UCB 的上界不是对分数的估计，它是一个<b>刻意乐观</b>的量）</b>。<br><br><b>报实验结果时把这两类分开</b>：<span class='k'>可解读的量可以画趋势、可以和真值比；不可解读的量只能看它有没有按理论预期的方式变化</span>（例如 CSE 541 L10 那个信息增益 <code>Σ‖x_t‖²_{V_t⁻¹}</code>，它该涨到 <code>d log T</code> 然后压平）。<br><br><b>把一个「只有梯度/排序有意义」的量当成真实指标去汇报，是一个很常见、也很容易被审稿人抓住的错误。</b>",
+    "ref": "本讲 p18 的代理目标；对照 CSE 541 L10 的信息增益诊断量"
+   }
+  },
+  {
+   "r": [20, 20],
+   "t": "on-policy 的代价：每走一步梯度，前面采的数据就作废了",
+   "star": 4,
+   "quote": "What else is troublesome about policy gradients?  Latest version of our gradient: ∇_θJ(θ) = E_{τ∼p_θ(τ)}[(Σ_{t=1}^T ∇_θ log π_θ(a_t|s_t))((Σ_{t'=t}^T r(s_{t'},a_{t'})) − b)].  assumes samples from current policy π_θ ← we change θ right here.  Need to recollect data every gradient step! 😱  Definitions (attribute of online RL algorithms): on-policy: update uses only data from current policy.  off-policy: update can reuse data from other, past policies.  Vanilla policy gradient is on-policy.",
+   "one": "<b>看清那个期望下标 <code>τ ∼ p_θ(τ)</code>：它要求样本来自<span class='k'>当前</span>策略。</b>而梯度一走，θ 就变了，<span class='w'>手上那批数据立刻就不是「当前策略」采的了</span> —— <b>只能扔掉重采。</b>",
+   "eq": "问题出在期望的下标（p20）：\n\n    ∇_θ J(θ) = E_{**τ ∼ p_θ(τ)**} [ … ]\n                     └─ 要求样本来自**当前**策略 π_θ\n\n  而算法第 3 步是  θ ← θ + α∇_θJ(θ)  ← **θ 在这里就变了**\n\n  ⇒ 刚采的那批 {τ_i} 是用**旧的** θ 采的，对新的 θ 不再合法\n  ⇒ **Need to recollect data every gradient step!** 😱\n\n  代价有多大：每走**一步**梯度，就要和环境交互一整批轨迹。\n  在仿真里勉强能忍；在真机 / 真人 / LLM 评估上，这是致命的。\n\n────────────────────────────────────────\n两个定义（p20，后面整门课通用）：\n\n  **on-policy** ：update uses only data from **current** policy\n  **off-policy**：update can reuse data from **other, past** policies\n\n  讲义标注这是 **attribute of online RL algorithms**（在线 RL 算法的一种属性）。\n\n  **Vanilla policy gradient is on-policy.**\n\n⚠ 别和 L02 p16 的 offline/online 混：\n    offline / online  —— 问「**要不要**用学到的策略去产生新数据」\n    on- / off-policy  —— 问「新数据必须来自**当前**策略，还是也能用**旧**策略的」\n  两组词互相独立：离线 RL 一定是 off-policy 的，但 off-policy 不一定离线。",
+   "pts": [
+    "<b>on-policy 这个约束不是实现上的不便，它是从那个期望下标直接推出来的。</b><span class='k'>整个推导都建立在「样本服从 p_θ(τ)」这个前提上</span>；<b>θ 一变，前提就破了，估计就有偏</b>。<span class='w'>所以这不是「可以凑合用」的问题，是「用了就错」的问题 —— 除非做点什么来修正，那正是 p21 要讲的。</span>",
+    "<b>把 on/off-policy 和 L02 的 offline/online 分清，这是两组最容易被混用的词。</b><span class='k'>offline/online 问的是「要不要用学到的策略去产生新数据」</span>；<span class='k'>on/off-policy 问的是「新数据必须来自当前策略，还是也能用旧策略的」</span>。<b>离线 RL 必然是 off-policy 的（数据全是别人采的），但 off-policy 不必离线</b> —— <span class='w'>本讲后半就是一个「在线但 off-policy」的算法。</span>",
+    "<b>这一页的代价对你的问题尤其刺眼。</b><span class='k'>在仿真里「每步梯度重采一批」只是慢；而在「每个样本都要调一次 LLM」的场景里，这个代价直接决定了方法可不可行</span>。<b>所以 LLM 后训练（RLHF）用的几乎都是 off-policy 或「轻度 off-policy」的变体</b>，<span class='w'>而 PPO 正是其中最流行的那个</span>。",
+    "<b>注意讲义把 on/off-policy 标成了「attribute of online RL algorithms」。</b><span class='k'>也就是说这是在线算法内部的一个分类维度</span>，<b>不是和在线/离线并列的另一个二分</b>。<span class='w'>这个措辞上的细节，正好印证了上面那条「两组词互相独立」。</span>",
+    "<b>下一页开始的整条线索，目标只有一个：<span class='k'>在同一批数据上多走几步梯度</span>。</b>讲稿把野心说得很小：<b>「it's only going to be a little off-policy. And by that, I mean, we're just going to try to be able to take more than one gradient step on a single batch of data」</b>。<span class='w'>不是「能用任意旧数据」，只是「能多榨几步」。</span><b>这个克制的目标，正是 PPO 的全部动机。</b>"
+   ],
+   "tbl": {
+    "cap": "两组最容易混的词：它们互相独立",
+    "head": ["", "问的是什么", "本讲的策略梯度", "<b>L07 离线 RL</b>"],
+    "rows": [
+     ["<b>offline / online</b>", "<b>要不要用学到的策略产生新数据</b>", "<b>online</b>（要采）", "<b>offline</b>（不采）"],
+     ["<b>on- / off-policy</b>", "<b>数据必须来自当前策略吗</b>", "<b>vanilla 是 on-policy</b>", "<b>必然 off-policy</b>"],
+     ["两者的关系", "<b>独立的两个维度</b>", "在线 + on-policy", "离线 + off-policy"],
+     ["本讲后半是什么", "—", "<b>在线 + off-policy（轻度）</b>", "—"],
+     ["为什么要 off-policy", "—", "<b>在同一批数据上多走几步梯度</b>", "根本没有新数据可采"]
+    ]
+   },
+   "say": "<b>讲稿在进入下一页时把这一讲后半的野心说得很克制，这句值得记住，因为它正好是 PPO 的动机：</b><br><br>「<span class='k'>Can we derive an off-policy version of the policy gradient? And it's only going to be a little off-policy. And by that, I mean, we're just going to try to be able to take more than one gradient step on a single batch of data.</span>」<br><br><b>「only going to be a little off-policy」——「只是稍微离一点策略」。</b><br><br><span class='w'>目标不是「能用任意来源的旧数据」（那是 L07 离线 RL 的野心，难得多）</span>，<b>只是「别采一批只走一步，太浪费」</b>。<br><br><b>认清这个克制的目标，后面两页就好懂了</b>：<span class='k'>重要性采样是为了让旧数据合法，KL 约束是为了保证「旧」得不要太远</span> —— <b>两样东西都是在维护「a little」这个词</b>。<br><br>而本课 L05（你已经做过精读）的 PPO，标题里那个 off-policy 说的就是这个程度：<span class='w'>「同一批数据，你敢用它走几步梯度」</span>。",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读 p1（「off-policy 不是一个新算法，而是一个程度」）",
+    "href": "L05-精读.html"
+   }
+  },
+  {
+   "r": [21, 22],
+   "t": "重要性采样：用旧策略的样本估新策略的期望，代价是一个会爆炸的连乘",
+   "star": 5,
+   "quote": "Off-policy version of policy gradient?  Importance sampling.  What if we want to use samples from p̄(τ)?  Using proposal distribution q (e.g. previous policy).  Note: Important for q to have non-zero support for high probability p(x).  Say we want to update our latest policy π_θ′ … but we want to use samples from π_θ.  ∇_{θ′}J(θ′) = E_{τ∼p_θ(τ)}[ (Π_{t=1}^T π_{θ′}(a_t|s_t)/π_θ(a_t|s_t)) (Σ_{t=1}^T ∇_{θ′} log π_{θ′}(a_t|s_t)) ((Σ_{t'=t}^T r(s_{t'},a_{t'})) − b) ].  This can become very small or very large, for larger T.",
+   "one": "<b>重要性采样是一个一行就能写出来的恒等式：想要 p 下的期望，但只有 q 的样本，那就给每个样本乘上 <code>p/q</code>。</b><span class='k'>用在轨迹上，这个比值是 T 个比值的连乘</span> —— <b>而连乘在 T 大时非爆即灭。</b>",
+   "eq": "重要性采样的恒等式（p21）：\n\n  想算   E_{x∼p}[ f(x) ]，  但只有 q 的样本：\n\n    E_{x∼p}[f(x)]  =  ∫ p(x) f(x) dx\n                   =  ∫ q(x) · (p(x)/q(x)) · f(x) dx\n                   =  **E_{x∼q}[ (p(x)/q(x)) · f(x) ]**\n                                 └─ 重要性权重 ─┘\n\n  q 叫 **proposal distribution**（提议分布），这里就是**旧策略**。\n\n  ⚠ 唯一的硬前提（p21 原文）：\n     **Important for q to have non-zero support for high probability p(x)**\n     —— p 有概率的地方，q 不能是 0。否则那块区域你永远采不到，\n        而它在 p 下却很重要 ⇒ 估计必错，且错得看不出来。\n\n────────────────────────────────────────\n用到轨迹上（p22）：\n\n  比值 p_{θ'}(τ) / p_θ(τ) 里，**初始分布与动力学全约掉了**\n  （它们不含 θ —— 和 `.a` 片 p9 消掉它们是同一个理由）：\n\n    p_{θ'}(τ)/p_θ(τ)  =  **Π_{t=1}^{T}  π_{θ'}(a_t|s_t) / π_θ(a_t|s_t)**\n\n  于是\n\n    ∇_{θ'}J(θ') = E_{τ∼p_θ(τ)}[ (Π_{t=1}^T 比值) · (Σ_t ∇log π_{θ'}) · (Σ_{t'≥t} r − b) ]\n\n  ⚠ 问题（p22 原文）：**This can become very small or very large, for larger T**\n\n  为什么：T 个略大于 1 的数连乘 → 指数爆炸；\n          T 个略小于 1 的数连乘 → 指数衰减到 0。\n          T = 200（L01 p34 那个机器人）时，每个比值偏差 1% 就是 1.01²⁰⁰ ≈ **7.3 倍**。",
+   "pts": [
+    "<b>那个连乘里「动力学约掉了」这件事，和 `.a` 片 p9 是同一个性质在第二次救场。</b><span class='k'>p_{θ'}(τ)/p_θ(τ) 的分子分母里，<code>p(s₁)</code> 和 <code>p(s_{t+1}|s_t,a_t)</code> 逐项相同</span>，<b>于是只剩策略的比值</b>。<span class='w'>如果动力学也依赖 θ，这个比值根本算不出来（因为动力学是未知的）。</span><b>策略梯度之所以可行，这条性质被用了两次。</b>",
+    "<b>把那个 1.01²⁰⁰ ≈ 7.3 自己算一遍，比记住「会爆炸」有用。</b><span class='k'>每一步的比值只偏离 1 百分之一，200 步之后就是 7 倍</span>；<b>反过来 0.99²⁰⁰ ≈ 0.13</b>。<span class='w'>而真实的策略更新带来的单步比值偏离远不止 1%。</span><b>所以这不是「长序列时要小心」，是「长序列时这个式子直接没法用」。</b>",
+    "<b>「q 必须在 p 有概率的地方非零」这条前提，有一个很实际的后果：确定性策略不能当提议分布。</b><span class='k'>确定性策略在除了一个动作之外的所有地方概率都是 0</span>，<b>于是新策略想探索的任何别的动作，权重分母都是 0</b>。<span class='w'>这又一次解释了 L01 p39 那条「为什么策略要随机」—— 随机性不只是为了探索，也是为了让旧数据可复用。</span>",
+    "<b>讲稿给了一条比幻灯更实用的判据：p 和 q 越像越好。</b><span class='k'>「this importance sampling technique is really going to work best when p and q — or when your old policy and your new policy — are very similar to each other」</span>。<b>这句话直接推出了 p25 的 KL 约束</b> —— <span class='w'>既然「越像越好」，那就显式地强制它们像。</span>",
+    "<b>重要性采样本身是一个远超 RL 的通用工具，讲者专门点了这一句。</b><span class='k'>「importance sampling is actually a really cool technique that's useful outside of reinforcement learning as well」</span> —— <b>统计里的离线策略评估、蒙特卡洛积分、变分推断里都有它</b>。<span class='w'>而它的失效模式（权重方差爆炸）在哪里都一样，认准了这个模式，换个领域也认得出来。</span>"
+   ],
+   "tbl": {
+    "cap": "重要性采样的三个要件，以及各自的失效方式",
+    "head": ["要件", "是什么", "<b>失效时会怎样</b>"],
+    "rows": [
+     ["<b>比值 p/q</b>", "重要性权重", "<b>方差爆炸，估计不可用</b>"],
+     ["<b>q 的支撑</b>", "<b>p 有概率处 q 必须非零</b>", "<b>那块区域永远采不到，估计有偏且看不出来</b>"],
+     ["<b>p 与 q 的接近程度</b>", "越像方差越小", "<b>差太远 ⇒ 少数样本主导整个估计</b>"],
+     ["<b>轨迹上的额外问题</b>", "<b>比值是 T 项连乘</b>", "<b>T=200、单步偏 1% ⇒ 7.3 倍</b>"],
+     ["对应的补救", "—", "<b>p23 改逐时刻 · p25 加 KL 约束</b>"]
+    ]
+   },
+   "say": "<b>讲稿里关于支撑那条前提，讲者说得比幻灯严厉：</b><br><br>「<span class='k'>…proposal distribution to have nonzero support in scenarios where your new policy has probability. This is actually very important for it to work. If q of x is 0, this is not [well] defined. But that's really the only catch here. And in general, this importance sampling technique is really going to work best when p and q — or when your old policy and your new policy — are very similar to each other.</span>」<br><br><b>两句话给了两个层次的要求：</b><br>· <span class='w'>硬要求</span>：q 不能是 0 —— 否则式子<b>没有定义</b>；<br>· <span class='k'>软要求</span>：p 和 q 要尽量像 —— 否则式子有定义但<b>方差大到没用</b>。<br><br><b>软要求那一条就是下面两页的全部内容</b>：<span class='w'>p23 把比值从「整条轨迹」缩小到「每一步」，p25 干脆用 KL 把两个策略绑在一起</span>。<br><br>而这两招合起来，就是 PPO 的骨架 —— <span class='k'>你在 L05 精读里已经见过它的成品形态</span>。",
+   "link": {
+    "t": "你学过的对应：本片 `.a` p9（动力学自己消失，这一页第二次用到同一条性质）",
+    "href": "L03-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>重要性采样在你的课题里有一个几乎一对一的对应，而且是你迟早要面对的：<span class='k'>用旧日志评估新的搜索策略</span>。</b><br><br>你的历史日志是在<span class='w'>旧的搜索策略下</span>收集的 —— 哪些配置被评估过，取决于当时的算法。<b>现在你想回答「如果换一个搜索策略，结果会怎样」，而又不想重跑实验</b>。<span class='k'>这正是离线策略评估（off-policy evaluation），用的就是这一页的恒等式。</span><br><br><b>好消息是你的处境比这一页好得多</b>：<br>· <span class='w'>你的「轨迹」很短</span>（选一个配置，或构造几步），<b>不是 T=200 的连乘，爆炸问题轻得多</b>；<br>· <span class='w'>你的动力学是确定的</span>，所以比值里能约掉的更多。<br><br><b>坏消息是那条硬前提可能真的不满足</b>：<span class='k'>如果旧策略从来没评估过某一片配置（被剪枝剪掉了），那里的 q = 0</span> —— <b>而新策略恰恰可能想去那里</b>。<span class='w'>这时重要性采样<b>没有定义</b>，不是「估得不准」。</span><br><br><b>⇒ 所以「剪枝过的日志不能直接拿来做离线比较」是一个真实的技术限制，值得在论文里写明，而不是悄悄用。</b>",
+    "ref": "本讲 p21 的支撑前提；对照 CS224R L07 离线 RL"
+   }
+  },
+  {
+   "r": [23, 23],
+   "t": "把连乘拆成逐时刻：代价是一个被直接当成 1 的比值",
+   "star": 5,
+   "quote": "What if we consider the expectation over timesteps instead of trajectories?  ∇_{θ′}J(θ′) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T [ π_{θ′}(s_{i,t}, a_{i,t}) / π_θ(s_{i,t}, a_{i,t}) ] ∇_{θ′} log π_{θ′}(a_{i,t}|s_{i,t}) ((Σ_{t'=t}^T r(s_{i,t'}, a_{i,t'})) − b).  Common final form: ∇_{θ′}J(θ′) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T [ π_{θ′}(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t}) ] ∇_{θ′} log π_{θ′}(a_{i,t}|s_{i,t}) ((Σ_{t'=t}^T r) − b).  Much less likely to explode/vanish …but, hard to measure.  π_{θ′}(s_{i,t}) / π_θ(s_{i,t}) often approximated as 1.",
+   "one": "<b>连乘会炸，那就别对整条轨迹做重要性采样，改成对每一个时刻做。</b><span class='k'>每一步只乘一个比值，不连乘，爆炸问题基本消失</span> —— <b>但这里偷偷扔掉了一个东西：状态分布的比值，它被直接近似成了 1。</b>",
+   "eq": "换一个角度看期望（p23）：\n\n  原来：对**整条轨迹** τ 取期望 ⇒ 比值是 T 项连乘 ⇒ 爆炸\n  现在：对**每一个 (s_t, a_t)** 取期望 ⇒ 每项只乘**一个**比值\n\n  严格写出来，每一步的比值应该是**状态-动作对**的比值：\n\n      π_{θ'}(s_{i,t}, a_{i,t}) / π_θ(s_{i,t}, a_{i,t})\n      =  [ π_{θ'}(s_{i,t}) / π_θ(s_{i,t}) ]  ·  [ π_{θ'}(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t}) ]\n         └── **状态分布的比值** ──┘           └──── 动作的比值 ────┘\n              ↓\n         **often approximated as 1**（讲义原话）\n\n────────────────────────────────────────\n于是得到 **Common final form**（常见的最终形式）：\n\n  ∇_{θ'}J(θ') ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T\n        [ **π_{θ'}(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t})** ]\n      · ∇_{θ'} log π_{θ'}(a_{i,t}|s_{i,t})\n      · ( Σ_{t'=t}^T r(s_{i,t'}, a_{i,t'}) − b )\n\n  两句评价（p23 原文）：\n    · **Much less likely to explode/vanish**\n    · **…but, hard to measure**（指那个被扔掉的状态比值，没法测）\n\n⚠ 这就是 PPO 里那个重要性比值的来源。你在 L05 精读里见到的就是它。",
+   "pts": [
+    "<b>被近似成 1 的那一项是「两个策略访问状态的分布之比」，而它正是 L02 复合误差那一页的 <code>p_π(s)</code>。</b><span class='k'>新策略会去不同的地方，所以这个比值一般<b>不</b>等于 1</span>。<b>讲义自己承认它 hard to measure —— 因为要测它就得知道策略的稳态状态分布，而那需要真的去跑。</b>",
+    "<b>所以这一步是本讲唯一一处<span class='w'>有偏</span>的近似，而且是整个 PPO 家族的理论软肋。</b><span class='k'>前面的因果性、基线、代理目标全都是无偏的（或精确等价的）</span>；<b>到这里为止一路严谨，最后一步把一个未知量设成了 1</b>。<span class='w'>这不是讲义偷懒，是这个领域的现状。</span>",
+    "<b>但这个近似在「两个策略很接近」时是合理的，而这恰好解释了为什么必须有 p25 的 KL 约束。</b><span class='k'>θ' ≈ θ ⇒ 两者访问的状态分布也接近 ⇒ 比值 ≈ 1</span>。<b>所以 KL 约束不只是在压重要性权重的方差，它还在<span class='k'>为这个被扔掉的项买单</span></b> —— <span class='w'>一个动作，两个作用。</span>",
+    "<b>「逐时刻」这个改动为什么能去掉连乘，值得想一下。</b><span class='k'>轨迹级的比值问的是「这<b>整条</b>轨迹在新策略下有多大可能」</span>；<b>逐时刻的比值只问「<b>这一步</b>的动作在新策略下有多大可能」</b>。<span class='w'>前者是 T 个概率的联合，后者是边缘的 —— 代价就是丢掉了它们之间的耦合（即那个状态分布项）。</span>",
+    "<b>把这一页和 L05 的 PPO 接起来：PPO 做的事就是给这个比值<span class='k'>加一个裁剪</span>。</b><span class='w'>比值太大或太小时把它截断，于是目标函数的<b>形状</b>变了（不是步长变了）</span> —— <b>这正是你在 L05 精读里读到的那条「clipping 改的是目标的形状而不是步长」</b>。<span class='k'>而它要裁的，就是这一页这个比值。</span>"
+   ],
+   "tbl": {
+    "cap": "两种重要性采样写法，以及各自付的代价",
+    "head": ["", "轨迹级（p22）", "<b>逐时刻（p23，常见形式）</b>"],
+    "rows": [
+     ["比值长什么样", "<b>Π_{t=1}^T 的连乘</b>", "<b>每步一个，不连乘</b>"],
+     ["会不会爆/灭", "<b>会（T=200、单步偏 1% ⇒ 7.3 倍）</b>", "<b>Much less likely</b>"],
+     ["有偏吗", "<b>无偏</b>", "<b>有偏 —— 扔掉了状态分布比值</b>"],
+     ["扔掉的是什么", "—", "<b>π_{θ'}(s)/π_θ(s)，often approximated as 1</b>"],
+     ["为什么能扔", "—", "<b>θ'≈θ 时它确实≈1 ⇒ 所以要 KL 约束</b>"],
+     ["下游", "没人这么用", "<b>PPO 裁的就是这个比值</b>"]
+    ]
+   },
+   "say": "<b>讲稿里这一步的过渡写得很坦白，把「约不掉」这件事明说了：</b><br><br>「<span class='k'>Now there's some details — we've shown this in terms of p of tau, now how do we actually do this in terms of pi of a given S? That actually gets a little bit trickier. We can write down p of tau and this ratio as the product of these different probabilities. Unfortunately, some of the probabilities cancel out. Bu[t…]</span>」<br><br><b>「That actually gets a little bit trickier」—— 从轨迹换到单步，不是一个自然的改写，是一次真实的取舍。</b><br><br><span class='w'>幻灯上那句 often approximated as 1 读起来轻飘飘，但它是整条推导里唯一一处「我们知道它不对，但先这么办」。</span><br><br><b>读论文时碰到这类句子要停一下</b>：<span class='k'>approximated as、assumed to be、for simplicity we take 这几个词组后面，往往藏着整篇文章最脆弱的那个假设</span>。<b>而审稿人也正是从这里下手。</b><br><br>这一条对你写自己的论文同样成立 —— <span class='w'>与其把这种近似藏在脚注里，不如像这张幻灯一样写在正文上，再说明它什么时候成立</span>。",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（PPO：裁剪的正是这一页这个比值）",
+    "href": "L05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「approximated as 1」这一步，在你的课题里有一个对应，而且你的处境更好 —— 这值得写出来当一个优势。</b><br><br>这里扔掉的是<span class='k'>「两个策略访问状态的分布之比」</span>，扔掉的理由是没法测。<b>而你的「状态」是配置，「动力学」是确定的</b>：<span class='w'>选了哪些算子，配置就是什么，没有随机转移</span>。<br><br><b>所以在你的问题里，这个状态分布比值是<b>可以真的算出来的</b></b> —— <span class='k'>它就是「新搜索策略选中配置 x 的概率 / 旧搜索策略选中 x 的概率」，而两个策略你都写得出来</span>。<b>不需要近似成 1。</b><br><br><b>这意味着你做离线策略评估时可以比 RL 那边严谨一档</b>：<span class='w'>他们被迫丢掉一项，你不用</span>。<br><br>⚠ <b>但上一页那条硬前提仍然卡着你</b>：<span class='k'>旧策略概率为 0 的配置（被剪掉的那些），比值没有定义</span>。<b>所以你能做的是「在旧策略支撑集内的严谨评估」，而不是「对全空间的评估」</b> —— 这个边界要讲清楚。",
+    "ref": "本讲 p23 的 approximated as 1；对照 p21 的支撑前提"
+   }
+  },
+  {
+   "r": [24, 25],
+   "t": "终于能多走几步了——但走多远要由 KL 来管",
+   "star": 5,
+   "quote": "Off-policy policy gradient.  Common final form.  Full algorithm: 1. sample {τ_i} from π_θ(a_t|s_t)  2. compute ∇_θJ(θ) using {τ_i}  3. θ ← θ + α∇_θJ(θ).  Can take multiple gradient steps on the same batch.  What if our policy changes a lot before sampling new data?  Data no longer reflects states that policy will visit.  Gradient estimate less accurate.  Can we constrain the policy to not stray too far during gradient updates?  One common choice: E_{s∼π_θ}[D_KL(π_{θ′}(· | s) ‖ π_θ(· | s))] ≤ δ.",
+   "one": "<b>有了重要性比值，算法里那个「每步重采」的约束就松开了：<span class='k'>同一批数据可以走多步梯度</span>。</b>但走多了就回到老问题——<span class='w'>数据不再反映策略会去的状态</span>。<b>于是加一条 KL 约束，把「走多远」显式地管起来。</b>",
+   "eq": "改动只有一处（p24）：\n\n  1. 用 π_θ 采一批 {τ_i}\n  2. 用 {τ_i} 算梯度（带重要性比值）\n  3. θ ← θ + α∇J\n  ↑ **回到第 2 步，用同一批数据再走一次** ← Can take multiple gradient steps on the same batch\n\n  省下的是第 1 步 —— 而第 1 步才是贵的那一步（要和环境交互）。\n\n────────────────────────────────────────\n代价（p24 原文，三句递进）：\n\n  · What if our policy changes a lot before sampling new data?\n  · **Data no longer reflects states that policy will visit.**\n  · **Gradient estimate less accurate.**\n\n  ⚠ 注意第二句说的正是 p23 扔掉的那一项：\n     θ' 离 θ 越远，π_{θ'}(s)/π_θ(s) 离 1 越远，那个近似就越不成立。\n\n────────────────────────────────────────\n补救（p25）：显式约束两个策略的距离\n\n  Can we constrain the policy to not stray too far during gradient updates?\n\n  One common choice：\n\n      **E_{s ∼ π_θ} [ D_KL( π_{θ'}(·|s) ‖ π_θ(·|s) ) ]  ≤  δ**\n       └ 状态按**旧**策略采 ┘ └─ 在每个状态上比两个动作分布 ─┘  └ 预算 ┘\n\n  读法：**平均而言**，新策略在旧策略去过的那些状态上，\n        给出的动作分布不能和旧策略差太多。\n\n  δ 是你给的「信任半径」—— 这就是 trust region 这个名字的来历。",
+   "pts": [
+    "<b>看清这一页省下的到底是什么：省的是<span class='k'>采数据</span>，不是省计算。</b><span class='w'>多走几步梯度反而更费算力</span>；<b>但在真机、真人、LLM 评估这些场景里，采数据比算梯度贵好几个数量级</b>。<span class='k'>所以这是一笔非常划算的交易 —— 前提是你的瓶颈在采样而不在算力。</span>",
+    "<b>KL 约束同时在为两件事买单，这一点前面分开出现过，这里合流了。</b>① <span class='w'>压住重要性权重的方差</span>（p21 的「p 和 q 越像越好」）；② <span class='w'>让 p23 那个「状态比值≈1」的近似站得住</span>。<b>一个约束，两个作用</b> —— <span class='k'>这也是为什么它不是可选项而是必需品。</span>",
+    "<b>注意 KL 的方向和期望下标，两个都是刻意的。</b><span class='k'>期望对 <code>s ∼ π_θ</code> 取（旧策略访问的状态）</span> —— 因为你只有旧策略的样本；<span class='k'>KL 写成 <code>D_KL(π_{θ'} ‖ π_θ)</code></span>。<b>KL 不对称，换个方向是另一个量、另一种行为</b>。<span class='w'>这类细节在实现时抄反了不会报错，只会让算法表现莫名其妙。</span>",
+    "<b>「≤ δ」是一个<span class='k'>约束</span>，不是一个惩罚项，这个区别在后续算法里被反复拿来做文章。</b><b>TRPO</b> 真的去解这个带约束的优化（用二阶近似）；<span class='w'>而 PPO 放弃了显式约束，改用裁剪来<b>近似</b>达到同样效果</span> —— <b>这正是 PPO 比 TRPO 简单得多、也流行得多的原因</b>。<span class='k'>你在 L05 精读里读到的就是后者。</span>",
+    "<b>把整条线索串起来看，这一讲后半其实只做了一件事：<span class='k'>让「采一批数据」这件事更值钱</span>。</b>重要性采样让旧数据合法 → 逐时刻形式让它不爆炸 → KL 约束让它别走太远。<b>三步都是为了同一个目标</b>，<span class='w'>而讲稿一开始就把这个目标说小了：「only a little off-policy」。</span>"
+   ],
+   "tbl": {
+    "cap": "后半讲的三步，各自解决什么",
+    "head": ["步骤", "解决什么", "新引入的问题", "<b>由谁兜底</b>"],
+    "rows": [
+     ["<b>重要性采样（p21–22）</b>", "<b>让旧策略的数据合法</b>", "<b>轨迹级连乘会爆/灭</b>", "p23"],
+     ["<b>改逐时刻（p23）</b>", "<b>去掉连乘</b>", "<b>扔掉了状态分布比值（有偏）</b>", "<b>p25 的 KL</b>"],
+     ["<b>KL 约束（p25）</b>", "<b>压方差 + 让那个近似站得住</b>", "多一个超参 δ", "—"],
+     ["<b>合起来</b>", "<b>同一批数据能走多步梯度</b>", "—", "—"],
+     ["下游", "<b>TRPO 真解这个约束；PPO 用裁剪近似它</b>", "—", "<b>L05</b>"]
+    ]
+   },
+   "say": "<b>把这一页和 L05 的 PPO 并排，你会看到同一个问题的两代答案：</b><br><br>· <span class='k'>本页（TRPO 的思路）</span>：写下约束 <code>E[D_KL] ≤ δ</code>，然后**真的去解**这个带约束的优化问题。严谨，但要算二阶信息，实现复杂。<br>· <span class='k'>L05（PPO 的思路）</span>：不解约束，直接**裁剪重要性比值**。<span class='w'>比值跑出 [1−ε, 1+ε] 就截断，于是目标函数的<b>形状</b>变了</span> —— 策略想跑太远时，梯度自然消失。<br><br><b>你在 L05 精读里读到的那条「clipping 改的是目标的<b>形状</b>而不是<b>步长</b>」，到这里才有完整的来龙去脉</b>：<span class='k'>它改的形状，正是在模拟这一页这个 KL 约束</span>。<br><br><b>这也是一个值得记住的工程模式</b>：<span class='w'>有一个理论上正确但难解的约束，就找一个便宜的替代物，让它在实践中产生近似相同的效果</span>。<b>PPO 之所以统治了 LLM 后训练，靠的不是更好的理论，是更容易跑对。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（PPO 的裁剪 —— 本页 KL 约束的那个便宜替代物）",
+    "href": "L05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「KL 约束 = 别让新策略离旧策略太远」这个想法，对你的搜索有一个直接可用的形态，而且理由和这里完全一致。</b><br><br>你的搜索策略每轮会根据新的评估结果更新。<span class='k'>如果一次更新把搜索重心挪得太远，那你之前积累的日志对新策略就没有参考价值了</span> —— <b>而你的日志非常贵，这个浪费承受不起</b>。<br><br><b>两个可落地的做法</b>：<br>· <span class='w'>显式限制每轮搜索分布的变化</span>（例如新旧配置选择分布的 KL ≤ δ），<b>让日志能跨轮复用</b>；<br>· <span class='w'>或者用 PPO 的办法</span>：不加约束，但对「重要性权重过大」的那些历史样本做裁剪或降权。<br><br><b>第二条更省事而且更贴你的实际</b>：<span class='k'>裁剪本质上是在说「这条旧样本对新策略太不代表了，别太信它」</span>，<b>而这正是你拿旧日志做任何推断时都该做的事</b>。<br><br>⚠ 要注意的是<span class='w'>这与剪枝有张力</span>：剪枝是故意把搜索分布推得很远（整片区域概率归零），<b>而 KL 约束是在阻止这件事</b>。<span class='k'>两者怎么共存，是你需要想清楚的一个设计点</span> —— 可能的答案是「剪枝作用于可行域，KL 作用于可行域内部的分配」。",
+    "ref": "本讲 p24–25；对照 CS224R L05 的裁剪"
+   }
+  },
+  {
+   "r": [26, 28],
+   "t": "回顾：一讲之内从「第一个 RL 算法」走到了 PPO 的门口",
+   "star": 2,
+   "quote": "Review — Online RL via policy gradients: On-policy algorithm, differentiating the RL objective; Baselines, causality for reducing gradient variance; collect batch of data, improve policy by applying gradient.  Derived off-policy policy gradient: importance sampling; KL constraint on policy; collect batch of data, apply multiple gradient updates.  Intuition: Do more high reward stuff, less low reward stuff; Gradient still very noisy, best with large batch sizes and dense rewards.  Key learning goals: Key intuition behind policy gradients; How to implement, when to use policy gradients.  the basis for: + part of default project.  Next time: Actor critic methods → basis for popular algorithms like PPO → build closely on policy gradients!",
+   "one": "<b>一讲走完了两段路</b>：<span class='k'>前半从目标函数推出 vanilla policy gradient（on-policy）</span>，<span class='k'>后半把它改造成能多走几步的 off-policy 版本</span>。<b>而 p27 底下那行小字说明了为什么要学它：it's the basis for ... part of default project。</b>",
+   "eq": "p26 的两段回顾：\n\n  **在线 RL via 策略梯度**\n    · on-policy 算法，直接对 RL 目标求导\n    · 基线、因果性 —— 都是为了**降梯度方差**\n    · 采一批数据 → 应用梯度 → 改进策略\n\n  **推导出的离策略策略梯度**\n    · 重要性采样\n    · 策略上的 KL 约束\n    · 采一批数据 → **在同一批上走多步梯度**\n\n  直觉（两条，原文）：\n    · **Do more high reward stuff, less low reward stuff**\n    · **Gradient still very noisy, best with large batch sizes and dense rewards**\n\n────────────────────────────────────────\n整讲的降方差手段一共四件，按出现顺序：\n\n  ① 因果性（`.a` p13）—— 只用未来奖励      · 无偏\n  ② 基线（p16）—— 减一个常数              · 无偏\n  ③ 大批量（p17）—— 多采几条轨迹平均掉     · 无偏，但费样本\n  ④ 密集奖励（p17）—— 改奖励函数本身       · **改的是问题，不是算法**\n\n  ⚠ 前三件都没能解决 p17 叠外套那个毛病 —— 那要等 L04 的值函数。\n\n────────────────────────────────────────\np28 预告：\n  Actor critic methods → **basis for popular algorithms like PPO**\n                       → build closely on policy gradients!",
+   "pts": [
+    "<b>把整讲的降方差手段列齐，会发现它们解决的不是同一件事。</b><span class='k'>因果性和基线是「同样的数据，更好的估计」</span>；<span class='w'>大批量是「花更多数据换更好的估计」</span>；<span class='w'>密集奖励是「换一个更好解的问题」</span>。<b>只有前两件是白赚的。</b>",
+    "<b>p27 底下那行「the basis for: + part of default project」值得注意。</b><span class='k'>默认项目是「用 RL 微调一个 LLM」（L01 p12）</span>，<b>而那条路上跑的就是策略梯度的后代</b>。<span class='w'>所以这一讲不是理论铺垫，它是那个项目要动手写的东西。</span>",
+    "<b>这一讲与 L02 的关系，到结尾可以说清楚了：策略梯度 = 加权的模仿学习。</b><span class='k'>代理目标（p18）就是「每条样本带权重的最大似然」</span>；<b>权重为正就多做、为负就少做</b>。<span class='w'>L02 建立的那套代码骨架（输出分布、算对数似然），在这里原样复用。</span>",
+    "<b>注意 p26 两段的第三行形成了对照，那正是这一讲的全部收获。</b>前半：<span class='k'>collect batch → improve policy by applying gradient</span>（一批走一步）；后半：<span class='k'>collect batch → apply multiple gradient updates</span>（一批走多步）。<b>只差一个词，但那个词值一整套重要性采样加 KL 约束。</b>",
+    "<b>下一讲的位置写得很明确：Actor-Critic 是 PPO 的基础，而且 build closely on policy gradients。</b><span class='w'>也就是说 L04 不会推翻这一讲的任何东西，只会在它上面加一个值函数</span> —— <b>用来修 p17 叠外套那个「中间步骤拿不到信用」的洞</b>。"
+   ],
+   "tbl": {
+    "cap": "整讲四件降方差手段：代价各不相同",
+    "head": ["手段", "在哪页", "有偏吗", "<b>代价</b>"],
+    "rows": [
+     ["<b>因果性</b>（只用未来奖励）", "`.a` p13", "<b>无偏</b>", "<b>零 —— 白赚</b>"],
+     ["<b>基线</b>（减常数）", "p16", "<b>无偏</b>", "<b>零 —— 白赚</b>"],
+     ["<b>大批量</b>", "p17", "无偏", "<b>费样本</b>"],
+     ["<b>密集奖励</b>", "p17", "—", "<b>改的是问题本身</b>"],
+     ["<b>都没解决的</b>", "<b>p17 叠外套：中间步骤拿不到信用</b>", "—", "<b>→ L04 值函数</b>"]
+    ]
+   },
+   "say": "<b>这一讲结束时，你手上应该有两样东西，而它们的性质很不一样：</b><br><br><b>一个算法</b>：vanilla policy gradient，以及它的 off-policy 改造。<span class='w'>这个会被后面的 Actor-Critic、PPO 一层层替换掉。</span><br><br><b>一组手法</b>：对数梯度技巧、因果性、基线、代理目标、重要性采样、KL 约束。<span class='k'>这些不会被替换，它们会在后面每一讲里反复出现</span>。<br><br><b>所以复习这一讲的正确方式，是确认那六个手法你每一个都能说出「它解决什么、代价是什么」</b>，而不是背那个梯度公式。<br><br>· <span class='k'>对数梯度技巧</span> → 把 ∇ 挪进期望里（并且顺便让动力学消失）<br>· <span class='k'>因果性</span> → 砍掉一半与本步无关的噪声，无偏<br>· <span class='k'>基线</span> → 让低于平均的行为拿到负梯度，无偏<br>· <span class='k'>代理目标</span> → 一次反传算完，梯度不变<br>· <span class='k'>重要性采样</span> → 旧数据变合法，代价是方差<br>· <span class='k'>KL 约束</span> → 把那个代价压住<br><br><b>六条里有四条是「白赚或等价」，只有重要性采样那一条是真的在拿准确性换样本效率。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（下下讲：PPO —— 本讲后半那三步的成品形态）",
+    "href": "L05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一讲给你的最可迁移的东西，是那个「降方差手段按代价分级」的习惯。</b><br><br>你的瓶颈是评估预算，<span class='k'>而评估噪声直接决定了你需要多少次评估才能分辨两个配置</span>。<b>所以任何能降方差的手段，都等价于省评估次数</b>。<br><br><b>按本页那个分级，逐条对照你的问题</b>：<br>· <span class='w'>白赚的（无偏且不费样本）</span>：<b>配对比较</b>（同一批测试样本 + 固定种子评估所有候选，见 p16 那一条）、<b>控制变量</b>（只改一个算子时复用其余部分的结果）；<br>· <span class='w'>费样本的</span>：加大每个配置的重复评估次数 —— <b>直接消耗预算，但有时必须</b>；<br>· <span class='w'>改问题的</span>：换一个方差更小的评估指标（例如用连续分数而不是通过/不通过）—— <span class='k'>对应这里的「密集奖励」，而且同样要小心它是否还是你真正关心的那个目标</span>。<br><br><b>第一类应该先榨干再考虑第二类</b>。<span class='k'>这听起来显然，但实践中大多数人直接跳到第二类（多跑几次），因为那不需要动脑子。</span>",
+    "ref": "本讲四件降方差手段；对照 CSE 541 L06 的淘汰判据对方差的依赖"
+   }
+  }
+ ],
+ "quiz": {
+  "15": [
+   {
+    "q": "减掉一个常数基线 b 为什么不改变梯度的期望？",
+    "o": [
+     "因为 b 很小",
+     "因为多出来那一项 E[∇log p_θ(τ)·b] = b·∇∫p_θ(τ)dτ = b·∇1 = 0",
+     "因为它被学习率吸收了",
+     "因为 b 是从数据里估出来的"
+     ],
+    "a": 1,
+    "why": "关键是「概率密度积分为一，而 1 的梯度是 0」。这是整个 RL 里反复出现的手法 —— 凡是「某项期望为零」的论证，十有八九就是它。"
+   },
+   {
+    "q": "讲稿里那句 use the log trick in reverse 指的是什么？",
+    "o": [
+     "把 log 换成 exp",
+     "把梯度换成差分",
+     "正着用是 ∇p = p·∇log p（把 ∇ 挪进期望）；反着用是 p·∇log p = ∇p（把它变回可以直接积的东西）",
+     "对 b 求导"
+    ],
+    "a": 2,
+    "why": "同一个恒等式，两个方向，各解决一个问题。认出这件事，后面碰到「证明某项期望为零」就不会卡住。"
+   },
+   {
+    "q": "关于基线，讲稿补了哪个幻灯上没有的事实？",
+    "o": [
+     "基线必须为正",
+     "基线只能用于离散动作",
+     "基线会引入偏差",
+     "平均回报不是最优基线 —— 把方差写出来对 b 求导置零能解出真正的最优基线，它接近平均回报但带额外加权项"
+    ],
+    "a": 3,
+    "why": "实践中没人用最优基线，因为平均回报已经够好而且好算。"
+   },
+   {
+    "q": "「b 看起来依赖轨迹，怎么算常数？」讲者怎么答？",
+    "o": [
+     "整批数据共用同一个 b，所以对那一批而言它确实是常数；而且要随策略变好持续更新它",
+     "b 其实不是常数，证明有漏洞",
+     "b 取零就行",
+     "b 由网络学出来"
+    ],
+    "a": 0,
+    "why": "不更新的话，策略变好后「平均水平」上移，很快又会全是正梯度，退回加基线之前的毛病。"
+   }
+  ],
+  "17": [
+   {
+    "q": "叠外套这个例子里，最该注意的是哪条轨迹？",
+    "o": [
+     "τ¹ 没碰外套",
+     "τ² 只叠了袖子 —— 它朝正确方向走了一步，但奖励给 0，于是和「完全没碰」拿到一模一样的负梯度",
+     "τ³ 摊平但没叠",
+     "τ⁴ 叠好了"
+    ],
+    "a": 1,
+    "why": "讲稿：there is a good thing about folding the sleeves... And right now, it will actually be discouraged。策略学不到「叠袖子是个好开头」。"
+   },
+   {
+    "q": "这个毛病的根子在哪？",
+    "o": [
+     "基线取得不对",
+     "网络容量不够",
+     "奖励稀疏 —— 策略梯度只看得到整条轨迹的总回报，分不清内部哪一步好哪一步砸",
+     "学习率太大"
+    ],
+    "a": 2,
+    "why": "这正是 L01 p8 那条 indirect feedback 带来的信用分配问题的具体形态。"
+   },
+   {
+    "q": "讲者说「更密集的奖励」只是缓解而非根治，她举的反例是什么？",
+    "o": [
+     "奖励函数太难设计",
+     "先叠好了袖子拿到正奖励，后来又掉地上了 —— 整条轨迹总回报仍低，叠袖子那一段还是被连坐",
+     "密集奖励会让训练不稳定",
+     "密集奖励会增加方差"
+    ],
+    "a": 1,
+    "why": "根治要能把奖励归到具体的时间步上，而那正是值函数要干的事（L04）。"
+   }
+  ],
+  "18": [
+   {
+    "q": "本页的「代理目标」和 L02 的「凸替代损失」有什么本质区别？",
+    "o": [
+     "这里梯度完全相同，只是换了算得更快的写法（纯赚）；L02 是真的换了目标函数，保证也跟着换（有代价）",
+     "两者是同一回事",
+     "这里有偏，L02 无偏",
+     "这里只用于离散动作"
+    ],
+    "a": 0,
+    "why": "讲者自己点了名：I'm calling it surrogate because it's not the same as the very first objective。"
+   },
+   {
+    "q": "实现代理目标时最容易漏、而且漏了不报错的一步是？",
+    "o": [
+     "忘了除以 N",
+     "忘了加负号",
+     "忘了取对数",
+     "回报项必须当成常数不参与求导（PyTorch 里对权重张量 .detach()）"
+    ],
+    "a": 3,
+    "why": "让梯度流进 Σr − b 那一项的话，算出来的就不是 ∇J 了。训练照跑，只是学不动 —— 这类静默算错梯度的 bug 最难查。"
+   },
+   {
+    "q": "「weighted maximum likelihood」这个说法把策略梯度和什么接上了？",
+    "o": [
+     "模仿学习 —— 同一个 Σ log π_θ(a|s)，每项乘一个权重；正就多做、负就少做",
+     "监督回归",
+     "对比学习",
+     "变分推断"
+    ],
+    "a": 0,
+    "why": "所以实现上离散动作就是交叉熵乘权重、高斯策略就是平方误差乘权重 —— 代码骨架和 L02 一样。"
+   },
+   {
+    "q": "训练时打印出来的那个代理目标数值该怎么解读？",
+    "o": [
+     "它就是期望回报",
+     "它是预测误差",
+     "没法解读 —— 它既不是回报也不是误差，只有它的梯度有意义；要看进展得另外记录真实平均回报",
+     "它越小越好"
+    ],
+    "a": 2,
+    "why": "这是初学策略梯度最常见的困惑之一：盯着 loss 看，然后纳闷它为什么乱跳。"
+   }
+  ],
+  "20": [
+   {
+    "q": "为什么 vanilla policy gradient 必须是 on-policy 的？",
+    "o": [
+     "因为算法设计如此",
+     "因为那个期望的下标是 τ ∼ p_θ(τ)，要求样本来自当前策略；θ 一变前提就破了，估计就有偏",
+     "因为旧数据太旧",
+     "因为要保证收敛"
+    ],
+    "a": 1,
+    "why": "这不是「可以凑合用」的问题，是「用了就错」—— 除非做点什么来修正，那正是 p21 的重要性采样。"
+   },
+   {
+    "q": "offline/online 与 on-/off-policy 这两组词的区别是？",
+    "o": [
+     "前者问「要不要用学到的策略产生新数据」，后者问「新数据必须来自当前策略还是也能用旧策略的」",
+     "两者是同义词",
+     "前者是理论术语，后者是工程术语",
+     "前者关于数据量，后者关于算法"
+    ],
+    "a": 0,
+    "why": "两个维度独立：离线 RL 必然 off-policy，但 off-policy 不必离线 —— 本讲后半就是「在线但 off-policy」。"
+   },
+   {
+    "q": "讲稿把这一讲后半的野心说得很克制，原话是？",
+    "o": [
+     "能用任意来源的历史数据",
+     "能完全离线训练",
+     "能超过专家水平",
+     "only going to be a little off-policy —— 只是想在同一批数据上多走几步梯度"
+    ],
+    "a": 3,
+    "why": "认清这个克制的目标，重要性采样与 KL 约束两页就好懂了：两样东西都是在维护「a little」这个词。"
+   }
+  ],
+  "21": [
+   {
+    "q": "轨迹级重要性比值 Π_t π_θ'/π_θ 里，为什么初始分布和动力学约掉了？",
+    "o": [
+     "因为它们很小",
+     "因为分子分母里它们逐项相同（都不含 θ）—— 和 .a 片 p9 消掉它们是同一个理由",
+     "因为做了近似",
+     "因为假设环境是确定性的"
+    ],
+    "a": 1,
+    "why": "如果动力学也依赖 θ，这个比值根本算不出来（动力学是未知的）。策略梯度之所以可行，这条性质被用了两次。"
+   },
+   {
+    "q": "T = 200、每步比值偏离 1 只有 1% 时，连乘会变成多少？",
+    "o": [
+     "约 1.02 倍",
+     "约 2 倍",
+     "1.01²⁰⁰ ≈ 7.3 倍（反过来 0.99²⁰⁰ ≈ 0.13）",
+     "基本不变"
+    ],
+    "a": 2,
+    "why": "而真实的策略更新带来的单步偏离远不止 1%。所以这不是「长序列要小心」，是「长序列时这个式子没法用」。"
+   },
+   {
+    "q": "「q 必须在 p 有概率的地方非零」这条前提，有什么实际后果？",
+    "o": [
+     "确定性策略不能当提议分布 —— 它在除一个动作外处处为 0，新策略想探索的别的动作分母就是 0",
+     "q 必须是高斯",
+     "q 必须和 p 同分布族",
+     "q 必须方差更大"
+    ],
+    "a": 0,
+    "why": "这又一次解释了 L01 p39 的「为什么策略要随机」：随机性不只是为了探索，也是为了让旧数据可复用。"
+   },
+   {
+    "q": "讲稿给的那条比幻灯更实用的判据是什么？",
+    "o": [
+     "T 越小越好",
+     "样本越多越好",
+     "p 和 q 越像越好 —— 这句话直接推出了 p25 的 KL 约束",
+     "b 越大越好"
+    ],
+    "a": 2,
+    "why": "既然「越像越好」，那就显式地强制它们像。硬要求是 q≠0（否则式子没定义），软要求是 p≈q（否则方差大到没用）。"
+   }
+  ],
+  "23": [
+   {
+    "q": "逐时刻形式里被「often approximated as 1」的是哪一项？",
+    "o": [
+     "动作的比值 π_θ'(a|s)/π_θ(a|s)",
+     "状态分布的比值 π_θ'(s)/π_θ(s) —— 也就是 L02 复合误差那页的 p_π(s)",
+     "奖励项",
+     "基线 b"
+    ],
+    "a": 1,
+    "why": "新策略会去不同的地方，所以它一般不等于 1。讲义自己承认 hard to measure —— 要测它就得知道策略的稳态状态分布。"
+   },
+   {
+    "q": "这一步在整条推导里的地位是什么？",
+    "o": [
+     "又一个无偏的改写",
+     "一个等价变形",
+     "一个计算优化",
+     "本讲唯一一处有偏的近似 —— 前面因果性、基线、代理目标全都是无偏或精确等价的"
+    ],
+    "a": 3,
+    "why": "这是整个 PPO 家族的理论软肋。一路严谨到最后一步，把一个未知量设成了 1。"
+   },
+   {
+    "q": "为什么 KL 约束能为这个被扔掉的项「买单」？",
+    "o": [
+     "因为 KL 会把它算出来",
+     "因为 θ'≈θ ⇒ 两者访问的状态分布也接近 ⇒ 那个比值确实≈1",
+     "因为 KL 让方差变大",
+     "因为 KL 与状态分布无关"
+    ],
+    "a": 1,
+    "why": "所以 KL 约束一个动作两个作用：压重要性权重的方差，同时让这个近似站得住。它不是可选项而是必需品。"
+   },
+   {
+    "q": "读论文碰到 approximated as / assumed to be / for simplicity we take，该做什么？",
+    "o": [
+     "停一下 —— 这些词组后面往往藏着整篇文章最脆弱的那个假设，而审稿人也从这里下手",
+     "直接跳过，都是细节",
+     "只在理论论文里需要注意",
+     "查一下引用即可"
+    ],
+    "a": 0,
+    "why": "对写自己的论文同样成立：与其把这种近似藏在脚注里，不如像这张幻灯一样写在正文上，再说明它什么时候成立。"
+   }
+  ],
+  "24": [
+   {
+    "q": "「同一批数据走多步梯度」省下的到底是什么？",
+    "o": [
+     "省计算 —— 反传次数变少",
+     "省显存",
+     "省采数据 —— 多走几步梯度反而更费算力，但在真机/真人/LLM 评估上采样比算梯度贵好几个数量级",
+     "省超参调试"
+    ],
+    "a": 2,
+    "why": "所以这是一笔划算的交易 —— 前提是你的瓶颈在采样而不在算力。"
+   },
+   {
+    "q": "KL 约束 E_{s∼π_θ}[D_KL(π_θ'(·|s)‖π_θ(·|s))] ≤ δ 里，期望为什么对 s ∼ π_θ 取？",
+    "o": [
+     "因为旧策略更准",
+     "因为你只有旧策略的样本",
+     "因为 KL 是对称的，取谁都行",
+     "因为新策略还没训好"
+    ],
+    "a": 1,
+    "why": "另外 KL 本身不对称，写成 D_KL(π_θ'‖π_θ) 是刻意的，换个方向是另一个量、另一种行为 —— 抄反了不报错，只会让算法表现莫名其妙。"
+   },
+   {
+    "q": "TRPO 与 PPO 对这个 KL 约束的处理有什么不同？",
+    "o": [
+     "TRPO 真去解这个带约束的优化（要二阶信息）；PPO 放弃显式约束，用裁剪近似达到同样效果",
+     "两者相同",
+     "PPO 用更大的 δ",
+     "TRPO 不用重要性采样"
+    ],
+    "a": 0,
+    "why": "这正是 PPO 比 TRPO 简单得多也流行得多的原因。PPO 统治 LLM 后训练靠的不是更好的理论，是更容易跑对。"
+   }
+  ],
+  "26": [
+   {
+    "q": "整讲四件降方差手段里，哪两件是「白赚」的？",
+    "o": [
+     "因果性和基线 —— 都无偏且不费额外样本",
+     "大批量和密集奖励",
+     "基线和大批量",
+     "因果性和密集奖励"
+    ],
+    "a": 0,
+    "why": "大批量是「花更多数据换更好估计」，密集奖励是「换一个更好解的问题」。只有前两件是白赚的。"
+   },
+   {
+    "q": "p26 两段回顾的第三行只差一个词，差在哪？",
+    "o": [
+     "on-policy 与 off-policy",
+     "有基线与没基线",
+     "前半是「一批走一步」，后半是「一批走多步」—— 而那个词值一整套重要性采样加 KL 约束",
+     "有因果性与没因果性"
+    ],
+    "a": 2,
+    "why": "这就是这一讲后半的全部收获：让「采一批数据」这件事更值钱。"
+   },
+   {
+    "q": "复习这一讲的正确方式是？",
+    "o": [
+     "背下那个梯度公式",
+     "确认六个手法（对数梯度技巧、因果性、基线、代理目标、重要性采样、KL 约束）每一个都能说出「解决什么、代价是什么」",
+     "重新推导一遍 REINFORCE",
+     "记住所有例子"
+    ],
+    "a": 1,
+    "why": "算法会被 Actor-Critic、PPO 一层层替换掉，手法不会 —— 它们在后面每一讲里反复出现。六条里四条白赚，只有重要性采样是真的在拿准确性换样本效率。"
+   }
+  ]
+ }
+}
