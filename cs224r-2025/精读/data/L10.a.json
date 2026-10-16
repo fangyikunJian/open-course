@@ -1,0 +1,659 @@
+{
+  "_目标": {
+    "密度": 600,
+    "quote覆盖": 0.8,
+    "表格每N页": 4
+  },
+  "_守住的数字": [
+    "⚠ 这是客座讲座：主讲 **Aviral Kumar（CMU 计算机学院）**，不是 Chelsea Finn。",
+    "讲义共 41 页。主要覆盖两篇论文：Setlur, Garg, Geng, Garg, Smith, Kumar《RL on Incorrect Synthetic Data Scales the Efficiency of LLM Math Reasoning by Eight-Fold》NeurIPS 2024；Setlur, Nagpal, Fisch, Geng, Eisenstein, R. Agarwal, A. Agarwal, Berant, Kumar《Rewarding Progress: Scaling up Automated Process Supervision for LLM Reasoning》ICLR 2025。",
+    "p2 的例题来自 **AIME 2025**：求所有 b>9 使 17_b 整除 97_b，答案 **070**（讲义给了「thorough」与「quick」两份参考解）。",
+    "次词预测的误差界（p3）：|p̂_θ(y|x) − p*(y|x)| ∝ 1/|𝒟(y|x)|^α。",
+    "p4：估计 **2028 年**高质量互联网文本耗尽；DROID 机器人数据集 76k 轨迹 / 564 场景 / 52 栋楼 / 13 机构 / 86 任务。",
+    "⭐ p7 的设定：**稀疏奖励 MDP + 确定性动力学**。初始状态 = 问题的 token 串；动作 = 一「步」；s_{i} = s_{i−1} 与动作拼接（没有外部环境给下一状态）；只在终局给 r ∈ {0,1}。",
+    "三条数据轴（p9）：**SFT**（问题 + 人写的参考解）· **RFT**（问题 + 模型<b>自己</b>产生的正确解，多条）· **RL**（连<b>错误</b>的也用）。",
+    "p10 实测的标度指数：GSM8K 约 **|𝒟|^{−0.15}**，MATH 约 **|𝒟|^{−0.05}** —— 讲者说理想情况应当是 |𝒟|^{−1/2} 这个量级。",
+    "⚠ 讲稿给的倍数：**RFT 比 SFT 省 2 倍**数据；首步 DPO 省 **8 倍**（标题里那个 Eight-Fold）；PAV 省 5–6 倍且绝对提升 6–7 个百分点。",
+    "p11 的现象：固定问题数、只加「每题的正确解条数」，测试误差**先降后升**（MATH 与 GSM8K 两条都在约 30k–50k 处转折）。",
+    "p12 的例子（Betty 买钱包）：模型写 `The total amount of money Betty needs is 100 * 2 = 200. Betty needs 100 / 2 = 50 in total.` —— 中间那句 100×2=200 是<b>多余且错误</b>的一步，但最终答案 5 仍然正确。",
+    "⚠ GSM8K 与 MATH 这两个基准讲者明说**现在已经被刷满了**（fully solved），不该再拿来比较新方法。",
+    "讲稿里被问到采样温度，答「一般见人用 **0.6**」，并说并非定论。"
+  ],
+  "notes": [
+    {
+      "r": [
+        1,
+        2
+      ],
+      "t": "客座讲座的设定：把「推理」窄化成解竞赛数学题，答案必须是一个可判对错的数",
+      "star": 2,
+      "quote": "<em><b>Reinforcement Learning for LLM Reasoning</b> — Aviral Kumar, Carnegie Mellon University, School of Computer Science</em><br><em><b>Setup for Today: Solving Math Problems!</b></em><br><em><b>Problem 1.</b> Find the sum of all integer bases b &gt; 9 for which 17<sub>b</sub> is a divisor of 97<sub>b</sub>.</em><br><em><b>Solution 1 (thorough).</b> … (9b+7)/(b+7) = 9 − 56/(b+7) so we need only 56/(b+7) ∈ <b>Z</b>. Then b+7 is a factor of 56. … only b = 21, 49 are solutions. Thus the answer is 21 + 49 = <b>070</b>.</em><br><em><b>Solution 2 (quick).</b> We have b+7 | 9b+7 meaning b+7 | −56 so taking divisors of 56 under bounds to find b = 49, 21 meaning our answer is 49+21 = <b>070</b>.</em><br><em>Source: AIME questions, 2025.</em>",
+      "one": "<b>整讲把「推理」这个大词<span class='k'>窄化到一个可操作的设定</span>：自然语言进、自然语言出、但最后要落到一个能和标准答案对比的数。<span class='w'>这个窄化不是偷懒，是整套 RL 机器能装上去的前提</span> —— 没有可自动判定的奖励，后面一页都讲不下去。</b>",
+      "pts": [
+        "<b>先认清这是客座讲座，讲者是 Aviral Kumar（CMU），不是本课主讲。</b> <span class='k'>他在讲稿开头就交代了这是他自己那门课两周前讲过的内容的压缩版</span>，并且坦白 <em>“it's very hard to do justice to reasoning topics in one lecture”</em>。<b>⇒ 所以这一讲的组织方式是<b>他个人的</b>一种切法，不是领域的标准分类</b>。",
+        "<b>「推理」被窄化成什么，讲稿说得很直白</b>：<span class='w'><em>“we'll restrict ourselves to solving math problems”</em></span>。<b>目标是：模型看到题目，产出一份<b>像参考解那样</b>的自然语言解答，并且最后<b>答对</b></b>。<span class='k'>讲者把这两条分开列（“one, write a solution like this and, two, come up with the right answer finally”）</span>。",
+        "<b>⚠ 为什么必须是竞赛题？因为需要一个<b>确定的最终答案</b>。</b> <span class='k'>课堂上有人问「如果答案是一个证明而不是一个数呢」，讲者的回答很干脆：<em>“I think we as a community haven't figured out the right set of techniques for such problems. So that's why we started off with competition problems where there is a sort of a deterministic final answer.”</em></span> <b>⇒ 这是整个领域的边界，不是这一讲的偷懒</b>。",
+        "<b>这一页放了<b>两份</b>参考解（thorough / quick）而不是一份，这个细节后面会用上。</b> <span class='w'>同一个答案 070 可以由长短差别很大的两条路径到达</span>；<b>⇒ 「什么叫一个好的解答」本身就不唯一，而 p11 之后「在自己的正确解上反复模仿会变差」正与此有关</b>。",
+        "<b>⚠ 把答案框起来（<code>070</code>）这个格式也不是装饰。</b> <span class='k'>奖励函数就是「把框里的东西和标准答案比对」</span>——<b>p7 会把它写成 <code>r(answer, y*) ∈ {0,1}</code></b>。<span class='w'>⇒ 整个奖励机制依赖模型<b>遵守输出格式</b></span>，<b>而讲稿后面提到在线 RL 里「可以因为违反格式而罚它」（penalize it if it violates format），就是在给这件事上保险</b>。"
+      ],
+      "tbl": {
+        "head": [
+          "这个窄化买到了什么",
+          "代价是什么"
+        ],
+        "rows": [
+          [
+            "奖励可以<b>自动</b>判定（对比最终答案）",
+            "⚠ 只覆盖「有唯一数值答案」的题，证明题做不了"
+          ],
+          [
+            "可以大规模采样、自动打分、不需要人标注",
+            "只测终局正确性，<b>不</b>管中间推理对不对 —— p12 的毛病由此而来"
+          ],
+          [
+            "⇒ 整套 RL 机器能装上去",
+            "基准（GSM8K / MATH）很快被刷满，讲者明说已不该再用"
+          ]
+        ]
+      },
+      "say": "<b>讲者一开口就把这一讲的性质摆明了，这段值得原样留着 —— 它决定了该怎么读后面 40 页</b>：<br><em>“a high-level reasoning could mean many, many things. And it clearly even today means different things for different people, but what I'm going to do today in this lecture … is to give you <b>at least one perspective</b> on some of the trends in the field of reasoning.”</em><br><b>⇒ 「一种视角」而不是「这个领域的定论」</b>。<span class='k'>他在后面组织材料时也反复用「my characterization」「in my opinion」这种措辞</span>——<span class='w'>⚠ 读的时候要把「他的分类」与「公认的事实」分开记，尤其是 p6 那个按 DeepSeek-R1 切成前后两半的时间轴，那纯粹是他的叙事框架</span>。"
+    },
+    {
+      "r": [
+        3,
+        3
+      ],
+      "t": "为什么次词预测能work：一个把「能学多准」和「有多少数据」绑在一起的标度式",
+      "star": 2,
+      "quote": "<em><b>The Conventional Way of Training.</b> predict the next token · Foundation model (transformer) · text, image, video, audio tokens</em><br><em><b>Why does next token prediction work?</b></em><br><em>|p̂<sub>θ</sub>(<b>y</b>|<b>x</b>) − p*(<b>y</b>|<b>x</b>)| ∝ 1/|𝒟(<b>y</b>|<b>x</b>)|<sup>α</sup></em><br><em>Learned model · ground-truth model · Error reduces with <b>more data similar to the target x</b></em>",
+      "one": "<b>这个式子只说了一件事，但它是整讲的发动机：<span class='k'>学出来的模型与真值之间的差距，由「和目标问题<b>相似</b>的数据有多少」决定</span>。于是「数据不够」不再是一句抱怨，而是一个<span class='w'>有指数的</span>瓶颈。</b>",
+      "pts": [
+        "<b>先把式子读对：左边是「学到的条件分布」与「真值条件分布」的差，右边是「与 <code>x</code> 相似的数据量」的负幂。</b> <span class='k'>关键是分母上那个 <code>𝒟(y|x)</code> ——不是数据总量，是<b>与这个目标相关</b>的数据量</span>。<b>讲义用红字标注得很准：<code>Error reduces with more data similar to the target x</code></b>。",
+        "<b>⚠ 讲者对这个式子的地位有保留，这点要记住。</b> <span class='w'><em>“answering this question will take more than—it's an open research question to be honest. But <b>one perspective of looking at this that I particularly like</b> is to look at this particular equation”</em></span>。<b>⇒ 它是一个<b>有用的心智模型</b>，不是一条定理；指数 <code>α</code> 在这里也没有给值</b>。",
+        "<b>那么瓶颈在哪里？讲稿点得很清楚</b>：<span class='k'><em>“the amount of data that you have for a lot of these reasoning problems … you really don't have enough data to make this bound small enough, so you end up learning models that are not approximating human-level capabilities if you just do next token prediction.”</em></span>",
+        "<b>⭐ 这就是整讲的立论：<span class='k'>RL 不是因为「比监督学习高级」才被引入，是因为<b>监督学习的那个分母加不动了</b></span>。</b> <span class='w'>下一页用两张图给这件事配上证据（文本 2028 年耗尽、机器人数据更少）</span>，<b>p9 之后则给出三条绕开它的路</b>。",
+        "<b>⚠ 一个容易读漏的推论：式子说的是「相似的数据」，所以<b>加无关数据没用</b>。</b> <span class='k'>这解释了为什么后面 RFT（让模型自己产生<b>针对这些题</b>的解）会比继续堆通用语料有效</span>——<b>自己采的样本天然「与目标相似」，分母涨得最快</b>。"
+      ],
+      "eq": "次词预测的误差（讲者称之为「我喜欢的一个视角」，非定理）：\n\n  | p̂_θ(y|x) − p*(y|x) |  ∝  1 / |𝒟(y|x)|^α\n    └ 学到的模型 ┘ └ 真值 ┘        └ 与目标 x <b>相似</b>的数据量 ┘\n\n⇒ 瓶颈不是「方法不够好」，是分母加不动了\n⇒ 而且「加无关数据没用」—— 这正是后面 RFT 能赢的理由：\n   模型自己针对这些题采的样本，天然与目标相似",
+      "res": {
+        "tag": "推断",
+        "v": "<b>把这个式子套到你的课题上，会发现你面对的根本不是同一个瓶颈 —— 而想清楚这一点能省掉一次误用。</b> <span class='k'>这一讲的瓶颈是「<b>训练</b>语言模型的数据不够」；你的瓶颈是「<b>评估</b>配置的预算不够」</span>。<b>⇒ 两者都表现为「样本不足」，但可动的旋钮完全不同</b>：<span class='w'>他们能靠「让模型自己生成解答」把分母撑大（生成是便宜的，判对错也便宜）；而你每多评估一个配置就要真的调一次 API，<b>生成本身就是成本</b></span>。<b>⚠ 所以这一讲里「自己采样」这一招<b>不能照搬</b></b>——<span class='k'>它在那边几乎免费，在你这里正是你要省的东西</span>。<b>⇒ 真正能借的是它的<b>分析框架</b>（三条数据轴、per-step credit），不是它的省钱机制。</b>",
+        "ref": "本讲 p3–p4 · 简报 §4d（穷举 oracle 的成本估算）"
+      }
+    },
+    {
+      "r": [
+        4,
+        4
+      ],
+      "t": "数据确实不够：文本估计 2028 年耗尽，而具身领域更少得多",
+      "star": 1,
+      "quote": "<em><b>But in Many Problems, Data is Limited/Biased…</b></em><br><em><b>Math reasoning</b>: It is estimated we will run out of high-quality Internet text by <b>2028</b></em><br><em><b>Embodied AI</b>: DROID — Distributed Robot Interaction Dataset. 76k Episodes · 564 Scenes · 52 Buildings · 13 Institutions · 86 Tasks/Verbs. <b>Real-world is stochastic, this is little data compared to LLMs!</b></em>",
+      "one": "<b>两张图给上一页的式子配证据：左边是文本语料的存量曲线（2028 年前后触顶），右边是机器人数据的体量（<span class='w'>7.6 万条轨迹</span> —— 和 LLM 的语料量不在一个量级）。</b>",
+      "pts": [
+        "<b>左图读法：横轴是年份，纵轴是有效 token 存量（对数轴）。</b> <span class='k'>绿线是「数据存量」，蓝线是「数据集规模的外推」，两条虚线标的是「存量被用尽的中位年份」（一条含 5 倍过训练的情形）</span>；<b>图上还标了 GPT-3 / PaLM / FLAN / Falcon-180B / DBRX / Llama 3 的位置，看得出外推线是怎么拟出来的</b>。",
+        "<b>⚠ 要注意这张图说的是<b>高质量</b>文本，不是全部文本。</b> <span class='w'>讲稿的措辞是 <em>“you're going to run out of high-quality data of this sort by 2028”</em></span>，<b>而「of this sort」指的是前一句——「从互联网上拿难题的高质量解答」</b>。<span class='k'>⇒ 瓶颈是<b>难题的好解答</b>，不是文字</span>。",
+        "<b>右边 DROID 那个对照是讲者顺手带的，但它说明了这不是数学一个领域的问题。</b> <span class='k'><em>“This also happens in other domains, like for instance, in robotics and embodied AI where, again, data is very limited”</em></span>。<b>⚠ 而具身领域还多一重麻烦：<code>Real-world is stochastic</code></b>——<span class='w'>这和本讲 p7 要假设的「确定性动力学」正好相反</span>。",
+        "<b>⇒ 这一页在整讲里的作用只有一个：把「为什么要引入 RL」从一句主张变成一个有数的论证。</b> <span class='k'>下一页会补上第二条论证（就算有数据、训出来的模型也会在逻辑上出错）</span>，<b>两条合起来才完整</b>。"
+      ],
+      "tbl": {
+        "head": [
+          "",
+          "数学推理",
+          "具身 AI（DROID）"
+        ],
+        "rows": [
+          [
+            "数据瓶颈",
+            "高质量解答，估计 2028 年耗尽",
+            "76k 轨迹 —— 与 LLM 语料不在一个量级"
+          ],
+          [
+            "动力学",
+            "⭐ 确定性（p7 要用到）",
+            "⚠ 随机（real-world is stochastic）"
+          ],
+          [
+            "这一讲的设定适用吗",
+            "适用",
+            "⚠ 不直接适用 —— 确定性动力学那条假设就破了"
+          ]
+        ]
+      }
+    },
+    {
+      "r": [
+        5,
+        5
+      ],
+      "t": "就算有数据也不够：模型会写出一份「看起来很像」但逻辑是错的解答",
+      "star": 3,
+      "quote": "<em><b>And Training on Current Data is Not Enough</b></em><br><em>Show that the inequality Σ<sub>i</sub>Σ<sub>j</sub>√|x<sub>i</sub>−x<sub>j</sub>| ≤ Σ<sub>i</sub>Σ<sub>j</sub>√|x<sub>i</sub>+x<sub>j</sub>| holds for all real numbers x<sub>1</sub>,…,x<sub>n</sub>.</em><br><em><b>Analyzing individual terms is not good enough</b></em><br><em>The model “<b>asserts</b>” its way out, no realization of its mistake / backtracking</em><br><em>(模型解答节选) Case 3: x<sub>i</sub> ≥ 0 and x<sub>j</sub> ≤ 0 or vice versa: This makes (x<sub>i</sub>−x<sub>j</sub>) and (x<sub>i</sub>+x<sub>j</sub>) different in signs or their modulus. The absolute values may change based on these signs but we still have the result as √|x<sub>i</sub>+x<sub>j</sub>| ≥ √|x<sub>i</sub>−x<sub>j</sub>|</em>",
+      "one": "<b>这一页是整讲最有说服力的一张：模型的解答<span class='k'>排版、措辞、分情况讨论都像模像样</span>，可它在最关键的 Case 3 上<span class='w'>直接「断言」了结论</span>，既没有证明，也没有察觉自己没证。</b>",
+      "pts": [
+        "<b>题目来自 IMO 2021，而且讲者推测它<b>就在</b>这些模型的训练集里</b>：<span class='k'><em>“presumably this question exists in the training sets of one of these models”</em></span>。<b>⇒ 所以这不是「没见过」的问题，是「见过也不会」的问题</b>。",
+        "<b>这道题的要害讲义用粉框点了出来：<code>Analyzing individual terms is not good enough</code>。</b> <span class='w'>你不能逐项比较 <code>√|x_i−x_j|</code> 与 <code>√|x_i+x_j|</code>，因为逐项的不等式<b>根本不成立</b>（取 <code>x_i=1, x_j=−1</code> 立刻就反掉）</span>；<b>必须把整个双重求和当成一个整体来处理</b>。",
+        "<b>而模型做了什么：它<b>恰好</b>就去逐项比较了，而且在 Case 3 处走不下去时，直接写下 <code>we still have the result as …</code> 就收尾了。</b> <span class='k'>讲义给这个行为起的名字很准：<b>“asserts” its way out</b>——<b>用断言蒙混过关</b></span>。",
+        "<b>⭐ 最刺眼的不是它错了，是 <code>no realization of its mistake / backtracking</code>。</b> <span class='w'>它没有「我这里卡住了」的自觉，也没有回头换一条路</span>。<b>⇒ 而这正好点出了后面「thinking 模型」改进的方向（p37 之后）：<b>会不会验证自己、会不会回溯</b></b>。",
+        "<b>讲稿把这个失败模式总结得很好，值得原样记下来</b>：<span class='k'><em>“they're going to produce a solution that looks very much like a legitimate solution that you could have written on an exam. <b>It's just that solution ends up being wrong, and the logical content of that solution is not quite correct.</b> And that's precisely something that RL tries to fix.”</em></span>",
+        "<b>⚠ 这一页对「用 LLM 当评判者」是一记警告，而且方向和直觉相反</b>：<span class='w'>模型产出的东西「看起来对」的程度，与「实际对」的程度是<b>可以脱钩</b>的</span>。<b>⇒ 所以这一讲全程坚持用<b>最终答案比对</b>当奖励，而不是让另一个模型去评判解答的质量</b>——<span class='k'>因为后者正好会被这种「看着很像」的解答骗到</span>。"
+      ],
+      "tbl": {
+        "head": [
+          "这一页的两条论证",
+          "说的是什么",
+          "RL 怎么接"
+        ],
+        "rows": [
+          [
+            "数据不够（p4）",
+            "分母加不动了",
+            "自己采样 / 用上失败的数据 —— 把分母撑大"
+          ],
+          [
+            "⭐ 就算有数据也不够（p5）",
+            "训出来的解答「形似而神不似」，且<b>不自知</b>",
+            "用可自动判定的奖励去管<b>逻辑结果</b>，不管措辞"
+          ],
+          [
+            "⚠ 由此定下的一条方法论",
+            "奖励只认最终答案，不让模型评判解答质量",
+            "否则正好被「看着很像」的解答骗到"
+          ]
+        ]
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>「形似而神不似、且不自知」这个失败模式，直接威胁你那套评估流程里最薄弱的一环。</b> <span class='k'>如果某个 benchmark 的判对错依赖另一个 LLM 来评（LLM-as-judge），那么这一页说的正是：<b>被评的那份输出越像样，越容易骗过评判者</b></span>——<b>而「更强的模型产出更像样的输出」恰恰是你在比较档位时的默认情形</b>。<span class='w'>⇒ 后果是系统性的：强档位的 <code>Acc</code> 可能被<b>高估</b>，而你正是在用 <code>Acc</code> 的差去决定该不该降档</span>。<b>⇒ 两条可操作的推论</b>：<span class='k'>① 优先选有<b>可程序化判定</b>答案的 benchmark（数学、代码的单测），这与本讲窄化到竞赛题是同一个理由；② 若必须用 LLM-judge，评判者要<b>固定在一个档位</b>上，且不能是被评的那一个</span>。⚠ <b>这是推断</b>；但它成本很低、而且不验的话整条实验链的结论都悬着。",
+        "ref": "本讲 p5 · 简报 §5（止损闸：benchmark 要有 headroom）"
+      }
+    },
+    {
+      "r": [
+        6,
+        6
+      ],
+      "t": "全讲的骨架：以 DeepSeek-R1 为界，切成「经典技术」与「现代延伸」两半",
+      "star": 2,
+      "quote": "<em><b>Outline: RL for Reasoning</b>　(time axis, 红色竖线标着 <b>DeepSeek-R1 / “thinking” models</b>)</em><br><em><b>Classical RL techniques for LLM reasoning</b>: 1. Imitation Learning 2. Offline reinforcement learning 3. Online reinforcement learning. <b>Takeaway:</b> Training with RL can help improve efficiency of learning!</em><br><em><b>Modern extensions of these RL techniques</b>: 1. Online reinforcement learning 2. Some Extensions. <b>Summary:</b> Still the old recipes and RL ideas are helpful!</em>",
+      "one": "<b>两个框的结论其实是同一句话的两种说法：<span class='k'>RL 买到的是<b>学习效率</b></span>（左框），而且 <span class='w'>thinking 模型并没有换配方</span>（右框）。⇒ 读这一讲时真正要追的是「效率提升了几倍」，不是「又发明了什么算法」。</b>",
+      "pts": [
+        "<b>时间轴上那条红线是 2025 年 1 月（DeepSeek-R1 发布）。</b> <span class='k'>讲者在课上还问了一句有多少人知道这个模型</span>，并把它和 OpenAI 的 O 系列、Gemini thinking、Claude Sonnet thinking 归成同一族：<b><em>“these are models of the same family”</em></b>。",
+        "<b>左框的三层（模仿学习 → 离线 RL → 在线 RL）正是这门课前九讲的顺序，这不是巧合。</b> <span class='w'>讲者明说 <em>“I'll talk about techniques that rely on some form of imitation learning, which I'm guessing has been covered in the class”</em></span>；<b>⇒ 这一讲是把 L02 / L07 / L03 的工具<b>原样</b>搬到语言模型上，不是另起炉灶</b>。",
+        "<b>⭐ 右框那句 <code>Still the old recipes and RL ideas are helpful!</code> 是整讲的落点，而且讲者在最后一页把它说得更强</b>：<span class='k'><em>“really, <b>nothing has changed in terms of the high-level techniques</b> that I talked about, except that the base models have become more interesting”</em></span>。<b>⇒ 变的是<b>基座模型能采出什么样的「步」</b>，不是算法</b>。",
+        "<b>⚠ 左框的 Takeaway 用词要抠一下：<code>improve <b>efficiency</b> of learning</code>，不是「提高上限」。</b> <span class='w'>整个 Part 1 比较的都是<b>达到同样测试误差需要多少数据</b>（2 倍 / 8 倍 / 5–6 倍）</span>，<b>而不是「最终能做到多好」</b>。<span class='k'>⇒ 这个口径要记住，否则会把论文里的「八倍」读成「性能八倍」</span>。",
+        "<b>⚠ 这个按时间切的框架是讲者<b>个人的</b>叙事。</b> <span class='k'>他自己标了 <em>“This is my characterization of this whole space”</em> 并补了 <em>“there's a lot of literature that has been coming out, so I'll probably miss out on some of them”</em></span>。<b>⇒ 引用时别把它当成领域共识</b>。"
+      ],
+      "eq": "时间轴：  ←── 经典技术 ──┤ DeepSeek-R1 / thinking 模型 ├── 现代延伸 ──→\n                        （2025 年 1 月）\n\n左框（Part 1）            右框（Part 2）\n  1. 模仿学习                1. 在线 RL\n  2. 离线 RL                 2. 一些延伸\n  3. 在线 RL\n  Takeaway: RL 提升的是       Summary: 还是那些老配方和\n  <b>学习效率</b>（2x / 8x / 5–6x）  老想法在起作用\n\n⚠ 口径：比的是「达到同样测试误差要多少数据」，不是「最终能做到多好」",
+      "link": {
+        "t": "你学过的对应：CS224R L02 模仿学习：行为克隆与 DAgger（左框第一层就是它。这一讲把 SFT 当成「在人写的参考解上做行为克隆」，而 p11 之后发现的「在自己的正确解上反复模仿会变差」，正是 L02 那条复合误差在语言模型上的一个变体）",
+        "href": "L02-精读.html"
+      }
+    },
+    {
+      "r": [
+        7,
+        7
+      ],
+      "t": "把解题写成 MDP：稀疏奖励 + 确定性动力学，而状态就是「到目前为止写的所有字」",
+      "star": 3,
+      "quote": "<em><b>Problem Setup: LLM Math Reasoning Problems</b></em><br><em><b>Problem:</b> Suppose a and b are positive real numbers with a &gt; b and ab = 8. Find the minimum value of (a²+b²)/(a−b). ← <b>Initial state</b></em><br><em><b>Ground truth solution:</b> We can write (a²+b²)/(a−b) = … = a − b + 16/(a−b). By AM-GM, a−b+16/(a−b) ≥ 2√((a−b)·16/(a−b)) = 8. Equality occurs when a−b = 4 and ab = 8. We can solve these equations to find a = 2√3+2 and b = 2√3−2. Thus the minimum value is <b>8</b>.　← <b>Steps = actions</b>, <b>reward = 1 if answer is correct</b></em><br><em><b>Intuition: Sparse-reward MDP with deterministic dynamics</b></em>",
+      "one": "<b>这一页是整讲的地基，而且它的两条性质都很特殊：<span class='k'>奖励只在终局给</span>，并且<span class='w'>根本没有外部环境</span> —— 下一个状态就是「上一个状态 + 刚写的那段字」拼起来。后面所有公式的形状都由这两条决定。</b>",
+      "pts": [
+        "<b>三件东西的对应要记死：<span class='k'>初始状态 <code>s_0</code> = 题目的 token 串；动作 <code>a_i</code> = 一「步」（这篇工作里就是一个句子）；奖励 = 只在最后比对答案，<code>r ∈ {0,1}</code></span>。</b> <b>讲义把参考解里的几段分别圈出来标成 <code>Steps = actions</code>，把最后那个框起来的 8 标成 <code>reward = 1 if answer is correct</code></b>。",
+        "<b>⭐ 「确定性动力学」具体是什么意思，讲稿在黑板上推了一遍，值得原样记下</b>：<span class='k'><em>“there's <b>no external environment</b> in this whole process of producing these steps… your next state S2 is just S0, A0, A1 concatenated with each other until you hit the final answer.”</em></span> <b>⇒ <code>s_i = [s_0, a_0, …, a_{i−1}]</code>，拼接，没有任何不确定性</b>。",
+        "<b>⚠ 这条性质在 p17 会直接改掉优势函数的形状。</b> <span class='w'>一般的优势是 <code>A = Q(s,a) − V(s)</code>；而这里因为状态只是拼接、动力学确定，<code>V(s_i)</code> 恰好等于 <code>Q(s_{i−1}, a_{i−1})</code></span>，<b>于是优势变成 <b><code>Q − Q</code></b>（相邻两步的 Q 值之差），不是 <code>Q − V</code></b>。<span class='k'>⇒ 这不是近似，是这个 MDP 特有的恒等关系</span>。",
+        "<b>「稀疏奖励」的程度也要说清：<b>中间每一步的奖励都是 0</b>，只有终局非 0，而且折扣 <code>γ = 1</code>。</b> <span class='w'>讲稿：<em>“the reward that you get is only at termination, so there's 0000 until you end up hitting the final answer. Gamma is set to exactly 1.”</em></span>",
+        "<b>⚠ 动作空间有多大？课堂上问了，答案是「无穷，但和连续控制的无穷不一样」</b>：<span class='k'><em>“unlike continuous control where you have a fixed dimension vector of continuous values… you have a <b>variable length string of tokens which are discrete</b>, but then there could be many of them.”</em></span> <b>⇒ 离散、变长、组合爆炸 —— 这正是不能用常规 RL 那套动作空间假设的原因</b>。",
+        "<b>还有一问直接预告了整讲的主线，讲者当场认了</b>：<span class='w'>问「会不会出现答案对了、但中间步骤很差的情况？」答 <em>“There is. And I'm going to be talking about that in this lecture actually.”</em></span> <b>⇒ 那就是 p12 的 spurious steps</b>。"
+      ],
+      "eq": "推理 MDP（本讲全程的设定）：\n\n  s_0 = 题目的 token 串\n  a_i = 第 i 「步」（这篇工作里 = 一个句子）\n  s_i = [ s_0, a_0, a_1, …, a_{i−1} ]        ← 拼接，没有外部环境\n  r   = 0, 0, 0, …, 0, r(answer, y*) ∈ {0,1} ← 只在终局，γ = 1\n\n两条性质各自的后果：\n  稀疏奖励    ⇒ 中间步骤拿不到任何信号 ⇒ 整讲都在想办法「造」出逐步的信号\n  确定性动力学 ⇒ V(s_i) = Q(s_{i−1}, a_{i−1}) ⇒ 优势是 <b>Q − Q</b> 而不是 Q − V（p17）",
+      "tbl": {
+        "head": [
+          "",
+          "常规 RL（如 CS224R L03 的人形机器人）",
+          "本讲的推理 MDP"
+        ],
+        "rows": [
+          [
+            "下一个状态从哪来",
+            "环境给（随机）",
+            "⭐ 自己拼接（确定）"
+          ],
+          [
+            "奖励",
+            "逐步都有（如前进速度）",
+            "⚠ 只在终局，0/1"
+          ],
+          [
+            "动作空间",
+            "固定维度的连续向量",
+            "离散、<b>变长</b>的 token 串"
+          ],
+          [
+            "优势函数",
+            "A = Q(s,a) − V(s)",
+            "⭐ A = Q(s_i,a_i) − Q(s_{i−1},a_{i−1})"
+          ],
+          [
+            "γ",
+            "通常 &lt; 1",
+            "= 1"
+          ]
+        ]
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>⭐ 这个 MDP 与你的 workflow 设定<b>逐条同构</b>，而且同构得足够好，使得 p16–p17 那套估计量可以直接搬过去。</b> <span class='k'>初始状态 = 一条 query；动作 = 给某个节点挑一个档位；状态 = query 加上「已经定下来的那几个节点的档位」（纯拼接，没有外部环境）；奖励 = 整条 workflow 跑完之后答对没有，0/1，只在终局</span>。<b>⇒ 四条性质全中：稀疏、终局、确定性拼接、γ=1</b>。<span class='w'>⚠ 唯一的差别也要说清：他们的「下一步」是模型<b>生成</b>出来的（便宜），你的「下一步」是<b>真的去调一次 API</b>（贵）</span>。<b>⇒ 两条推论</b>：<span class='k'>① 优势 = <code>Q − Q</code> 这个简化在你这里<b>同样成立</b>，不必引入值函数网络；② 而 p16 那个「从前缀做 rollout 来估 Q」的办法，落到你这里就是<b>简报 §5 的「一步偏离」实验</b> —— 固定前 i 个节点的档位、让后面跑完、看成功率</b>。<span class='w'>这一讲等于给那个实验提供了形式化的名字（Q 函数）与估计量</span>。",
+        "ref": "本讲 p7、p16–p17 · 简报 §5（一步偏离实验与可加性检验）"
+      }
+    },
+    {
+      "r": [
+        8,
+        9
+      ],
+      "t": "三条可以独立加码的数据轴：人写的解 / 自己写对的解 / 连写错的也用",
+      "star": 3,
+      "quote": "<em><b>Part 1: Classical RL Methods for Reasoning.</b> Main papers covered: <b>RL on Incorrect Synthetic Data Scales the Efficiency of LLM Math Reasoning by Eight-Fold.</b> Setlur, Garg, Geng, Garg, Smith, <u>Kumar</u>. NeurIPS 2024 · <b>Rewarding Progress: Scaling up Automated Process Supervision for LLM Reasoning.</b> Setlur, Nagpal, Fisch, Geng, Eisenstein, R. Agarwal, A. Agarwal, Berant, <u>Kumar</u>. ICLR 2025</em><br><em><b>Setup: Data-Scaling Analysis.</b> Basic Approach: Collect <b>problems</b> and corresponding oracle <b>solutions</b> to train on</em><br><em><b>SFT</b> (纵轴 Number of questions): Obtained by asking bigger models / human to write questions and one ref answer</em><br><em><b>RFT</b> (横轴 Number of correct solutions, all produce the same final answer): Multiple solutions sampled on-policy from the learner</em><br><em><b>RL</b> (斜轴 Number of incorrect solutions): Also using bad solutions produced by the learner on some questions</em>",
+      "one": "<b>一张三维坐标系把整个 Part 1 组织了起来：<span class='k'>往上加<b>题目数</b>（SFT）、往右加<b>自己写对的解答条数</b>（RFT）、往左下加<b>自己写错的</b>（RL）</span>。三条轴可以独立加码，而后面逐一量它们各自值多少。</b>",
+      "pts": [
+        "<b>先把 RFT 这个词的来历搞清楚，它是这一讲的自造词。</b> <span class='k'>Rejection Fine-Tuning：采 <code>n</code> 条解答 → 用标准答案判对错 → <b>拒绝</b>掉错的 → 在剩下的对的上面做 SFT</span>。<b>讲稿把算法写成三步，而且强调它<b>不需要人写的解答</b></b>：<span class='w'><em>“it's not actually asking you for Oracle solutions that a human wrote. All it asks for is solutions that your model can produce, which ended up being correct.”</em></span>",
+        "<b>⭐ 三条轴的区别，本质上是<b>「用什么数据」</b>的三个档位：</b> <span class='k'>SFT 要「题 + <b>别人</b>写的对的解」；RFT 要「题 + <b>自己</b>写的对的解」；RL 连「<b>自己写错的</b>解」都用</span>。<b>讲义给第三条轴的注解很直白：<code>Also using bad solutions produced by the learner</code></b>。",
+        "<b>为什么错的也能用？讲稿接到了这门课的离线 RL 那一讲</b>：<span class='w'><em>“in RL when we train on data, we don't really need the data to be high-quality or high-rewarding. You talked about offline RL. That's on your homework. <b>You can learn from suboptimal data, data that does not succeed.</b>”</em></span>",
+        "<b>⚠ RFT 有一个实现细节讲者本来删掉了、被问到才补的：<b>要去重</b>。</b> <span class='k'><em>“you would often deduplicate S tildes… one of the recipes people do is sample more than n, like, 2n, and retain the n of them, which actually seem to be maximally diverse.”</em></span> <b>⇒ 采 <code>2n</code> 条、留最多样的 <code>n</code> 条</b>。",
+        "<b>⚠ 另一个被问到的坑：RFT 会不会偏向<b>简单</b>题？会。</b> <span class='w'><em>“The short answer is, it does, yes, in some way.”</em></span> <b>而实践上的解法是先 SFT 再 RFT</b>：<span class='k'><em>“you're going to potentially start with training the model on top of Oracle question answer pairs, first with SFT… and then do rejection fine tuning on top of it.”</em></span> <b>⇒ 三条轴不是互斥的选择，是<b>叠加</b>的顺序</b>。",
+        "<b>⚠ 还有一问很要紧，讲者答得很干脆：RFT 会不会把「用错方法蒙对答案」也学进去？</b> <span class='k'>问：<em>“if the method got the correct answer with the wrong approach, then you're incentivizing the model to learn that”</em>；答：<em>“the answer is yes, and that's why we'll see how these things behave in empirical results.”</em></span> <b>⇒ 这正是 p11–p12 要兑现的那个毛病</b>。"
+      ],
+      "eq": "RFT（Rejection Fine-Tuning）算法：\n  for iter = 1..T:\n    ① 采样  y_1..y_n ~ π_θ(·|x)                    ← on-policy，自己采\n    ② 过滤  S̃ = { y_j : r(y_j) = 1 }               ← 用标准答案判，留对的（⚠ 要去重）\n    ③ 在 S̃ 上做 SFT / 行为克隆\n\n三条轴（可叠加，不是互斥）：\n  ↑ 题目数                SFT  题 + <b>别人</b>写的对的解\n  → 每题正确解条数        RFT  题 + <b>自己</b>写的对的解\n  ↙ 每题错误解条数        RL   连<b>自己写错的</b>也用\n\n实践顺序：先 SFT 打底（否则模型在难题上一条都对不了）→ 再 RFT → 再 RL",
+      "tbl": {
+        "head": [
+          "",
+          "数据从哪来",
+          "要不要人标注",
+          "⚠ 已知的毛病"
+        ],
+        "rows": [
+          [
+            "SFT",
+            "人 / 更大的模型写的参考解",
+            "要",
+            "分母加不动（p3–p4）"
+          ],
+          [
+            "RFT",
+            "⭐ 模型自己采样、按答案过滤",
+            "<b>不要</b>",
+            "偏向简单题；过度使用反而变差（p11）"
+          ],
+          [
+            "RL",
+            "连失败的采样也用",
+            "不要",
+            "需要逐步的信用分配，否则用不上（p14 起）"
+          ]
+        ]
+      },
+      "say": "<b>讲稿里有一问问的正是「这会不会逼模型说废话」，回答很具体、而且给了一个好例子，值得留着</b>：<br><em>“we are not really encouraging verbosity at all. All we're doing is we're simply sampling multiple traces from a model and training the model to closely mimic traces, which ended up being successful. … imagine that, let's say, the question is 2 plus 2 is equal to question mark. Maybe one of the traces gets you an answer of 4. And there are some traces which are going to <b>count 2 plus 2 in 10 different ways</b>. But most of the traces write down 4 right away. Then … you're going to find traces which end up with a 4 right away, and you're going to train them all to produce four right away.”</em><br><b>⇒ 机制说清了：RFT 不奖励长度，它奖励<b>成功</b>；长度只是「成功的解答碰巧有多长」的副产品</b>。<span class='w'>⚠ 但反过来也成立 —— 如果难题上只有长解答才成功，它就会把长度学进去</span>，<span class='k'>这正是后来 thinking 模型「想得更久」的雏形（p37 之后）</span>。",
+      "res": {
+        "tag": "推断",
+        "v": "<b>这三条轴可以原样改写成你的实验设计表，而且改写之后会发现 <b>AFlow 只用了前两条</b>。</b> <span class='k'>「题目数」= 用了多少条 query；「自己写对的解」= 跑出来 <code>G</code> 不错的那些配置；「自己写错的」= 跑砸了的配置</span>。<b>而简报 §2【已核】记着 AFlow 的做法是「按分数排序取 top-k」——<b>失败的配置只进了经验日志的文字描述，没有进优化目标</b></b>。<span class='w'>⇒ 这一讲的标题（Eight-Fold）主张的恰恰是：把失败数据用对，数据效率能差 8 倍</span>。<b>⇒ 一个可直接做的消融：同样的预算下，比较「只用成功配置做筛选」与「成功+失败都用（按 p18 的优势过滤）」</b>。⚠ <b>但要先过一关</b>：<span class='k'>用上失败数据的前提是能算出<b>逐节点</b>的优势（p16），而那要做 rollout —— 在你这里就是简报 §5 的一步偏离实验，每个格子都要真的跑</span>。<b>所以这条路的性价比取决于那个实验的成本，不能想当然</b>。",
+        "ref": "本讲 p9 · 简报 §2（top-k 选择与经验日志）· 简报 §5（一步偏离实验）"
+      }
+    },
+    {
+      "r": [
+        10,
+        10
+      ],
+      "t": "热身实测：加题目数确实有用，但指数小得让人绝望",
+      "star": 2,
+      "quote": "<em><b>Warmup: Scale #{Questions, Oracle Ans}</b></em><br><em>(GSM8K 与 MATH 两张图，横轴 #questions 从 8k/16k 到 128k，纵轴 Test error；图例 SFT DeepSeek / RFT DeepSeek)</em><br><em>|𝒟|<sup>−0.15</sup>　(GSM8K)　　|𝒟|<sup>−0.05</sup>　(MATH)</em><br><em>Setlur et al. <b>RL on Incorrect Synthetic Data Scales the Efficiency of LLM Math Reasoning by Eight-Fold.</b> NeurIPS 2024.</em>",
+      "one": "<b>误差确实随数据量下降，<span class='w'>但拟合出来的指数只有 −0.15 和 −0.05</span>。讲者拿它和「理想情况」对比：<span class='k'>你想要的是 <code>|𝒟|^{−1/2}</code> 那个量级</span> —— 差了三到十倍的指数，意味着堆数据这条路实际上走不通。</b>",
+      "pts": [
+        "<b>先确认这张图在量什么：横轴是<b>题目数</b>（8k 到 128k），纵轴是测试误差，比较的是 SFT 与 RFT。</b> <span class='k'>两个基准 GSM8K（误差约 0.26–0.28）与 MATH（误差约 0.61–0.62）</span>，<b>底下那两个幂次是对曲线拟出来的</b>。",
+        "<b>⭐ 指数的含义要算一下才有感觉。</b> <span class='w'><code>|𝒟|^{−0.05}</code> 意味着：要把误差减半，数据量要乘上 <code>2^{1/0.05} = 2^{20} ≈ 100 万倍</code></span>；<b>而 <code>|𝒟|^{−0.15}</code> 也要 <code>2^{1/0.15} ≈ 100 倍</code></b>。<span class='k'>对比理想的 <code>|𝒟|^{−1/2}</code>：只要 4 倍</span>。",
+        "<b>讲者给的目标因此也很具体</b>：<span class='k'><em>“one of the goals that we then could have for a lot of these reasoning methods and RL methods for reasoning is to <b>push this curve as much as possible towards the left and towards the x-axis</b>. So push them down and towards the left.”</em></span> <b>⇒ 「往下」= 同样数据下误差更低；「往左」= 同样误差下数据更少</b>。",
+        "<b>⚠ 而整个 Part 1 量的其实是<b>「往左」</b>那一个方向，这个口径要记死。</b> <span class='w'>2 倍 / 8 倍 / 5–6 倍这些数字说的都是「达到同样测试误差，需要的题目数少了几倍」</span>，<b>不是「误差低了几倍」</b>。",
+        "<b>⚠ 还有一条不能忽略的交代：这两个基准<b>现在已经不能用了</b>。</b> <span class='k'><em>“These benchmarks now are fully solved. So it doesn't make sense to, going forward, benchmark methods on these benchmarks. But back then in 2024—this was a year ago exactly—these benchmarks were very sort of representative.”</em></span> <b>⇒ 引用这些数字时必须带上「2024 年、在当时的模型上」的限定</b>。",
+        "<b>图里 RFT 的图例已经列出来了但点还没画（这一页是动画的第一帧），下一页才揭晓。</b> <span class='w'>讲稿给的结果是：<b>RFT 用一半的题目数就能达到 SFT 同样的测试误差</b></span>——<b><em>“on-policy imitation, learning, sampling from your policy and imitating the correct answers can be <b>2x more efficient</b>”</em></b>。"
+      ],
+      "eq": "实测的标度：\n  GSM8K   测试误差 ∝ |𝒟|^{−0.15}      要把误差减半需 2^{1/0.15} ≈ 100 倍数据\n  MATH    测试误差 ∝ |𝒟|^{−0.05}      要把误差减半需 2^{1/0.05} ≈ 100 万倍数据\n  理想     测试误差 ∝ |𝒟|^{−0.5}       只需 4 倍\n\n⇒ 目标：把曲线「往下」压、「往左」推\n⇒ ⚠ Part 1 全程量的是「<b>往左</b>」：同样误差下题目数少了几倍（2x / 8x / 5–6x）\n⇒ ⚠ GSM8K 与 MATH 现已被刷满，引用这些数要带上「2024 年」的限定",
+      "tbl": {
+        "head": [
+          "指数",
+          "把误差减半需要的数据倍数",
+          "出处"
+        ],
+        "rows": [
+          [
+            "|𝒟|^{−0.5}（理想）",
+            "4 倍",
+            "讲者说的「ideally … like D to the minus 1/2」"
+          ],
+          [
+            "|𝒟|^{−0.15}（GSM8K 实测）",
+            "约 100 倍",
+            "p10 图下方"
+          ],
+          [
+            "|𝒟|^{−0.05}（MATH 实测）",
+            "⚠ 约 100 万倍",
+            "p10 图下方"
+          ]
+        ]
+      }
+    },
+    {
+      "r": [
+        11,
+        11
+      ],
+      "t": "⚠ 不能一味地在自己的正确解上做 SFT —— 误差会先降后升",
+      "star": 3,
+      "quote": "<em><b>But.. We <s>Can't</s> Just SFT On-Policy Solutions</b></em><br><em><b>Observation:</b> On-policy imitation eventually degrades if you train too much on it</em><br><em>Fitting self-generated data on limited initial states can hurt generalization on new initial states (prompts).</em><br><em>(RFT Scaling, fixed questions/prompts：MATH 8k prompts / 16k prompts、GSM8K 8k prompts / 16k prompts 四条曲线，横轴 #correct answers per question 从 10k 到 128k)</em>",
+      "one": "<b>固定题目数、只往右加「每题留多少条正确解」，四条曲线<span class='k'>全都先降后升</span>。也就是说：<span class='w'>自己采样、过滤出对的、再去模仿</span> 这件事做过了头会<span class='w'>损害泛化</span> —— 而且是在<span class='k'>训练数据全都是正确答案</span>的情况下。</b>",
+      "pts": [
+        "<b>先把横轴读对，这是最容易误会的地方。</b> <span class='k'>横轴<b>不是</b>题目数（题目数固定在 8k 或 16k），而是「每道题保留多少条正确解」<code>|S̃|</code> 乘一个常数</span>。<b>讲稿澄清过两次：<em>“The x-axis is number of S tilde. For each S.”</em></b>",
+        "<b>⭐ 现象本身很反直觉：<b>训练数据全是正确答案</b>，加得越多却越差。</b> <span class='w'>四条曲线都在约 30k–50k 处触底回升</span>；<b>讲稿：<em>“initially, your error goes down… But then beyond a point, your error starts to go up… And in fact, the error even goes up on some of these data sets.”</em></b>",
+        "<b>讲义给的解释写在左下角，而且用词很精确</b>：<span class='k'><code>Fitting self-generated data on <b>limited initial states</b> can hurt generalization on <b>new initial states (prompts)</b></code></span>。<b>⇒ 问题不在「数据量」，在「<b>初始状态</b>的多样性」——你在 8k 个 <code>s_0</code> 上反复拟合，测试时要面对新的 <code>s_0</code></b>。",
+        "<b>⚠ 这与 L02 那条复合误差<b>不是</b>同一回事，别混。</b> <span class='w'>L02 的复合误差讲的是「状态分布漂移」（训练时看专家的状态、部署时看自己的状态）</span>；<b>这里的训练状态<b>就是</b>自己的状态（on-policy），漂移本该消失</b>。<span class='k'>⇒ 所以这是另一个机制，下一页才揭晓：<b>spurious steps</b></span>。",
+        "<b>讲者用 MDP 的语言重述了一遍，这个说法最清楚</b>：<span class='k'><em>“you can think of this as basically <b>training on a set of S0 and evaluating on a new set</b>, on a new test problem. And turns out that if you train too much on a particular set of S naughts in this particular way, you end up hitting the generalization bottleneck.”</em></span>",
+        "<b>⇒ 这一页在整讲里的位置是「转折」：前面说 RFT 比 SFT 好（2 倍），这一页说 RFT 也有天花板，而且会<b>倒退</b>。</b> <span class='w'>于是第三条轴（用上错误数据）才有了必要性</span>——<b>p13 的标题正是 <code>How Can We Address This?</code></b>。"
+      ],
+      "tbl": {
+        "head": [
+          "两种「越训越差」，机制不同",
+          "L02 的复合误差",
+          "本页的泛化倒退"
+        ],
+        "rows": [
+          [
+            "训练数据从哪来",
+            "专家示范（off-policy）",
+            "⭐ 模型自己（on-policy）"
+          ],
+          [
+            "机制",
+            "状态分布漂移：训练看专家的状态、部署看自己的",
+            "在<b>有限的初始状态</b>上过度拟合自己的解答"
+          ],
+          [
+            "on-policy 能不能解决",
+            "能 —— DAgger 就是干这个的",
+            "⚠ 不能 —— 它<b>本来就是</b> on-policy"
+          ],
+          [
+            "真正的原因",
+            "—",
+            "spurious steps（下一页）"
+          ]
+        ]
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>这一页对你最直接的警告是：<span class='w'>「把跑得好的配置挑出来、照着它再生成一批相似配置」这个循环，做过头会变差</b></span>，而那正是 AFlow 式搜索的内核。</b> <span class='k'>简报 §2【已核】：AFlow 取 top-k 已评估 workflow，让 LLM 基于经验日志生成下一批修改</span>——<b>结构上就是「在有限的 query 集合（<code>D_V</code>）上，反复拟合自己产生的成功样本」</b>。<b>⇒ 本页说这会在<b>新</b>初始状态（新 query）上泛化变差</b>。<span class='w'>⚠ 而 AFlow 的评估正是在固定的 <code>D_V</code> 上做的【§3 已核：Executor 在 D_V 上跑 5 次】</span>，<b>所以这个风险是结构性的，不是实现瑕疵</b>。<b>⇒ 一个便宜且有说服力的检验：把 AFlow 的搜索曲线按「搜索轮数」画出来，<b>同时</b>画 <code>D_V</code> 上的分数和一个<b>从未参与搜索</b>的留出集上的分数 —— 如果两条曲线在某一轮之后分叉，这一页的现象就在你的场景里复现了</b>。<span class='k'>这同时也接上 CSE541 L18 p16 那条「用悲观选、用独立留出报」的纪律</span>。",
+        "ref": "本讲 p11 · 简报 §2（top-k + 经验日志）· 简报 §3（D_V 上跑 5 次）· CSE541 L18 p16（优化者的诅咒）"
+      }
+    },
+    {
+      "r": [
+        12,
+        12
+      ],
+      "t": "病因：解答里混着「多余却无害」的步骤，模型把它们一起学了进去",
+      "star": 3,
+      "quote": "<em><b>Mental Picture: Spurious Steps Derail the Model</b></em><br><em>“<b>Spurious</b>” steps: Can somehow learn to recover on train · But <b>not on test</b>, where it will derail</em><br><em><b>Akin to “causal confusion” in imitation</b> when conditioned on history of past actions</em><br><em><b>RFT data has spurious steps.</b> Question: Betty wants a new wallet costing $100 and has only half the money she needs. Her parents give her $15, and her grandparents twice as much as her parents. How much more money does she need?</em><br><em>Model generated solution: Betty's parents gave her 15, so her grandparents gave her 2 * 15 = «15*2=30»30. In total, Betty received 30 + 15 = «30+15=45»45. <b>The total amount of money Betty needs is 100 * 2 = «100*2=200»200. Betty needs 100 / 2 = «100/2=50»50 in total.</b> Betty still needs to save 50 - 45 = «50-45=5»5. Answer is 5.</em>",
+      "one": "<b>那个被高亮的句子是全讲最该记住的证据：模型先写「她总共需要 <code>100 × 2 = 200</code>」<span class='w'>（错的）</span>，下一句又改口写「她总共需要 <code>100 / 2 = 50</code>」<span class='k'>（对的）</span>，最终答案 5 完全正确。<b>于是这条解答通过了「答案对不对」这唯一的筛子，带着那句错话一起进了训练集。</b></b>",
+      "pts": [
+        "<b>先把这个例子看懂，因为它是「spurious step」最干净的一个实例。</b> <span class='k'>题目问「还差多少钱」：钱包 100 元、她手上有一半（50）、父母给 15、祖父母给父母的两倍（30）</span>；<b>正确算法是 <code>50 − 45 = 5</code></b>。<span class='w'>而模型在算「她总共需要多少」时先写了 <code>100 × 2 = 200</code>，紧接着又写 <code>100 / 2 = 50</code></span>。",
+        "<b>⭐ 关键在于：那一步<b>既错又无害</b>。</b> <span class='k'>它没有被后面的计算用到（后面用的是 50），所以最终答案是对的</span>；<b>可它确实出现在了被模仿的文本里</b>。<span class='w'>⇒ 模型学到的是「在这种地方可以先瞎算一个数再改口」</span>。",
+        "<b>讲义对它的危害描述得很精确，两行而已</b>：<span class='k'><code>Can somehow learn to recover on train</code> · <code>But not on test, where it will derail</code></span>。<b>⇒ 训练时它学会了「写完 200 之后改口」，测试时遇到新题，它写了 200 却<b>改不回来</b></b>。",
+        "<b>⚠ 讲者澄清了一处容易误读的地方：这一步严格说<b>不是「错」，是「无关」</b>。</b> <span class='w'><em>“the step is not incorrect in its own right, but it is irrelevant… Imagine for a second that if you pass to a language model a million irrelevant tokens and ask it to dig out the information that actually matters, that can be a challenging problem on a test set. <b>So that's why, even if a step is irrelevant, it can be a problem.</b>”</em></span>",
+        "<b>讲义把它接到了模仿学习里一个有名字的毛病上：<code>causal confusion</code>（因果混淆）。</b> <span class='k'>讲稿的解释：<em>“if you produce a bunch of stuff in your policy, that might be bad, like these spurious steps, you might just not learn to imitate the expert in the right way possible. So maybe you actually end up at the right answer, but <b>you're learning these incorrect associations</b>.”</em></span>",
+        "<b>⚠ 还有两处课堂问答值得记：① 这是不是误差上升的<b>唯一</b>原因？讲者不敢这么说</b>——<span class='w'><em>“I cannot give you a proof that this is the only cause. I can give you proof that this should be a problem.”</em></span>；<b>② 他们<b>量过</b>这件事</b>：<span class='k'><em>“In the paper, we did measure this. We measured the amount of spurious steps that you see, and it grows on over time.”</em></span>"
+      ],
+      "eq": "Betty 买钱包那个例子（p12 高亮处）：\n\n  … In total, Betty received 30 + 15 = 45.\n  ⚠ The total amount of money Betty needs is 100 * 2 = 200.   ← 多余且错误的一步\n  ✓ Betty needs 100 / 2 = 50 in total.                        ← 立刻改口\n  … Betty still needs to save 50 - 45 = 5.   Answer is 5.      ← 最终答案正确\n\n⇒ 通过了「答案对不对」这唯一的筛子 ⇒ 带着那句错话进了训练集\n⇒ 训练时学会了「写完 200 再改口」；测试时写了 200 却改不回来 ⇒ derail\n⇒ 讲义给它的定性：akin to <b>causal confusion</b> in imitation learning",
+      "tbl": {
+        "head": [
+          "关于 spurious step 的四个问答（讲稿）",
+          "讲者的回答"
+        ],
+        "rows": [
+          [
+            "它是「错」还是「无关」",
+            "严格说是<b>无关</b> —— 但无关的 token 也会让模型在测试时抓不住重点"
+          ],
+          [
+            "它是误差上升的唯一原因吗",
+            "⚠ 不敢说唯一：「I cannot give you a proof that this is the only cause」"
+          ],
+          [
+            "能不能量出来",
+            "能，论文里量了，而且<b>随训练增长</b>"
+          ],
+          [
+            "普通的拟合指标能看出来吗",
+            "看不出来：「normal notions of fitting the data won't tell you this」"
+          ]
+        ]
+      },
+      "res": {
+        "tag": "推断",
+        "v": "<b>⭐ 把「spurious step」换成你的词，就是一句很硬的话：<span class='w'>一个答对了的配置，里面可能含着一个<b>纯属浪费</b>的节点档位</b></span> —— 而只看最终 <code>Acc</code> 的筛子<b>一定</b>会把它放进来。</b> <span class='k'>对应关系很直接：那句 <code>100 × 2 = 200</code> 既没帮上忙也没坏事，只是白花了 token；你的场景里对应的就是「某个节点用了强模型，但那一步其实用弱的也一样对」</span>。<b>⇒ 而这恰恰是你要找的东西本身</b>：<span class='w'>node-level fidelity assignment 的全部价值，就在于识别出这些「花了钱但没产生差别」的格子</span>。<b>⇒ 两条推论</b>：<span class='k'>① 「按最终 <code>Acc</code> 筛配置」在原理上就<b>识别不出</b>这类浪费 —— 它们在 <code>Acc</code> 上完全不可见，只在 <code>Cost</code> 上可见，这又一次支持简报 §4e「两半要分开估」；② 这一讲给出的解法（p16 从前缀做 rollout 估 Q、p18 按优势过滤）正是<b>可以照搬</b>的那一部分 —— 落到你这里就是「固定前面的档位、只改这一个、看成功率变不变」</span>，<b>而那就是简报 §5 的一步偏离实验</b>。<span class='w'>⚠ 差别是他们做 rollout 几乎免费，你每做一次都要真的跑 —— 所以能不能用，取决于能不能把要测的格子数压下来（简报 §4c 的敏感度扫描正是在做这件事）</span>。",
+        "ref": "本讲 p12、p16、p18 · 简报 §4c（敏感度扫描）· 简报 §4e（两半分开估）· 简报 §5（一步偏离实验）"
+      }
+    },
+    {
+      "r": [
+        13,
+        14
+      ],
+      "t": "出路：给每一「步」单独记分 —— 只要能较准确地指认出多余的步骤",
+      "star": 3,
+      "quote": "<em><b>How Can We Address This?</b></em><br><em><b>An Idea: Assigning “Credit” to Steps</b></em><br><em><b>Key insight:</b> If we can identify spurious steps somewhat <b>precisely</b>, then we can avoid this issue</em><br><em>Question: 4 apples and 3 pears cost $25, but 7 apples and 6 pears cost $49. What is the cost of 1 apple?</em><br><em>C<sub>1</sub>: Let cost of 1 apple be x and 1 pear be y. → C<sub>2</sub>: 4x+3y=25 (Eq 1) and 7x+6y=49 (Eq 2). → C<sub>3</sub>: To remove y, multiple Eq1 by 2 and subtract Eq 2 from it. → C<sub>4</sub>: (8x+6y)−(7x+6y)=50−49. → C<sub>5</sub>: x=1. → C<sub>6</sub>: Answer: 1 apple costs $1. ✓ <b>Correct solution</b></em>",
+      "one": "<b>思路一句话：<span class='k'>既然「整条对不对」这个筛子太粗，那就给<b>每一步</b>单独记一个分</b></span>。而讲义特意在 Key insight 里强调了 <span class='w'>somewhat <b>precisely</b></span> —— 不需要完美，但得比「整条 0/1」细。</b>",
+      "pts": [
+        "<b>p13 是一页只有标题的过渡页（<code>How Can We Address This?</code>），p14 给出答案：<b>给步骤分配信用</b>。</b> <span class='k'>这个词（credit assignment）是 RL 里的老术语，指的正是「一个延迟的结果该记在哪一步头上」</span>。",
+        "<b>p14 的例子是一条<b>干净的</b>解答（六步、全对、答案 1 元），和 p12 那条脏的形成对照。</b> <span class='w'>讲义把它画成一串节点 <code>C_1 → C_2 → … → C_6</code></span>，<b>⇒ 在强调：解答天然就有「步」这个结构，可以逐步看</b>。",
+        "<b>⭐ Key insight 那句话的两个限定词都要读到：<code>if we can identify spurious steps <b>somewhat precisely</b></code>。</b> <span class='k'>「somewhat」是在承认这件事做不到完美；「precisely」是在说必须比现状细</span>。<b>⇒ 后面给的办法（rollout 估 Q）确实只是个<b>估计</b>，而且方差不小</b>。",
+        "<b>讲稿把动机说得更直接</b>：<span class='w'><em>“The simple idea is… assigning some notion of a credit to a step. <b>If I can understand what is the utility of every single step or every single state that my policy generates, then I can somehow use that notion to filter off these bad kinds of solutions.</b>”</em></span>",
+        "<b>⚠ 「一步」到底怎么切？这是个没有定论的工程问题，讲者被问了不止一次。</b> <span class='k'>这篇工作里就是<b>按句子</b>切（“In this work, we just used sentences”）</span>；<b>但他也给了另外两种做法</b>：<span class='w'>① 用模型自己产出的 markdown 结构（<code>step 1:</code>、<code>step 2:</code>）；② <b>在训练时就把输出格式规定好</b>，再按那个格式切</span>。<b>⇒ <em>“There's no universal definition.”</em></b>",
+        "<b>⚠ 这里有一个很实用的提示：切法是可以<b>设计</b>的，不只是被动解析。</b> <span class='k'><em>“you can just tell a model, well, I want an answer for this particular question that never uses the word step, that always produces a logical block of calculation, puts a horizontal line and then pushes the next logical block… and it'll most likely do it for you, which is something you can also do during the course of training.”</em></span>"
+      ],
+      "tbl": {
+        "head": [
+          "「一步」怎么切",
+          "做法",
+          "讲稿的评价"
+        ],
+        "rows": [
+          [
+            "按句子",
+            "每个句号切一刀",
+            "这篇 NeurIPS 2024 工作用的就是这个"
+          ],
+          [
+            "按模型自己的格式",
+            "解析 <code>step 1:</code> 这类 markdown 标记",
+            "「many other papers use, but they're still outliers」"
+          ],
+          [
+            "⭐ 预先规定格式",
+            "训练/推理时就要求它按逻辑块输出、块间画横线",
+            "「which is something you can also do during the course of training」"
+          ],
+          [
+            "⚠ 有没有通用定义",
+            "—",
+            "没有：「There's no universal definition.」"
+          ]
+        ]
+      },
+      "say": "<b>讲稿里有一问直接问到了这套做法的收益从哪来，回答比幻灯清楚得多，值得原样留着</b>：<br><em>“ultimately, what ends up happening here is you're <b>breaking down the success of a particular long trace into successes of individual steps</b> that appear inside of it. And that can be a useful thing because, now, presumably your model can realize that, OK, once it has broken down a problem into four steps or four high-level plans, <b>if it can also localize which step is going wrong, it can actually better learn that step</b> as opposed to just vaguely thinking that step three might be the cause of the problem when it fails, whereas maybe it's actually step one. So it helps you … vastly improving your data efficiency.”</em><br><b>⇒ 收益的来源是<b>定位</b>：把一个「这条失败了」的信号，拆成「是第几步失败的」。</b><span class='w'>⚠ 注意他用的词是 data efficiency，不是 performance ceiling</span> —— <span class='k'>这与 p6 左框的 Takeaway 是同一个口径</span>。"
+    }
+  ],
+  "quiz": {
+    "1": [
+      {
+        "q": "这一讲把「推理」窄化成「解有唯一数值答案的竞赛数学题」。为什么这个窄化是整套方法的前提？",
+        "o": [
+          "因为竞赛题的解答最短，便于切分成步骤",
+          "因为只有竞赛题才满足马尔可夫性",
+          "因为奖励必须能自动判定 —— 把答案和标准答案比对就行，不需要人标注，也不需要另一个模型去评判解答质量",
+          "因为竞赛题的训练数据最多"
+        ],
+        "a": 2,
+        "why": "课堂上有人问「答案是证明而不是数怎么办」，讲者答得很干脆：这个社区还没找到对的技术。奖励可自动判定是后面 40 页每一步的前提。注意这也决定了一条方法论：奖励只认最终答案，不让模型去评判解答质量 —— 因为 p5 那种「看着很像但逻辑错」的解答正好会骗过评判者。"
+      }
+    ],
+    "3": [
+      {
+        "q": "次词预测的误差式 |p̂_θ − p*| ∝ 1/|𝒟(y|x)|^α 里，分母是什么？这个细节为什么要紧？",
+        "o": [
+          "是模型参数量；所以要把模型做大",
+          "是「与目标 x 相似的数据量」；所以加无关数据没用，而模型自己针对这些题采的样本天然相似 —— 这正是后面 RFT 能赢的理由",
+          "是数据总量；所以继续堆通用语料就能持续改进",
+          "是训练步数；所以要训更久"
+        ],
+        "a": 1,
+        "why": "讲义用红字标注的就是 Error reduces with more data similar to the target x。这解释了为什么「自己采样、过滤出对的、再模仿」会比继续堆语料有效。另外要记住讲者对这个式子的保留：他称之为「我喜欢的一个视角」，不是定理，α 也没给值。"
+      }
+    ],
+    "5": [
+      {
+        "q": "p5 那道 IMO 不等式题上，模型的失败方式是什么？为什么它比「算错了」更麻烦？",
+        "o": [
+          "它超出了上下文长度限制",
+          "它给出了正确证明但格式不对",
+          "它把题目理解错了",
+          "它逐项比较各项（而逐项不等式根本不成立），在关键情形处直接「断言」结论收尾，而且没有察觉自己没证、也没有回溯"
+        ],
+        "a": 3,
+        "why": "讲义的原话是 The model asserts its way out, no realization of its mistake / backtracking。麻烦之处在于解答在形式上完全像一份考场答案 —— 这正是「会不会验证自己、会不会回溯」后来成为 thinking 模型改进方向的原因，也是为什么这一讲坚持用最终答案比对当奖励。"
+      }
+    ],
+    "7": [
+      {
+        "q": "推理 MDP 的「确定性动力学」具体指什么？它带来的最重要的后果是什么？",
+        "o": [
+          "指奖励函数是确定的；后果是不需要奖励模型",
+          "指模型的采样温度为 0；后果是采样可复现",
+          "指没有外部环境，s_i 就是 s_{i−1} 与刚写的那段字拼接；后果是 V(s_i) = Q(s_{i−1},a_{i−1})，于是优势变成 Q−Q 而不是 Q−V",
+          "指题目集合是固定的；后果是可以穷举"
+        ],
+        "a": 2,
+        "why": "讲者在黑板上推了一遍：S2 就是 S0、A0、A1 拼起来，没有任何环境给下一状态。这不是近似而是这个 MDP 特有的恒等关系，p17 的优势定义直接用了它。另外两条性质：奖励只在终局（中间全 0）、γ = 1。"
+      },
+      {
+        "q": "这个 MDP 的动作空间与连续控制的动作空间都是「无穷」，差别在哪里？",
+        "o": [
+          "这里的动作是确定的；连续控制的动作是随机的",
+          "这里是有限的；连续控制才是无穷的",
+          "没有差别，两者可以用同一套算法",
+          "这里是离散、变长的 token 串；连续控制是固定维度的连续向量"
+        ],
+        "a": 3,
+        "why": "讲稿原话：unlike continuous control where you have a fixed dimension vector of continuous values, which are also infinite, you have a variable length string of tokens which are discrete。离散 + 变长 + 组合爆炸，这是不能照搬常规 RL 动作空间假设的原因。"
+      }
+    ],
+    "8": [
+      {
+        "q": "RFT（rejection fine-tuning）相对 SFT 的关键优势是什么？",
+        "o": [
+          "它不需要标准答案",
+          "它可以处理证明题",
+          "它不需要人写的参考解 —— 只需要模型自己能产出的、且碰巧正确的解答，而对错可以用标准答案自动判定",
+          "它的训练速度更快"
+        ],
+        "a": 2,
+        "why": "讲稿：it's not actually asking you for Oracle solutions that a human wrote. All it asks for is solutions that your model can produce, which ended up being correct。注意它仍然需要标准答案（用来判对错）。实测它比 SFT 省 2 倍数据。两个实现细节：要去重（采 2n 留最多样的 n 条）；要先 SFT 打底，否则模型在难题上一条都对不了。"
+      },
+      {
+        "q": "第三条轴「连错误的解答也用」依据的是什么？",
+        "o": [
+          "离线 RL 的基本事实：可以从次优的、甚至失败的数据里学习 —— 不要求数据是高质量或高回报的",
+          "错误解答可以用来训练一个判别器",
+          "错误解答里也可能碰巧有正确答案",
+          "数据越多越好，不必挑"
+        ],
+        "a": 0,
+        "why": "讲稿直接接到了这门课的离线 RL：in RL when we train on data, we don't really need the data to be high-quality or high-rewarding... You can learn from suboptimal data, data that does not succeed。但要用上它，前提是能算出逐步的信用分配（p14 起），否则失败数据只是噪声。"
+      }
+    ],
+    "10": [
+      {
+        "q": "实测的标度指数是 |𝒟|^{−0.15}（GSM8K）与 |𝒟|^{−0.05}（MATH）。把 MATH 的误差减半需要多少倍数据？",
+        "o": [
+          "约 100 万倍（2^{1/0.05} = 2^20）",
+          "4 倍",
+          "约 32 倍",
+          "约 100 倍"
+        ],
+        "a": 0,
+        "why": "2^{1/0.05} = 2^20 ≈ 10^6。对照理想的 |𝒟|^{−1/2} 只需 4 倍 —— 这就是「堆数据这条路走不通」的量化依据。也要记住 Part 1 全程量的是「往左推」（同样误差下题目数少几倍），不是「误差低几倍」。"
+      }
+    ],
+    "11": [
+      {
+        "q": "p11 的横轴不是题目数，而是「每题保留多少条正确解」。四条曲线都先降后升说明了什么？",
+        "o": [
+          "学习率设得太大",
+          "模型容量不够",
+          "训练数据全是正确答案，但在有限的初始状态（prompt）上过度拟合自己的解答，会损害在新 prompt 上的泛化",
+          "训练数据里混进了错误答案"
+        ],
+        "a": 2,
+        "why": "讲义左下角写得很精确：Fitting self-generated data on limited initial states can hurt generalization on new initial states (prompts)。要点是训练数据全是正确答案却仍然变差——所以这不是数据质量问题。也注意它与 L02 复合误差机制不同：那边靠 on-policy 解决，而这里本来就是 on-policy。"
+      }
+    ],
+    "12": [
+      {
+        "q": "Betty 买钱包那个例子里，「100 * 2 = 200」这一步为什么是典型的 spurious step？",
+        "o": [
+          "因为它重复了前面的计算",
+          "因为它既错又没被后面用到（下一句立刻改口写 100/2=50），最终答案仍然正确 —— 于是通过了「答案对不对」这唯一的筛子，带着那句错话进了训练集",
+          "因为它算错了，导致最终答案错误",
+          "因为它用了乘法而不是除法"
+        ],
+        "a": 1,
+        "why": "危害在于：训练时模型学会了「写完 200 之后改口」，测试时写了 200 却改不回来，于是 derail。讲者还澄清这一步严格说是「无关」而非「错」——而无关的 token 同样会让模型在测试时抓不住重点。讲义把它定性为模仿学习里的 causal confusion。"
+      },
+      {
+        "q": "关于 spurious steps，讲者在课堂上有一处明确的保留。是什么？",
+        "o": [
+          "他不确定这个现象是否真实存在",
+          "他不能证明这是误差上升的唯一原因，只能证明它确实是一个问题",
+          "他不确定能不能量化它",
+          "他认为这只在 GSM8K 上出现"
+        ],
+        "a": 1,
+        "why": "原话：I cannot give you a proof that this is the only cause. I can give you proof that this should be a problem。他们在论文里确实量过 spurious steps 的数量，而且它随训练增长。另一个值得记的点：普通的拟合指标看不出这件事。"
+      }
+    ],
+    "13": [
+      {
+        "q": "Key insight 写的是 if we can identify spurious steps <b>somewhat precisely</b>。这两个限定词各自在说什么？",
+        "o": [
+          "somewhat = 不需要完美；precisely = 但必须比「整条 0/1」更细",
+          "somewhat = 只需在训练集上；precisely = 测试集上不必",
+          "somewhat = 只需对简单题；precisely = 难题上要精确",
+          "两个词是同义反复，没有实质含义"
+        ],
+        "a": 0,
+        "why": "后面给的办法（从前缀做 rollout 估 Q）确实只是估计、方差不小，所以「somewhat」是实事求是；而「precisely」指明方向——现状是整条一个 0/1 分，目标是逐步记分。讲稿把收益来源说成「定位」：把「这条失败了」拆成「是第几步失败的」。"
+      },
+      {
+        "q": "「一步」该怎么切？讲者给了哪几种做法？",
+        "o": [
+          "由一个专门的切分模型决定",
+          "按 token 切，这是唯一标准做法",
+          "按句子（这篇工作的做法）、按模型自己产出的 step 标记、或者预先规定输出格式再按格式切 —— 而且明说没有通用定义",
+          "按固定的 token 数切"
+        ],
+        "a": 2,
+        "why": "原话：There's no universal definition。最有启发的是第三种：切法可以设计，不只是被动解析——你可以在训练过程中就要求模型按逻辑块输出、块间画横线，再按那个格式切。"
+      }
+    ]
+  }
+}
