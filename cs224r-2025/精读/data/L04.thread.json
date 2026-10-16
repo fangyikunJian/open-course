@@ -1,0 +1,89 @@
+{
+ "title": "L04 接上课题的哪一段：加一个 critic，以及两个修不了的问题",
+ "arc": "这一讲做了两件正交的事，<b>而且各自带着一个明确的代价</b>：<br><br>① <b>加一个 critic</b>（p6–p23）—— 把梯度里那个权重从「<span class='w'>这一次实际拿到多少</span>」换成「<span class='k'>期望能拿到多少</span>」。<b>代价：方差小了，偏差来了。</b>而 p20 的 N 步回报把这笔交易做成了一个可调旋钮（<code>n=1</code> 全靠估计、<code>n=T</code> 全靠真实奖励，<b>often works the best in practice 的是中间</b>）。<br><br>② <b>让数据能反复用</b>（p24–p35）—— 从「一批走一步」到「一批走多步」再到「复用全部历史」。<b>代价：数据效率高了，稳定性差了</b>（p35 直接拿 PPO 当对照：<span class='w'>harder to tune, less stable</span>）。<br><br><b>整讲最值得学的不是算法，是讲义的两个教法</b>：<br>· <span class='k'>p30 把一个明知是坏的算法完整写出来，再用红圈标出两处错在哪</span>（<b>The algorithm is currently broken 😢</b>），然后 p31/p32 逐处修。<b>⇒ 读论文碰到不理解的技术细节时，有用的问法不是「这是什么」，而是「去掉它会怎样」。</b><br>· <span class='k'>p33 诚实地标出一个修不了的问题</span>：<b>s_i didn't come from p_θ(s)，nothing we can do here, just accept it</b>。<br><br><b>两处修补其实是同一条规则</b>：<span class='k'><b>状态可以是旧的，动作必须是新的</b></span>。更准的说法是——<b>凡是「环境产生的」（r、s'）都能复用，凡是「策略产生的」（a、a'）都要重采</b>；而 <code>s</code> 卡在中间（由环境产生，但<span class='w'>哪些 s 会进缓冲区由策略决定</span>），<b>这正是那个修不了的问题。</b><br><br><b>⚠ 一条贯穿两讲的软肋</b>：L03 p23 把状态分布比值「often approximated as 1」，L04 p33 干脆说「just accept it」——<span class='k'>同一个问题，两次出场，两次都没解决</span>。<b>这是整个离策略 RL 的理论软肋。知道一个领域的软肋在哪，比知道它的最新成果在哪更有用</b>——<span class='w'>软肋的位置几年不变，最新成果半年换一批。</span><br><br><b>对你课题最有用的三条</b>（都在各页科研格里展开）：<br>· <span class='k'>A = Q − V 那个减法</span> → <b>控制变量</b>：只改一个算子、在同一基底上比差值，把「配置其余部分本来就好不好」这块纯方差减掉；<br>· <span class='k'>「环境产生的可复用、策略产生的要重采」</span> → <b>你的日志里有一半是永久资产</b>（配置→分数的映射永不过期），另一半（当时该选谁）会过期。很多人把整份日志当一个整体，要么全信要么全不信，<span class='w'>这是浪费</span>；<br>· <span class='k'>p35 的取舍</span> → 你的采样极贵、调参相对便宜，<b>判据明确偏向「每条经验反复榨取」那一端</b>。",
+ "pitfalls": [
+  {
+   "v": "<b>把 Q 当成「这个动作好不好」。</b>Q 的定义是「先走 a，<span class='k'>之后按 π 走</span>」——<b>它被那条尾巴拖着</b>。p7 打鼓例里，<span class='w'>Q(s, 练鼓) 不是 1，而是「练这一个时间步之后能学会的概率」，讲稿明说 that probability could be 0</b></span>。⇒ <b>一个烂策略会让所有 Q 值都显得很低</b>，哪怕那个动作本身是对的。<b>所以 Q 评的从来不是「这个动作好不好」，而是「这个动作 + 这个策略 好不好」。</b>",
+   "tag": "已核",
+   "ref": "本讲 p6 的定义与 p7 打鼓例；讲稿里学生关于「练了还是学不会怎么办」的追问"
+  },
+  {
+   "v": "<b>以为 critic 是免费的升级。</b><span class='k'>L03 的因果性与基线是<b>无偏</b>的降方差（白赚）；L04 的 critic 是<b>有偏</b>的降方差（一笔交易）</b></span>。<b>你用方差换来了「估计误差」</b>。<span class='w'>而 p19–20 的 N 步回报把这笔交易量化成了一个可调参数 n</span>——<b>n=1 偏差最大、n=T 无偏</b>。引用「Actor-Critic 比策略梯度好」时，要连这个代价一起说。",
+   "tag": "已核",
+   "ref": "本讲 p9–p10 与 p19–p20；对照 L03 的四件降方差手段"
+  },
+  {
+   "v": "<b>把自举的标签当成固定标签。</b>p18 那个感叹号是在提醒：<span class='k'>标签 <code>y = r + V̂_φ(s')</code> 里含有 V̂_φ 自己，而 φ 每步都在变 ⇒ <b>标签是移动的</b></span>（原话 <b>update labels every gradient update!</b>）。<b>算一次标签然后在它上面训很多步，那些标签很快就过期</b>。<span class='w'>实践中的标准做法是用一个「目标网络」慢一拍地提供 V̂</span>——讲义这里没展开，L06 会正面讲。",
+   "tag": "已核",
+   "ref": "本讲 p18 的 update labels every gradient update!"
+  },
+  {
+   "v": "<b>加了 replay buffer 就直接套用原来的式子。</b>p30 把这个版本明确判定为 <span class='k'><b>broken</b></span>，两处红圈：① 目标 <code>y_i = r_i + γV̂_φ(s'_i)</code> —— <b>not the right target value</b>；② <code>∇log π_θ(a_i|s_i)</code> 里 a_i 来自缓冲区 —— <b>not the action π_θ would have taken!</b> ⇒ <span class='w'>共同根源：V^π / Â^π / 策略梯度的定义里全都藏着「按<b>当前</b> π 走」这个前提，而缓冲区里的东西带着旧策略的烙印</span>。",
+   "tag": "已核",
+   "ref": "本讲 p30 的两处红圈与 The algorithm is currently broken"
+  },
+  {
+   "v": "<b>把 p33 那个问题当成「还没解决的 open problem」。</b>讲义的措辞是 <span class='k'><b>nothing we can do here, just accept it</b></span> —— <b>它是这个方法框架的<span class='w'>结构性边界</span>，不是待填的坑</b>。原因很硬：<b>动作可以现采，状态没法现采</b>（你没法让环境回到一个「当前策略才会去的」状态）。后果是 <span class='w'>we want optimal policy on p_θ(s) but we get optimal policy on a <b>broader</b> distribution</span>。",
+   "tag": "已核",
+   "ref": "本讲 p33；对照 L03 p23 的 often approximated as 1"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你怎么判断「把这个算子换成那个」是不是真的更好？",
+   "a": "<b>用 p6 那个减法：<code>A = Q − V</code>。</b><br><br><span class='k'>直接比较两个完整配置的分数，分数里混着「这个配置的其余部分本来就好/不好」这一大块</span> —— <b>而那一块对「X 换 Y 值不值」毫无信息，只贡献方差</b>。<span class='w'>这正是 Q 与 A 的区别：Q 混着状态价值，A 把它减掉了。</span><br><br><b>落地就是控制变量</b>：<span class='k'>固定配置其余部分，只改那一个算子，比较同一基底上的差值</b>。<br><br><b>和 L03 p16 那条「配对比较」是同一手法在两个维度上的应用</b>：<br>· <span class='w'>配对比较</span>减掉「测试样本的难易」；<br>· <span class='w'>控制变量</span>减掉「配置其余部分的好坏」。<br><br><b>两个一起用，剩下的方差才是你真正想测的那个信号</b> —— 而且都不花一次额外评估。",
+   "tag": "推断",
+   "ref": "本讲 p6 的 A = Q − V；对照 L03 p16 的基线"
+  },
+  {
+   "q": "你的历史日志还能用吗？搜索策略已经更新好几轮了。",
+   "a": "<b>用 p31–32 那条规则拆开看，答案是「一半能、一半不能」。</b><br><br><span class='k'>规则：凡是「环境产生的」都能复用，凡是「策略产生的」都要重采。</span><br><br>拆到你的日志上：<br>· <span class='w'>「某个配置的真实分数」</span> —— <b>环境的性质，不带策略烙印，<span class='k'>永远可以复用</span></b>；<br>· <span class='w'>「当时的搜索策略会选哪个」</span> —— <b>带策略烙印，不能直接当成「现在该选哪个」</b>。<br><br><b>⇒ 所以把「配置 → 分数」存成一个<span class='k'>永久的查找表 / 训练集</span>（它永不过期），而「该去试哪个」每轮用当前策略重新算。</b><br><br><b>这样你的评估预算才真的是累积的</b> —— <span class='w'>每一次昂贵的评估都永久地留在资产里，而不是随着搜索策略更新而贬值</span>。<br><br><span class='k'>很多人把整份日志当成一个整体，要么全信要么全不信 —— 对一个评估极贵的场景，这是实打实的浪费。</span>",
+   "tag": "推断",
+   "ref": "本讲 p31–32 的修补规则"
+  },
+  {
+   "q": "你的代理模型为什么要用全部历史数据训，而不是只用最近的？",
+   "a": "<b>p33 那句「optimal policy on a broader distribution」给了一个反直觉但正确的理由。</b><br><br><span class='k'>如果只用「当前搜索策略会去的那些配置」训代理模型，模型就只在那一小片准</span> —— <b>而剪枝恰恰需要它在<span class='w'>没去过</span>的区域给出判断</b>。<br><br><b>用全部历史（包括早期那些被淘汰的配置）训，正是「更宽的分布」</b>：<span class='w'>在你真正会去的那片上可能不是最优，但在更宽的范围里都还算靠谱</span>。<br><br><b>对剪枝来说，后者才是你要的。</b><br><br>⚠ <b>但代价要认，而且 p35 已经预警了</b>：<span class='k'>数据复用得越狠，「分布混杂」带来的不稳定就越明显</span> —— <b>早期的烂配置会一直留在训练集里，可能让模型在好配置那一片欠拟合</b>。<br><br><b>可以用加权缓解（近期数据权重高），但要显式处理</b>。<span class='w'>或者干脆两个模型：一个宽的用于剪枝，一个窄的用于最终排序。</span>",
+   "tag": "推断",
+   "ref": "本讲 p33 的 broader distribution 与 p35 的取舍"
+  },
+  {
+   "q": "你用代理模型的预测去做剪枝，这不会自我强化错误吗？",
+   "a": "<b>会，而且你的处境比 RL 那边<span class='k'>更危险</span> —— 这个要正面答。</b><br><br><span class='w'>p18 的自举听起来像永动机（用不准的估计造标签，训出更准的估计），它不是</span>，<b>因为每一轮的标签里都掺着一项<span class='k'>真实的</span> <code>r</code></b>。<span class='w'>信息就是靠那一项，从有奖励的地方一步步往回渗的。</span><br><br><b>而「用预测值反哺模型 / 用预测值剪枝再把剪枝结果当证据」如果没有新的真实评估进来，就是纯粹的自我循环</b> —— <span class='k'>模型会越来越自信地重复自己最初的偏见</span>。<br><br><b>所以判据很清楚：每一轮更新里，必须有<span class='k'>真实评估</span>这个外部锚点。</b><br><br><b>而这也给了你一个该主动做的检查</b>：<span class='w'>统计「被剪掉的区域里，后来被真实评估证实确实不好的比例」</span>。<b>如果你从不回去验证被剪掉的区域，就永远不会发现剪错了</b> —— <span class='k'>偶尔抽样验证一下被剪区域，成本不高，但能挡住最危险的那类失败</span>。",
+   "tag": "推断",
+   "ref": "本讲 p18 的自举；真实 r 作为外部锚点那一条是补的"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Haarnoja, Zhou, Abbeel & Levine. Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor",
+   "id": "ICML 2018（p34 明引）",
+   "why": "<b>本讲右边那条路（回放缓冲区）的成品。</b><span class='k'>标题里每个词都对应本讲一个零件</span>：Soft（最大熵）· Actor-Critic（本讲）· Off-Policy（p28 之后）· Stochastic Actor（L01 p39 那两条理由）。<b>标题读懂了，算法骨架就有了</b> —— <span class='w'>这也是读论文时一个很省时间的习惯</span>。"
+  },
+  {
+   "t": "Schulman et al., High-Dimensional Continuous Control Using Generalized Advantage Estimation (GAE)",
+   "id": "ICLR 2016",
+   "why": "<b>p20 那个 n 旋钮的连续化版本</b>：<span class='k'>用一个 λ ∈ [0,1] 对所有 n 做指数加权平均，不用离散地挑 n</span>。<b>PPO 的标准实现用的就是它</b> —— <span class='w'>所以你在 L05 读到的 PPO，它的优势估计正是这一页的连续化</span>。"
+  },
+  {
+   "t": "Mnih et al., Human-level control through deep reinforcement learning (DQN)",
+   "id": "Nature 2015",
+   "why": "<b>replay buffer 最有名的出场，但它在那里解决的是<span class='k'>另一个</span>问题</b>：主要为了打散样本间的相关性，而非数据效率（本讲是后者）。<span class='w'>两个理由同时起作用，但知道哪个是主要动机，才能判断「缓冲区该多大」这类问题</span>。<b>它也是 L06 Q-learning 的主角。</b>"
+  },
+  {
+   "t": "Sutton & Barto，第 6 章（时序差分学习）与第 7 章（N 步自举）",
+   "id": "官方免费全书",
+   "why": "<b>p18–p20 的系统版本。</b><span class='k'>这一讲用三页走完的 MC / TD / N 步，在那里是整整两章</span>，而且有表格情形下的收敛性证明。<b>卡在「为什么自举能收敛」时去翻它</b> —— <span class='w'>本讲完全没碰收敛性。</span>"
+  },
+  {
+   "t": "本课 L05：离策略 Actor-Critic 与 PPO",
+   "id": "本站已有精读",
+   "why": "<b>本讲左边那条路（不用缓冲区）的成品。</b><span class='k'>p27 的 Idea 2「bound the importance weights / removes incentives」就是 PPO 的核心想法</span>，<b>而 L05 给出具体做法：裁剪</b>。<span class='w'>三讲串起来：L03 推出重要性权重 → L04 说明它为什么要被约束 → L05 给出怎么约束。</span>"
+  },
+  {
+   "t": "本课 L06：Q-learning",
+   "id": "lecture_6（29 页）",
+   "why": "<b>p37 预告的「最后一个大的在线 RL 方法」。</b><span class='k'>本讲选择学 V（输入只有状态，数据覆盖容易）；Q-learning 反过来选 Q，因为它根本不维护显式的策略，必须靠 Q 来选动作</span>。<b>p34 那句 fancier ways to fit Q-functions, more on this in next two lectures 指的就是它。</b>"
+  }
+ ]
+}

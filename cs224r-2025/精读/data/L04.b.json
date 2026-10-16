@@ -1,0 +1,463 @@
+{
+ "_目标": { "密度": 600, "quote覆盖": 0.8, "表格每N页": 4 },
+ "_守住的数字": [
+  "本片覆盖 p14–p23（怎么估这个值函数：蒙特卡洛 / 自举 / N 步回报 + 完整算法）。",
+  "p14 的取舍：该拟合 V^π、Q^π 还是 A^π？答案是 **Let's just fit V^π!**（之后用采到的 s_{t+1} 把 Q 和 A 补出来）",
+  "蒙特卡洛（p15–17）：单样本估计 ← 原始做法；多样本估计 **but can't reset the world**；做法是 ① 攒一个单样本估计的数据集 ② 监督学习拟合",
+  "蒙特卡洛的标签（p19）：**y_{i,t} = Σ_{t'=t}^{T} r(s_{i,t'}, a_{i,t'})** —— supervise with roll-out's summed rewards",
+  "自举的标签（p18–19）：**y_{i,t} = r(s_{i,t},a_{i,t}) + V̂^π_φ(s_{i,t+1})** —— supervise using reward and current value estimate",
+  "p18 两条注记：**update labels every gradient update!** · **Also referred to as a form of temporal difference learning**",
+  "p19 的 think-pair-share 配图：一条轨迹走到 **r = −1**（红点），另一条走到 **r = +1**（绿点），**r = 0 along trajectory**；问蓝点与粉点处 V̂_MC 与 V̂_TD 各约等于多少",
+  "p19 收尾设问：**Is there middle ground? Can we balance bias and variance?**",
+  "p20 的两条评价：**Bootstrapped（用 r+V）→ less variance than MC** · **Monte Carlo（用 Σr）→ lower bias than 1-step bootstrap**",
+  "N 步回报（p20）：**y_{i,t} = Σ_{t'=t}^{t+n−1} r(s_{i,t'},a_{i,t'}) + V̂^π_φ(s_{i,t+n})**，**often works the best in practice!**，取 **n > 1, n < T**",
+  "完整算法（p22，带折扣）五步：① 用 π_θ 采一批 ② 把 V̂^{π_θ}_φ 拟合到数据里的回报和 ③ 评估 Â^{π_θ}(s_t,a_t) = r(s_t,a_t) + γV̂_φ(s_{t+1}) − V̂_φ(s_t) ④ 评估 ∇_θJ(θ) ≈ Σ_{t,i} ∇_θ log π_θ(a_{t,i}|s_{t,i})Â ⑤ θ ← θ + α∇_θJ(θ)；讲义称之为 **actor-critic algorithm**",
+  "p23 的那对总结：**Policy gradients: observe what is good vs. bad** ↔ **Actor-critic: learn to estimate what is good vs. bad**",
+  "p24 把三种方法的正式名字填上：**policy evaluation**（这一整段的名字）· **Monte Carlo estimation** · **bootstrapping / temporal difference learning** · **N-step returns**"
+ ],
+ "notes": [
+  {
+   "r": [14, 14],
+   "t": "该拟合哪一个：答案是「只拟合 V，其余用采到的下一步补出来」",
+   "star": 4,
+   "quote": "Estimating expected return — Should we fit V^π, Q^π, or A^π?  (use the sampled s_{t+1}).  Let's just fit V^π!  ∇_θJ(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) A^π(s_{i,t}, a_{i,t}).",
+   "one": "<b>梯度式子里要的是 A，但这一页决定<span class='k'>只去拟合 V</span>。</b>理由是：<span class='w'>有了 V，再借用轨迹里<b>已经采到</b>的那个 s_{t+1}，Q 和 A 都能当场算出来</span> —— <b>不用再训第二个网络。</b>",
+   "eq": "问题（p14）：我们要的是 A，那该拟合哪一个？\n\n  候选     要学什么            代价\n  ─────────────────────────────────────────────────────\n  V^π(s)   **一个**输入是状态的函数      最便宜\n  Q^π(s,a) 输入是状态**与动作**         动作空间大时更难学\n  A^π(s,a) 同上，而且还要先有 V         最贵\n\n答案（p14）：**Let's just fit V^π!**\n\n────────────────────────────────────────\n为什么只拟合 V 就够了 —— 因为轨迹里已经有 s_{t+1} 了（p14 小字 use the sampled s_{t+1}）：\n\n  由定义：  Q^π(s_t, a_t)  =  r(s_t, a_t)  +  𝔼_{s_{t+1}}[ V^π(s_{t+1}) ]\n                              └ 这一步的奖励 ┘   └ 之后照 π 走 ┘\n\n  用轨迹里**采到的那一个** s_{t+1} 作为单样本估计：\n\n            Q^π(s_t, a_t)  ≈  r(s_t, a_t)  +  V̂^π_φ(s_{t+1})\n\n  再减掉 V（p6 的关系式 ②）：\n\n       **Â^π(s_t, a_t)  ≈  r(s_t, a_t)  +  V̂^π_φ(s_{t+1})  −  V̂^π_φ(s_t)**\n\n  ⇒ 一个网络（V̂_φ）+ 轨迹里已有的 (r, s_{t+1})，优势就出来了。\n     这一行就是 p22 完整算法的第 3 步。",
+   "pts": [
+    "<b>这个选择的全部好处是「只训一个网络」，而代价藏在那个单样本估计里。</b><span class='k'>用采到的那<b>一个</b> s_{t+1} 去代替对 s_{t+1} 的期望，是一次采样近似</span> —— <b>环境随机性大时，这一步会引入方差</b>。<span class='w'>讲义没展开，但这是 Actor-Critic 与后面 Q-learning 那一族的一个分野点。</span>",
+    "<b>注意这里又一次用到了 L01 p33 那条「动力学未知」的性质，而且用法很取巧。</b><span class='k'>我们算不出 <code>𝔼_{s_{t+1}}[V(s_{t+1})]</code>（那要知道 <code>p(s_{t+1}|s_t,a_t)</code>）</span>；<b>但我们不需要算 —— 环境已经替我们采了一个样本出来</b>。<span class='w'>「用环境的采样代替对动力学的求期望」是整个无模型 RL 的基本手法。</span>",
+    "<b>为什么不直接拟合 Q？因为 Q 的输入多了动作那一维。</b><span class='k'>动作空间大（或连续）时，同样的数据量要覆盖 (s,a) 的联合空间，比只覆盖 s 难得多</span>。<b>所以在 Actor-Critic 里学 V 更省数据</b> —— <span class='w'>而 L06 的 Q-learning 会反过来选 Q，因为那边根本不维护显式的策略，必须靠 Q 来选动作。</span>",
+    "<b>但这个「只拟合 V」的决定在本讲后半会被推翻一次，值得先埋个伏笔。</b><span class='k'>p31 加了回放缓冲区之后，V 不够用了</span> —— <b>因为缓冲区里的 s' 是旧策略走出来的，而 V 的定义绑着「之后按当前 π 走」</b>。<span class='w'>到那时讲义会把 V 划掉，换成 Q。</span>",
+    "<b>把 p14 这一行和 p22 第 3 步对照着看，你会发现它们是同一个式子。</b><span class='k'>p14 是推导，p22 是算法里的一行代码</span>。<b>中间差的只有一个折扣因子 γ</b>（p21 补的）—— <span class='w'>所以这一页其实已经把整个 critic 的用法写完了，剩下十页都在讲「V̂_φ 本身怎么训」。</span>"
+   ],
+   "tbl": {
+    "cap": "三个候选：为什么选 V",
+    "head": ["", "V^π(s)", "Q^π(s,a)", "A^π(s,a)"],
+    "rows": [
+     ["输入", "<b>只有状态</b>", "状态 + 动作", "状态 + 动作"],
+     ["数据覆盖难度", "<b>最低</b>", "高（要覆盖 (s,a) 联合）", "高"],
+     ["能直接给梯度用吗", "否", "可以但更吵", "<b>是</b>"],
+     ["<b>本讲的选择</b>", "<b>✓ 只拟合它</b>", "—", "<b>用 r + V̂(s') − V̂(s) 当场算</b>"],
+     ["靠什么补出来", "—", "<b>轨迹里已采到的 s_{t+1}</b>", "再减一个 V̂(s)"],
+     ["⚠ 后面会推翻", "<b>p31 加回放缓冲区后 V 不够用，换成 Q</b>", "—", "—"]
+    ]
+   },
+   "say": "<b>这一页只有四行字，但它决定了整个 Actor-Critic 的形状，值得把那个取巧的地方说透。</b><br><br>我们想要的是 <code>Q^π(s_t,a_t) = r + 𝔼_{s_{t+1}∼p(·|s_t,a_t)}[V^π(s_{t+1})]</code>。<br><br><span class='k'>那个期望是对<b>未知的动力学</b>取的 —— 按理说算不出来。</span><br><br><b>但我们根本不需要算：环境在采轨迹的时候，已经从 <code>p(·|s_t,a_t)</code> 里替我们抽了一个样本出来，那就是 s_{t+1}。</b><br><br><span class='w'>于是「对未知分布求期望」变成了「用手上这一个样本代替」。</span><br><br><b>这个手法在无模型 RL 里无处不在</b>，而且它的代价也一直是同一个：<span class='k'>单样本估计 ⇒ 方差</span>。<b>环境越随机，这一步越不准</b> —— <span class='w'>而下面几页讨论的 MC / 自举 / N 步，本质上就是在选「用多少个这样的单样本估计串起来」。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p40（V 与 Q 的定义，以及从 V 推 Q 为什么需要动力学）",
+    "href": "L01-精读.html"
+   }
+  },
+  {
+   "r": [15, 17],
+   "t": "蒙特卡洛：最诚实的估法，代价是你不能把世界倒回去",
+   "star": 4,
+   "quote": "Estimating V^π — Version 1: Monte Carlo estimation.  ← original single sample estimate.  ← multi-sample estimate (but can't reset the world).  Step 1: Aggregate dataset of single sample estimates.  Step 2: Supervised learning to fit estimated value function.",
+   "one": "<b>最朴素的估法：想知道 <code>V^π(s)</code>，就从 s 出发跑到底，把拿到的奖励加起来。</b><span class='k'>跑很多次取平均当然更准</span> —— <b>但讲义当场否掉了：<span class='w'>can't reset the world</span></b>（你没法把世界倒回那个状态再来一次）。",
+   "eq": "想要的（p15–16）：\n\n  单样本估计：  V^π(s)  ≈  Σ_{t'=t}^{T} r(s_{t'}, a_{t'})\n                （从 s 出发跑**一次**，把奖励加起来）\n\n  多样本估计：  V^π(s)  ≈  (1/M) Σ_{m=1}^{M} [ 从 s 出发跑第 m 次的回报和 ]\n                ⚠ **but can't reset the world**\n                （真实环境里你没法回到同一个 s 再来一次）\n\n────────────────────────────────────────\n于是实际做法（p17）：\n\n  **Step 1**: 攒一个**单样本估计**的数据集\n\n       𝒟 = { ( s_{i,t},  y_{i,t} ) }，  其中  **y_{i,t} = Σ_{t'=t}^{T} r(s_{i,t'}, a_{i,t'})**\n\n       ——「这条轨迹从第 t 步往后实际拿到了多少」\n\n  **Step 2**: 监督学习拟合\n\n       min_φ  Σ_{i,t}  ‖ V̂^π_φ(s_{i,t})  −  y_{i,t} ‖²\n\n  ⇒ 注意这就是一个**普通的回归问题**：输入状态，输出一个数。\n     L02 那套「网络该输出什么」的讨论在这里不适用 ——\n     这里要的确实只是**条件均值**，而 ℓ2 回归给的正是条件均值。",
+   "pts": [
+    "<b>「can't reset the world」这句否定是一个真实的物理约束，不是理论洁癖。</b><span class='k'>仿真器里你确实可以存档读档、从同一个状态反复试</span>；<b>而真机、真人、LLM 评估里都不行</b>。<span class='w'>所以多样本估计在仿真里是可用的（有些算法就这么做），在真实场景里不可用。</span>",
+    "<b>但神经网络的泛化悄悄帮回了一部分，这一点值得想一下。</b><span class='k'>虽然每个状态只有一个样本，但相近的状态会被网络归到一起</span> —— <b>于是「对同一状态多次采样取平均」在某种程度上被「对相似状态的样本一起拟合」替代了</b>。<span class='w'>这是函数逼近在 RL 里的一个隐性收益，讲义没提但很实在。</span>",
+    "<b>注意这一步是<span class='k'>无偏</span>的：<code>y_{i,t}</code> 的期望正好是 <code>V^π(s_{i,t})</code>。</b><b>所以蒙特卡洛估值不引入任何偏差</b>，<span class='w'>唯一的毛病是方差大</span> —— <b>因为它把从 t 到 T 的全部随机性（环境的 + 策略的）都累在一个标签里</b>。<span class='k'>T 越长，这个标签越吵。</span>",
+    "<b>Step 2 是一个<span class='w'>普通的监督回归</span>，这和 L02 那场「网络该输出分布而不是一个数」的讨论不冲突。</b><span class='k'>那里要的是动作的分布（多模态），所以单个数不够</span>；<b>这里要的本来就是一个期望值（条件均值），ℓ2 回归给的正好对</b>。<span class='w'>同一个工具，在不同目标下一次是错一次是对 —— 判据是「你要的是分布还是期望」。</span>",
+    "<b>这个做法有一个很实际的限制：必须等轨迹跑完才能算标签。</b><span class='k'><code>y_{i,t} = Σ_{t'=t}^{T} r</code> 里有 T</span> —— <b>没跑到头就算不出来</b>。<span class='w'>所以蒙特卡洛不能用于不会终止的任务，也不能边跑边学</b>。<b>下一页的自举正好解决这一条。</b>"
+   ],
+   "tbl": {
+    "cap": "蒙特卡洛估值：好在哪、卡在哪",
+    "head": ["", "评价"],
+    "rows": [
+     ["<b>偏差</b>", "<b>无偏 —— y 的期望正好是 V^π(s)</b>"],
+     ["<b>方差</b>", "<b>大 —— 从 t 到 T 的全部随机性都累在一个标签里，T 越长越吵</b>"],
+     ["多采几次取平均？", "<b>✗ can't reset the world（仿真里可以，真实环境里不行）</b>"],
+     ["神经网络有没有帮上忙", "<b>有 —— 相近状态被归到一起拟合，相当于隐性地多采了样</b>"],
+     ["Step 2 用什么损失", "<b>普通 ℓ2 回归（这里要的本来就是条件均值，所以是对的）</b>"],
+     ["<b>致命限制</b>", "<b>必须等轨迹跑完才能算标签 ⇒ 不能用于无终止任务、不能边跑边学</b>"]
+    ]
+   },
+   "say": "<b>「can't reset the world」这句话值得和 L02 p30 那张照片放在一起看。</b><br><br><span class='k'>L02 p30：Yevgen 在镜头外不停地把积木摆回原位 —— 那张照片讲的正是「reset 在真实世界里要人手动做」。</span><br><br><b>而这一页说的是同一件事的另一面</b>：<span class='w'>既然 reset 这么贵，那「从同一个状态跑很多次取平均」这个估值方法就不可用</span>。<br><br><b>两处合起来给出一个判断依据</b>：<br>· <span class='k'>在仿真里</span>：reset 免费 ⇒ 多样本估计可用 ⇒ 蒙特卡洛的方差问题可以靠多采缓解；<br>· <span class='k'>在真机 / 真人 / LLM 评估上</span>：reset 昂贵或不可能 ⇒ <b>只能用单样本估计</b> ⇒ 方差问题必须靠别的办法解决。<br><br><span class='w'>「别的办法」就是下一页的自举 —— 它不需要跑到底，也不需要 reset。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L02 精读 p30（Yevgen 那张照片：reset 在真实世界里要人手动做）",
+    "href": "L02-精读.html"
+   }
+  },
+  {
+   "r": [18, 18],
+   "t": "自举：用自己现在的估计，去造自己下一步的标签",
+   "star": 5,
+   "quote": "Estimating V^π — Version 2: Bootstrapping.  Step 1: Aggregate dataset of \"bootstrapped\" estimates: y_{i,t} = r(s_{i,t}, a_{i,t}) + V̂^π_φ(s_{i,t+1}).  Step 2: Supervised learning to fit estimated value function.  ← update labels every gradient update!  Also referred to as a form of temporal difference learning.",
+   "one": "<b>不等轨迹跑完了：只走一步，剩下的用<span class='k'>自己当前的估计</span>顶上。</b><span class='w'>标签里出现了 V̂_φ 自己</span> —— <b>这就是「自举」（bootstrapping）这个名字的来历：拽着自己的鞋带把自己提起来。</b>",
+   "eq": "自举的标签（p18）：\n\n  **y_{i,t}  =  r(s_{i,t}, a_{i,t})  +  V̂^π_φ(s_{i,t+1})**\n                └ 真实走了一步的奖励 ┘   └ **自己现在的估计** ┘\n\n  对照蒙特卡洛：\n\n  MC：  y_{i,t} = r_t + r_{t+1} + r_{t+2} + … + r_T        ← 全是真实奖励\n  自举：y_{i,t} = r_t + **V̂_φ(s_{t+1})**                    ← 一步真实 + 其余靠估计\n\n────────────────────────────────────────\n两条关键注记（p18）：\n\n  ⚠ **update labels every gradient update!**\n     标签里含有 V̂_φ，而 φ 每步都在变 ⇒ **标签是移动的**\n     （监督学习里标签是固定的，这里不是 —— 这是 RL 特有的麻烦）\n\n  · **Also referred to as a form of temporal difference learning**\n     时序差分（TD）学习 —— 名字来自那个「差」：\n\n         δ  =  r_t + V̂_φ(s_{t+1})  −  V̂_φ(s_t)\n               └─── 新的估计 ───┘   └ 旧的估计 ┘\n\n     ⇒ 而这个 δ 正好就是 p14 推出来的那个 **优势估计**。\n        TD 误差与优势，在一步情形下是同一个量。",
+   "pts": [
+    "<b>「标签里含有自己」这件事是 RL 和监督学习最深的一条分界，值得停一下。</b><span class='k'>监督学习里标签是外部给的、固定的</span>；<b>这里标签由当前模型自己算出来，模型一更新标签就变</b>。<span class='w'>所以这不是在拟合一个固定的目标，而是在追一个会跑的目标</span> —— <b>收敛性因此要另外论证（而且在用神经网络时并不总是成立）。</b>",
+    "<b>「update labels every gradient update!」那个感叹号是在提醒一个实现陷阱。</b><span class='k'>如果你算一次标签、然后在它上面训很多步，那些标签很快就过期了</span>。<b>实践中的标准做法是用一个「目标网络」（target network）<span class='w'>慢一拍</span>地提供 V̂</b> —— <span class='k'>这样标签不会每步都跳</span>。<b>讲义这里没展开，L06 的 Q-learning 会正面讲。</b>",
+    "<b>TD 误差 <code>δ = r + V̂(s') − V̂(s)</code> 和 p14 那个优势估计是<span class='k'>同一个式子</span>，这个重合不是巧合。</b><span class='w'>「比我原本以为的好多少」= 「这个动作的优势」</span>。<b>所以 critic 的训练信号和 actor 的更新权重，用的是同一个量</b> —— <span class='k'>这是 Actor-Critic 实现起来比看上去简洁的原因。</span>",
+    "<b>自举把蒙特卡洛的两个毛病同时解决了。</b><span class='k'>① 不用等轨迹跑完 ⇒ 可以边跑边学，也能处理无终止任务</span>；<span class='k'>② 标签里只含一步的真实随机性 ⇒ 方差小得多</span>。<b>代价只有一个，但很重：<span class='w'>有偏</span></b> —— <span class='w'>因为 V̂_φ(s_{t+1}) 本身是估出来的，它错了，标签就跟着错。</span>",
+    "<b>刚开始训练时，这个偏差尤其严重，而且有自我强化的风险。</b><span class='k'>V̂_φ 随机初始化 ⇒ 标签几乎是噪声 ⇒ 用噪声训出来的 V̂ 又去造下一批标签</span>。<b>它最终能收敛，靠的是那一项<span class='w'>真实的</span> <code>r</code></b> —— <span class='k'>真实奖励是唯一的外部锚点，信息就是从它一步步往回传的</span>。"
+   ],
+   "tbl": {
+    "cap": "蒙特卡洛 vs 自举：一笔明确的交易",
+    "head": ["", "蒙特卡洛", "<b>自举 / TD</b>"],
+    "rows": [
+     ["标签", "Σ_{t'=t}^T r（全是真实奖励）", "<b>r_t + V̂_φ(s_{t+1})</b>"],
+     ["偏差", "<b>无偏</b>", "<b>有偏（V̂ 自己可能是错的）</b>"],
+     ["方差", "<b>大（累积 t 到 T 的全部随机性）</b>", "<b>小（只有一步的随机性）</b>"],
+     ["要等轨迹跑完吗", "<b>要</b>", "<b>不要 —— 能边跑边学</b>"],
+     ["能处理无终止任务吗", "<b>不能</b>", "<b>能</b>"],
+     ["标签固定吗", "<b>固定</b>", "<b>会动 —— update labels every gradient update!</b>"],
+     ["外部锚点", "全部奖励", "<b>只有那一项真实的 r</b>"]
+    ]
+   },
+   "say": "<b>「bootstrapping」这个词在统计里还有另一个完全不同的意思，值得分清，否则读文献会撞车。</b><br><br>· <span class='w'>统计里的 bootstrap</span>：从样本里<b>有放回地重采样</b>，用来估计统计量的分布。<br>· <span class='k'>RL 里的 bootstrapping</span>：<b>用自己当前的估计去构造学习目标</b>。<br><br><span class='w'>两者毫无关系，只是共用了「拽自己鞋带」这个比喻。</span><br><br><b>而 RL 这个用法里，那个比喻其实相当贴切</b>：<span class='k'>你用一个还不准的 V̂ 去造标签，训出一个稍微准一点的 V̂，再用它去造更好的标签</span>。<br><br><b>听起来像永动机，但它不是</b> —— <span class='w'>因为每一轮的标签里都掺进了一项<b>真实的</b> <code>r</code></span>。<b>信息就是靠那一项，从有奖励的地方一步一步往回渗的。</b><br><br><span class='k'>这也解释了为什么稀疏奖励下 TD 学得慢：奖励离起点越远，信息要渗过的步数就越多</span> —— 而 p20 的 N 步回报正是在缩短这条路径。",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「用自己的估计造自己的标签」这个模式，在你的课题里如果出现，要格外小心 —— 它有自我强化错误的风险。</b><br><br><span class='k'>一个具体的场景</span>：你用代理模型预测某些没跑过的配置的分数，<b>然后把这些<span class='w'>预测值</span>当成数据去训练/更新代理模型本身</b>，或者用它们去做剪枝决策、再把剪枝结果当成「这片区域不好」的证据。<br><br><b>这就是自举，而且比 RL 那边更危险</b>：<span class='k'>RL 的标签里至少掺着一项真实的 r 当锚点</span>；<b>而「用预测值反哺模型」如果没有新的真实评估进来，就是纯粹的自我循环</b> —— <span class='w'>模型会越来越自信地重复自己最初的偏见</span>。<br><br><b>所以判据很清楚：每一轮更新里，必须有<span class='k'>真实评估</span>这个外部锚点。</b><br><br><b>而这也给了你一个可以主动做的检查</b>：<span class='w'>统计「被剪掉的区域里，后来被真实评估证实确实不好的比例」</span> —— <b>如果你从不回去验证被剪掉的区域，你就永远不会发现剪错了</b>。偶尔抽样验证一下被剪区域，成本不高，但能挡住最危险的那类失败。",
+    "ref": "本讲 p18 的自举；真实 r 作为外部锚点那一条是补的"
+   }
+  },
+  {
+   "r": [19, 20],
+   "t": "偏差与方差摆在同一张图上，然后给出那个可调的旋钮",
+   "star": 5,
+   "quote": "Think-pair-share: Estimating V^π: Monte Carlo vs. Bootstrap.  Monte Carlo: y_{i,t} = Σ_{t'=t}^T r(s_{i,t'}, a_{i,t'}) — supervise with roll-out's summed rewards.  Bootstrapped: y_{i,t} = r(s_{i,t},a_{i,t}) + V̂^π_φ(s_{i,t+1}) — supervise using reward and current value estimate.  r = -1, r = 1, r = 0 along trajectory.  Is there middle ground?  Can we balance bias and variance?  N-step returns: y_{i,t} = Σ_{t'=t}^{t+n−1} r(s_{i,t'},a_{i,t'}) + V̂^π_φ(s_{i,t+n}).  often works the best in practice!  n > 1, n < T.  Bootstrapped: using r+V → less variance than MC.  Monte Carlo: using Σ_t^T r → lower bias than 1-step bootstrap.",
+   "one": "<b>p19 画了一张很干净的图把问题摆出来</b>：两条轨迹从同一片区域出发，<span class='k'>一条走到 r = −1，另一条走到 r = +1，中间全是 0</span>。<b>问同一个状态上 MC 和 TD 各给出什么。</b><span class='w'>而 p20 的答案是一个旋钮：N 步回报。</span>",
+   "eq": "p19 的配图（think-pair-share）：\n\n  两条轨迹，从下方出发，在中途**交叉**，然后分开：\n      一条走到 **r = −1**（红点）\n      一条走到 **r = +1**（绿点）\n      **r = 0 along trajectory**（中途全是 0）\n\n  在交叉附近的**蓝点**与下方的**粉点**上，问：\n      V̂^π_MC(s) ≈ ?      V̂^π_TD(s) ≈ ?\n\n  要点：\n    **MC** 的标签完全由「这一条轨迹最后走到哪」决定\n        ⇒ 蓝点上两条轨迹给出 **+1 与 −1 两个差很远的标签** ⇒ **方差大**\n    **TD** 的标签是 r + V̂(下一个状态)\n        ⇒ 相邻状态的估计互相牵制，**平滑得多** ⇒ **方差小**\n        ⇒ 但如果 V̂ 本身偏了，整片区域会**一起偏** ⇒ **有偏**\n\n  p19 的收尾设问：\n    **Is there middle ground?  Can we balance bias and variance?**\n\n────────────────────────────────────────\np20 的答案：**N 步回报**\n\n  **y_{i,t}  =  Σ_{t'=t}^{t+n−1} r(s_{i,t'}, a_{i,t'})  +  V̂^π_φ(s_{i,t+n})**\n                └── 走 n 步真实奖励 ──┘        └ 第 n 步之后交给估计 ┘\n\n  两个端点就是前两页：\n      n = 1  →  自举（TD）\n      n = T  →  蒙特卡洛\n\n  讲义的两句评价：\n      **Bootstrapped（用 r+V）→ less variance than MC**\n      **Monte Carlo（用 Σr）  → lower bias than 1-step bootstrap**\n\n  推荐取值：**n > 1, n < T**，并注明 **often works the best in practice!**",
+   "pts": [
+    "<b>p19 那张图的设计很讲究：两条轨迹<span class='k'>交叉</span>之后才分开去往 +1 和 −1。</b><span class='w'>这意味着在交叉点附近，两条轨迹的状态几乎相同，但 MC 标签一个是 +1、一个是 −1</span>。<b>同样的输入、相反的标签 —— 这就是 MC 方差大的最直观画面。</b>",
+    "<b>而 TD 在同一个点上会给出接近的估计，因为它只看一步，剩下的交给 V̂。</b><span class='k'>相邻状态共享同一个 V̂_φ，于是估计天然是平滑的</span>。<b>代价是：如果 V̂_φ 在那片区域整体偏高，所有点会<span class='w'>一起</span>偏高</b> —— <span class='w'>方差小了，但错得很一致。</span>",
+    "<b>N 步回报把两端连成了一条连续的谱，而 n 就是那个旋钮。</b><span class='k'>n 越小 ⇒ 越依赖估计 ⇒ 偏差大、方差小</span>；<span class='k'>n 越大 ⇒ 越依赖真实奖励 ⇒ 偏差小、方差大</span>。<b>而讲义说最好的取法在中间：<code>n > 1, n < T</code>，<span class='w'>often works the best in practice!</span></b>",
+    "<b>为什么中间最好，有一个直觉上的解释：真实奖励的信息价值随距离递减。</b><span class='k'>前几步的真实奖励信息量大、噪声小</span>；<b>而几十步之后的奖励，和当前这个状态的因果联系已经很弱，主要贡献的是噪声</b>。<span class='w'>N 步回报等于说：近处用真的，远处用估的。</span>",
+    "<b>这个旋钮后来被做成了连续的版本，知道名字有好处。</b><span class='k'>GAE（Generalized Advantage Estimation）用一个 λ ∈ [0,1] 对所有 n 做指数加权平均</span>，<b>于是不用离散地挑 n</b>。<span class='w'>PPO 的标准实现里用的就是 GAE</span> —— <b>所以你在 L05 读到的 PPO，它的优势估计正是这一页的连续化版本。</b>"
+   ],
+   "tbl": {
+    "cap": "n 这个旋钮：两端与中间",
+    "head": ["", "n = 1（自举/TD）", "<b>1 < n < T（N 步）</b>", "n = T（蒙特卡洛）"],
+    "rows": [
+     ["标签", "r + V̂(s_{t+1})", "<b>n 步真实奖励 + V̂(s_{t+n})</b>", "全部真实奖励"],
+     ["偏差", "<b>大</b>", "<b>中</b>", "<b>无</b>"],
+     ["方差", "<b>小</b>", "<b>中</b>", "<b>大</b>"],
+     ["要等轨迹跑完吗", "不要", "<b>等 n 步</b>", "<b>要</b>"],
+     ["讲义评价", "less variance than MC", "<b>often works the best in practice!</b>", "lower bias than 1-step"],
+     ["连续化版本", "—", "<b>GAE（用 λ 对所有 n 加权）</b>", "—"]
+    ]
+   },
+   "say": "<b>这一页的偏差-方差权衡，和 L03 那一讲的四件降方差手段放在一起，能看出一条很清楚的升级线：</b><br><br>· <span class='k'>L03 的因果性与基线</span>：<b>无偏</b>的降方差 —— 白赚，没有代价。<br>· <span class='k'>L04 的 critic</span>：<b>有偏</b>的降方差 —— 这是一笔交易。<br><br><b>而这一页做的事，是把那笔交易从「要不要做」变成「做多少」。</b><br><br><span class='w'>n = T 就是不做（纯 MC，无偏）；n = 1 就是全做（纯 TD，偏差最大）；中间任选。</span><br><br><b>把一个二选一变成一个连续旋钮，这是一个在方法设计上很值得学的动作。</b><span class='k'>很多看起来对立的方法，其实是同一个谱的两端</span> —— 找到那个谱，你就得到了一整族方法，而且通常中间那一段比两端都好。<br><br><b>这一讲后面还会再出现一次同样的模式</b>：<span class='w'>p35 的「more off-policy vs. less off-policy」也是一个谱</span>，<b>两端分别是「每批只走一步」和「全部历史数据都复用」</b>。",
+   "link": {
+    "t": "你学过的对应：CS224R L03 精读（四件降方差手段，以及「白赚 vs 交易」那个分级）",
+    "href": "L03-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「把二选一变成一个连续旋钮」这个动作，对你的课题可能直接是一个贡献点。</b><br><br>你的搜索里有若干处是二选一的：<br>· <span class='w'>剪枝 vs 不剪枝</span>（硬剪掉，还是只降低优先级？）<br>· <span class='w'>信代理模型 vs 信真实评估</span>（用预测值决策，还是必须真跑？）<br>· <span class='w'>探索 vs 利用</span><br><br><b>第一条尤其值得想</b>：<span class='k'>现在的 dominance-pruning 大概率是硬剪 —— 一旦判定被支配就彻底删掉</span>。<b>但完全可以做成一个旋钮</b>：<span class='w'>按「被支配的置信度」给配置降权，而不是直接归零</span>。<br><br><b>好处有两个</b>：① <span class='k'>剪错了还有机会救回来</span>（而硬剪是不可逆的）；② <b>重要性采样那条硬前提（q ≠ 0）重新成立了</b> —— <span class='w'>降权之后概率仍然非零，于是日志还能用于离线评估</span>（L03 主线卡里标出的那个限制，就这么被解开了）。<br><br>⚠ 代价是搜索效率下降（你仍然会偶尔去试被支配的配置）。<b>所以这又是一个旋钮，而不是一个免费的改进</b> —— 但<span class='k'>「硬剪枝是 λ=0 的特例」这个叙述本身就比「我们用硬剪枝」强</b>。",
+    "ref": "本讲 p20 的 N 步回报；对照 L03 主线卡里「剪枝掉的配置 q=0」那条限制"
+   }
+  },
+  {
+   "r": [21, 22],
+   "t": "补上折扣因子，然后五步写完整个 Actor-Critic",
+   "star": 5,
+   "quote": "Aside: discount factors.  A Full Algorithm Walkthrough — 1. Sample batch of data {(s_{1,i}, a_{1,i}, …, s_{T,i}, a_{T,i})} from π_θ.  2. Fit V̂^{π_θ}_ϕ to summed rewards in data.  3. Evaluate Â^{π_θ}(s_{t,i}, a_{t,i}) = r(s_{t,i}, a_{t,i}) + γV̂^{π_θ}_ϕ(s_{t+1,i}) − V̂^{π_θ}_ϕ(s_{t,i}) ∀t, i.  4. Evaluate ∇_θJ(θ) ≈ Σ_{t,i} ∇_θ log π_θ(a_{t,i}|s_{t,i}) Â^{π_θ}(s_{t,i}, a_{t,i}).  5. Update θ ← θ + α∇_θJ(θ).  \"actor-critic algorithm\"",
+   "one": "<b>整讲到此收口：五步，而且每一步前面都讲过了。</b><span class='k'>第 2 步是 critic 的训练，第 3 步是那个 TD 误差，第 4–5 步是 L03 的策略梯度</span> —— <b>Actor 和 Critic 在这五行里第一次并排出现。</b>",
+   "eq": "完整算法（p22，讲义称之为 **actor-critic algorithm**）：\n\n  **1.** 用 π_θ 采一批数据 { (s_{1,i}, a_{1,i}, …, s_{T,i}, a_{T,i}) }\n\n  **2.** 把 V̂^{π_θ}_φ 拟合到数据里的回报和\n         （用 p15–20 三种方法里的任意一种：MC / 自举 / N 步）\n                                                        ← **critic 的训练**\n\n  **3.** 对所有 t, i 评估优势：\n\n         **Â^{π_θ}(s_{t,i}, a_{t,i})  =  r(s_{t,i},a_{t,i})  +  γ·V̂_φ(s_{t+1,i})  −  V̂_φ(s_{t,i})**\n                                        └────── 就是那个 TD 误差 ──────┘\n\n  **4.** 评估梯度：\n\n         ∇_θ J(θ)  ≈  Σ_{t,i}  ∇_θ log π_θ(a_{t,i}|s_{t,i}) · Â^{π_θ}(s_{t,i}, a_{t,i})\n                                                        ← **actor 的更新方向**\n\n  **5.** θ ← θ + α∇_θ J(θ)\n\n  （带 N 步的版本：y_{i,t} = Σ_{t'=t}^{t+n−1} r  +  **γⁿ**·V̂_φ(s_{i,t+n})）\n\n────────────────────────────────────────\n折扣因子 γ（p21，讲义标为 Aside）：\n\n  它干两件事：\n    ① **数学上**：让无限长任务的回报和收敛（Σγᵗr 有界）\n    ② **实践上**：把「远处的奖励」打折 ⇒ **降方差**\n       —— 远处的奖励与当前动作的因果联系弱，打折等于少信它\n\n  ⚠ 注意 γ 和上一页的 n 是**两个不同的旋钮**，都在调同一件事：\n     n：走几步真实奖励之后交给估计\n     γ：真实奖励本身随距离衰减多快",
+   "pts": [
+    "<b>第 3 步那一行同时是三样东西，认出这个重合，整个算法就通了。</b><span class='k'>它是 p14 推出的优势估计</span>、<span class='k'>是 p18 的 TD 误差 δ</span>、<span class='k'>也是 critic 训练时的残差</span>。<b>同一个量，actor 拿它当权重，critic 拿它当误差信号。</b><span class='w'>所以实现时它只算一次。</span>",
+    "<b>折扣因子 γ 被讲义标成 Aside（插叙），但它在实践中是一个要调的关键超参。</b><span class='k'>γ 太小 ⇒ 策略变得短视，学不会需要长期铺垫的行为</span>；<span class='k'>γ 太大（接近 1）⇒ 方差大、训练不稳</span>。<b>常见取值 0.95–0.99</b>，<span class='w'>而它的合适值与「一个时间步代表多长」直接相关（回到 p7 讲稿那个追问）</span>。",
+    "<b>γ 和 n 是两个在调同一件事的旋钮，但方式不同。</b><span class='k'>n 是「硬截断」：走 n 步真实的，之后全部交给估计</span>；<span class='k'>γ 是「软衰减」：所有步都要，但越远权重越小</span>。<b>实践中两个一起用</b>，<span class='w'>而 GAE 的 λ 其实是第三个旋钮</span> —— 三个都在回答同一个问题：<b>你有多信远处的真实奖励。</b>",
+    "<b>这五步里，第 2 步是整个算法最脆弱的地方。</b><span class='k'>critic 没训好 ⇒ 优势估计是错的 ⇒ actor 朝错的方向更新 ⇒ 采来的数据分布变差 ⇒ critic 更难训</span>。<b>这是一个会自我强化的失败回路</b>，<span class='w'>也是 Actor-Critic 比纯策略梯度难调的根本原因</span>。",
+    "<b>注意第 1 步明写着 from π_θ —— 这个算法仍然是 on-policy 的。</b><span class='k'>每轮都要用当前策略重新采一批</span>。<b>这一讲前半解决的是「数据用得更充分」，不是「数据能复用」</b> —— <span class='w'>后者是 p25 之后那半讲的事</span>。"
+   ],
+   "tbl": {
+    "cap": "五步各自对应前面哪一页",
+    "head": ["步", "做什么", "<b>出处</b>", "属于谁"],
+    "rows": [
+     ["1", "用 π_θ 采一批", "L03", "—"],
+     ["<b>2</b>", "<b>拟合 V̂_φ</b>", "<b>p15–p20（三种方法任选）</b>", "<b>critic</b>"],
+     ["<b>3</b>", "<b>Â = r + γV̂(s') − V̂(s)</b>", "<b>p14 的推导 = p18 的 TD 误差</b>", "<b>两者共用</b>"],
+     ["4", "∇J ≈ Σ ∇log π · Â", "p10", "<b>actor</b>"],
+     ["5", "θ ← θ + α∇J", "L03", "actor"],
+     ["<b>⚠ 最脆弱的一步</b>", "<b>第 2 步 —— critic 没训好会拖垮整个回路</b>", "—", "—"]
+    ]
+   },
+   "say": "<b>这五步值得和 L03 的算法并排写一遍，差别只有一行：</b><br><br><b>L03（策略梯度）：</b><br>1. 采一批 → 2. 算 <code>Σ_{t'≥t} r − b</code> → 3. 算梯度 → 4. 更新<br><br><b>L04（Actor-Critic）：</b><br>1. 采一批 → <span class='k'>2. **训一个 V̂_φ**</span> → 3. 算 <code>Â = r + γV̂(s') − V̂(s)</code> → 4. 算梯度 → 5. 更新<br><br><span class='w'>多出来的就是第 2 步，以及由它带来的第 3 步形态变化。</span><br><br><b>而整讲前 21 页，全部是在论证这一步为什么值得加</b>：<br>· <span class='k'>p8</span>：不加的话，数据里的信息提取不出来<br>· <span class='k'>p9–10</span>：加了之后权重从「单次实现」变成「期望的估计」<br>· <span class='k'>p14–20</span>：这个估计具体怎么做，以及它的偏差-方差代价<br><br><b>一讲加一步，而那一步值二十页的论证 —— 这是一个很好的「方法论文该怎么写」的样本。</b>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「同一个量，actor 当权重、critic 当误差」这个复用，在你的课题里有一个对应，而且能省一半工作量。</b><br><br><span class='k'>你的代理模型的预测误差 <code>(真实分数 − 预测分数)</code></span>，同时是两样东西：<br>· <b>代理模型的训练信号</b>（拿它做梯度下降）；<br>· <b>「这个配置比我以为的好多少」</b> —— <span class='w'>一个可以直接用于搜索决策的量</span>。<br><br><b>误差为正（实际比预测好）⇒ 这片区域值得多看</b>；<span class='k'>而这正是基于模型的优化里「期望改进」那一族判据的朴素版本</span>。<br><br><b>更有用的是它的诊断价值</b>：<span class='w'>把这个残差按配置的某个属性分组（例如按算子种类、按配置长度），看残差是否系统性偏向某一组</span> —— <b>偏了就说明代理模型在那一类上有系统偏差，而剪枝正建立在它的判断上</b>。<br><br><b>这个检查几乎不花钱</b>（日志里本来就有预测值和真实值），<span class='k'>但能提前发现「剪枝正在系统性地剪错某一类配置」这种最危险的失败</span>。",
+    "ref": "本讲 p22 第 3 步（TD 误差与优势是同一个量）"
+   }
+  },
+  {
+   "r": [23, 23],
+   "t": "小结：observe 与 learn to estimate，一词之差",
+   "star": 2,
+   "quote": "Review so far — Policy gradients: observe what is good vs. bad, then do more of good stuff.  Actor-critic: learn to estimate what is good vs. bad, then do more of the good stuff — i.e. get a better policy gradient by using neural network to estimate value function.  How to estimate value (\"policy evaluation\"): Supervised learning directly on observed sum of future rewards; Supervised learning on current reward + value estimate of next state; Hybrid: Supervised learning on sum of next n rewards + value of state after that.  What about off-policy versions?",
+   "one": "<b>一句话把两讲的关系说清楚了：<span class='k'>observe</span>（观察）→ <span class='k'>learn to estimate</span>（学着估计）。</b><span class='w'>而三种估值方法在这里第一次被并排列出，p24 会给它们填上正式名字。</span>",
+   "eq": "两讲的对照（p23 原文）：\n\n  **Policy gradients**：\n      **observe** what is good vs. bad, then do more of good stuff\n\n  **Actor-critic**：\n      **learn to estimate** what is good vs. bad, then do more of the good stuff\n      i.e. get a better policy gradient by using neural network to estimate value function\n\n────────────────────────────────────────\n三种估值方法（p23 并排列出，p24 填上名字）：\n\n  ① 直接对「观察到的未来奖励和」做监督学习\n       → **Monte Carlo estimation**（蒙特卡洛估计）\n\n  ② 对「当前奖励 + 下一状态的价值估计」做监督学习\n       → **bootstrapping** / **temporal difference learning**（自举 / 时序差分）\n\n  ③ 混合：对「接下来 n 步奖励之和 + 那之后那个状态的价值」做监督学习\n       → **N-step returns**（N 步回报）\n\n  这一整段的名字（p24）：**policy evaluation**（策略评估）\n\n────────────────────────────────────────\np23 的收尾设问：**What about off-policy versions?**\n  ⇒ 下半讲（p25–p35）的全部内容。",
+   "pts": [
+    "<b>「policy evaluation」这个名字值得记住，它是 RL 里一个标准术语。</b><span class='k'>给定一个策略，估计它的值函数 —— 这件事本身是一个独立的子问题</span>。<b>它和「policy improvement」（用值函数改进策略）合起来叫 policy iteration</b>，<span class='w'>是整个动态规划/RL 理论的骨架</span>。<b>Actor-Critic 就是这两步交替进行的一个实例。</b>",
+    "<b>三种方法的排列顺序是按「依赖估计的程度」递增的，而不是按复杂度。</b><span class='k'>MC 完全不依赖估计 → N 步部分依赖 → TD 完全依赖</span>。<b>看懂这条轴，你就知道任何一个新方法该放在哪个位置</b>。<span class='w'>（GAE 不是第四种方法，它是在这条轴上做连续加权。）</span>",
+    "<b>注意 p23 这句 i.e. get a better policy gradient by using neural network to estimate value function —— 它强调的是 better policy gradient。</b><span class='k'>Actor-Critic 不是另一个算法家族，它仍然是策略梯度</span>，<b>只是把权重算得更好了</b>。<span class='w'>这与 L06 的 Q-learning 不同，那边会彻底不要显式的策略。</span>",
+    "<b>收尾那个设问 What about off-policy versions? 把这一讲剩下的一半接上了。</b><span class='k'>前半解决「数据里的信息用得更充分」，后半解决「数据本身能不能复用」</span>。<b>两件事正交，而且后半要在前半的基础上做</b> —— <span class='w'>所以 p25 的算法就是 p22 那五步，只在第 4 步插了重要性权重。</span>"
+   ],
+   "tbl": {
+    "cap": "三种估值方法，以及它们的正式名字（p24 填的）",
+    "head": ["做法（p23 的描述）", "<b>正式名字（p24）</b>", "依赖估计的程度"],
+    "rows": [
+     ["直接对观察到的未来奖励和做监督", "<b>Monte Carlo estimation</b>", "<b>完全不依赖</b>"],
+     ["对「当前奖励 + 下一状态价值估计」做监督", "<b>bootstrapping / TD learning</b>", "<b>完全依赖</b>"],
+     ["混合：n 步奖励 + 之后那个状态的价值", "<b>N-step returns</b>", "<b>部分依赖（n 调）</b>"],
+     ["<b>这一整段的名字</b>", "<b>policy evaluation</b>", "—"],
+     ["与之配对的另一半", "<b>policy improvement（用值函数改进策略）</b>", "—"]
+    ]
+   },
+   "say": "<b>把这一讲前半压成一句话：<span class='k'>加一个 critic，把梯度里那个权重从「这一次实际拿到多少」换成「期望能拿到多少」。</span></b><br><br><b>而代价是一笔明确的交易</b>：<span class='w'>方差小了，偏差来了</span>。三种估值方法就是在这笔交易上的三个位置。<br><br><b>下半讲（p25 之后）要做的是另一件完全不同的事</b>：<span class='k'>让一批数据能被反复使用</span>。<br><br><b>两件事可以叠加，而叠加之后就是现代的主流算法</b>：<br>· <span class='w'>critic + 轻度离策略（多走几步 + 裁剪）</span> → **PPO**（L05，你已经读过）<br>· <span class='w'>critic + 重度离策略（回放缓冲区）</span> → **SAC**（p34 会点名）<br><br><b>所以这一讲是一个分岔点</b>：<span class='k'>往左走通向 PPO，往右走通向 SAC</span>，而 p35 会把这两条路的取舍明确摆出来。",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（critic + 轻度离策略 = PPO，这一讲的左边那条路）",
+    "href": "L05-精读.html"
+   }
+  }
+ ],
+ "quiz": {
+  "14": [
+   {
+    "q": "为什么只拟合 V 就够了，不用再训一个 Q 网络？",
+    "o": [
+     "因为 Q 可以解析求出",
+     "因为轨迹里已经采到了 s_{t+1}，于是 Q ≈ r + V̂(s_{t+1})，再减 V̂(s) 就是优势",
+     "因为 Q 和 V 相等",
+     "因为动作空间太大"
+    ],
+    "a": 1,
+    "why": "一个网络 + 轨迹里已有的 (r, s_{t+1})，优势就出来了。这一行就是 p22 完整算法的第 3 步。"
+   },
+   {
+    "q": "「用环境采到的那一个 s_{t+1} 代替对 s_{t+1} 的期望」，这个手法的代价是？",
+    "o": [
+     "引入偏差",
+     "需要知道动力学",
+     "单样本估计 ⇒ 方差。环境越随机，这一步越不准",
+     "无法用于连续状态"
+    ],
+    "a": 2,
+    "why": "「用环境的采样代替对动力学的求期望」是整个无模型 RL 的基本手法，代价一直是同一个。"
+   },
+   {
+    "q": "为什么 Actor-Critic 选择学 V 而 L06 的 Q-learning 会选 Q？",
+    "o": [
+     "V 更准确",
+     "Q 不能用神经网络表示",
+     "V 收敛更快",
+     "V 的输入只有状态，数据覆盖更容易；而 Q-learning 不维护显式策略，必须靠 Q 来选动作"
+    ],
+    "a": 3,
+    "why": "动作空间大或连续时，覆盖 (s,a) 联合空间比只覆盖 s 难得多。"
+   }
+  ],
+  "15": [
+   {
+    "q": "蒙特卡洛估值为什么不能「从同一个状态多跑几次取平均」？",
+    "o": [
+     "计算太慢",
+     "can't reset the world —— 真实环境里你没法回到同一个状态再来一次（仿真里可以）",
+     "会引入偏差",
+     "标签会变化"
+    ],
+    "a": 1,
+    "why": "这和 L02 p30 那张 Yevgen 的照片说的是同一件事：reset 在真实世界里要人手动做。"
+   },
+   {
+    "q": "蒙特卡洛估值的 Step 2 用普通 ℓ2 回归，这和 L02「网络该输出分布而不是一个数」矛盾吗？",
+    "o": [
+     "矛盾，这里也该输出分布",
+     "不矛盾 —— L02 要的是动作的分布（多模态），这里要的本来就是一个期望值（条件均值），而 ℓ2 给的正是条件均值",
+     "矛盾，但可以忽略",
+     "两者讨论的是不同的网络"
+    ],
+    "a": 1,
+    "why": "同一个工具，在不同目标下一次是错一次是对。判据是「你要的是分布还是期望」。"
+   },
+   {
+    "q": "蒙特卡洛估值的致命限制是什么？",
+    "o": [
+     "有偏",
+     "方差小但偏差大",
+     "必须等轨迹跑完才能算标签 ⇒ 不能用于无终止任务，也不能边跑边学",
+     "需要知道动力学"
+    ],
+    "a": 2,
+    "why": "y_{i,t} = Σ_{t'=t}^T r 里有 T，没跑到头就算不出来。下一页的自举正好解决这一条。"
+   }
+  ],
+  "18": [
+   {
+    "q": "「自举」这个名字指的是什么？",
+    "o": [
+     "从样本里有放回地重采样",
+     "标签里含有模型自己当前的估计 V̂_φ(s_{t+1}) —— 拽着自己的鞋带把自己提起来",
+     "从简单任务开始逐步加难",
+     "用预训练模型初始化"
+    ],
+    "a": 1,
+    "why": "⚠ 统计里的 bootstrap 是有放回重采样，和这个毫无关系，只是共用了同一个比喻。读文献时要分清。"
+   },
+   {
+    "q": "「update labels every gradient update!」那个感叹号在提醒什么？",
+    "o": [
+     "要多更新几次",
+     "标签含有 V̂_φ，而 φ 每步都在变 ⇒ 标签是移动的；算一次标签然后训很多步，那些标签很快就过期",
+     "学习率要调小",
+     "要用更大的 batch"
+    ],
+    "a": 1,
+    "why": "实践中的标准做法是用一个「目标网络」慢一拍地提供 V̂，这样标签不会每步都跳。L06 的 Q-learning 会正面讲。"
+   },
+   {
+    "q": "TD 误差 δ = r + V̂(s') − V̂(s) 和 p14 推出的优势估计是什么关系？",
+    "o": [
+     "它们是同一个式子 —— 一步情形下 TD 误差就是优势估计",
+     "优势是 TD 误差的平方",
+     "TD 误差是优势的上界",
+     "两者无关"
+    ],
+    "a": 0,
+    "why": "所以 critic 的训练信号和 actor 的更新权重用的是同一个量，实现时只算一次。这是 Actor-Critic 比看上去简洁的原因。"
+   },
+   {
+    "q": "自举听起来像永动机（用不准的估计造标签训出更准的估计），它为什么不是？",
+    "o": [
+     "因为有正则化",
+     "因为用了目标网络",
+     "因为每一轮的标签里都掺进了一项真实的 r —— 真实奖励是唯一的外部锚点，信息靠它一步步往回渗",
+     "因为网络容量有限"
+    ],
+    "a": 2,
+    "why": "这也解释了为什么稀疏奖励下 TD 学得慢：奖励离起点越远，信息要渗过的步数就越多。"
+   }
+  ],
+  "19": [
+   {
+    "q": "p19 那张图里两条轨迹「交叉之后才分开」，这个设计是为了说明什么？",
+    "o": [
+     "交叉点附近两条轨迹的状态几乎相同，但 MC 标签一个是 +1 一个是 −1 —— 同样的输入、相反的标签，这就是 MC 方差大的画面",
+     "轨迹会收敛",
+     "TD 在交叉点会失效",
+     "需要更多样本"
+    ],
+    "a": 0,
+    "why": "而 TD 在同一个点上会给出接近的估计，因为相邻状态共享同一个 V̂_φ，估计天然平滑。"
+   },
+   {
+    "q": "N 步回报的两个端点分别是什么？",
+    "o": [
+     "n=1 是蒙特卡洛，n=T 是自举",
+     "n=1 是自举（TD），n=T 是蒙特卡洛",
+     "两端都是蒙特卡洛",
+     "两端都是自举"
+    ],
+    "a": 1,
+    "why": "n 越小越依赖估计（偏差大方差小），n 越大越依赖真实奖励（偏差小方差大）。讲义推荐 n>1, n<T。"
+   },
+   {
+    "q": "为什么「中间的 n」往往最好？",
+    "o": [
+     "因为计算量适中",
+     "因为这样偏差和方差都是零",
+     "真实奖励的信息价值随距离递减：前几步信息量大噪声小，几十步之后主要贡献噪声。N 步 = 近处用真的、远处用估的",
+     "因为理论保证要求如此"
+    ],
+    "a": 2,
+    "why": "讲义原话：often works the best in practice!"
+   },
+   {
+    "q": "这个旋钮的连续化版本叫什么？",
+    "o": [
+     "TD(0)",
+     "GAE —— 用一个 λ∈[0,1] 对所有 n 做指数加权平均，PPO 的标准实现用的就是它",
+     "SARSA",
+     "Q-learning"
+    ],
+    "a": 1,
+    "why": "所以你在 L05 读到的 PPO，它的优势估计正是这一页的连续化版本。"
+   }
+  ],
+  "21": [
+   {
+    "q": "p22 第 3 步那一行同时是哪几样东西？",
+    "o": [
+     "优势估计、TD 误差、critic 训练的残差 —— 同一个量，actor 当权重，critic 当误差信号",
+     "只是优势估计",
+     "只是 TD 误差",
+     "折扣回报与基线"
+    ],
+    "a": 0,
+    "why": "认出这个重合，整个算法就通了，而且实现时它只算一次。"
+   },
+   {
+    "q": "折扣因子 γ 和 N 步回报的 n，都在调同一件事，区别是？",
+    "o": [
+     "γ 调学习率，n 调批量",
+     "两者完全等价",
+     "n 是硬截断（走 n 步真实的，之后全交给估计）；γ 是软衰减（所有步都要，但越远权重越小）",
+     "γ 只影响理论，n 只影响实现"
+    ],
+    "a": 2,
+    "why": "实践中两个一起用，而 GAE 的 λ 是第三个旋钮 —— 三个都在回答「你有多信远处的真实奖励」。"
+   },
+   {
+    "q": "五步里哪一步最脆弱？",
+    "o": [
+     "第 1 步采数据",
+     "第 2 步拟合 V̂_φ —— critic 没训好 ⇒ 优势估计错 ⇒ actor 朝错方向更新 ⇒ 数据分布变差 ⇒ critic 更难训",
+     "第 4 步算梯度",
+     "第 5 步更新参数"
+    ],
+    "a": 1,
+    "why": "这是一个会自我强化的失败回路，也是 Actor-Critic 比纯策略梯度难调的根本原因。"
+   },
+   {
+    "q": "p22 的算法是 on-policy 还是 off-policy？",
+    "o": [
+     "off-policy，因为有 critic",
+     "两者都不是",
+     "取决于 n 的取值",
+     "on-policy —— 第 1 步明写着 from π_θ，每轮都要用当前策略重新采一批"
+    ],
+    "a": 3,
+    "why": "这一讲前半解决的是「数据用得更充分」，不是「数据能复用」。后者是 p25 之后那半讲的事。"
+   }
+  ],
+  "23": [
+   {
+    "q": "p23 用哪一对词区分策略梯度与 Actor-Critic？",
+    "o": [
+     "observe（观察） ↔ learn to estimate（学着估计）",
+     "on-policy ↔ off-policy",
+     "offline ↔ online",
+     "model-free ↔ model-based"
+    ],
+    "a": 0,
+    "why": "而且它强调 i.e. get a better policy gradient —— Actor-Critic 不是另一个家族，它仍是策略梯度，只是把权重算得更好。"
+   },
+   {
+    "q": "「policy evaluation」这个术语指什么？",
+    "o": [
+     "评估算法的性能",
+     "给定一个策略，估计它的值函数 —— 它和 policy improvement 合起来叫 policy iteration",
+     "在测试集上评估策略",
+     "比较两个策略的优劣"
+    ],
+    "a": 1,
+    "why": "这是整个动态规划/RL 理论的骨架，而 Actor-Critic 就是这两步交替进行的一个实例。"
+   },
+   {
+    "q": "这一讲前半与后半（p25 之后）解决的是什么关系的两件事？",
+    "o": [
+     "后半推翻前半",
+     "前半是理论、后半是实现",
+     "前半让数据里的信息用得更充分，后半让数据本身能复用 —— 两件事正交，而且可以叠加",
+     "两者是同一件事的两种说法"
+    ],
+    "a": 2,
+    "why": "叠加之后就是现代主流算法：critic + 轻度离策略 = PPO；critic + 重度离策略 = SAC。"
+   }
+  ]
+ }
+}

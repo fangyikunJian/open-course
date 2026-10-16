@@ -1,0 +1,436 @@
+{
+ "_目标": { "密度": 600, "quote覆盖": 0.8, "表格每N页": 4 },
+ "_守住的数字": [
+  "讲义共 37 页。本片覆盖 p1–13（V/Q/A 与「为什么策略梯度浪费数据」）。p1 标题、p2 课务。",
+  "三个量（p6）：V^π(s) = 从 s 出发、之后按 π 走的未来期望回报；Q^π(s,a) = 从 s 出发、**先走 a**、之后按 π；A^π(s,a) = **比起照 π 走，走 a 好多少**",
+  "两条关系（p6 原文 Useful relation）：**V^π(s) = 𝔼_{a∼π(·|s)}[Q^π(s,a)]** 与 **A^π(s,a) = Q^π(s,a) − V^π(s)**",
+  "打鼓例（p7）：Reward = 1 if I can play it in a month, 0 otherwise；三个动作 a₁ 坐海滩 · a₂ 看电视 · a₃ 练鼓；当前策略 **π(a₁|s) = 1 ∀s**（永远坐海滩）",
+  "⚠ 讲稿给的答案：**V^π(s_t) = 0**（照这个策略永远学不会）；**Q^π(s,a₁) = Q^π(s,a₂) = 0**；**Q^π(s,a₃)** 不是简单的 1 —— 它是「练这么一段时间之后能学会的**概率**」，可能是 0 到 1 之间，甚至可能是 0；**A 对 a₃ 为正，对另两个为 0**",
+  "p8 的毛病：**Policy gradients doesn't make efficient use of data!** 举的还是 L03 那两个例子（τ⁴ 迈一小步然后向后倒 → 压低「向前迈步」的概率；稀疏奖励下 τ²/τ³ 用不上）",
+  "p10 的替换：∇_θJ(θ) ≈ (1/N)Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t})·**A^π(s_{i,t}, a_{i,t})** —— 原话 **Better estimates of A lead to less noisy gradients!**",
+  "p11–12 的骨架多了一个方框：**Fit model to estimate expected return**（估计 V^π / Q^π / A^π），夹在「采数据」与「改进策略」之间"
+ ],
+ "notes": [
+  {
+   "r": [1, 4],
+   "t": "开场：上一讲停在哪，以及那个「只能走一步梯度」的遗憾",
+   "star": 2,
+   "quote": "CS 224R Actor Critic Methods.  Recap of Last Time — Online reinforcement learning with policy gradients: Run policy to collect batch of data; Improve policy using batch of data.  Do more of the above average stuff, less of the below average stuff.  ∇_θJ(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) ((Σ_{t'=t}^T r(s_{i,t'},a_{i,t'})) − b).  Definitions (attribute of online RL algorithms): on-policy: update uses only data from current policy; off-policy: update can reuse data from other, past policies.  Vanilla policy gradients is fully on-policy.  Importance weights for off-policy policy gradient → only one gradient step per batch of data.  Note: Not a silver bullet.  Only suitable when policies are very similar.",
+   "one": "<b>两页回顾把 L03 的结论摆齐</b>：带基线的策略梯度、on/off-policy 的定义、以及重要性权重。<span class='k'>而 p4 底下那句 <b>Not a silver bullet. Only suitable when policies are very similar.</b> 是在提醒你 L03 后半那套东西有多脆弱</span> —— <b>这一讲要换一条更结实的路。</b>",
+   "eq": "L03 留下的梯度（p3）：\n\n  ∇_θJ(θ) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T  ∇_θ log π_θ(a_{i,t}|s_{i,t}) · ( Σ_{t'=t}^T r − b )\n            └── policy log likelihood ──┘   └─ reward to go ─┘  └ baseline ┘\n\n  一句话直觉：**Do more of the above average stuff, less of the below average stuff.**\n\n────────────────────────────────────────\nL03 的两个定义（p4，原样重放）：\n\n  **on-policy** ：update uses only data from current policy\n  **off-policy**：update can reuse data from other, past policies\n  **Vanilla policy gradients is fully on-policy.**\n\n重要性权重那条路的两句评价（p4）：\n  · → only one gradient step per batch of data\n  · **Note: Not a silver bullet. Only suitable when policies are very similar.**\n\n⚠ 注意这两句是**对 L03 后半的降级评价**：\n   它能让你多走几步，但那条路本身要求「两个策略非常接近」。\n   这一讲要动的是**另一个零件** —— 不是改采样方式，而是改那个权重。",
+   "pts": [
+    "<b>p4 那句 Not a silver bullet 值得单独注意，它是讲者对自己上一讲的降级评价。</b><span class='k'>L03 后半花了六页推重要性采样与 KL 约束，这里一句话把它的适用范围收紧了：只在两个策略非常接近时才合适</span>。<b>所以 off-policy 那条路是补丁，不是解法。</b>",
+    "<b>这一讲要动的零件和 L03 后半完全不同，看清这一点整讲就不会迷路。</b><span class='w'>L03 后半改的是「怎么采样」（能不能复用旧数据）</span>；<b>这一讲改的是梯度式子里那个<span class='k'>权重</span></b> —— <span class='w'>把 <code>(Σr − b)</code> 换成一个学出来的 <code>A^π(s,a)</code></span>。<b>两件事互相独立，最后可以叠加（p25 之后就是叠加版）。</b>",
+    "<b>p3 把那个梯度式子的四个部分都标了名字，建议记住这组术语，后面一直在用。</b><span class='k'>policy log likelihood（策略对数似然）· reward to go（剩余回报）· baseline（基线）· samples from policy（来自策略的样本）</span>。<b>这一讲改的就是中间那两项合起来的那一块。</b>",
+    "<b>那句 Do more of the above average stuff 的「above average」是基线带来的。</b><span class='w'>没有基线时是「do more of the high-reward stuff」，而 L03 p17 的叠外套例子说明那不够</span>。<b>这一讲会把 above average 再升级一次：从「比这一批的平均好」升级成「比我在这个状态下照策略走要好」</b> —— <span class='k'>那就是优势函数。</span>"
+   ],
+   "tbl": {
+    "cap": "两讲各动了梯度式子的哪个零件",
+    "head": ["", "L03 后半", "<b>L04（本讲）</b>"],
+    "rows": [
+     ["改的是", "<b>怎么采样</b>（能否复用旧数据）", "<b>权重本身</b>（Σr − b → A^π）"],
+     ["手段", "重要性权重 + KL 约束", "<b>学一个值函数</b>"],
+     ["解决什么", "一批数据只能走一步梯度", "<b>梯度噪声大、数据没用好</b>"],
+     ["讲者自评", "<b>Not a silver bullet</b>，只在策略很接近时合适", "—"],
+     ["两者关系", "<b>互相独立，可以叠加</b>（p25 之后就是）", "—"]
+    ]
+   },
+   "say": "<b>讲稿在进入正题时把这一讲的动机接得很紧，而且直接复用了 L03 那个走路的例子：</b><br><br>「<span class='k'>we talked about a couple examples on Wednesday of some scenarios that were dissatisfying about policy gradients. And the first was that if we are trying to learn how to walk and we have a policy that takes a small step forwards and then falls backwards, we will push down the likelihood of taking a step forward because we don't necessarily know that [it] might have led it to fall backwards.</span>」<br><br><b>关键在后半句：「we don't necessarily know」</b> —— <span class='w'>算法并不是判断错了，它是<b>根本没有能力去判断</b></span>：它只看得到整条轨迹的总回报。<br><br>接着是这一讲的全部动机：<br><br>「<span class='k'>if we actually had some understanding that taking a small step forward was making progress, was actually good, was advantageous, then we might [be able to use these trajectories in a positive way]</span>」<br><br><b>注意她用的词是 advantageous —— 这正是「优势函数」这个名字的来历</b>，而且它在幻灯上出现之前就在口语里出现了。",
+   "link": {
+    "t": "你学过的对应：CS224R L03 精读（这一讲要改的那个梯度式子，以及它的三个毛病）",
+    "href": "L03-精读.html"
+   }
+  },
+  {
+   "r": [5, 6],
+   "t": "三个量，两条关系——而优势函数才是这一讲真正要的那个",
+   "star": 5,
+   "quote": "The plan for today — Actor critic methods: 1. Improving policy gradients  2. How to estimate the value of a policy (a. Sample & directly supervise  b. Use your own estimate  c. Something in-between?)  3. Off-policy actor-critic (a. Importance weights & constraining step size  b. Full off-policy version with replay buffers).  Key learning goals: How to estimate how good a state and action is for a policy; How to use those estimates to form a more efficient RL algorithm.  Revisiting Some Useful Objects — V^π(s) value function: future expected rewards starting at s and following π.  Q^π(s,a) Q-function: future expected rewards starting at s, taking a, then following π.  A^π(s,a) advantage: how much better it is to take a than to follow policy π at state s.  Useful relation: V^π(s) = 𝔼_{a∼π(·|s)}[Q^π(s,a)].  A^π(s,a) = Q^π(s,a) − V^π(s).",
+   "one": "<b>V 和 Q 在 L01 p40 已经定义过了，这一页新加的是第三个：<span class='k'>优势 A</span>。</b>它问的问题最尖锐 —— <b>「在这个状态下，走 a 比照我现在的策略走，好多少？」</b><span class='w'>而这正是策略梯度需要、却一直没有的那个信号。</span>",
+   "eq": "三个量（p6）：\n\n  **V^π(s)**    从 s 出发、之后一直按 π 走，未来的期望回报\n  **Q^π(s,a)**  从 s 出发、**先走 a**、之后再按 π 走，未来的期望回报\n  **A^π(s,a)**  在状态 s 下，**走 a 比照 π 走好多少**\n\n两条关系（p6 原文标成 Useful relation）：\n\n  ① **V^π(s)  =  𝔼_{a ∼ π(·|s)} [ Q^π(s,a) ]**\n       对动作按**当前策略**取平均，就从 Q 回到 V\n\n  ② **A^π(s,a)  =  Q^π(s,a)  −  V^π(s)**\n       「走这个动作」减去「照策略走」= 这个动作的**增量价值**\n\n────────────────────────────────────────\n三者的分工（为什么偏偏需要 A）：\n\n  V^π(s)   回答「这个**状态**好不好」      → 不能用来选动作\n  Q^π(s,a) 回答「这个**动作**绝对值多少」  → 能选动作，但含有状态本身的好坏\n  **A^π(s,a)** 回答「这个动作**相对**好多少」→ **把状态的好坏减掉了**\n\n  ⇒ 由 ① 立刻得到一条性质（讲义没写，但很有用）：\n\n       𝔼_{a ∼ π(·|s)} [ A^π(s,a) ]  =  𝔼[Q] − V  =  V − V  =  **0**\n\n     也就是说：**按当前策略平均，优势恒为零**。\n     正的优势必然对应负的优势 —— 它天生就是「比平均好多少」。",
+   "pts": [
+    "<b>优势函数之所以是这一讲的主角，是因为它<span class='k'>自带基线</span>。</b><span class='w'>L03 的基线是「这一批轨迹的平均回报」，一个全局的常数</span>；<b>而 A 减掉的是 <code>V^π(s)</code> —— 一个<span class='k'>依赖状态</span>的基线</b>。<span class='w'>「在这个状态下好不好」比「比全局平均好不好」精确得多。</span>",
+    "<b>那条 <code>𝔼_{a∼π}[A^π(s,a)] = 0</code> 值得自己推一遍（讲义没写）。</b><span class='k'>由关系式 ① 一步就出来</span>。<b>它的含义很实在：优势天生是零均值的</b> —— <span class='w'>在任何状态下，有动作优势为正，就必有动作优势为负</span>。<b>所以用 A 当权重时，「鼓励」和「压制」自动是平衡的，不会像 L03 p14 那样全部被鼓励。</b>",
+    "<b>三个量的分工可以用一句话记住：<span class='k'>V 评状态，Q 评状态+动作，A 评动作本身</span>。</b><b>而策略梯度要改的是「这个<span class='w'>动作</span>该不该多做」，所以它要的正是 A</b>。<span class='k'>用 Q 当权重也能跑，但 Q 里混着「这个状态本来就好」的成分，那部分对选动作毫无信息，只会增加方差。</span>",
+    "<b>p5 的计划里，第 2 项「How to estimate the value of a policy」底下那三条小标题是整讲的技术骨架</b>：<span class='k'>a. 采样后直接监督 · b. 用自己的估计 · c. 中间路线</span>。<b>p24 会把它们的正式名字填上</b>：<span class='w'>蒙特卡洛估计、自举/时序差分、N 步回报</span>。<b>先记住这个三分，后面就是填空。</b>",
+    "<b>注意 V 和 Q 都带上标 π：它们是「某个特定策略的」值，不是绝对的。</b><span class='k'>策略一变，这三个量全变</span>。<b>这件事在 p26 会变成一个真实的麻烦</b>：<span class='w'>多走几步梯度之后，你手上的优势估计是<b>旧策略</b>的，已经过期了</span>。"
+   ],
+   "tbl": {
+    "cap": "三个量的分工，以及为什么策略梯度要的是 A",
+    "head": ["", "V^π(s)", "Q^π(s,a)", "<b>A^π(s,a)</b>"],
+    "rows": [
+     ["回答什么", "这个<b>状态</b>好不好", "这个<b>动作</b>绝对值多少", "<b>这个动作<b>相对</b>好多少</b>"],
+     ["能选动作吗", "<b>不能</b>（要知道走 a 到哪）", "能", "<b>能</b>"],
+     ["含不含状态本身的好坏", "就是它", "<b>含</b>（增加方差）", "<b>减掉了</b>"],
+     ["按 π 取平均等于", "—", "<b>V^π(s)</b>", "<b>0</b>"],
+     ["当权重时", "不能用", "能用但更吵", "<b>最合适</b>"],
+     ["自带基线吗", "—", "否", "<b>是，而且是依赖状态的基线</b>"]
+    ]
+   },
+   "say": "<b>把 L03 的基线和这一页的优势并排，能看到一条清晰的升级线：</b><br><br>· <span class='w'>L03 p16 的基线 b</span>：<b>一个常数</b>，整批共用。「比这一批的平均好多少」。<br>· <span class='k'>本页的 V^π(s)</span>：<b>一个依赖状态的函数</b>。「在<b>这个状态下</b>，比照策略走好多少」。<br><br><b>升级的收益很具体，回到 L03 p17 那个叠外套的例子就看得出来</b>：<br><br><span class='w'>「只叠了袖子」那条轨迹，在 L03 里和「完全没碰外套」拿到一模一样的梯度</span>（因为总回报都是 0，减掉同一个常数还是相同）。<br><br><b>而如果你有 <code>V^π(s)</code></b>：<span class='k'>「叠完袖子」那个<b>状态</b>的价值，本来就应该高于「完全没动」那个状态</span> —— <b>于是「叠袖子」这个动作的优势是正的，它终于能被鼓励了</b>。<br><br><span class='w'>这就是这一讲要补的那个洞，而补法在 p9–p10。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p40（V 与 Q 的定义，以及为什么无模型时要学 Q）",
+    "href": "L01-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「优势 = 绝对价值 − 状态本身的价值」这个减法，在你的课题里有一个非常直接的对应，而且能省评估次数。</b><br><br>你要判断「把配置里的算子 X 换成 Y 值不值」。<span class='k'>直接比较两个完整配置的分数，分数里混着「这个配置的其余部分本来就好/不好」这一大块</span> —— <b>而那一块对「X 换 Y 值不值」这个问题毫无信息，只贡献方差</b>。<br><br><b>这正是 Q 与 A 的区别</b>：<span class='w'>Q 混着状态价值，A 把它减掉了</span>。<br><br><b>落地做法就是控制变量</b>：<span class='k'>固定配置的其余部分，只改那一个算子，比较同一基底上的差值</span>。<b>这与 L03 p16 那条「配对比较」是同一个手法在不同维度上的应用</b> —— <span class='w'>一个减掉「测试样本的难易」，一个减掉「配置其余部分的好坏」</span>。<br><br><b>两个一起用，剩下的方差才是你真正想测的那个信号。</b>",
+    "ref": "本讲 p6 的 A = Q − V；对照 L03 p16 的基线"
+   }
+  },
+  {
+   "r": [7, 7],
+   "t": "练鼓那个例子：一个坏策略会让所有东西看起来一样坏",
+   "star": 4,
+   "quote": "Let's look at an example.  Reward = 1 if I can play it in a month, 0 otherwise.  Current policy: π(a_1|s) = 1 ∀s.  Question: For each action, what are these?  Value function: V^π(s_t) = ?  Q function: Q^π(s_t, a_t) = ?  Advantage function: A^π(s_t, a_t) = ?",
+   "one": "<b>你想学打鼓，一个月后能演奏就得 1 分。三个动作：坐海滩、看电视、练鼓。而你当前的策略是<span class='k'>永远坐海滩</span>。</b><span class='w'>问：V、Q、A 各是多少？</span><b>这个 think-pair-share 的答案里有一个容易想错的地方。</b>",
+   "eq": "设定（p7）：\n  奖励     r = 1 如果一个月后能演奏这段音乐，否则 0\n           （所以 T = 一个月之后）\n  动作空间  a₁ 坐海滩 · a₂ 看电视 · a₃ 练鼓\n  当前策略  **π(a₁|s) = 1  ∀s**   —— 永远坐海滩\n  前提      当前状态下，你**还不会**打鼓\n\n────────────────────────────────────────\n讲稿给的答案：\n\n  **V^π(s_t) = 0**\n     照这个策略走下去永远学不会 ⇒ 期望回报为 0\n\n  **Q^π(s_t, a₁) = 0**   （现在坐海滩，之后还是坐海滩）\n  **Q^π(s_t, a₂) = 0**   （现在看电视，之后坐海滩）\n\n  **Q^π(s_t, a₃) = ?**   ⚠ **不是简单的 1**\n     它是「**练这么一段时间之后能学会的概率**」。\n     讲稿原话：It basically represents the probability in which you would\n     be able to play this, given that you had practiced for that amount of time,\n     **and that probability could be 0**.\n     —— 取决于一个时间步有多长；练一小时然后回去坐海滩，可能还是 0。\n\n  **A^π(s_t, a₃) = Q − V > 0**（正数）\n  **A^π(s_t, a₁) = A^π(s_t, a₂) = 0**",
+   "pts": [
+    "<b>最容易想错的是 <code>Q^π(s,a₃)</code>：它不是 1。</b><span class='k'>Q 的定义是「先走 a，<b>之后按 π 走</b>」—— 而 π 是「永远坐海滩」</span>。<b>所以你只练了<span class='w'>一个时间步</span>，之后就回去躺着了</b>。<span class='w'>讲稿说得很准：它是「练这么久之后能学会的<b>概率</b>」，而且「that probability could be 0」。</span>",
+    "<b>这个细节揭示了 Q 的一个常被忽略的性质：<span class='k'>它被「之后按 π 走」这个尾巴拖着</span>。</b><b>一个烂策略会让所有 Q 值都显得很低</b>，<span class='w'>哪怕那个动作本身是对的</span>。<b>所以 Q 评的从来不是「这个动作好不好」，而是「这个动作 + 这个策略 好不好」。</b>",
+    "<b>但即使在这么烂的策略下，A 仍然指对了方向，这才是这个例子的落点。</b><span class='k'>三个动作里只有 a₃ 的优势为正</span>，<b>于是策略梯度会增加练鼓的概率、降低另外两个的概率</b>。<span class='w'>讲稿的收尾正是这句：the action of practicing had a high advantage relative to the current policy, and so then we would choose to increase the likelihood for practicing。</span>",
+    "<b>注意这个例子里优势全部为 0 或正，没有负的 —— 这恰好验证了上一页那条 <code>𝔼_{a∼π}[A] = 0</code>。</b><span class='k'>当前策略以概率 1 选 a₁，而 A(s,a₁) = 0</span>，<b>按策略取平均正好是 0</b>。<span class='w'>如果策略是随机的，就必然会出现负优势。</span>",
+    "<b>这个例子还顺带说明了一件事：优势函数不需要策略好，就能给出改进方向。</b><span class='k'>策略烂到永远躺着，V = 0，但 A 照样把「练鼓」指出来了</span>。<b>这是策略改进能从任何起点开始的原因</b> —— <span class='w'>你不需要一个好策略来发现更好的动作，只需要能评估当前策略。</span>"
+   ],
+   "tbl": {
+    "cap": "练鼓例逐格填空（答案来自讲稿）",
+    "head": ["", "a₁ 坐海滩", "a₂ 看电视", "<b>a₃ 练鼓</b>"],
+    "rows": [
+     ["Q^π(s,a)", "0", "0", "<b>「练这段时间后学会的概率」—— 可能是 0 到 1 之间，甚至是 0</b>"],
+     ["V^π(s)", "<b>0（照此策略永远学不会）</b>", "←同", "←同"],
+     ["A^π(s,a) = Q − V", "<b>0</b>", "<b>0</b>", "<b>正数</b>"],
+     ["策略梯度会怎么做", "降低概率", "降低概率", "<b>提高概率</b>"],
+     ["<b>要点</b>", "<b>Q 被「之后按 π 走」的尾巴拖着 ⇒ 烂策略让所有 Q 都显低</b>", "—", "<b>但 A 仍然指对方向</b>"]
+    ]
+   },
+   "say": "<b>讲稿里关于 Q(s,a₃) 的那段追问最值得看，因为它把「一个时间步有多长」这个实现细节和理论值连起来了：</b><br><br>「<span class='k'>The Q function for playing the drums at the current time step would be 1 if that amount of practicing is sufficient. … if you practice for an hour and then sit on the beach by following the policy afterwards, it depends a little bit on how long a given time step is.</span>」<br><br>然后是那个被学生追问出来的答案：<br><br>「<span class='w'>So the question is, if practicing is not enough to actually learn, would it be 1? Would it be between 0 and 1? Would it be 0? It basically actually represents the probability in which you would be able to play this, given that you had practiced for that amount of time, and that probability it could be 0. Maybe this is really, really hard after just practicing [for one time step].</span>」<br><br><b>「时间步定多长」这个看似工程的选择，直接改变了 Q 的数值。</b><span class='k'>时间步定得太短，任何单个动作都看不出效果，所有 Q 都是 0，优势全平 —— 算法学不到任何东西</span>。<br><br><b>这是一个在真实项目里很常见、也很隐蔽的失败模式</b>：<span class='w'>不是算法不行，是时间步的粒度和任务的时间尺度不匹配</span>。",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「时间步定多长会改变 Q 的数值」这件事，在你的课题里对应一个必须定清楚的设计选择：<span class='k'>一次「动作」是改一个算子，还是改一整段？</span></b><br><br>· <span class='w'>粒度太细</span>（一次只换一个算子的一个参数）：<b>单步的效果淹没在噪声里</b>，所有候选看起来都差不多 —— 正是讲稿说的「that probability could be 0」那种情形。<br>· <span class='w'>粒度太粗</span>（一次换半个 workflow）：<b>信用分配又回来了</b>，你不知道是哪一处改动起了作用。<br><br><b>判据是「单步改动的效果能不能超过评估噪声」</b>。<span class='k'>这个可以直接量</span>：<b>取若干对「只差一个算子」的配置，各评估几次，看分数差是否显著大于同一配置重复评估的方差</b>。<br><br><b>不显著 ⇒ 粒度太细，得把动作合并成更大的块。</b>这个实验很便宜，而且结果直接决定你的搜索空间该怎么组织 —— <span class='w'>值得在设计阶段先做，而不是等搜索跑不出效果再回头查</span>。",
+    "ref": "本讲 p7 与讲稿里关于时间步长度的追问"
+   }
+  },
+  {
+   "r": [8, 8],
+   "t": "正面说出那个不满意：策略梯度没把采来的数据用好",
+   "star": 5,
+   "quote": "What is dissatisfying about policy gradients?  Policy gradients doesn't make efficient use of data!  💡Can we learn what is good & bad?  ∇_θJ(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) ((Σ_{t'=t}^T r) − b).  τ_4: one small step forward then falls backwards → pushes down likelihood of step forward.  τ_2: folds only the sleeves.  τ_3: flattens the jacket but does not fold it.  τ_4: folds the jacket.  → with sparse rewards, don't utilize τ_2 or τ_3.",
+   "one": "<b>这一页把 L03 的两个例子并排放，然后给出一句总诊断：<span class='k'>Policy gradients doesn't make efficient use of data!</b></span><span class='w'>不是梯度算错了，是采来的数据里有信息没被提取出来。</span>",
+   "eq": "两个旧例子（都来自 L03）：\n\n  **走路**：τ⁴ 迈了一小步然后向后倒\n      → 整条轨迹回报低 → **压低「向前迈步」的概率**\n      → 但「迈一小步」这个动作本身是**对的**\n\n  **叠外套**：τ² 只叠了袖子 · τ³ 摊平但没叠 · τ⁴ 叠好了\n      → 稀疏奖励下 τ²、τ³ 的回报都是 0\n      → **with sparse rewards, don't utilize τ₂ or τ₃**\n      → 这两条轨迹里的信息完全被浪费了\n\n────────────────────────────────────────\n诊断（p8 原文）：\n\n  **Policy gradients doesn't make efficient use of data!**\n\n提问（p8）：\n\n  💡 **Can we learn what is good & bad?**\n       （我们能不能**学**出什么是好、什么是坏？）\n\n  ⚠ 注意是 **learn**，不是 observe。这是整讲的转折点：\n     L03 只「观察」整条轨迹的回报；\n     这一讲要「学」一个函数来评价每一步。",
+   "pts": [
+    "<b>「doesn't make efficient use of data」这个诊断比「方差大」准确。</b><span class='k'>方差大是症状，数据没用好是病因</span>。<b>同样一批轨迹，里面明明含有「迈步是好的」「叠袖子是好的」这些信息，但那个梯度式子提取不出来</b> —— <span class='w'>因为它只会把整条轨迹的总回报，均摊到轨迹里的每一个动作上</span>。",
+    "<b>p23 把这一页的答案总结成一对很漂亮的对照，值得提前记住</b>：<span class='k'>Policy gradients: <b>observe</b> what is good vs. bad, then do more of good stuff</span>；<span class='k'>Actor-critic: <b>learn to estimate</b> what is good vs. bad, then do more of the good stuff</span>。<b>observe 与 learn to estimate —— 一词之差就是这一讲。</b>",
+    "<b>讲稿里有一句把「为什么算法做不到」说得很准：we don't necessarily know。</b><span class='w'>算法不是判断错了，它是<b>根本没有能力去判断</b></span> —— <b>它手上只有「整条轨迹的总回报」这一个数</b>。<span class='k'>要让它有能力，就得给它一个能评价单步的东西，那就是值函数。</span>",
+    "<b>注意这一页把「数据效率」和「梯度噪声」接成了一件事。</b><span class='k'>提取不出的信息 ⇒ 只能靠多采样本把噪声平均掉 ⇒ 费数据</span>。<b>反过来，能把每一步评价清楚 ⇒ 同样的数据给出更确定的梯度 ⇒ 省数据</b>。<span class='w'>p10 那句 Better estimates of A lead to less noisy gradients! 说的就是这条链。</span>",
+    "<b>这一页也解释了 Actor-Critic 这个名字。</b><span class='k'>actor（演员）= 策略 π_θ，负责「做」</span>；<span class='k'>critic（评论家）= 值函数，负责「评」</span>。<b>L01 p40 讲稿里那句「if you don't know how good your policy is, then you're not going to be able to make your policy better」</b>，<span class='w'>到这一讲才真正兑现成一个算法</span>。"
+   ],
+   "tbl": {
+    "cap": "observe vs. learn to estimate（p23 的那对总结）",
+    "head": ["", "策略梯度（L03）", "<b>Actor-Critic（本讲）</b>"],
+    "rows": [
+     ["怎么知道好坏", "<b>observe</b> —— 看整条轨迹的总回报", "<b>learn to estimate</b> —— 学一个函数评价每一步"],
+     ["权重是什么", "Σ_{t'≥t} r − b（<b>一次采样的实现值</b>）", "<b>A^π(s,a)（期望值的估计）</b>"],
+     ["τ² 只叠了袖子", "<b>回报 0，和没碰外套一样</b>", "<b>状态价值更高 ⇒ 优势为正</b>"],
+     ["τ⁴ 迈一步然后倒", "<b>压低「迈步」的概率</b>", "<b>迈步那一步的优势可以是正的</b>"],
+     ["数据效率", "<b>低 —— 信息提取不出来</b>", "<b>高</b>"],
+     ["名字的来历", "—", "<b>actor 做，critic 评</b>"]
+    ]
+   },
+   "say": "<b>讲稿里这一段的收束句，把「数据效率」这个说法定义清楚了：</b><br><br>「<span class='k'>…to summarize here, policy gradients don't always make an efficient use of data that we've collected. And if we can try to figure out what actions are advantageous versus not advantageous, we might be able to make better use of that data.</span>」<br><br><b>注意「make better use of <span class='w'>that</span> data」—— 同一批数据，不是更多数据。</b><br><br><span class='k'>这是整讲最值钱的承诺：不多采一条轨迹，只是把已有轨迹里的信息榨得更干净。</span><br><br>后面还有一个学生的追问很值得看，它澄清了 L03 那个走路例子里到底发生了什么：<br><br>「<span class='w'>the question was, if a step forward is helpful or not, is that going to be negative or neutral? In case of this policy gradient algorithm, the trajectory that we considered here in the context of the batch of trajectories, net negative was below average because the reward to go is quite [low]</span>」<br><br><b>——「迈一步然后倒」不是「中性」，是<span class='k'>负</span>的</b>：<span class='w'>它的剩余回报低于这一批的平均，所以减掉基线之后是负数，于是「迈步」这个正确动作被<b>主动压制</b>了</b>。<b>这比「学不到」更糟。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p40（讲稿「不知道策略有多好，就不可能让它变好」—— 这一讲是它的兑现）",
+    "href": "L01-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「同一批数据，把信息榨得更干净」这个承诺，正是你的课题最该追求的东西 —— 因为你多采一条数据的成本远高于多算一会儿。</b><br><br>对照你的搜索：<span class='k'>每评估一个完整配置，你拿到的是一个端到端分数</span>。<b>而那次评估里其实含有更多信息，只是被你扔掉了</b>：<br>· <span class='w'>各级中间输出的质量</span>（如果 workflow 是多级的）；<br>· <span class='w'>各级实际消耗的 token / 调用次数</span>（成本那一侧的分解）；<br>· <span class='w'>在哪些输入上失败</span>（而不只是总体通过率）。<br><br><b>这些全都是「同一次评估里顺带产生、但没被用来更新搜索」的信息</b>。<span class='k'>把它们记下来并用于归因，相当于本讲的 critic 在做的事</span> —— <b>从「整条轨迹一个数」变成「每一步一个评价」</b>。<br><br><b>而这件事对你几乎是白给的</b>：<span class='w'>日志里本来就有，只是没解析</span>。⚠ 前提是你的 workflow 结构允许分解到级；<b>端到端黑盒的那部分，确实只能拿到一个数</b>。",
+    "ref": "本讲 p8 的 doesn't make efficient use of data；讲稿「make better use of that data」"
+   }
+  },
+  {
+   "r": [9, 10],
+   "t": "把「这一次拿到多少」换成「期望能拿到多少」",
+   "star": 5,
+   "quote": "Improving policy gradients — \"reward to go\": estimate of future rewards if we take a_{i,t} in state s_{i,t}; sum together these rewards.  Can we get a better estimate?  true expected rewards to go.  This would be way better!  What about baselines?  With baseline: Recall A^π(s,a) = Q^π(s,a) − V^π(s).  Better estimates of A lead to less noisy gradients!  ∇_θJ(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) A^π(s_{i,t}, a_{i,t}).",
+   "one": "<b>两页做完了整讲最核心的替换。</b><span class='k'>p9：把「这一条轨迹实际拿到的剩余回报」换成「期望的剩余回报」（那就是 Q）</span>；<span class='k'>p10：再减掉基线 V，就得到优势 A</span>。<b>梯度式子里那一大坨，最后缩成一个 <code>A^π(s,a)</code>。</b>",
+   "eq": "第一步（p9）：reward to go → 期望的 reward to go\n\n  原来的权重：  Σ_{t'=t}^{T} r(s_{i,t'}, a_{i,t'})\n                「在状态 s_{i,t} 走了 a_{i,t} 之后，**这一次**实际拿到的回报总和」\n                —— 它是**一次采样的实现值**，噪声很大\n\n  想要的：      **true expected rewards to go**\n                「在 s 走 a 之后，**期望**能拿到多少」\n                —— 而这正好就是 **Q^π(s, a)** 的定义\n\n  讲义的评语：**This would be way better!**\n\n────────────────────────────────────────\n第二步（p10）：加回基线\n\n  L03 的基线是一个常数 b；现在换成依赖状态的 **V^π(s)**：\n\n      Q^π(s,a) − V^π(s)  =  **A^π(s,a)**        ← 正是 p6 的关系式 ②\n\n最终的梯度（p10）：\n\n  ∇_θ J(θ) ≈ (1/N) Σ_{i=1}^N Σ_{t=1}^T  ∇_θ log π_θ(a_{i,t}|s_{i,t}) · **A^π(s_{i,t}, a_{i,t})**\n\n  对比 L03 的版本：\n\n  L03：  … · ( Σ_{t'≥t} r − b )        ← 一次采样的实现值 − 常数\n  L04：  … · **A^π(s,a)**              ← 期望值 − 依赖状态的基线\n\n  讲义的点题：**Better estimates of A lead to less noisy gradients!**",
+   "pts": [
+    "<b>这个替换的本质是「用期望代替单次实现」，而这正是降方差的标准做法。</b><span class='k'>Σr 是一个随机变量的一次取值；Q^π(s,a) 是它的期望</span>。<b>把随机变量换成它的期望，方差直接归零</b> —— <span class='w'>代价是你不知道那个期望，只能估计它，于是引入了估计误差（偏差）</span>。<b>整讲后半（p14–p22）都在讲怎么估。</b>",
+    "<b>注意这里出现了本讲第一个真正的偏差-方差取舍，而且它会贯穿到底。</b><span class='k'>L03 的权重<b>无偏但高方差</b>（真实采样）；L04 的权重<b>低方差但有偏</b>（学出来的估计）</span>。<b>这是一笔交易，不是免费升级</b> —— <span class='w'>而 p19–p20 会把这笔交易量化成一个可调的参数 n。</span>",
+    "<b>把两步合起来看，L03 的「基线」其实是这一页的一个退化情形。</b><span class='k'>常数基线 b ≈ 对 V^π(s) 的一个「不看状态」的粗糙估计</span>。<b>升级成真正的 V^π(s)，就是让基线「看得见状态」</b>。<span class='w'>所以这不是推翻 L03，是把它的一个零件精化。</span>",
+    "<b>「Better estimates of A lead to less noisy gradients!」这句把整讲后半的动机定死了。</b><span class='k'>A 估得越准 ⇒ 梯度越干净 ⇒ 同样的数据能走更稳的一步</span>。<b>于是「怎么把 A 估准」就成了接下来十页的唯一话题</b>，<span class='w'>而答案有三种（MC / 自举 / N 步），各有各的偏差-方差位置。</span>",
+    "<b>为什么权重用 A 而不是 Q？讲稿给了理由，值得记。</b><span class='k'>「instead of having this be Q values, we could actually use Q minus V」</span> —— <b>用 Q 当权重时，所有动作的权重里都含着同一个 <code>V^π(s)</code></b>，<span class='w'>那部分对「该选哪个动作」毫无信息，只是让权重整体偏大偏小</span>。<b>减掉它，剩下的才是纯粹的「这个动作相对好多少」。</b>"
+   ],
+   "tbl": {
+    "cap": "权重的三代形态，以及各自的偏差与方差",
+    "head": ["", "L03 原始", "L03 带基线", "<b>L04 优势</b>"],
+    "rows": [
+     ["权重", "Σ_{t'≥t} r", "Σ_{t'≥t} r − b", "<b>A^π(s,a) = Q − V</b>"],
+     ["基线是什么", "<b>没有</b>", "<b>一个常数</b>", "<b>V^π(s)，依赖状态</b>"],
+     ["是期望还是单次", "<b>单次实现</b>", "单次实现", "<b>期望（的估计）</b>"],
+     ["偏差", "<b>无偏</b>", "<b>无偏</b>", "<b>有偏（估计误差）</b>"],
+     ["方差", "<b>最大</b>", "较小", "<b>最小</b>"],
+     ["L03 p17 的 τ²（叠袖子）", "权重 0", "权重 = −b，和没动一样", "<b>优势为正，终于被鼓励</b>"]
+    ]
+   },
+   "say": "<b>讲稿里关于「为什么要减掉 V」那一段，把这个替换的收尾说得很清楚：</b><br><br>「<span class='k'>…one would actually be to use the value function. And so instead of having this be Q values, we could actually use Q minus V. And Q minus V is what the advantage function is. And so putting this together, we would be increasing the likelihood for actions that have a high advantage and decreasing the likelihood for actions that have a low advantage.</span>」<br><br>然后她用练鼓那个例子收尾：<br><br>「<span class='w'>if you think back to the example of learning to practice playing the drums, the action of practicing had a high advantage relative to the current policy. And so then we would choose to increase the likelihood for practicing and decrease the likelihood for the other actions.</span>」<br><br><b>注意 relative to the current policy 这个限定</b>：<span class='k'>优势永远是「相对于当前策略」的</span>。<br><br><b>这有一个重要后果，到 p26 会变成真麻烦</b>：<span class='w'>策略一更新，手上的优势估计就过期了</span> —— 因为它衡量的是「比<b>旧</b>策略好多少」。<b>这正是离策略 Actor-Critic 那半讲要处理的核心问题。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L03 精读 p16（常数基线 —— 这一页把它升级成依赖状态的 V^π(s)）",
+    "href": "L03-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「用期望代替单次实现」这个降方差手法，对你的课题有一个很具体的落点：<span class='k'>别用单次评估的分数去做搜索决策</span>。</b><br><br>你的每次评估都是一次带噪的采样。<span class='w'>直接拿它当那个配置的「分数」，等价于 L03 用 Σr 当权重 —— 无偏，但方差大到会误导搜索</span>。<br><br><b>对应的升级有两档</b>：<br>· <span class='w'>重复评估取平均</span> —— 最直接，<b>但每一次都花预算</b>；<br>· <span class='k'>学一个代理模型做预测</span> —— <b>这正是本页的 critic</b>：<span class='w'>用所有历史评估训一个「配置 → 期望分数」的模型，再用它的预测而不是单次观测来决策</span>。<br><br><b>而这一页也同时给出了它的代价，这一点必须认</b>：<span class='k'>代理模型是有偏的</span>。<b>你用它换掉了方差，但换来了「模型可能系统性地看错某一类配置」的风险</b>。<br><br><b>所以这不是免费升级，而是一笔交易</b> —— <span class='w'>和本讲 p19–20 要讲的 MC vs TD 是同一笔交易</span>。<b>实践中的解法也一样：在两端之间找一个中间点</b>（部分依赖模型、部分依赖真实评估），而不是全押一边。",
+    "ref": "本讲 p9–p10；对照 p19–20 的偏差-方差权衡"
+   }
+  },
+  {
+   "r": [11, 13],
+   "t": "在线 RL 的骨架多了一个方框，而整门课的后半都在填它",
+   "star": 3,
+   "quote": "Online RL Outline — First: Initialize the policy (randomly, with imitation learning, with heuristics).  Run policy to collect batch of data.  Fit model to estimate expected return → Estimate V^π, Q^π, or A^π.  Improve policy → θ ← θ + ∇_θJ(θ).  ∇_θJ(θ) ≈ (1/N) Σ_i Σ_t ∇_θ log π_θ(a_{i,t}|s_{i,t}) A^π(s_{i,t}, a_{i,t}).",
+   "one": "<b>L03 的循环是两个方框：采数据 → 改进策略。</b><span class='k'>这一讲在中间插进了第三个：<b>Fit model to estimate expected return</b></span> —— <b>而这个方框就是 critic。</b><span class='w'>整门课后面十几讲，大部分都是在换这个方框里装什么。</span>",
+   "eq": "在线 RL 的骨架（p11–p12）：\n\n  首先：初始化策略\n         （随机 / **用模仿学习** / 用启发式规则）\n                    ↓\n  ┌──────────────────────────────┐\n  │  Run policy to collect batch of data      采数据\n  │            ↓\n  │  **Fit model to estimate expected return**  ← **这一讲新加的方框**\n  │            ↓                                  估计 V^π、Q^π 或 A^π\n  │  Improve policy                            改进策略\n  │            ↓                                  θ ← θ + ∇_θJ(θ)\n  └──────────┘ （回到第一步）\n\n  改进策略用的梯度：\n\n     ∇_θ J(θ) ≈ (1/N) Σ_i Σ_t  ∇_θ log π_θ(a_{i,t}|s_{i,t}) · A^π(s_{i,t}, a_{i,t})\n\n────────────────────────────────────────\n⚠ 注意初始化那一行里的 **with imitation learning**：\n   这就是 L02 的位置 —— **模仿学习给 RL 提供起点**。\n   L02 p25 那句「Many successful methods combine imitation learning\n   and reinforcement learning!」在这张图上有了具体的位置。",
+   "pts": [
+    "<b>这张图值得抄下来贴在手边，因为后面每一讲都是在换其中某个方框里的东西。</b><span class='k'>换「估计」那个方框 → L04（本讲）、L06 Q-learning</span>；<span class='k'>换「采数据」那个方框 → L07 离线 RL（干脆不采）、L14 探索（采得更聪明）</span>；<span class='k'>换「改进策略」那个方框 → L05 PPO</span>。<b>十几讲，一张图。</b>",
+    "<b>初始化那一行的三个选项不是并列的，它们的实用性差别很大。</b><span class='w'>随机初始化在稀疏奖励任务上几乎学不动</span>（因为一开始什么回报都拿不到）；<b>用模仿学习初始化则能直接把策略放到一个「已经能拿到一些回报」的位置</b>。<span class='k'>这就是为什么课程把 L02 排在前面。</span>",
+    "<b>注意新方框的措辞是 Fit <span class='k'>model</span>，而这个 model 指的是<span class='w'>值函数</span>，不是「世界模型」。</b><b>L11 的 model-based RL 里那个 model 才是动力学模型</b> —— <span class='w'>同一个词在这门课里指两样完全不同的东西</span>。<b>读到后面不要混。</b>",
+    "<b>这个三框循环也解释了 Actor-Critic 为什么比纯策略梯度难调。</b><span class='k'>现在有两个网络在同时学：actor（策略）和 critic（值函数）</span>，<b>而且它们互相依赖</b> —— <span class='w'>critic 要估计当前 actor 的值，actor 要用 critic 的输出来更新</span>。<b>两个都在动的系统，比一个在动的难稳定得多。</b>",
+    "<b>p13 是 p5 的原样重复（提纲页），意味着第 1 段「Improving policy gradients」讲完了。</b><span class='k'>从 p14 开始进入第 2 段：怎么估这个值函数</span>。<span class='w'>本精读把 p13 并进这一条，不单独成条。</span>"
+   ],
+   "tbl": {
+    "cap": "三个方框，各由后面哪几讲来换",
+    "head": ["方框", "这一讲装的是", "<b>后面谁来换</b>"],
+    "rows": [
+     ["初始化", "随机 / <b>模仿学习</b> / 启发式", "<b>L02（模仿学习就是干这个的）</b>"],
+     ["<b>采数据</b>", "用当前策略跑一批", "<b>L07 离线（不采）· L14 探索（采得更聪明）</b>"],
+     ["<b>估计（新加）</b>", "<b>V^π / Q^π / A^π</b>", "<b>本讲 · L06 Q-learning</b>"],
+     ["改进策略", "θ ← θ + α∇J，权重用 A", "<b>L05 PPO</b>"],
+     ["⚠ 用词", "<b>这里的 model 指值函数</b>", "<b>L11 的 model 指动力学模型，别混</b>"]
+    ]
+   },
+   "say": "<b>这张三框图是整门课的目录，建议读的时候真的把它画下来。</b><br><br>到目前为止你读过的每一讲，都能在上面找到位置：<br><br>· <span class='k'>L02 模仿学习</span> → 「初始化」那一行里的 with imitation learning<br>· <span class='k'>L03 策略梯度</span> → 「改进策略」那个框（而且当时还没有中间那个框）<br>· <span class='k'>L04 本讲</span> → <b>插入中间那个框</b><br>· <span class='w'>L05 PPO</span> → 「改进策略」框的稳定化<br>· <span class='w'>L06 Q-learning</span> → 把中间那个框做到极致（干脆不要显式的策略）<br>· <span class='w'>L07 离线 RL</span> → <b>把「采数据」那个框删掉</b><br><br><b>而这一讲后半（p24 之后）要做的事，在图上也有位置</b>：<span class='k'>把那个从「采数据」回到循环开头的箭头拆开</span> —— <b>让一批数据能在循环里多转几圈</b>。<br><br><span class='w'>知道自己在图上的哪个位置，比记住算法名字有用得多。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L02 精读 p25（「很多成功方法把模仿学习和强化学习结合」—— 位置就在这张图的初始化那一行）",
+    "href": "L02-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这张三框图对你的课题有一个直接用处：把你的搜索也画成这三个框，然后看你在每个框里用的是什么。</b><br><br>· <span class='k'>初始化</span> —— 随机？还是用人工 workflow 当起点？（L02 主线卡里讨论过：<b>当先验而不是当模仿目标</b>）<br>· <span class='k'>采数据</span> —— 选哪些配置去评估？（<b>这是你最该下功夫的地方</b>，对应 CSE 541 的实验设计/纯探索）<br>· <span class='k'>估计</span> —— 你的代理模型，或者干脆没有（直接用观测分数）<br>· <span class='k'>改进</span> —— 你的搜索策略怎么根据新结果更新<br><br><b>把这四格填出来，你的方法和 baseline 的差别就一目了然了</b> —— <span class='w'>而且能看出 AFlow 之类的工作是在哪一格和你不同</span>（简报 §2 已核：它在「采数据」那一格用的是 Boltzmann 爬山）。<br><br><b>这也是 related work 那一节的现成骨架</b>：<span class='k'>不是逐篇罗列，而是按格子对照</span>。",
+    "ref": "本讲 p11–12 的三框图；科研简报 §2"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "p4 那句「Not a silver bullet. Only suitable when policies are very similar.」是在评价什么？",
+    "o": [
+     "评价模仿学习",
+     "降级评价 L03 后半那套重要性采样 + KL 约束 —— 它是补丁，不是解法",
+     "评价基线",
+     "评价蒙特卡洛估计"
+    ],
+    "a": 1,
+    "why": "L03 后半花六页推的东西，这里一句话收紧了适用范围。这一讲要动的是另一个零件。"
+   },
+   {
+    "q": "L03 后半和 L04 各改了梯度式子的哪个零件？",
+    "o": [
+     "L03 改怎么采样（能否复用旧数据）；L04 改权重本身（Σr−b → A^π）",
+     "两者都改采样",
+     "两者都改权重",
+     "L03 改权重，L04 改采样"
+    ],
+    "a": 0,
+    "why": "两件事互相独立，最后可以叠加 —— p25 之后就是叠加版。"
+   }
+  ],
+  "5": [
+   {
+    "q": "为什么策略梯度的权重用 A 而不用 Q？",
+    "o": [
+     "A 更容易估计",
+     "Q 不能用于连续动作",
+     "用 Q 时所有动作的权重里都含着同一个 V^π(s)，那部分对「该选哪个动作」毫无信息，只贡献方差",
+     "A 是无偏的而 Q 有偏"
+    ],
+    "a": 2,
+    "why": "减掉它，剩下的才是纯粹的「这个动作相对好多少」。讲稿原话：instead of having this be Q values, we could actually use Q minus V。"
+   },
+   {
+    "q": "由 V^π(s) = E_{a∼π}[Q^π(s,a)] 能立刻推出什么（讲义没写）？",
+    "o": [
+     "E_{a∼π}[A^π(s,a)] = 0 —— 按当前策略平均，优势恒为零",
+     "A 恒为正",
+     "Q ≥ V 恒成立",
+     "V 是 Q 的上界"
+    ],
+    "a": 0,
+    "why": "所以优势天生是零均值的：有动作优势为正，就必有动作优势为负。用 A 当权重时，鼓励与压制自动平衡。"
+   },
+   {
+    "q": "优势函数相对 L03 的常数基线，升级在哪？",
+    "o": [
+     "它是无偏的",
+     "它减掉的是依赖状态的 V^π(s)，而不是一个全局常数 —— 「在这个状态下好不好」比「比全局平均好不好」精确得多",
+     "它不需要采样",
+     "它方差更大但偏差更小"
+    ],
+    "a": 1,
+    "why": "回到 L03 p17 叠外套的例子：有了 V^π(s)，「叠完袖子」那个状态的价值本来就应该更高，于是那个动作的优势为正。"
+   }
+  ],
+  "7": [
+   {
+    "q": "练鼓例里，Q^π(s, a₃)（练鼓）等于多少？",
+    "o": [
+     "1，因为练了就能学会",
+     "0，因为策略是坐海滩",
+     "不是简单的 1 —— 它是「练这一个时间步之后能学会的概率」，可能在 0 到 1 之间，甚至可能是 0",
+     "无法定义"
+    ],
+    "a": 2,
+    "why": "Q 的定义是「先走 a，之后按 π 走」，而 π 是永远坐海滩 —— 你只练了一个时间步就回去躺着了。讲稿：that probability could be 0。"
+   },
+   {
+    "q": "这个细节揭示了 Q 的什么性质？",
+    "o": [
+     "Q 总是小于 V",
+     "Q 被「之后按 π 走」这个尾巴拖着 —— 烂策略会让所有 Q 值都显得很低，哪怕那个动作本身是对的",
+     "Q 只对确定性策略有定义",
+     "Q 需要知道动力学"
+    ],
+    "a": 1,
+    "why": "所以 Q 评的从来不是「这个动作好不好」，而是「这个动作 + 这个策略 好不好」。"
+   },
+   {
+    "q": "这个例子最重要的落点是什么？",
+    "o": [
+     "V = 0 说明策略很差",
+     "Q 和 V 相等时算法会卡住",
+     "需要更密集的奖励",
+     "即使策略烂到永远躺着（V=0），A 仍然把「练鼓」指了出来 —— 你不需要好策略才能发现更好的动作"
+    ],
+    "a": 3,
+    "why": "这是策略改进能从任何起点开始的原因：只需要能评估当前策略。"
+   },
+   {
+    "q": "讲稿指出「一个时间步定多长」会改变 Q 的数值，这暗示了什么失败模式？",
+    "o": [
+     "时间步定得太短 ⇒ 任何单个动作都看不出效果 ⇒ 所有 Q 都是 0、优势全平 ⇒ 算法学不到东西",
+     "时间步定得太长会导致发散",
+     "时间步必须与折扣因子匹配",
+     "时间步只影响计算速度"
+    ],
+    "a": 0,
+    "why": "不是算法不行，是时间步的粒度和任务的时间尺度不匹配。这在真实项目里很常见也很隐蔽。"
+   }
+  ],
+  "8": [
+   {
+    "q": "p8 的诊断「doesn't make efficient use of data」比「方差大」准确在哪？",
+    "o": [
+     "方差大是症状，数据没用好是病因 —— 同一批轨迹里明明含有「迈步是好的」这类信息，但那个梯度式子提取不出来",
+     "方差大是错误的说法",
+     "两者没有区别",
+     "数据效率只和采样数量有关"
+    ],
+    "a": 0,
+    "why": "因为它只会把整条轨迹的总回报均摊到轨迹里的每一个动作上。"
+   },
+   {
+    "q": "p23 用哪一对词总结了策略梯度与 Actor-Critic 的差别？",
+    "o": [
+     "on-policy vs off-policy",
+     "observe what is good vs. bad（观察） ↔ learn to estimate what is good vs. bad（学着估计）",
+     "online vs offline",
+     "model-free vs model-based"
+    ],
+    "a": 1,
+    "why": "一词之差就是这一讲。p8 的提问也用了 learn 这个词：Can we learn what is good & bad?"
+   },
+   {
+    "q": "讲稿澄清：L03 那个「迈一小步然后向后倒」的轨迹，它的梯度是？",
+    "o": [
+     "中性的，不影响",
+     "正的，因为迈步是对的",
+     "负的 —— 剩余回报低于这一批的平均，减掉基线后是负数，于是「迈步」这个正确动作被主动压制",
+     "无法确定"
+    ],
+    "a": 2,
+    "why": "这比「学不到」更糟：算法不只是没学会，它还在反向地学。"
+   }
+  ],
+  "9": [
+   {
+    "q": "p9 把「reward to go」换成什么？",
+    "o": [
+     "折扣回报",
+     "基线",
+     "N 步回报",
+     "true expected rewards to go —— 也就是 Q^π(s,a) 的定义"
+    ],
+    "a": 3,
+    "why": "本质是「用期望代替单次实现」：Σr 是随机变量的一次取值，Q 是它的期望。把随机变量换成期望，方差直接归零。"
+   },
+   {
+    "q": "这个替换引入了什么代价？",
+    "o": [
+     "计算量变大",
+     "需要知道动力学",
+     "你不知道那个期望，只能估计它 —— 于是用方差换来了偏差（估计误差）",
+     "只能用于离散动作"
+    ],
+    "a": 2,
+    "why": "这是本讲第一个真正的偏差-方差取舍，而且会贯穿到底。p19–20 会把它量化成一个可调的参数 n。"
+   },
+   {
+    "q": "「优势永远是相对于当前策略的」这个限定，到 p26 会变成什么麻烦？",
+    "o": [
+     "优势会变成负的",
+     "策略一更新，手上的优势估计就过期了 —— 它衡量的是「比旧策略好多少」",
+     "优势无法计算",
+     "优势的方差会爆炸"
+    ],
+    "a": 1,
+    "why": "这正是离策略 Actor-Critic 那半讲要处理的核心问题。"
+   }
+  ],
+  "11": [
+   {
+    "q": "这一讲在在线 RL 的骨架里插入了哪个新方框？",
+    "o": [
+     "Fit model to estimate expected return（估计 V^π / Q^π / A^π）—— 也就是 critic",
+     "Collect batch of data",
+     "Initialize the policy",
+     "Improve policy"
+    ],
+    "a": 0,
+    "why": "L03 的循环只有两个方框：采数据 → 改进策略。整门课后面十几讲，大部分是在换这三个框里装什么。"
+   },
+   {
+    "q": "新方框措辞是「Fit model」，这里的 model 指什么？",
+    "o": [
+     "世界模型（动力学）",
+     "值函数 —— 注意 L11 的 model-based RL 里那个 model 才是动力学模型，同一个词指两样东西",
+     "神经网络架构",
+     "奖励模型"
+    ],
+    "a": 1,
+    "why": "读到后面不要混。这门课里 model 这个词有两个完全不同的所指。"
+   },
+   {
+    "q": "为什么 Actor-Critic 比纯策略梯度难调？",
+    "o": [
+     "网络更大",
+     "需要更多数据",
+     "现在有两个网络在同时学且互相依赖：critic 要估当前 actor 的值，actor 要用 critic 的输出更新",
+     "梯度计算更复杂"
+    ],
+    "a": 2,
+    "why": "两个都在动的系统，比一个在动的难稳定得多。"
+   }
+  ]
+ }
+}

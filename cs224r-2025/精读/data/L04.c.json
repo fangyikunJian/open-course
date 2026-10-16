@@ -1,0 +1,573 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "本片覆盖 p24–p37（离策略 Actor-Critic）。p24 与 p36 是填了名字的提纲页，p37 是课务与预告。",
+  "版本一（p25–27）：就是 p22 那五步，只在第 4 步插了重要性权重 —— ∇_{θ'}J(θ') ≈ Σ_{t,i} [π_{θ'}(a_{i,t}|s_{i,t})/π_θ(a_{i,t}|s_{i,t})]·∇_{θ'} log π_{θ'}(a_{t,i}|s_{t,i})·Â^{π_θ}(s_{t,i},a_{t,i})",
+  "p26 指出的毛病：**Advantages based on old policy** · **Policy will increase probability on actions with high advantages** ⇒ p27 补上 **Advantages are based on old policy, will get out-dated**",
+  "p27 两个想法：💡**Idea 1: Use KL constraint on policy. We will see this in LLM preference optimization**（E_{s∼π_θ}[D_KL(π_{θ'}(·|s)‖π_θ(·|s))] ≤ δ）· 💡**Idea 2: Can we bound the importance weights?** —— **Doesn't directly constrain policy, but removes incentives** —— **Key idea behind proximal policy optimization (PPO)**",
+  "p28 的三档：fully on-policy（一批走一步）→ starting to be off-policy（一批走多步）→ **reuse data from previous batches, i.e. all of the past trial-and-error data**；关键做法：**maintain a buffer of all past data** + **adjust equations to remove on-policy assumptions**，这个 buffer 叫 **replay buffer**",
+  "p30 两处被红圈标出的毛病，讲义直接判定 **The algorithm is currently broken 😢**：① 第 3 步的目标 y_i = r_i + γV̂^π_φ(s'_i) —— **not the right target value**；② 第 5 步的 ∇log π_θ(a_i|s_i) 里 a_i 来自缓冲区 —— **not the action π_θ would have taken!**",
+  "p31 修值函数：把 **V^π 划掉换成 Q^π**（V 绑着「之后按当前 π 走」，而缓冲区里的 s' 是旧策略走出来的）；新目标 **y_i = r_i + γQ̂^π_φ(s'_i, a'_i)**，其中 **a'_i ∼ π_θ(a'|s'_i)**，**not from replay buffer 𝓡!**；依据是 V^π(s_t) = 𝔼_{a∼π(a_t|s_t)}[Q(s_t,a_t)]",
+  "p32 修策略更新：**use the same trick, but this time for a_i rather than a'_i** —— 采 **a^π_i ∼ π_θ(a|s_i)**，用 ∇_θJ(θ) ≈ (1/N)Σ_i ∇_θ log π_θ(a^π_i|s_i)·Â^π(s_i, a^π_i)，同样 **not from replay buffer 𝓡!**；评语 **higher variance, but convenient**，并留了一问 **why is higher variance OK here?**；实践中用 Q̂^π(s_i, a^π_i)",
+  "p33 剩下那个修不了的：**s_i didn't come from p_θ(s)** —— **nothing we can do here, just accept it**；直觉是 **we want optimal policy on p_θ(s) but we get optimal policy on a broader distribution**",
+  "p34 实现细节：**reparameterization trick**（高斯策略下更好地估梯度）· 更讲究的 Q 拟合方式（**more on this in next two lectures**）· 例子算法 **Soft Actor-Critic**（Haarnoja, Zhou, Abbeel, Levine. 2018）",
+  "p35 的取舍：**Off-policy with replay buffer (e.g. soft actor-critic) can be far more data efficient** · **They can also generally be harder to tune hyperparameters, less stable (than e.g. PPO)**",
+  "p37 预告：**Q-learning**（last big online RL method）· Practical implementation of online RL algorithms"
+ ],
+ "notes": [
+  {
+   "r": [
+    24,
+    27
+   ],
+   "t": "版本一：同一套五步，只在第 4 步插一个重要性权重",
+   "star": 5,
+   "quote": "Off-Policy Actor-Critic Methods — Version 1: Multiple Gradient Steps.  1. Sample batch of data from π_θ.  2. Fit V̂^{π_θ}_ϕ to summed rewards in data.  3. Evaluate Â^{π_θ}(s_{t,i},a_{t,i}) = r + γV̂_ϕ(s_{t+1,i}) − V̂_ϕ(s_{t,i}).  4. Evaluate ∇_{θ'}J(θ') ≈ Σ_{t,i} [π_{θ'}(a_{i,t}|s_{i,t})/π_θ(a_{i,t}|s_{i,t})] ∇_{θ'} log π_{θ'}(a_{t,i}|s_{t,i}) Â^{π_θ}(s_{t,i},a_{t,i}) ← use importance weights here.  5. Update θ ← θ + α∇_θJ(θ).  What can go wrong if you take too many gradient steps?  Advantages are based on old policy, will get out-dated.  Policy will increase probability on actions with high advantages.  💡Idea 1: Use KL constraint on policy. We will see this in LLM preference optimization.  💡Idea 2: Can we bound the importance weights?  Doesn't directly constrain policy, but removes incentives → Key idea behind proximal policy optimization (PPO).",
+   "one": "<b>这四页做的事非常克制：p22 那五步一字不改，只在第 4 步插一个重要性权重。</b><span class='k'>于是一批数据能走多步梯度</span> —— <b>而「走太多步会怎样」的答案，直接引出了 PPO。</b>",
+   "eq": "版本一 = p22 五步 + 一处改动（p25）：\n\n  1. 用 π_θ 采一批\n  2. 拟合 V̂^{π_θ}_φ\n  3. 评估 Â^{π_θ}(s_{t,i},a_{t,i}) = r + γV̂_φ(s_{t+1,i}) − V̂_φ(s_{t,i})\n  4. 评估梯度   ← **use importance weights here**\n\n     ∇_{θ'}J(θ') ≈ Σ_{t,i} **[ π_{θ'}(a_{i,t}|s_{i,t}) / π_θ(a_{i,t}|s_{i,t}) ]**\n                            · ∇_{θ'} log π_{θ'}(a_{t,i}|s_{t,i})\n                            · Â^{**π_θ**}(s_{t,i}, a_{t,i})\n  5. θ ← θ + α∇J ，**回到第 4 步再走一次**\n\n  ⇒ 那个重要性权重就是 L03 p23 推出来的「逐时刻的常见最终形式」。\n\n────────────────────────────────────────\n走太多步会怎样（p26–27）：\n\n  · **Policy will increase probability on actions with high advantages**\n  · **Advantages are based on old policy, will get out-dated**\n     ⚠ 注意 Â 的上标是 **π_θ**（旧策略），不是 π_{θ'}\n     走得越远，这个优势估计就越不是在描述当前策略\n\n────────────────────────────────────────\n两个补救（p27）：\n\n  💡 **Idea 1: Use KL constraint on policy**\n        E_{s∼π_θ}[ D_KL( π_{θ'}(·|s) ‖ π_θ(·|s) ) ] ≤ δ\n        注记：**We will see this in LLM preference optimization**\n\n  💡 **Idea 2: Can we bound the importance weights?**\n        **Doesn't directly constrain policy, but removes incentives**\n        → **Key idea behind proximal policy optimization (PPO)**",
+   "pts": [
+    "<b>看清这一版有多克制：算法结构完全没变，只多了一个乘数。</b><span class='k'>L04 前半加的是 critic（改权重的<b>内容</b>），这里加的是重要性权重（改权重的<b>归属</b>）</span>。<b>两件事正交，所以能直接叠</b> —— <span class='w'>这也印证了 .a 片开头那条「两讲各动不同零件」。</span>",
+    "<b>p26 那两句话合起来才是完整的毛病，单看任何一句都不够。</b><span class='k'>「策略会提高高优势动作的概率」+「优势是基于旧策略的、会过期」</span> = <b>你在拼命朝一个已经不准的方向走</b>。<span class='w'>走得越久，偏得越远，而且算法自己察觉不到。</span>",
+    "<b>Idea 1 和 Idea 2 的区别，p27 用一句话点得很准：<span class='k'>Doesn't directly constrain policy, but removes incentives</span>。</b><b>KL 约束是「禁止你走太远」；裁剪权重是「让你没有动机走太远」</b> —— <span class='w'>后者不加硬约束，只是把跑出范围之后的梯度抹平，于是策略自己就停下来了</span>。<b>这个「改激励而不是加禁令」的设计思路，比具体公式更值得学。</b>",
+    "<b>p27 那句注记 We will see this in LLM preference optimization 是一条重要的前向指路。</b><span class='k'>KL 约束会在 L09（RLHF / DPO）里再次出现，而且是核心角色</span> —— <b>那里约束的是「微调后的模型别离原始模型太远」</b>。<span class='w'>同一个工具，一次用来稳定训练，一次用来防止模型跑偏。</span>",
+    "<b>注意 Idea 2 最后那行直接点名 PPO，而你已经读过 L05 了。</b><span class='k'>所以这里是一个闭环：L03 推出重要性权重 → L04 指出它要被约束 → L05 给出裁剪这个具体做法</span>。<b>三讲讲同一件事，而这一页是中间那个「为什么需要」。</b>"
+   ],
+   "tbl": {
+    "cap": "两个 Idea：禁令 vs 改激励",
+    "head": [
+     "",
+     "💡 Idea 1：KL 约束",
+     "<b>💡 Idea 2：裁剪重要性权重</b>"
+    ],
+    "rows": [
+     [
+      "怎么起作用",
+      "<b>直接禁止策略走太远</b>",
+      "<b>不加禁令，只是去掉走太远的激励</b>"
+     ],
+     [
+      "讲义原话",
+      "Use KL constraint on policy",
+      "<b>Doesn't directly constrain policy, but removes incentives</b>"
+     ],
+     [
+      "实现难度",
+      "<b>高（要解带约束的优化）</b>",
+      "<b>低（截断一个比值）</b>"
+     ],
+     [
+      "成品算法",
+      "TRPO；<b>以及 L09 的偏好优化</b>",
+      "<b>PPO</b>"
+     ],
+     [
+      "本课在哪再见",
+      "<b>L09 RLHF / DPO</b>",
+      "<b>L05（已读）</b>"
+     ]
+    ]
+   },
+   "say": "<b>把 L03、L04、L05 三讲在这一点上串起来，会看到一条完整的因果链：</b><br><br>· <span class='k'>L03 p21–23</span>：推出重要性权重，让旧数据合法。<b>但留下一句警告：p 和 q 要很接近才行。</b><br>· <span class='k'>L04 p26–27（本页）</span>：说明「不接近」具体会怎样 —— <b>优势过期，而策略还在朝它拼命走</b>。然后给出两个补救思路。<br>· <span class='k'>L05</span>：把 Idea 2 做成具体算法 —— <b>裁剪</b>。<br><br><b>注意这一页在链条里的位置：它是唯一讲「为什么需要」的那一环。</b><br><br><span class='w'>只读 L03 你会觉得重要性采样挺好用；只读 L05 你会觉得裁剪是个工程技巧。</span><br><br><b>而这一页告诉你：裁剪解决的是一个具体的、会让训练崩掉的问题 —— 优势估计的过期。</b><br><br><span class='k'>读论文时碰到一个看起来「只是个技巧」的设计，值得回头找它对应的那个「为什么需要」。找不到的话，多半是你漏了一篇。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（Idea 2 的成品：裁剪重要性比值）",
+    "href": "L05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「改激励而不是加禁令」这个设计思路，对你的剪枝机制可能是一个更好的形态。</b><br><br><span class='k'>你现在的 dominance-pruning 是一条禁令</span>：判定被支配就删掉，不许再访问。<b>而 Idea 2 的做法是：不禁止，只是让访问它变得没有吸引力</b>。<br><br><b>落到你的问题上</b>：<span class='w'>与其把被支配的配置从候选集里删掉，不如给它的「预期收益」打一个折</span> —— <b>搜索自然就不会去了，但它仍然在候选集里、概率仍然非零</b>。<br><br><b>这解开两个具体的麻烦</b>：<br>① <span class='k'>重要性采样的硬前提（q ≠ 0）重新成立</span> —— 日志可以用于离线评估（L03 主线卡标出的那个限制）；<br>② <span class='k'>剪错了还有机会救回来</span>，而硬剪是不可逆的。<br><br>⚠ <b>代价要认</b>：搜索效率会下降一点（偶尔还是会去试被支配的）。<b>但这正好是一个可调的旋钮</b>，<span class='w'>而且「硬剪枝 = 折扣为 0 的特例」这个叙述比「我们用硬剪枝」在论文里强得多</span>。",
+    "ref": "本讲 p27 的 removes incentives；对照 L03 主线卡的 q≠0 限制"
+   }
+  },
+  {
+   "r": [
+    28,
+    30
+   ],
+   "t": "回放缓冲区，以及讲义直接写在幻灯上的那句「算法现在是坏的」",
+   "star": 5,
+   "quote": "Off-Policy Actor-Critic Methods — Can we be even more off-policy?  So far: use one batch of policy data for one gradient step (fully on-policy); use one batch of policy data for multiple gradient steps (starting to be off-policy).  Can we reuse data from previous batches, i.e. all of the past trial-and-error data?  Key ideas: maintain a buffer of all past data; adjust equations to remove on-policy assumptions — \"replay buffer\".  1. collect experience {s_i, a_i} from π_θ(a|s) (& add to replay buffer).  2. sample a batch {s_i, a_i, r_i, s'_i} from buffer 𝓡.  3. update V̂^π_ϕ using targets y_i = r_i + γV̂^π_ϕ(s'_i) for each s_i ← not the right target value.  4. evaluate Â^π(s_i,a_i) = r(s_i,a_i) + γV̂^π_ϕ(s'_i) − V̂^π_ϕ(s_i).  5. ∇_θJ(θ) ≈ (1/N)Σ_i ∇_θ log π_θ(a_i|s_i) Â^π(s_i,a_i) ← not the action π_θ would have taken!  6. θ ← θ + α∇_θJ(θ).  The algorithm is currently broken 😢",
+   "one": "<b>野心再放大一档：不只复用这一批，而是复用<span class='k'>全部历史数据</span>。</b>做法是存一个 replay buffer。<b>然后讲义做了一件很少见的事 ——<span class='w'>把写出来的算法当场判定为「坏的」，并用红圈标出两处错在哪</span>。</b>",
+   "eq": "三档野心（p28）：\n\n  ① 一批数据走**一步**梯度           —— fully on-policy\n  ② 一批数据走**多步**梯度           —— starting to be off-policy（p25 的版本一）\n  ③ **复用全部历史数据**             —— 本页要做的\n     原文：Can we reuse data from previous batches,\n           i.e. **all of the past trial-and-error data**?\n\n  两个关键做法：\n    · **maintain a buffer of all past data**        ← 这个 buffer 叫 **replay buffer**\n    · **adjust equations to remove on-policy assumptions**\n\n────────────────────────────────────────\n直接写出来的算法（p29–30）：\n\n  1. 用 π_θ 采经验 {s_i, a_i}（**并加进 replay buffer**）\n  2. 从缓冲区 𝓡 里采一个 minibatch {s_i, a_i, r_i, s'_i}\n  3. 用目标 y_i = r_i + γV̂^π_φ(s'_i) 更新 V̂^π_φ    ⚠ **not the right target value**\n  4. 评估 Â^π(s_i,a_i) = r + γV̂_φ(s'_i) − V̂_φ(s_i)\n  5. ∇_θJ(θ) ≈ (1/N) Σ_i ∇_θ log π_θ(a_i|s_i)·Â^π(s_i,a_i)\n                                 ⚠ **not the action π_θ would have taken!**\n  6. θ ← θ + α∇_θJ(θ)\n\n  损失：ℒ(φ) = (1/N) Σ_i ‖ V̂^π_φ(s_i) − y_i ‖²\n\n  **The algorithm is currently broken 😢**\n\n────────────────────────────────────────\n两处毛病的共同根源，一句话：\n\n  **缓冲区里的 (a_i, s'_i) 都是<旧>策略产生的，而 V^π / Â^π 的定义\n    全都绑着「按<当前> π 走」。**",
+   "pts": [
+    "<b>讲义把一个明知是错的算法完整写出来，再标出错处 —— 这个教法值得单独说一句。</b><span class='k'>直接给正确版本，你会以为那些细节是天经地义的</span>；<b>先给错的，你才知道每一处修改各自在挡哪个洞</b>。<span class='w'>p30 → p31 → p32 这三页就是三次定点修补。</span>",
+    "<b>第一处毛病（第 3 步）：<code>V̂^π_φ(s'_i)</code> 不是对的目标。</b><span class='k'>V^π 的定义是「从这个状态出发，<b>之后按当前 π 走</b>」</span>；<b>而缓冲区里那个 s'_i，是<span class='w'>旧</span>策略走到的</b>。<span class='w'>用它去估当前策略的值，等于在问一个错的问题。</span>",
+    "<b>第二处毛病（第 5 步）：<code>a_i</code> 不是当前策略会选的动作。</b><span class='k'>策略梯度的推导里，a 必须是从 π_θ 采出来的</span>；<b>而缓冲区里的 a_i 是旧策略选的</b>。<span class='w'>讲义的批注很直白：not the action π_θ would have taken!</span>",
+    "<b>两处毛病其实是同一个根：缓冲区里的东西全都带着「旧策略」的烙印。</b><span class='k'>而 V^π、A^π、策略梯度这三样东西的定义里，都藏着「按当前 π 走」这个前提</span>。<b>所以 p28 那句 adjust equations to remove on-policy assumptions 是整段的纲领</b> —— <span class='w'>要么改式子，要么别用缓冲区。</span>",
+    "<b>注意 p28 把三档野心列成一条递进，这和 .b 片 p20 的 n 那个旋钮是同一种结构。</b><span class='k'>「一批走一步 → 一批走多步 → 复用全部历史」也是一个谱</span>，<b>而 p35 会把这个谱的两端取舍明确摆出来</b>。<span class='w'>这一讲里出现了两个这样的谱，都值得记住它们的两端是什么。</span>"
+   ],
+   "tbl": {
+    "cap": "三档离策略程度（p28 的递进）",
+    "head": [
+     "档",
+     "做法",
+     "讲义的叫法",
+     "<b>代表算法</b>"
+    ],
+    "rows": [
+     [
+      "①",
+      "一批数据走<b>一步</b>梯度",
+      "<b>fully on-policy</b>",
+      "L03 / L04 p22"
+     ],
+     [
+      "②",
+      "一批数据走<b>多步</b>梯度",
+      "<b>starting to be off-policy</b>",
+      "<b>p25 版本一 → PPO</b>"
+     ],
+     [
+      "③",
+      "<b>复用全部历史数据</b>",
+      "replay buffer",
+      "<b>p29–34 → SAC</b>"
+     ],
+     [
+      "③ 的两个关键做法",
+      "<b>存下所有历史 + 改式子去掉 on-policy 假设</b>",
+      "—",
+      "—"
+     ],
+     [
+      "<b>直接写出来会怎样</b>",
+      "<b>The algorithm is currently broken 😢</b>",
+      "—",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>「先给一个坏掉的算法」这个教法，在整门课里不多见，但它正好对应了一个很实用的读论文习惯。</b><br><br><span class='k'>很多论文的方法一节里，会有若干个看起来很琐碎的技术细节</span>：目标网络、重采动作、停梯度、裁剪……<br><br><b>这些细节单独看都像工程调优，但它们通常各自在挡一个具体的洞。</b><br><br><span class='w'>而论文往往不会告诉你那个洞是什么 —— 因为作者早就在心里把坏版本排除掉了。</span><br><br><b>所以读到一处不理解的细节时，有用的问法不是「这是什么」，而是「<span class='k'>去掉它会怎样</span>」。</b><br><br>这一讲接下来的两页，正好是把这个问法演示了一遍：<br>· <span class='w'>p31</span>：去掉「换成 Q 并重采 a'」会怎样 → 目标值是错的<br>· <span class='w'>p32</span>：去掉「重采 a」会怎样 → 梯度不是策略梯度<br><br><b>而 p33 还会给出一个「问了但修不了」的例子 —— 那同样有价值，因为它告诉你这个方法的边界在哪。</b>",
+   "link": {
+    "t": "你学过的对应：本片 p24–27（版本一只走多步；这里要的是复用全部历史，野心大一档）",
+    "href": "L04-精读.html"
+   },
+   "tip": {
+    "t": "replay buffer 在别处也见过，但这里的用法不同",
+    "w": true,
+    "v": "<b>回放缓冲区最有名的出场是 DQN（深度 Q 网络），但那里它解决的是另一个问题，值得分清。</b><br><br>· <span class='k'>DQN 里的 replay buffer</span>：主要为了<b>打散样本之间的相关性</b>。连续采来的 (s,a,r,s') 高度相关，直接拿去做随机梯度下降会让训练极不稳定；<span class='w'>从缓冲区里随机采 minibatch，相当于把时间上的相关性洗掉</span>。<br>· <span class='k'>本页的 replay buffer</span>：主要为了<b>数据效率</b> —— <span class='w'>让一条昂贵的经验被用很多次，而不是用一次就扔</span>（p35 会把这条收益明确写出来）。<br><br><b>两个理由都成立，而且同时起作用</b>，但知道哪个是主要动机，才能判断「缓冲区该多大」这类问题：<br>· 为了<span class='k'>打散相关性</span> ⇒ 缓冲区只要比一条轨迹长就够；<br>· 为了<span class='k'>数据效率</span> ⇒ 越大越好，<b>但越大就意味着里面的数据越旧</b>，<span class='w'>而 p33 那个「状态分布不对」的问题也就越严重</span>。<br><br><b>⇒ 缓冲区大小本身又是一个旋钮</b>，而且它调的正是本讲反复出现的那个东西：<span class='k'>你愿意为数据效率，牺牲多少「数据代表当前策略」这件事</span>。"
+   }
+  },
+  {
+   "r": [
+    31,
+    32
+   ],
+   "t": "两处定点修补：把 V 换成 Q，把动作重新采一遍",
+   "star": 5,
+   "quote": "Version 2: Fixing the value function — V^π(s_t) = Σ_{t'=t}^T E_{π_θ}[r(s_{t'},a_{t'})|s_t] (crossed out).  Q^π(s_t,a_t) = Σ_{t'=t}^T E_{π_θ}[r(s_{t'},a_{t'})|s_t,a_t] — \"total reward we get if we take a_t in s_t... and then follow the policy π\".  3. update Q̂^π_ϕ using targets y_i = r_i + γV̂^π_ϕ(s'_i) = r_i + γQ̂^π_ϕ(s'_i, a'_i) for each s_i, a_i.  a'_i ∼ π_θ(a'_i|s'_i) — not from replay buffer 𝓡!  V^π(s_t) = E_{a∼π(a_t|s_t)}[Q(s_t,a_t)].  Version 2: Fixing the policy update — use the same trick, but this time for a_i rather than a'_i!  sample a^π_i ∼ π_θ(a|s_i).  ∇_θJ(θ) ≈ (1/N)Σ_i ∇_θ log π_θ(a^π_i|s_i) Â^π(s_i, a^π_i) — not from replay buffer 𝓡!  higher variance, but convenient — why is higher variance OK here?  in practice: ∇_θJ(θ) ≈ (1/N)Σ_i ∇_θ log π_θ(a^π_i|s_i) Q̂^π(s_i, a^π_i).",
+   "one": "<b>两页，两处修补，用的是<span class='k'>同一个技巧</span>：凡是需要「当前策略会怎么做」的地方，<span class='w'>就现场从 π_θ 采一个动作</span>，而不是用缓冲区里那个旧的。</b>",
+   "eq": "修补一：值函数（p31）\n\n  问题：V^π 的定义绑着「之后按当前 π 走」，而缓冲区里的 s' 是旧策略走到的\n  做法：**把 V 划掉，换成 Q**（讲义真的在 V^π 那一行上画了红杠）\n\n     Q^π(s_t, a_t)  =  Σ_{t'=t}^T 𝔼_{π_θ}[ r(s_{t'},a_{t'}) | s_t, a_t ]\n     讲义的白话：total reward we get if we take a_t in s_t … and then follow the policy π\n\n  新的目标值：\n\n     y_i  =  r_i + γ·V̂^π_φ(s'_i)\n          =  **r_i + γ·Q̂^π_φ(s'_i, a'_i)**,   其中 **a'_i ∼ π_θ(a'|s'_i)**\n                                                      ⚠ **not from replay buffer 𝓡!**\n\n  依据就是 .a 片 p6 那条关系式：\n     **V^π(s_t)  =  𝔼_{a ∼ π(·|s_t)}[ Q^π(s_t, a) ]**\n     —— 要的是「按当前策略对动作取平均」，那就**现采一个当前策略的动作**。\n\n────────────────────────────────────────\n修补二：策略更新（p32）\n\n  问题：第 5 步里的 a_i 来自缓冲区，不是 π_θ 会选的动作\n  做法：**use the same trick, but this time for a_i rather than a'_i!**\n\n     采  **a^π_i ∼ π_θ(a | s_i)**     ← 状态 s_i 用缓冲区的，**动作现采**\n\n     ∇_θ J(θ) ≈ (1/N) Σ_i  ∇_θ log π_θ(**a^π_i**|s_i) · Â^π(s_i, **a^π_i**)\n                                              ⚠ **not from replay buffer 𝓡!**\n\n  评语（p32）：**higher variance, but convenient**\n  留给读者的问题：**why is higher variance OK here?**\n\n  实践中（p32 底部）：直接用 Q 而不是 A —\n     ∇_θJ(θ) ≈ (1/N) Σ_i ∇_θ log π_θ(a^π_i|s_i) · **Q̂^π(s_i, a^π_i)**",
+   "pts": [
+    "<b>两处修补是同一个技巧的两次应用，认出这一点就不用分别记。</b><span class='k'>规则是：<b>状态</b>可以用缓冲区里的旧状态，<b>动作</b>必须从当前策略现采</b></span>。<span class='w'>因为「旧状态」只是「我去过的地方」，没有策略烙印；而「旧动作」直接带着旧策略的偏好。</span>",
+    "<b>为什么换成 Q 就解决了问题？因为 Q 把动作显式地写进了参数里。</b><span class='k'>V(s') 隐含地对动作按「某个策略」取了平均，而你无法指定是哪个策略</span>；<b>Q(s', a') 让你能自己指定 a' 从哪来</b> —— <span class='w'>于是「现采一个当前策略的动作」这个修补才有地方落脚</span>。",
+    "<b>注意 p31 的推导是<span class='k'>反着</span>用 .a 片 p6 那条关系式的。</b><span class='w'>正着用是「从 Q 回到 V」（对动作取平均）</span>；<b>这里反着用：既然 V 是 Q 的平均，那我就用「一个采样的 Q」去代替 V</b>。<span class='k'>这和 L03 p16 把对数梯度技巧反着用是同一类动作 —— 同一个恒等式，两个方向。</span>",
+    "<b>p32 那个留给读者的问题 why is higher variance OK here? 值得自己答一遍。</b><span class='k'>一个合理的答案：这个额外方差来自「对动作采样」，而它是<b>无偏</b>的</span>；<b>而且你从巨大的回放缓冲区里采 minibatch，样本量远大于 on-policy 时的一批</b> —— <span class='w'>方差被样本量摊掉了</span>。<b>⚠ 这是我的推断，讲义把它留成了开放问题。</b>",
+    "<b>p32 底部那行「in practice 用 Q 而不是 A」是一个实用的简化。</b><span class='k'>因为 a^π_i 是从 π_θ 现采的，对它取期望时 V(s_i) 这一项是一个与动作无关的常数</span> —— <b>而常数基线不改变梯度的期望（L03 p16 证过）</b>。<span class='w'>所以减不减 V 都无偏，实践中省掉这一步。</span>"
+   ],
+   "tbl": {
+    "cap": "两处修补：同一个技巧的两次应用",
+    "head": [
+     "",
+     "修补一（p31 值函数）",
+     "<b>修补二（p32 策略更新）</b>"
+    ],
+    "rows": [
+     [
+      "坏在哪",
+      "V̂(s'_i) 不是对的目标值",
+      "<b>a_i 不是 π_θ 会选的动作</b>"
+     ],
+     [
+      "改什么",
+      "<b>V → Q</b>",
+      "<b>a_i → a^π_i</b>"
+     ],
+     [
+      "动作从哪来",
+      "<b>a'_i ∼ π_θ(·|s'_i) 现采</b>",
+      "<b>a^π_i ∼ π_θ(·|s_i) 现采</b>"
+     ],
+     [
+      "共同的规则",
+      "<b>状态用缓冲区的，动作必须现采</b>",
+      "<b>同左</b>"
+     ],
+     [
+      "依据",
+      "<b>V^π(s) = 𝔼_{a∼π}[Q^π(s,a)]（反着用）</b>",
+      "策略梯度要求 a ∼ π_θ"
+     ],
+     [
+      "代价",
+      "要学 Q 而不是 V（输入多一维）",
+      "<b>higher variance, but convenient</b>"
+     ]
+    ]
+   },
+   "say": "<b>这两页的修补规则可以压成一句话，而且它在整个离策略 RL 里都成立：</b><br><br><span class='k'><b>状态可以是旧的，动作必须是新的。</b></span><br><br><b>理由值得想清楚</b>：<br>· <span class='w'>一个旧状态 s_i 只是说明「我的策略曾经到过这里」</span>。它是一个<b>位置</b>，不带策略的偏好。<br>· <span class='w'>而一个旧动作 a_i 说明的是「<b>旧策略</b>在这里会这么做」</span>。它直接编码了旧策略。<br><br><b>所以凡是式子里需要「当前策略会怎么做」的地方，旧动作就是错的，必须现采。</b><br><br><span class='k'>而这一条也正好解释了 p33 为什么有一个修不了的问题</span>：<b>状态虽然「不带策略偏好」，但<span class='w'>哪些状态会出现在缓冲区里</span>，本身是由旧策略决定的</b>。<br><br><span class='w'>动作可以现采，状态没法现采 —— 你没法让环境回到一个「当前策略才会去的」状态。</span><b>这就是下一页那句 nothing we can do here 的来历。</b>",
+   "link": {
+    "t": "你学过的对应：本片 .a p6（V^π(s) = 𝔼_{a∼π}[Q^π(s,a)] —— 这里把它反着用了）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「状态可以是旧的，动作必须是新的」这条规则，在你的课题里有一个很干净的对应，而且能救你的历史日志。</b><br><br>你的日志里有大量「配置 → 分数」记录，<span class='k'>它们是在旧的搜索策略下采的</span>。按这条规则拆开：<br><br>· <span class='w'>「某个配置的真实分数」—— 这是环境的性质，<b>不带策略烙印</b></span>，<b>永远可以复用</b>；<br>· <span class='w'>「当时的搜索策略会选哪个配置」—— 这<b>带策略烙印</b></span>，<b>不能直接拿来当「现在该选哪个」</b>。<br><br><b>所以你的日志里，那一半是永久资产，另一半会过期。</b><span class='k'>而很多人把整份日志当成一个整体，要么全信要么全不信 —— 这是浪费</span>。<br><br><b>具体做法</b>：<span class='w'>把「配置 → 分数」的映射存成一个永久的查找表/训练集（它永不过期）</span>，<b>而「该去试哪个」每轮都用当前策略重新算</b>。<br><br><b>这样你的评估预算就真的是累积的了</b> —— <span class='k'>每一次昂贵的评估都永久地留在资产里，而不是随着搜索策略更新而贬值</span>。",
+    "ref": "本讲 p31–32 的修补规则；对照 L03 p21 的重要性采样前提"
+   },
+   "tip": {
+    "t": "一个该自己验的细节：为什么 a' 要重采，而 r 和 s' 不用",
+    "v": "<b>修补后的目标是 <code>y_i = r_i + γ·Q̂_φ(s'_i, a'_i)</code>，其中只有 <code>a'_i</code> 是现采的。</b><span class='w'>那 <code>r_i</code> 和 <code>s'_i</code> 为什么可以用缓冲区里的旧值？</span><br><br><b>因为它们是<span class='k'>环境</span>的输出，不是<span class='k'>策略</span>的输出。</b><br><br>给定 <code>(s_i, a_i)</code>，环境给出的 <code>r_i</code> 和 <code>s'_i</code> 服从 <code>p(s'|s,a)</code> 与奖励函数 —— <span class='w'>这两样东西<b>不依赖策略</b></span>，<b>所以旧策略采的和新策略采的，分布完全一样</b>。<br><br><span class='k'>而 <code>a'_i</code> 要服从 <code>π_θ(·|s'_i)</code>，这直接就是策略本身</span> —— <b>旧的就是错的。</b><br><br><b>这条区分可以推广成一句判据</b>：<span class='w'>缓冲区里的东西，凡是「环境产生的」都能复用，凡是「策略产生的」都要重采</span>。<br>· 环境产生：<code>r</code>、<code>s'</code>　⇒ <b>复用</b><br>· 策略产生：<code>a</code>、<code>a'</code>　⇒ <b>重采</b><br>· ⚠ 介于两者之间：<code>s</code> 本身 —— <b>它由环境产生，但「哪些 s 会进缓冲区」由策略决定</b>。<span class='k'>这正是 p33 那个修不了的问题。</span>"
+   }
+  },
+  {
+   "r": [
+    33,
+    34
+   ],
+   "t": "最后一个问题修不了，讲义直接说「接受它」",
+   "star": 4,
+   "quote": "Version 2: Anything else?  Any remaining problems?  s_i didn't come from p_θ(s).  nothing we can do here, just accept it.  intuition: we want optimal policy on p_θ(s) but we get optimal policy on a broader distribution.  Version 2: Some implementation details — can also use reparameterization trick to better estimate the gradient (for Gaussian policy); also fancier ways to fit Q-functions (more on this in next two lectures).  Example practical algorithm: Haarnoja, Zhou, Abbeel, Levine. Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor. 2018.",
+   "one": "<b>修完两处之后，讲义问「还有问题吗」，然后给出一个<span class='k'>修不了</span>的：<code>s_i</code> 不是从当前策略的状态分布来的。</b><span class='w'>而答案是四个字：nothing we can do here, just accept it。</span>",
+   "eq": "剩下的那个问题（p33）：\n\n  **s_i didn't come from p_θ(s)**\n  （缓冲区里的状态，不是当前策略会访问到的那个分布）\n\n  讲义的回答：**nothing we can do here, just accept it**\n\n  直觉（p33 原文）：\n     **we want optimal policy on p_θ(s)**\n     **but we get optimal policy on a <broader> distribution**\n\n  读法：你本来想要「在当前策略会去的那些状态上最优」的策略；\n        实际得到的是「在一个**更宽**的状态分布上最优」的策略。\n        —— 不是错，是**目标被悄悄放宽了**。\n\n  ⚠ 这正是 L03 p23 那个被 often approximated as 1 扔掉的\n     **状态分布比值** π_{θ'}(s)/π_θ(s)。\n     L03 把它近似掉，这里连近似都不装了，直接说「接受它」。\n\n────────────────────────────────────────\n实现细节（p34）：\n\n  · **reparameterization trick** —— 高斯策略下更好地估计梯度\n  · 更讲究的 Q 拟合方式 —— **more on this in next two lectures**（L05/L06）\n  · 例子算法：**Soft Actor-Critic (SAC)**\n       Haarnoja, Zhou, Abbeel, Levine. 2018.\n       Off-Policy Maximum Entropy Deep RL with a Stochastic Actor",
+   "pts": [
+    "<b>「nothing we can do here, just accept it」这句话在教材里很少见，但它很诚实，而且信息量不小。</b><span class='k'>它告诉你这不是一个待解决的 open problem，而是这个方法框架的<b>结构性边界</b></span>。<b>你没法让环境回到「当前策略才会去的」状态 —— 动作可以现采，状态不能。</b>",
+    "<b>「optimal policy on a broader distribution」这个说法值得记，它把一个缺点重新描述成了一个性质。</b><span class='w'>你的策略在「比实际需要更宽的状态集合上」是好的</span>。<b>这不全是坏事</b> —— <span class='k'>它意味着策略对分布漂移有一点额外的稳健性</span>。<b>代价是在真正会去的那些状态上，它不是最优的。</b>",
+    "<b>把这一页和 L03 p23 接起来，能看到同一个问题的两次出场。</b><span class='k'>L03：状态分布比值「often approximated as 1」—— 装作它不存在</span>；<span class='k'>L04 本页：直接说「接受它」</span>。<b>两次都没解决，只是诚实程度不同</b>。<span class='w'>而这正是整个离策略 RL 的理论软肋 —— 知道它在哪，比以为它不存在要好。</span>",
+    "<b>p34 点名的 SAC 是这条路线的成品，而且它的名字里每个词都对应本讲的一个零件。</b><span class='k'>Soft（最大熵）· Actor-Critic（本讲）· Off-Policy（p28 之后）· with a Stochastic Actor（L01 p39 那两条理由）</span>。<b>标题读懂了，算法的骨架就有了。</b>",
+    "<b>reparameterization trick 被一笔带过，但它解决的是一个真问题。</b><span class='k'>策略梯度要对「从 π_θ 采样」这件事求导，而采样本身不可导</span>；<b>重参数化把随机性挪到外面（a = μ_θ(s) + σ_θ(s)·ε，ε ∼ 𝒩(0,1)），于是梯度能直接穿过去</b>。<span class='w'>它比对数梯度技巧方差小得多，但要求动作分布可重参数化（高斯可以，离散不行）。</span>"
+   ],
+   "tbl": {
+    "cap": "三个问题：两个修好了，一个只能接受",
+    "head": [
+     "问题",
+     "能修吗",
+     "<b>怎么处理</b>"
+    ],
+    "rows": [
+     [
+      "目标值 V̂(s') 不对",
+      "<b>能</b>",
+      "<b>换成 Q，a' 从 π_θ 现采（p31）</b>"
+     ],
+     [
+      "a_i 不是 π_θ 会选的",
+      "<b>能</b>",
+      "<b>a^π 从 π_θ 现采（p32）</b>"
+     ],
+     [
+      "<b>s_i 不是来自 p_θ(s)</b>",
+      "<b>不能</b>",
+      "<b>nothing we can do here, just accept it</b>"
+     ],
+     [
+      "为什么不能",
+      "<b>动作可以现采，状态没法现采</b>",
+      "<b>你没法让环境回到某个状态</b>"
+     ],
+     [
+      "后果",
+      "<b>在一个更宽的分布上最优，而非在真正会去的状态上最优</b>",
+      "—"
+     ],
+     [
+      "L03 的对应",
+      "<b>那个 often approximated as 1 的状态分布比值</b>",
+      "<b>同一个问题，两次出场</b>"
+     ]
+    ]
+   },
+   "say": "<b>把这一讲里「修好的」和「修不了的」分开列，是复习这半讲最好的方式：</b><br><br><b>修好的（都用同一个技巧：动作现采）</b><br>· <span class='k'>p31</span>：V → Q，a' 从 π_θ 采<br>· <span class='k'>p32</span>：a_i → a^π_i，从 π_θ 采<br><br><b>修不了的</b><br>· <span class='w'>p33</span>：s_i 的分布。**just accept it**<br><br><b>而这个分界线的位置是有道理的</b>：<span class='k'>动作是你（策略）产生的，所以你随时可以重新产生一个；状态是环境产生的，你没有控制权</span>。<br><br><b>「哪些东西我能重新生成、哪些不能」—— 这个问法在很多地方都管用。</b><br><br><span class='w'>而且注意讲义的态度：它没有把这个缺陷藏起来，也没有假装它不重要，而是明确标出来并说明后果（optimal policy on a broader distribution）。</span><br><br><b>这比「不提」和「过度强调」都好，也是写自己论文时值得学的分寸。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L03 精读 p23（那个 often approximated as 1 的状态分布比值 —— 同一个问题）",
+    "href": "L03-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「在一个更宽的分布上最优」这个说法，对你的课题有一个意外的正面意义，值得想一想。</b><br><br>你的搜索会收敛到某一片配置区域。<span class='k'>如果你只用「当前搜索策略会去的那些配置」来训代理模型，模型就只在那一小片准</span> —— <b>而剪枝恰恰需要它在<span class='w'>没去过</span>的区域给出判断</b>。<br><br><b>反过来，用全部历史数据（包括早期那些被淘汰的配置）去训代理模型，正是 p33 说的「更宽的分布」</b>：<span class='w'>模型在你真正会去的那片区域上可能不是最优的，但它在更宽的范围里都还算靠谱</span>。<br><br><b>对剪枝来说，后者才是你要的</b> —— <span class='k'>剪枝判断的是「这片我没去过的区域值不值得去」，那就需要一个在宽分布上靠谱的模型，而不是一个在窄区域里极准的模型</span>。<br><br>⚠ <b>但这有一个代价要认</b>：<span class='w'>在你最终要交付的那片区域上，模型的精度会低于「只用那片数据训」的版本</span>。<b>所以合理的做法可能是两个模型</b>：一个宽的用于剪枝，一个窄的用于最终排序。<b>这是一个设计选择，不是自动成立的结论。</b>",
+    "ref": "本讲 p33 的 broader distribution；对照 L03 p23"
+   }
+  },
+  {
+   "r": [
+    35,
+    37
+   ],
+   "t": "收尾：两条路的取舍，以及一句「PPO 更好调」",
+   "star": 3,
+   "quote": "More off-policy vs. less off-policy actor critic?  ← more off-policy (i.e. with replay buffer).  ← less off-policy (i.e. no replay buffer).  + Off-policy with replay buffer (e.g. soft actor-critic) can be far more data efficient.  - They can also generally be harder to tune hyperparameters, less stable (than e.g. PPO).  Next Week (last big online RL method): Q-learning.  Practical implementation of online RL algorithms.",
+   "one": "<b>整讲收在一条取舍上，而且讲义把两边都说了。</b><span class='k'>用回放缓冲区（SAC 那条路）数据效率<b>高得多</b></span>；<span class='w'>但超参更难调、更不稳定 —— 讲义直接拿 PPO 当对照</span>。",
+   "eq": "一条谱（p35）：\n\n  less off-policy  ←───────────────────────────→  more off-policy\n  （不用回放缓冲区）                            （用回放缓冲区）\n     PPO 那一侧                                    SAC 那一侧\n\n两句评价（p35 原文）：\n\n  **+ Off-policy with replay buffer (e.g. soft actor-critic)\n     can be far more data efficient**\n\n  **− They can also generally be harder to tune hyperparameters,\n     less stable (than e.g. PPO)**\n\n────────────────────────────────────────\n为什么数据效率高：每一条采到的经验会被反复使用很多次，而不是用一次就扔。\n为什么难调：\n   · 缓冲区里新旧数据混在一起，分布随训练变化\n   · 要学 Q 而不是 V（输入多一维）\n   · 每步都要从 π_θ 现采动作（p31/p32），多一处随机性\n   · 那个「状态分布不对」的问题（p33）始终在\n\n────────────────────────────────────────\n下一讲（p37）：**Q-learning** —— last big online RL method\n              以及 Practical implementation of online RL algorithms",
+   "pts": [
+    "<b>这是本讲第二次出现「一条谱」的结构，值得和 .b 片 p20 的 n 放在一起看。</b><span class='k'>p20 的谱：n = 1（全靠估计）↔ n = T（全靠真实奖励）</span>；<span class='k'>p35 的谱：不用缓冲区 ↔ 用缓冲区</span>。<b>两次都是「两端各有代价，实践中在中间或按场景选」</b>。",
+    "<b>「data efficient」在这里的含义很具体：同一条经验被用了多少次。</b><span class='k'>on-policy：一次就扔；回放缓冲区：反复采样，可能用几十上百次</span>。<b>所以在采样昂贵的场景下，这个差别是决定性的</b> —— <span class='w'>而在仿真里（采样几乎免费），稳定性反而更值钱，这就是 PPO 在很多地方更受欢迎的原因。</span>",
+    "<b>「less stable than e.g. PPO」这句点名对照很有信息量。</b><span class='k'>它承认 PPO 虽然在数据效率上不如 SAC，但在「能不能跑对」这件事上更好</span>。<b>这与 L03 主线卡那条判断一致</b>：<span class='w'>PPO 统治 LLM 后训练靠的不是更好的理论，是更容易跑对。</span>",
+    "<b>把这一讲的两条路和你的场景对上，判据其实很清楚：看你的瓶颈在哪。</b><span class='k'>采样贵（真机、真人、LLM 评估）⇒ 往 more off-policy 走，数据效率优先</span>；<span class='k'>采样便宜（仿真）、但调参时间贵 ⇒ 往 less off-policy 走，稳定性优先</span>。",
+    "<b>p37 预告 Q-learning 是「最后一个大的在线 RL 方法」，这个定位值得注意。</b><span class='k'>L03 策略梯度 → L04 Actor-Critic → L06 Q-learning，三讲把在线 RL 的主干走完</span>。<b>之后的课程转向别的轴</b>：<span class='w'>L07 离线、L08 奖励从哪来、L09/L10 用在 LLM 上、L11 有模型、L12–L13 多任务与元</span>。"
+   ],
+   "tbl": {
+    "cap": "两条路的取舍（p35）",
+    "head": [
+     "",
+     "less off-policy（PPO 那侧）",
+     "<b>more off-policy（SAC 那侧）</b>"
+    ],
+    "rows": [
+     [
+      "用回放缓冲区吗",
+      "<b>不用</b>",
+      "<b>用</b>"
+     ],
+     [
+      "一条经验用几次",
+      "<b>几次（同一批走多步）</b>",
+      "<b>很多次</b>"
+     ],
+     [
+      "数据效率",
+      "中",
+      "<b>far more data efficient</b>"
+     ],
+     [
+      "稳定性 / 调参",
+      "<b>更好调、更稳</b>",
+      "<b>harder to tune, less stable</b>"
+     ],
+     [
+      "学 V 还是 Q",
+      "V 就够",
+      "<b>必须 Q（p31）</b>"
+     ],
+     [
+      "什么时候选它",
+      "<b>仿真便宜、调参时间贵</b>",
+      "<b>采样昂贵（真机 / 真人 / LLM 评估）</b>"
+     ]
+    ]
+   },
+   "say": "<b>这一讲到此结束。把它压成一句话：<span class='k'>加一个 critic，让梯度的权重从「这一次拿到多少」变成「期望能拿到多少」；然后想办法让采来的数据能反复用。</span></b><br><br><b>两件事，各自带着一个代价：</b><br>· <span class='w'>critic</span> → 方差小了，<b>偏差来了</b>（.b 片 p19–20 那个旋钮）<br>· <span class='w'>复用数据</span> → 数据效率高了，<b>稳定性差了</b>（本页这条谱）<br><br><b>而本讲出现的两个「修不了的问题」都指向同一处</b>：<span class='k'>状态分布</span>。<br>· <span class='w'>L03 p23</span>：状态分布比值 often approximated as 1<br>· <span class='w'>L04 p33</span>：s_i didn't come from p_θ(s)，just accept it<br><br><b>这是离策略 RL 的理论软肋，两讲都碰到了，都没解决。</b><br><br><span class='k'>知道一个领域的软肋在哪，比知道它的最新成果在哪更有用</span> —— <b>因为软肋的位置几年不会变，而最新成果半年就换一批。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L05 精读（PPO —— 这条谱上 less off-policy 那一端的成品）",
+    "href": "L05-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>p35 那条取舍对你的课题，答案是明确偏向一侧的，而且理由很硬。</b><br><br><span class='k'>你的采样（每次评估一个配置）极其昂贵</span>，<b>而你的「调参时间」相对便宜</b>（你可以在本地反复跑搜索逻辑，不用每次都调 LLM）。<br><br><b>⇒ 按这一页的判据，你应该毫不犹豫地站在 more data-efficient 那一侧</b>：<span class='w'>每一次评估的结果都要被反复榨取，而不是用一次就扔</span>。<br><br><b>具体落到三条</b>：<br>① <span class='k'>永久保存所有「配置 → 分数」记录</span>（p31–32 主线卡里说的那个「永不过期的资产」）；<br>② <span class='k'>每轮搜索都重新用<b>全部</b>历史训代理模型</span>，而不是只用最近一批；<br>③ <span class='k'>同一次评估里的副产品也记下来</span>（各级输出、token 消耗、失败样本），<b>这些是免费的额外信息</b>。<br><br>⚠ <b>而这一页提醒的代价也要认</b>：<span class='w'>数据复用得越狠，「分布混杂」带来的不稳定就越明显</span>。<b>对你具体就是：早期的烂配置会一直留在训练集里，可能让代理模型在好配置那一片欠拟合</b> —— <span class='k'>这是可以用加权（近期数据权重高）来缓解的，但要显式处理，不能假装没有。</span>",
+    "ref": "本讲 p35 的取舍；对照 p33 的 broader distribution"
+   }
+  }
+ ],
+ "quiz": {
+  "24": [
+   {
+    "q": "离策略 Actor-Critic 版本一相对 p22 的五步，改动有多大？",
+    "o": [
+     "完全重写了算法",
+     "只在第 4 步插了一个重要性权重，其余一字不改",
+     "改了第 2 步的 critic 训练",
+     "增加了回放缓冲区"
+    ],
+    "a": 1,
+    "why": "L04 前半加的是 critic（改权重的内容），这里加的是重要性权重（改权重的归属）。两件事正交，所以能直接叠。"
+   },
+   {
+    "q": "「走太多步梯度」会出什么问题？",
+    "o": [
+     "梯度会爆炸",
+     "学习率需要调小",
+     "优势 Â 的上标是旧策略 π_θ，会过期 —— 而策略还在拼命朝这个不准的方向走",
+     "重要性权重会变成 0"
+    ],
+    "a": 2,
+    "why": "p26 两句话合起来才是完整的毛病：策略会提高高优势动作的概率 + 优势基于旧策略会过期。"
+   },
+   {
+    "q": "p27 的 Idea 1（KL 约束）与 Idea 2（裁剪权重）本质区别是？",
+    "o": [
+     "Idea 1 直接禁止策略走太远；Idea 2 不加禁令，只是去掉走太远的激励（Doesn't directly constrain policy, but removes incentives）",
+     "Idea 1 更快",
+     "Idea 2 需要二阶信息",
+     "两者等价"
+    ],
+    "a": 0,
+    "why": "「改激励而不是加禁令」这个设计思路比具体公式更值得学。Idea 2 就是 PPO 的核心想法。"
+   },
+   {
+    "q": "p27 注记「We will see this in LLM preference optimization」指向哪一讲？",
+    "o": [
+     "L05 PPO",
+     "L06 Q-learning",
+     "L07 离线 RL",
+     "L09 RLHF / DPO —— 那里 KL 约束用来防止微调后的模型离原始模型太远"
+    ],
+    "a": 3,
+    "why": "同一个工具，一次用来稳定训练，一次用来防止模型跑偏。"
+   }
+  ],
+  "28": [
+   {
+    "q": "p28 列的三档「离策略程度」是什么？",
+    "o": [
+     "一批走一步（fully on-policy）→ 一批走多步（starting to be off-policy）→ 复用全部历史数据（replay buffer）",
+     "无模型 → 有模型 → 混合",
+     "在线 → 离线 → 批量",
+     "单步 → N步 → 蒙特卡洛"
+    ],
+    "a": 0,
+    "why": "这和 .b 片 p20 的 n 是同一种「谱」结构。p35 会把这个谱两端的取舍明确摆出来。"
+   },
+   {
+    "q": "讲义把直接写出来的 replay buffer 算法判定为 broken，两处毛病的共同根源是？",
+    "o": [
+     "缓冲区太小",
+     "缓冲区里的 (a_i, s'_i) 都是旧策略产生的，而 V^π / Â^π / 策略梯度的定义全都绑着「按当前 π 走」",
+     "学习率不对",
+     "没有用折扣因子"
+    ],
+    "a": 1,
+    "why": "所以 p28 那句 adjust equations to remove on-policy assumptions 是整段的纲领。"
+   },
+   {
+    "q": "「先写一个明知是坏的算法再修」这个教法，给读者什么启发？",
+    "o": [
+     "说明讲义写错了",
+     "说明这个算法不该用",
+     "读到论文里不理解的技术细节时，有用的问法不是「这是什么」而是「去掉它会怎样」",
+     "说明需要更多实验"
+    ],
+    "a": 2,
+    "why": "论文往往不告诉你那个洞是什么，因为作者早就在心里把坏版本排除掉了。"
+   }
+  ],
+  "31": [
+   {
+    "q": "两处修补用的是同一个技巧，这个技巧一句话是？",
+    "o": [
+     "状态可以用缓冲区里的旧状态，动作必须从当前策略现采",
+     "全部数据都要重新采",
+     "用目标网络稳定训练",
+     "给旧数据加重要性权重"
+    ],
+    "a": 0,
+    "why": "旧状态只是「我去过这里」，不带策略烙印；而旧动作直接编码了旧策略的偏好。"
+   },
+   {
+    "q": "为什么把 V 换成 Q 就解决了目标值的问题？",
+    "o": [
+     "Q 更准确",
+     "Q 把动作显式写进了参数里，于是你能自己指定 a' 从哪来；而 V(s') 隐含地对动作按某个你无法指定的策略取了平均",
+     "Q 的方差更小",
+     "V 不能用神经网络表示"
+    ],
+    "a": 1,
+    "why": "依据是 .a 片 p6 的 V^π(s) = E_{a∼π}[Q^π(s,a)]，而且这里是反着用它。"
+   },
+   {
+    "q": "p32 留给读者的问题「why is higher variance OK here?」，一个合理的答案是？",
+    "o": [
+     "因为方差不影响收敛",
+     "因为用了目标网络",
+     "这个额外方差来自对动作采样，是无偏的；而且从巨大的回放缓冲区里采 minibatch，样本量远大于 on-policy 时的一批，方差被摊掉了",
+     "因为 Q 函数已经很准了"
+    ],
+    "a": 2,
+    "why": "⚠ 这是精读作者的推断，讲义把它留成了开放问题。"
+   },
+   {
+    "q": "p32 底部「in practice 用 Q 而不是 A」为什么没问题？",
+    "o": [
+     "因为 Q 和 A 相等",
+     "因为 a^π_i 是从 π_θ 现采的，V(s_i) 对它而言是与动作无关的常数，而常数基线不改变梯度的期望",
+     "因为实践中不要求无偏",
+     "因为 A 更难计算"
+    ],
+    "a": 1,
+    "why": "常数基线无偏这一点 L03 p16 证过（∫p=1 而 ∇1=0）。所以减不减 V 都无偏，实践中省掉这一步。"
+   }
+  ],
+  "33": [
+   {
+    "q": "修完两处之后，剩下那个修不了的问题是什么？",
+    "o": [
+     "Q 函数难以拟合",
+     "缓冲区太大",
+     "折扣因子难选",
+     "s_i didn't come from p_θ(s) —— 缓冲区里的状态不是当前策略会访问到的那个分布"
+    ],
+    "a": 3,
+    "why": "讲义的回答是 nothing we can do here, just accept it。因为动作可以现采，状态没法现采。"
+   },
+   {
+    "q": "「we get optimal policy on a broader distribution」这个说法的含义是？",
+    "o": [
+     "算法会发散",
+     "目标被悄悄放宽了：策略在比实际需要更宽的状态集合上是好的，代价是在真正会去的那些状态上不是最优",
+     "策略会变得更好",
+     "需要更多数据"
+    ],
+    "a": 1,
+    "why": "这不全是坏事 —— 它意味着策略对分布漂移有一点额外稳健性。但它确实不是你原本想要的那个最优。"
+   },
+   {
+    "q": "这个问题和 L03 p23 的什么是同一个？",
+    "o": [
+     "那个被 often approximated as 1 扔掉的状态分布比值 π_θ'(s)/π_θ(s)",
+     "重要性权重的连乘爆炸",
+     "KL 约束",
+     "代理目标"
+    ],
+    "a": 0,
+    "why": "L03 装作它不存在（近似成 1），L04 直接说「接受它」。两次都没解决 —— 这是整个离策略 RL 的理论软肋。"
+   },
+   {
+    "q": "SAC 这个名字（Soft Actor-Critic, Off-Policy, with a Stochastic Actor）里每个词对应本课哪个零件？",
+    "o": [
+     "Soft=最大熵 · Actor-Critic=本讲 · Off-Policy=p28 之后 · Stochastic Actor=L01 p39 那两条理由",
+     "全部是 SAC 独创的概念",
+     "只有 Actor-Critic 来自本讲",
+     "Soft 指软更新目标网络"
+    ],
+    "a": 0,
+    "why": "标题读懂了，算法的骨架就有了。这也是读论文时一个很省时间的习惯。"
+   }
+  ],
+  "35": [
+   {
+    "q": "p35 那条谱的两端各自的优劣是？",
+    "o": [
+     "回放缓冲区那端数据效率far more高，但超参更难调、更不稳定（讲义直接拿 PPO 当对照）",
+     "回放缓冲区那端全面更好",
+     "不用缓冲区那端数据效率更高",
+     "两端完全等价"
+    ],
+    "a": 0,
+    "why": "「data efficient」的具体含义是同一条经验被用了多少次：on-policy 一次就扔，回放缓冲区可能用几十上百次。"
+   },
+   {
+    "q": "按这条判据，采样极其昂贵（真机 / 真人 / LLM 评估）的场景该选哪一端？",
+    "o": [
+     "more off-policy —— 数据效率优先，每条经验反复榨取",
+     "less off-policy —— 稳定性优先",
+     "两端都不行",
+     "取决于动作空间"
+    ],
+    "a": 0,
+    "why": "反过来，仿真里采样几乎免费、而调参时间贵，这时稳定性更值钱 —— 这就是 PPO 在很多地方更受欢迎的原因。"
+   },
+   {
+    "q": "本讲两个「修不了的问题」（L03 p23 与 L04 p33）都指向什么？",
+    "o": [
+     "奖励稀疏",
+     "状态分布 —— 这是离策略 RL 的理论软肋，两讲都碰到了都没解决",
+     "折扣因子的选择",
+     "网络容量"
+    ],
+    "a": 1,
+    "why": "知道一个领域的软肋在哪，比知道它的最新成果在哪更有用 —— 软肋的位置几年不会变，最新成果半年换一批。"
+   }
+  ]
+ }
+}
