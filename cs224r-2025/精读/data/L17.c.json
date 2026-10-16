@@ -1,0 +1,287 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p39/p40 **为什么需要视觉**：**Perception enables precise and agile locomotion**",
+  "⚠ 讲稿给的两条理由：① **有些情形非看不可** —— 「if you are to cross these **gaps or stepping stones** or make a **jump** you need vision to estimate how to make that jump」；② **效率、优雅与寿命** —— 「if you have to **collide with a staircase every single time** that you climb it, it's a very **inelegant** policy and the **hardware will probably not survive for long**」",
+  "p41 出处：**Legged Locomotion in Challenging Terrains using Egocentric Vision** —— Ananye Agarwal\\*, Ashish Kumar\\*, Jitendra Malik, Deepak Pathak，**CoRL 2022**",
+  "p42 **常见做法**：从视觉**建地形图**（Miki et al., Science Robotics 2022；Kim et al., ICRA 2020）。**But terrain maps are very noisy!**",
+  "p43 **Noisy maps wipe out signal => degraded performance**",
+  "p44 **本讲的提问与答案**：**Do we really need terrain maps?** → **We tightly couple vision and control**（把视觉与控制紧耦合，不建中间地图）",
+  "⚠ 讲稿把「建图」的根本毛病说得很清楚：「you're solving a **very hard problem** which is building an explicit map… your map will **always be noisy**… that is a phase where **you have already lost information and there is no way you can recover that information**」",
+  "⚠ 以及那句关键的因果：「**since we are solving a harder problem, we are losing information** that we would not have lost if we were to **directly use the perception input in the policy**」；还有一个具体例子：「**maybe the edges were enough to tell you how to take that step**. But the moment you convert it to a **metric map**… now you need to train your policy to be **robust to all of these different kinds of noise**」",
+  "p47 **Phase 1：用特权地形信息学走路**。输入含 **scandots（m_t）**（完美的地形高度）与 [friction, payload…]；**PPO in IsaacGym**；**Reward = (Track Velocity) + (Minimize Energy)**",
+  "⚠ p47 讲稿：这一阶段**不加任何噪声**（「This is **perfect** terrain height that we feed into the model」），而且训得快，「because you **don't need to render any perception inputs**」",
+  "p48 **训练地形**：Rough Flat · Slopes · Gaps · Stairs · Stepping Stones（讲稿：最后得到**一个**能在全部地形上走的策略）",
+  "p50 **部署时的坎**：scandots 与 [friction, payload…] **Cannot directly measure in real world**",
+  "p51 **Phase 2：用第一视角深度学走路** —— 在仿真里**渲染深度**，用 **DAgger**（roll out 学生、教师逐点监督）把 **深度编码器** 与 **extrinsics** 一起回归出来；MLP 部分 **Copy and Freeze**",
+  "⚠ p51 讲稿：之所以分两阶段，是因为**直接训第二阶段会慢一个数量级** ——「rendering depth takes a lot of time」",
+  "p52 **部署策略**：Egocentric Depth → **d_t RNN**；o_t → **o_t RNN** → MLP → a_t。⚠ 讲稿对 RNN 的坦白：RNN「**not known to preserve very long horizon information**，这也是社区后来转向 transformer 的原因」，而**他们没有做 transformer 的消融**",
+  "p53/p54 **楼梯是按人设计的**：台阶 **26 cm 宽 / 17 cm 高**，而这只机器人很矮 —— 「the height of the step is **almost as high as the robot**」",
+  "p55 **No predefined gait => emergent hip abduction**（没有预设步态 ⇒ 涌现出**髋关节外展**：把腿向侧面张开来上台阶）",
+  "p56 **Emergent footstep planning**（涌现的落脚规划）⚠ 讲稿：「**it only takes a step when it needs to**. It doesn't constantly move its feet」",
+  "p57 **Map Free, Gait Free** · p58 两场现场演示（CoRL 2022，新西兰与新奥尔良）",
+  "⚠ 讲稿里一个很值得记的观察：「**it doesn't always get everything in one shot. It sometimes needs to try and retry, and the retries make more sense than the previous try.** That is an example of **learning within the context** of what is fed into the model」",
+  "p60 **Performance is better without maps**（Average Distance，三列 **Blind / Map Based / Ours**）：**Slopes 34.72 / 36.14 / 43.98** · **Stepping Stones 1.02 / 1.09 / 18.83** · **Stairs 16.64 / 6.74 / 31.24** · **Discrete Obstacles 32.41 / 29.08 / 40.13**",
+  "⚠⚠ p60 最反直觉的一格：**楼梯上「瞎走」(16.64) 比「用噪声地图」(6.74) 还好一倍多** —— 讲稿：「for stairs **it's better to be blind** and just learn to put your steps blindly **than to use a map which is noisy** and which gives you an inaccurate estimate of where you might have to place your foot」",
+  "⚠ p60 另一条读法：**Performance gap is larger on challenging terrains** —— 简单地形（坡）上三者差不多，越难差距越大（踏脚石上 1.02 / 1.09 vs **18.83**）"
+ ],
+ "notes": [
+  {
+   "r": [39, 41],
+   "t": "为什么要视觉：一个是非看不可，一个是别老撞楼梯",
+   "star": 2,
+   "quote": "<b>Why do we need vision?</b> &nbsp;·&nbsp; <b>Perception enables precise and agile locomotion</b><br><b>Legged Locomotion in Challenging Terrains using Egocentric Vision</b><br><em>Ananye Agarwal*, Ashish Kumar*, Jitendra Malik, Deepak Pathak（<b>CoRL 2022</b>）</em>",
+   "one": "<b>前半讲刚证明了「盲着也能走遍七种地形」，所以这一页得先回答一个合理的质疑：那还要视觉干什么？两个理由，第二个比第一个更现实。</b>",
+   "pts": [
+    "<b>这个提问的位置很讲究：<b>它出现在证明了「盲策略很能打」<b>之后</b></b>。</b> <span class='k'>讲稿自己把质疑摆出来了：「<b>do we even need vision for walking?</b> Can we not just do without any vision altogether <b>given the results we have already seen</b>?」</span>。<b>⇒ 先把自己的成果当成反方论据，再回答——这是一个诚实的讲法。</b>",
+    "<b><b>理由一：有些情形非看不可。</b></b> <span class='w'>「if you are to cross these <b>gaps or stepping stones</b> or make a <b>jump</b>, <b>you need vision</b> to estimate how to make that jump」</span>。<b>⇒ 盲策略能应付的是「地面性质变了」（滑、软、不平），但应付不了「<b>前面根本没有地</b>」——跨沟和踏脚石要求你<b>提前</b>知道落脚点在哪。</b>",
+    "<b>⇒ 这个区分值得记：<b>本体感觉只能告诉你<b>已经发生</b>的事（我滑了、我陷了），视觉才能告诉你<b>将要发生</b>的事</b>。</b> <span class='k'>⇒ 前者是反应式的补偿，后者是预判式的规划。</span>",
+    "⚠️ <b><b>理由二更现实，而且讲者自己说它是「效率、优雅与寿命」的论证</b>：别每次上楼梯都先撞一下。</b> <span class='w'>原话：「if you have to <b>collide with a staircase every single time</b> that you climb it, it's a very <b>inelegant</b> policy and <b>the hardware will probably not survive for long</b>」</span>。",
+    "<b>⇒ 盲策略的工作方式是<b>撞上去才知道有东西</b>，然后靠鲁棒性化解。</b> <span class='k'>这在实验室里能跑出漂亮的视频，但在<b>一台要长期服役的机器</b>上是不可接受的——每一次碰撞都是对关节和电机的损耗</span>。<b>⇒ 这正好呼应 p16 那条奖励项：<b>Minimize hardware damage</b>。</b>",
+    "<b>⇒ 所以两个理由指向两类不同的收益：<b>理由一扩大了「能做什么」，理由二改善了「做得多体面、机器能撑多久」</b>。</b> <span class='w'>讲者的措辞是「you can potentially get to results which are <b>much better</b> than what we can achieve without vision」。</span>",
+    "<b>p40 那句标语把两者合起来了：<b><em>Perception enables <b>precise</b> and <b>agile</b> locomotion</em></b>——<b>精确</b>（落脚落得准）与<b>敏捷</b>（不必为了保险而放慢、加力）。</b>",
+    "<b>⚠ 最后留意这篇工作的署名：<b>Ananye Agarwal\\* 与 Ashish Kumar\\*</b> 并列第一（星号），CoRL 2022。</b> <span class='k'>⇒ 讲者本人是 RMA 的一作，而这一篇是把 RMA 的思路<b>加上视觉</b>之后的续作——两篇的结构会高度相似，读的时候可以对照着看。</span>"
+   ],
+   "eq": "提问的位置很讲究：**出现在证明了「盲策略很能打」之后**\n   讲稿自己把质疑摆出来：\n     「**do we even need vision for walking?** Can we not just do without any\n       vision altogether **given the results we have already seen**?」\n   ⇒ 先把自己的成果当成反方论据，再回答 —— 诚实的讲法\n\n**理由一：有些情形非看不可**\n   「if you are to cross these **gaps or stepping stones** or make a **jump**,\n     **you need vision** to estimate how to make that jump」\n   ⇒ 盲策略能应付「地面性质变了」（滑、软、不平）\n     但应付不了「**前面根本没有地**」—— 跨沟和踏脚石要求**提前**知道落脚点\n\n   ⇒ 值得记的区分：\n     **本体感觉只能告诉你已经发生的事（我滑了、我陷了）\n       视觉才能告诉你将要发生的事**\n     前者是**反应式**补偿，后者是**预判式**规划\n\n⚠ **理由二更现实**（讲者自称是「效率、优雅与寿命」的论证）：\n   **别每次上楼梯都先撞一下**\n   「if you have to **collide with a staircase every single time** that you climb it,\n     it's a very **inelegant** policy and **the hardware will probably\n     not survive for long**」\n\n   ⇒ 盲策略的工作方式是**撞上去才知道有东西**，再靠鲁棒性化解\n     实验室里能跑出漂亮视频，但在**要长期服役的机器**上不可接受\n     —— 每次碰撞都是对关节和电机的损耗\n   ⇒ 呼应 p16 那条奖励项：**Minimize hardware damage**\n\n⇒ 两个理由指向两类收益：\n   **理由一扩大了「能做什么」\n     理由二改善了「做得多体面、机器能撑多久」**\n   讲者：「you can potentially get to results which are **much better**\n           than what we can achieve without vision」\n\np40 标语把两者合起来：\n   **Perception enables precise and agile locomotion**\n   **精确**（落脚落得准）+ **敏捷**（不必为保险而放慢、加力）\n\n⚠ 署名：**Ananye Agarwal\\* 与 Ashish Kumar\\*** 并列第一，CoRL 2022\n   讲者本人是 RMA 的一作，这一篇是 RMA **加上视觉**的续作\n   ⇒ 两篇结构高度相似，可以对照着看",
+   "tbl": {
+    "head": ["", "本体感觉（盲策略）", "视觉"],
+    "rows": [
+     ["能告诉你什么", "<b>已经发生的事（我滑了）</b>", "<b>将要发生的事（前面有沟）</b>"],
+     ["应对方式", "<b>反应式补偿</b>", "<b>预判式规划</b>"],
+     ["对付「地面性质变了」", "<b>可以</b>", "<b>可以</b>"],
+     ["对付「前面没有地」", "<span class='w'>⚠ 不行</span>", "<b>可以</b>"],
+     ["上楼梯的方式", "<span class='w'>⚠ 撞上去才知道</span>", "<b>提前抬腿</b>"],
+     ["对硬件寿命", "<span class='w'>⚠ 每次都在损耗</span>", "<b>友好</b>"]
+    ]
+   },
+   "say": "原话（先把质疑摆出来，再回答）：<em>“everything that I've shown up until now is blind… So the first question is <b>do we even need vision for walking? Can we not just do without any vision altogether given the results we have already seen?</b> And the answer is that there are two scenarios. In one case <b>vision is critical like if you are to cross these gaps or stepping stones or make a jump you need vision to estimate how to make that jump</b>. And the second argument is more of an <b>efficiency and elegance and longevity</b> argument. So <b>if you have to collide with a staircase every single time that you climb it, it's a very inelegant policy and the hardware will probably not survive for long</b>. So for both of these reasons, if you have vision in the loop, you can potentially get to results which are <b>much better</b> than what we can achieve without vision.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页最该带走的不是「视觉有用」，而是那个<b>区分</b>：<b>本体感觉只能告诉你<b>已经发生</b>的事，视觉才能告诉你<b>将要发生</b>的事</b>。而这条区分在你的问题里有一个非常直接的对应。</b><br><span class='k'><b>事后的信号</b>：这条 query 答错了、这个节点的输出格式不对、下游节点触发了重试。<b>事前的信号</b>：这条 prompt 的长度与句式、任务类型、它在历史上同类 query 里的降档成功率</span>。<br><b>⇒ 而你的两阶段训练（见 L17.a p19 的科研格）正好把两者都用上了，<b>各在各的位置</b>：<b>事后信号用来<b>教</b>（第一阶段的特权信息），事前信号用来<b>决策</b>（第二阶段的输入）</b>。</b><span class='w'>⚠ 这个分工必须守住 —— 一旦事后信号漏进第二阶段的输入，你就有了泄漏，而且是那种在离线评测里看不出来的泄漏。</span><br><b>⚠ 具体说，这是一条很容易踩的线：<b>「前序节点触发了重试」这个特征，在决策<b>当前</b>节点时是合法的（它已经发生了），但在决策<b>前序</b>节点时是泄漏的</b>。</b> <span class='k'>⇒ 所以你的特征必须按<b>节点下标</b>严格切：<b>第 <code>k</code> 个节点的决策只能看第 <code>1..k−1</code> 个节点的产物</b>。写代码时这一条要有断言，不要靠记性。</span><br><b>⇒ 而第二个理由（<b>别每次上楼梯都先撞一下</b>）映过来也很实在：<b>你的方法不只是省钱，它还减少「先答错再重试」的次数</b>。</b><span class='w'>讲者把这叫「efficiency, elegance 和硬件寿命」的论证。你的对应是<b>延迟</b>：一次失败的重试意味着用户多等了一整轮。<b>⇒ 所以除了 Acc 和 Cost，<b>把平均延迟也报出来</b> —— 这是一个你本来就改善了、却容易忘了说的收益。</b></span><br><b>⇒ 顺带留意讲者提问的<b>位置</b>：他是在证明了「盲策略很能打」<b>之后</b>才问「我们真需要视觉吗」。</b> <span class='k'>⇒ 这个叙事顺序值得照抄：<b>先把简单方法做到最强，再论证为什么还需要更多</b>。如果你先摆出复杂方法，读者会怀疑简单方法是不是被你故意做弱了。</span>",
+    "ref": "本讲 p39–p41（逐字核对）· 讲稿（两个理由、撞楼梯那段）· L17.a p19 科研格 · 简报 §1 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [42, 44],
+   "t": "地形图是条错路：错在你先解了一个更难的问题",
+   "star": 3,
+   "quote": "<b>Typical approach: build terrain maps from vision</b><br><em><b>But terrain maps are very noisy!</b></em><br><b>Noisy maps wipe out signal => degraded performance</b><br><b>Do we really need terrain maps?</b> — <em><b>We tightly couple vision and control</b></em>",
+   "one": "<b>常见做法是先用视觉建一张地形图，再把图交给控制器。而问题不在图建得不够好——问题在于「建图」本身是一个比你真正需要的更难的问题，而你在那一步已经把信息丢了。</b>",
+   "pts": [
+    "<b>常见的流水线是<b>两段式</b>：<b>视觉 → 显式地形图 → 控制器</b>。</b> <span class='k'>幻灯引了两篇代表作（Miki et al., Science Robotics 2022；Kim et al., ICRA 2020），然后下了一句判决：<b><em>But terrain maps are very noisy!</em></b></span>",
+    "<b>讲稿把这条路线的毛病<b>定位</b>得很准，而且它不是「图不够准」这种程度的批评。</b> <span class='w'>原话：「there's a <b>fundamental flaw</b> in this approach which is <b>first of all you're solving a very hard problem which is building an explicit map</b>」</span>。",
+    "<b>⇒ 建图<b>本身</b>就是个硬问题：非刚体、位姿估计漂移，任何一样都会让图变脏。</b> <span class='k'>「if you have <b>non-rigid objects</b> or if you have <b>estimate drift</b> in your estimate of your pose or any of these, it will end up converging to <b>very noisy maps</b>」</span>。",
+    "⚠️ <b>但真正致命的是下一句，它说的是<b>不可逆性</b>：<b>「that is a phase where <b>you have already lost information and there is no way you can recover that information</b>」</b>。</b> <span class='w'>⇒ 一旦把像素压成了一张有噪声的度量地图，<b>原始图像里那些有用但没被编码进地图的东西就永远拿不回来了</b>。</span>",
+    "<b>⇒ 而因果关系被讲者点成了一句话，这句最值得记：<b>「<b>since we are solving a harder problem, we are losing information</b> that we would not have lost if we were to <b>directly use the perception input in the policy</b>」</b>。</b> <span class='k'>⇒ <b>不是「做得不够好所以丢了信息」，而是「因为去解了一个更难的问题，所以必然丢信息」</b>。</span>",
+    "<b>讲稿给的具体例子把这件事落地了：<b>有时候你需要的只是「边缘在哪」</b>。</b> <span class='w'>「<b>Maybe the edges were enough to tell you how to take that step.</b> But the moment you convert it to a <b>metric map</b> and then try to give that into the policy, now you need to train your policy to be <b>robust to all of these different kinds of noise</b>」</span>。<b>⇒ 你本来只需要一个粗糙的定性信息（台阶边缘在那儿），却被迫先去估一个精确的定量量（每个格子的高度是多少厘米），然后再对付那个估计带来的噪声。</b>",
+    "⚠️ <b>⇒ 而这<b>正是 p37 那条系统辨识基线失败的同一个错误</b>，只是换了个场合。</b> <span class='k'>那边是「被迫精确估摩擦，而你只需要知道该多使点劲」；这边是「被迫精确估地形高度，而你只需要知道边缘在哪」</span>。<b>⇒ 一讲之内同一条教训出现两次，而且两次都有实验支持——这不是巧合，是讲者的中心论点。</b>",
+    "<b>⇒ 把它提炼成一句可迁移的原则：<b>别在流水线中间插入一个比最终任务更难的子问题</b>。</b> <span class='w'>如果那个中间量<b>既难估、又比最终决策需要的精度高</b>，那它只会把误差放大再传下去。</span>",
+    "<b>p44 给出的解法只有一句：<b><em>We tightly couple vision and control</em></b>（把视觉与控制<b>紧耦合</b>）。</b> <span class='k'>⇒ 即<b>不建中间表示</b>，让深度图像直接进策略，由策略自己决定从里面提取什么</span>。<b>⇒ 这和 RMA 的 <code>z_t</code> 是同一个哲学：<b>学一个「够用的」表示，而不是一个「正确的」表示</b>。</b>",
+    "<b>⚠ 但也要看到这条路的代价：<b>紧耦合意味着你失去了模块化</b>。</b> <span class='w'>建图那条路线的好处是地图可以被别的模块复用、可以被人检查、可以单独调试；而紧耦合之后，中间那个表示<b>没人看得懂</b>（正如 p32 那个「学出来的 extrinsics 解释不了」）</span>。<b>⇒ 讲者没有提这个代价，但它是真实存在的取舍。</b>"
+   ],
+   "eq": "常见流水线是**两段式**：**视觉 → 显式地形图 → 控制器**\n   幻灯引了两篇代表作，然后判决：**But terrain maps are very noisy!**\n\n讲稿把毛病**定位**得很准（不是「图不够准」这种程度的批评）：\n   「there's a **fundamental flaw**… **you're solving a very hard problem\n     which is building an explicit map**」\n   建图本身就是硬问题：**非刚体**、**位姿估计漂移** ⇒ 图必然脏\n\n⚠⚠ 真正致命的是**不可逆性**：\n   「that is a phase where **you have already lost information\n     and there is no way you can recover that information**」\n   ⇒ 一旦把像素压成有噪声的度量地图，\n     **原始图像里那些有用但没被编码进地图的东西就永远拿不回来**\n\n⇒ 因果被点成一句话（最值得记）：\n   「**since we are solving a harder problem, we are losing information**\n     that we would not have lost if we were to\n     **directly use the perception input in the policy**」\n   ⇒ **不是「做得不够好所以丢信息」，而是「因为去解了更难的问题，所以必然丢信息」**\n\n具体例子（把这件事落地）：**有时候你需要的只是「边缘在哪」**\n   「**Maybe the edges were enough to tell you how to take that step.**\n     But the moment you convert it to a **metric map**… now you need to train\n     your policy to be **robust to all of these different kinds of noise**」\n   ⇒ 本来只需一个**粗糙的定性信息**（台阶边缘在那儿）\n     却被迫先估一个**精确的定量量**（每格高度多少厘米），再对付它带来的噪声\n\n⚠⚠ **这正是 p37 那条系统辨识基线失败的同一个错误**，换了个场合：\n   p37：被迫精确估**摩擦**，而你只需要知道「该多使点劲」\n   这里：被迫精确估**地形高度**，而你只需要知道「边缘在哪」\n   ⇒ 一讲之内同一条教训出现两次，两次都有实验支持\n     —— 不是巧合，是**讲者的中心论点**\n\n⇒ 提炼成可迁移的原则：\n   **别在流水线中间插入一个比最终任务更难的子问题**\n   若那个中间量**既难估、又比最终决策需要的精度高**，\n   它只会把误差放大再传下去\n\np44 的解法：**We tightly couple vision and control**（紧耦合）\n   ⇒ **不建中间表示**，深度图像直接进策略，由策略自己决定提取什么\n   ⇒ 与 RMA 的 z_t 同一个哲学：\n     **学一个「够用的」表示，而不是一个「正确的」表示**\n\n⚠ 这条路的代价（讲者没提，但真实存在）：**紧耦合意味着失去模块化**\n   建图那条路：地图可被别的模块复用、可被人检查、可单独调试\n   紧耦合之后：中间表示**没人看得懂**（正如 p32 的 extrinsics 解释不了）",
+   "tbl": {
+    "head": ["", "建地形图（常见做法）", "紧耦合（本讲）"],
+    "rows": [
+     ["流水线", "<b>视觉 → 地图 → 控制器</b>", "<b>视觉 → 控制器</b>"],
+     ["中间要解什么问题", "<b>⚠ 建一张精确的度量地图</b>", "<span class='w'>不解</span>"],
+     ["那个问题难吗", "<b>⚠ 比最终任务还难</b>", "—"],
+     ["信息损失", "<span class='w'>⚠ 不可逆</span>", "<b>没有</b>"],
+     ["模块化", "<b>有（图可复用、可检查）</b>", "<span class='w'>⚠ 失去</span>"],
+     ["同一个错误在哪也出现过", "<b>p37 的系统辨识</b>", "—"]
+    ]
+   },
+   "say": "原话（建图的根本毛病：解了一个更难的问题，而且信息不可逆地丢了）：<em>“the most common approach to add vision is to <b>decouple it entirely from control and then build an explicit map</b>… And the reason there's a <b>fundamental flaw</b> in this approach is <b>first of all you're solving a very hard problem which is building an explicit map. So your map will always be noisy.</b> So if you have <b>non-rigid objects</b> or if you have <b>estimate drift</b> in your estimate of your pose or any of these, it will end up converging to very noisy maps. So that is a phase where <b>you have already lost information and there is no way you can recover that information</b>, and then you feed that into the controller. So <b>since we are solving a harder problem, we are losing information that we in other scenarios would not have lost if we were to directly use the perception input in the policy</b>.”</em><br><br>原话（有时你需要的只是边缘）：<em>“here's an example of how people add noise to the real terrain. <b>Maybe the edges were enough to tell you how to take that step. But the moment you convert it to a metric map and then try to give that into the policy, now you need to train your policy to be robust to all of these different kinds of noise</b>, which is okay for simple scenarios but becomes very challenging the moment you need to <b>precisely estimate where the gap is</b> and avoid stepping on that.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这是这一讲的中心论点第二次出现，而且它现在足够硬，可以当成一条你该遵守的设计原则：<b>别在流水线中间插入一个比最终任务更难的子问题</b>。</b><br><span class='k'>两次的形态：p37 被迫精确估<b>摩擦</b>（而你只需要「该多使点劲」）；这里被迫精确估<b>地形高度</b>（而你只需要「边缘在哪」）。两次都有实验支持，而且两次都<b>输给了什么都不估的基线</b></span>。<br><b>⇒ 你的流水线里有一个一模一样的候选错误，而且我之前就推荐过它：<b>节点级质量评分</b>。</b><br><span class='w'>那条建议是：给每个节点的输出打一个「这一步做得多好」的连续分数，再拿它去指导配置选择</span>。<b>⚠ 而按这一页的判据，它<b>很可能</b>是一个「更难的中间问题」：</b><br><b>· <b>它难估</b></b>——<span class='k'>「这一步的输出质量是 0.7 还是 0.8」需要一个裁判模型，而裁判本身有噪声、有偏好、还会被下游的表述方式影响</span>；<b>· <b>而且那个精度用不上</b></b>——<span class='w'>你真正要的决策只是「这个节点该不该升档」，一个<b>二元</b>判断</span>。<br><b>⇒ 所以按 RMA 的做法，正确的路子是<b>跳过那个中间量</b>：<b>直接学一个从「可观测的执行特征」到「配置」的映射，不要中途去估一个质量分</b>。</b><span class='k'>这正是 p44 那句「紧耦合」的翻版。</span><br><b>⚠ 但这条原则有一个<b>重要的例外</b>，而你恰好落在例外里，所以不能照搬到底。</b><br><span class='w'>讲者没提的那个代价是：<b>紧耦合失去了模块化与可解释性</b>。而他承受得起，因为他的交付物是一个会走路的机器人——没人关心中间表示</span>。<b>⇒ 而你的交付物<b>包含</b>解释：「哪些节点值得花钱」本身就是结论。</b><br><b>⇒ 所以对你，正确的折中是：<b>决策路径上不要插入难估的中间量（照搬这一页），但要保留一个<b>可解释的参数化</b>（你的 <code>θ</code>）作为输出</b>。</b><span class='k'>也就是说：<b>别让中间表示去背解释的责任，让最终模型的参数去背</b>。</span><br><b>⇒ 一个很具体的落法：<b>节点级评分可以<b>报告</b>，但不要进入决策回路</b>。</b> <span class='w'>用它做事后分析（「我们发现节点 3 的质量与升档收益相关」），而不是用它做在线决策——这样既拿到了可解释性，又避免了「噪声中间量污染下游」。</span>",
+    "ref": "本讲 p42–p44（逐字核对）· 讲稿（信息不可逆、边缘那个例子）· p37 · L15 主线卡 · 简报 §4b §4d（已核）"
+   }
+  },
+  {
+   "r": [45, 52],
+   "t": "同一套两阶段，换了特权信息：从完美地形高度到第一视角深度",
+   "star": 3,
+   "quote": "<b>Phase 1: Learning to Walk with Privileged Terrain Information</b><br><em>o<sub>t</sub> + <b>Scandots (m<sub>t</sub>)</b> + [friction, payload…] → RNN/MLP → z<sub>t</sub> → a<sub>t</sub><br><b>PPO in IsaacGym</b> &nbsp;·&nbsp; <b>Reward = (Track Velocity) + (Minimize Energy)</b></em><br><b>How do we deploy it?</b> — <em>scan dots, [friction, payload…] <b>Cannot directly measure in real world</b></em><br><b>Phase 2: Learning to Walk with Egocentric Depth</b> — <em><b>Regress</b> · <b>Copy and Freeze</b></em><br><b>Deployment Policy</b> — <em>Egocentric Depth → d<sub>t</sub> RNN ; o<sub>t</sub> → o<sub>t</sub> RNN → MLP → a<sub>t</sub></em>",
+   "one": "<b>结构和 RMA 一模一样，只是「特权信息」从物理参数换成了完美的地形高度。这说明那个两阶段套路不是为某个问题定制的——它是一个可以反复用的模板。</b>",
+   "pts": [
+    "<b>先把<b>相同</b>的部分认出来，这比记细节重要：<b>这就是 L17.a p19 那个两阶段，原样再用一遍</b>。</b> <span class='k'><b>Phase 1</b>：用只有仿真里才有的信息训一个强教师；<b>Phase 2</b>：冻住主干，用 DAgger 训一个学生，从<b>可观测</b>的东西里把那份特权信息回归出来</span>。",
+    "<b>⇒ 变的只有「特权信息是什么」：<b>RMA 那边是物理参数（摩擦、质量…），这边是 <b>scandots</b>——地形高度的采样点</b>。</b> <span class='w'>而且讲者强调这一阶段的 scandots 是<b>完美</b>的：「This is <b>perfect</b> terrain height that we feed into the model. <b>We don't add any noise to it.</b>」</span>",
+    "<b>⚠ 「不加噪声」这个选择值得停一下，因为它和常见直觉相反。</b> <span class='k'>很多人会想「反正真实世界有噪声，不如训练时就加上去」；而这里<b>故意不加</b>——因为第一阶段的任务<b>不是</b>学会对付噪声，而是<b>在理想信息下学会走路</b></span>。<b>⇒ 对付噪声是第二阶段学生的事，而学生面对的是<b>真实的深度图</b>，不是人造噪声。</b>",
+    "<b>⇒ 这也呼应了 p42–p44：<b>人造的地图噪声和真实的感知噪声不是一回事</b>，照着前者训练出来的鲁棒性未必管用。</b>",
+    "<b>第一阶段为什么能训得动？因为它<b>不用渲染图像</b>。</b> <span class='w'>讲稿：「It is <b>much faster to train</b> because you <b>don't need to render any perception inputs</b>」</span>；<b>而反过来，「if you try training the second phase <b>directly</b> it would be an <b>order of magnitude slower</b> because <b>rendering depth takes a lot of time</b>」。</b>",
+    "<b>⇒ 所以两阶段在这里有一个<b>非常具体</b>的理由：<b>把昂贵的渲染从强化学习的循环里挪出去</b>。</b> <span class='k'>RL 要几亿次交互，渲染不起；而监督蒸馏需要的样本少得多，渲染得起</span>。<b>⇒ 这比 RMA 那边「限制学生能看到的东西」又多了一条实打实的工程理由。</b>",
+    "<b>p48 的训练地形覆盖了五类：<b>Rough Flat · Slopes · Gaps · Stairs · Stepping Stones</b>。</b> <span class='w'>⇒ 而目标还是老样子：<b>一个</b>策略走遍全部。</span>",
+  "⚠️ <b>而这里有一个幻灯上没强调、却非常值得注意的变化：<b>奖励从十条减到了两条</b>。</b> <span class='k'>讲稿原话：「We use <b>PPO</b> in simulation. This time we use <b>Isaac Gym</b>. And the rewards are to <b>track a target velocity</b> and then <b>minimize energy</b>」——<b>就这两条</b></span>。<b>⇒ 对比 L17.a p16 那张 RMA 的奖励表：<b>十条</b>，而讲者自己说「不太优雅」、权重「没有好办法」调。</b>",
+  "<b>⇒ 这是整讲里一个真实的<b>进步</b>，而且方向正是 p78 终章主张的那个方向（<b>少塑形、多搜索</b>）。</b> <span class='w'>⚠ 它也部分化解了我在 p78 指出的那处张力：<b>讲者主张稀疏奖励，而他<b>后一篇</b>工作确实比<b>前一篇</b>少用了八条塑形项</b>。</span><b>⇒ 所以那处张力更准确的说法是：<b>十条奖励是 2021 年那篇的做法，而这个领域在往更少的方向走</b>——而不是「他说一套做一套」。</b>",
+  "<b>⇒ 为什么能减掉八条？一个合理的推测是<b>更换了仿真器</b>。</b> <span class='k'>RMA 用的是另一套，这篇用 <b>Isaac Gym</b>（GPU 并行，吞吐量高出一两个数量级）。<b>⇒ 而塑形奖励的作用本来就是「帮搜索更快找到解」；当你能跑的交互多了两个数量级，很多塑形项就不再必要了</b></span>。<b>⚠ 这个推测讲者没说，但它和 the bitter lesson（p76）正好同向：<b>算力上来了，手工先验就能撤掉</b>。</b>",
+  "<b>⇒ 对读者的实际用处：<b>看到一篇论文有十几个奖励项时，先问它是哪一年的、用的什么仿真器</b>。</b> <span class='w'>很多塑形项是<b>算力受限时代的产物</b>，照抄到今天的设置里可能纯属负担，甚至把搜索框死在一个次优解附近。</span>",
+    "<b>p50 把坎摆明：<b>scandots 与 [friction, payload…] 在真实世界里 <em>Cannot directly measure</em></b>。</b> <span class='k'>⇒ 和 p17 那一页是同一个困境，只是这次缺的东西更多——既缺物理参数，也缺地形高度。</span>",
+    "<b>p51 的 Phase 2 因此要同时回归<b>两样</b>东西：从第一视角深度回归出 scandots 的编码，以及 extrinsics。</b> <span class='w'>幻灯标了 <b>Copy and Freeze</b>——MLP（动作头）从第一阶段原样搬过来、冻住</span>。",
+    "<b>p52 的部署策略里有一个新零件：<b>两个 RNN</b>（一个吃深度 <code>d_t</code>，一个吃本体观测 <code>o_t</code>）。</b> <span class='k'>讲稿解释用 RNN 是为了「give you a slightly <b>longer context</b>」</span>。",
+    "⚠️ <b>而讲者对 RNN 的坦白很值得记，因为它既说明了局限也说明了实验的边界：<b>「RNNs… are <b>not known to preserve very long horizon information</b>, which is why most of the community moved to <b>transformers</b>… <b>we did not ablate using a transformer instead</b> for this task to see if that improves performance or not」</b>。</b> <span class='w'>⇒ 「我们没做这个消融」——直接承认了一个没验证的设计选择，这比含糊带过要好。</span>"
+   ],
+   "eq": "先认出**相同**的部分（比记细节重要）：\n   **这就是 L17.a p19 那个两阶段，原样再用一遍**\n     Phase 1：用只有仿真才有的信息训一个**强教师**\n     Phase 2：冻住主干，用 **DAgger** 训**学生**，从**可观测**的东西回归出特权信息\n\n⇒ 变的只有「特权信息是什么」：\n   RMA：物理参数（摩擦、质量…）\n   这边：**scandots** —— 地形高度的采样点\n\n   ⚠ 而且 Phase 1 的 scandots 是**完美**的：\n     「This is **perfect** terrain height that we feed into the model.\n       **We don't add any noise to it.**」\n\n   「不加噪声」与常见直觉相反，值得停一下：\n     很多人想「反正真实世界有噪声，训练时就加上去」\n     这里**故意不加** —— 第一阶段的任务**不是**学会对付噪声，\n     而是**在理想信息下学会走路**\n     对付噪声是第二阶段学生的事，而学生面对的是**真实深度图**，不是人造噪声\n   ⇒ 呼应 p42–p44：**人造的地图噪声和真实的感知噪声不是一回事**\n\n第一阶段为什么训得动：**不用渲染图像**\n   「It is **much faster to train** because you **don't need to render\n     any perception inputs**」\n   反过来：「if you try training the second phase **directly** it would be an\n     **order of magnitude slower** because **rendering depth takes a lot of time**」\n\n   ⇒ 两阶段在这里有一个**非常具体**的理由：\n     **把昂贵的渲染从强化学习的循环里挪出去**\n     RL 要几亿次交互，渲染不起；监督蒸馏样本少得多，渲染得起\n   ⇒ 比 RMA 那边「限制学生能看到的东西」又多了一条工程理由\n\np48 训练地形五类：**Rough Flat · Slopes · Gaps · Stairs · Stepping Stones**\n   目标还是：**一个**策略走遍全部\n\np50 把坎摆明：scandots 与 [friction, payload…]\n   **Cannot directly measure in real world**\n   ⇒ 与 p17 同一个困境，只是这次缺的更多（物理参数 + 地形高度）\n\np51 Phase 2 要同时回归**两样**：从第一视角深度回归出 scandots 的编码 + extrinsics\n   MLP（动作头）**Copy and Freeze**，从第一阶段原样搬过来\n\np52 部署策略有个新零件：**两个 RNN**（一个吃深度 d_t，一个吃本体观测 o_t）\n   用 RNN 是为了「give you a slightly **longer context**」\n\n⚠ 讲者对 RNN 的坦白（既说明局限也说明实验边界）：\n   「RNNs… are **not known to preserve very long horizon information**,\n     which is why most of the community moved to **transformers**…\n     **we did not ablate using a transformer instead** for this task」\n   ⇒ 「我们没做这个消融」—— 直接承认一个没验证的设计选择，比含糊带过好",
+   "tbl": {
+    "head": ["", "RMA（L17.a）", "视觉版（本页）"],
+    "rows": [
+     ["特权信息是什么", "<b>物理参数（摩擦、质量…）</b>", "<b>scandots（完美地形高度）</b>"],
+     ["学生看什么", "<b>50 步本体感觉历史</b>", "<b>第一视角深度 + 本体历史</b>"],
+     ["蒸馏方式", "<b>DAgger</b>", "<b>DAgger</b>"],
+     ["动作头", "<b>复制并冻结</b>", "<b>Copy and Freeze</b>"],
+     ["⚠ 分两阶段的额外理由", "限制学生能看到的东西", "<b>把昂贵的渲染挪出 RL 循环</b>"],
+     ["⚠ 没验证的选择", "—", "<b>没做 transformer 的消融</b>"]
+    ]
+   },
+   "say": "原话（第一阶段喂的是完美地形高度，不加噪声；而且训得快）：<em>“in the first phase of training it's the same as before with this additional terrain height information. <b>We don't add any noise to it. This is perfect terrain height that we feed into the model</b> and then we encode all of that, give it to an MLP and then train this whole system with reinforcement learning. <b>It is much faster to train because you don't need to render any perception inputs.</b> The recipe is the same as before. We use PPO in simulation. This time we use Isaac gym.”</em><br><br>原话（为什么不能直接训第二阶段：渲染太慢）：<em>“here if you try training the second phase directly <b>it would be an order of magnitude slower because rendering depth takes a lot of time</b>. So this gives you a significant speed up over how to train it and lets you deploy it in the real world as well very robustly.”</em><br><br>原话（用 RNN 的理由，以及「我们没做 transformer 的消融」）：<em>“the one change that we've made here is the use of <b>RNN</b>. So we use RNN so they can give you a <b>slightly longer context</b>. So RNNs are recurrent neural networks which integrate information over time but <b>they're not known to preserve very long horizon information which is why most of the community moved to transformers</b> when they wanted to do very long sequence modeling. We used RNN which gives a good enough context to the model but <b>we did not ablate using a transformer instead for this task to see if that improves performance or not</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "⚠️ <b>这几页藏着这一讲对你<b>最可操作</b>的一条：<b>把昂贵的那一步从搜索/训练的循环里挪出去</b>。</b><br><span class='k'>讲者的原话是：第一阶段「<b>much faster to train because you don't need to render any perception inputs</b>」，而如果直接训第二阶段，「it would be <b>an order of magnitude slower</b> because rendering depth takes a lot of time」</span>。<br><b>⇒ 做法的本质是：<b>RL 需要上亿次交互，所以 RL 阶段不能碰昂贵的东西；而监督蒸馏只需要少得多的样本，所以昂贵的东西放到蒸馏阶段</b>。</b><br><b>⇒ 你的昂贵那一步是什么？<b>跑一遍完整的工作流并判对错</b>。而 AFlow 式搜索的成本几乎全在这里 —— 每评估一个候选都要真跑。</b><br><b>⇒ 于是对应的结构就浮出来了：<b>把「真跑一遍」从搜索内循环里挪出去</b>。</b> <span class='w'>具体可以是：① 先用一个<b>缓存/代理</b>评估候选（对一个固定的小子集预先跑出所有档位组合的结果，之后查表而不是真跑）；② 搜索在表上进行；③ 只对最终少数候选做完整评估</span>。<b>⚠ 而这正是「把渲染挪出 RL 循环」的同构做法：<b>预算从「候选数 × 完整评估」变成「一次性建表 + 候选数 × 查表」</b>。</b><br><b>⇒ 这件事值得单独量化并报出来：<b>搜索成本降低了多少倍</b>。</b> <span class='k'>讲者报的是「一个数量级」。如果你能报出一个类似的倍数，那本身就是一个贡献点，而且它<b>与你的主结果互不依赖</b>（即使节点级路由的收益不大，搜索加速仍然成立）。</span><br><b>⚠ 第二条是关于「<b>不给第一阶段加噪声</b>」的：<b>别手软地削弱你的教师</b>。</b> <span class='w'>常见直觉是「反正线上有噪声，训练时就加上」；而这里<b>故意给完美的地形高度</b>，因为第一阶段的任务<b>不是</b>学会应对噪声，而是<b>在信息齐全的条件下学出最好的行为</b>，噪声留给第二阶段去对付</span>。<b>⇒ 你的对应：<b>第一阶段算理想档位时就用最可靠的判据（标准答案、多次采样投票），不要提前模拟线上的不确定性</b>。把不确定性全部压到第二阶段。</b><br><b>⇒ 最后一条是关于<b>写作</b>的：讲者明说「<b>we did not ablate using a transformer</b>」。</b> <span class='k'>⇒ 把你<b>没做</b>的消融明确列出来（「我们没有比较 X 与 Y，因为 Z」）。<b>这比留给审稿人发现要好得多，而且通常只需要一句话。</b></span>",
+    "ref": "本讲 p45–p52（逐字核对）· 讲稿（渲染挪出循环、一个数量级、不加噪声、没做 transformer 消融）· 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [53, 58],
+   "t": "涌现行为：因为没规定步态，它自己学会了把腿张开上楼",
+   "star": 3,
+   "quote": "<b>Stairs are designed for humans</b> — <em><b>26cm / 17cm</b></em> &nbsp;·&nbsp; <b>Stairs are challenging for small robots</b><br><b>No predefined gait => emergent hip abduction</b> &nbsp;·&nbsp; <b>Emergent footstep planning</b> &nbsp;·&nbsp; <b>Map Free, Gait Free</b><br><em>Live demo at New Zealand (CoRL 2022) &nbsp;·&nbsp; Live demo at New Orleans</em>",
+   "one": "<b>楼梯是按人的尺寸造的，而这只机器人矮到台阶几乎和它一样高。因为没人规定它该怎么迈腿，它自己找出了一个人不会想到的办法：把腿向侧面张开。</b>",
+   "pts": [
+    "<b>先看那两个数把问题的难度钉住：<b>台阶 26 cm 宽、17 cm 高</b>，而这只机器人很矮。</b> <span class='k'>讲稿：「if you see, the height of the step is <b>almost as high as the robot</b>」</span>。<b>⇒ 换算成人：相当于你要爬一段每级都到你大腿根的台阶。</b>",
+    "<b>讲者还点出一个下楼时特有的困难，而它纯粹是尺寸带来的。</b> <span class='w'>「the amount of tilt you would see in a <b>taller</b> robot would be much smaller… whereas for a <b>small</b> robot, it needs to use <b>majority of its leg</b> and the discrepancy will be much higher <b>just because the legs are smaller</b>」</span>。<b>⇒ 腿短 ⇒ 下一级台阶要用掉整条腿的行程 ⇒ 姿态变化剧烈。</b>",
+    "⚠️ <b>而解法是<b>涌现</b>出来的，不是设计的：<b>髋关节外展</b>——把腿向<b>侧面</b>张开再抬上去。</b> <span class='k'>讲稿：「what it learns is it learns to <b>move the leg out sideways</b> to climb all of these stairs」</span>。<b>⇒ 侧向张开可以绕开「正前方抬不了那么高」的限制，这是一个人类不会用、但对这个身体合理的办法。</b>",
+    "<b>⇒ 而它之所以可能，是因为<b>什么都没规定</b>：<b>「this is possible because we <b>don't use any predefined gait or foot motions</b> or any of that. And we let it be learned using reinforcement learning <b>through search</b>」</b>。</b> <span class='w'>⇒ 「through search」这三个字呼应了 p3 对 AlphaGo 的评价（「发现人没见过的新行为」），也呼应 p78 那句 <b>sparse reward + lots of search</b>。</span>",
+    "<b>第二个涌现行为是<b>落脚规划</b>，而它的判据很具体：<b>只在需要时才迈步</b>。</b> <span class='k'>讲稿：「this footstep planning is also <b>emergent</b>. So <b>it only takes a step when it needs to</b>. It <b>doesn't constantly move its feet</b>, [as] if we had a predefined gait of any sort」</span>。<b>⇒ 预设步态的机器人会按固定节拍迈腿；而这个会<b>停下来等</b>，直到有必要动。</b>",
+    "<b>⇒ p57 那句 <b><em>Map Free, Gait Free</em></b> 把两件事并列了：<b>既没有中间地图，也没有预设步态</b>。</b> <span class='w'>两者是同一个哲学的两面——<b>别替策略做它自己能学会的决定</b>。</span>",
+    "⚠️ <b>讲稿里还有一个很值得记的观察，它关于<b>重试</b>：<b>后一次尝试比前一次更合理</b>。</b> <span class='k'>原话：「<b>it doesn't always get everything in one shot. It sometimes needs to try and retry, and the retries make more sense than the previous try.</b> That is an example of <b>learning within the context</b> of what is fed into the model」</span>。",
+    "<b>⇒ 这一条很要紧，因为它是<b>上下文学习在真机上的证据</b>：权重没有变，但第二次尝试确实用上了第一次的信息。</b> <span class='w'>⇒ 这和 L16 p43 那条「没有上下文就会一直往前撞」正好是正反两面——<b>有上下文的重试会改进，无上下文的重试只是重复</b>。</span>",
+    "<b>p58 两场现场演示（CoRL 2022，新西兰与新奥尔良）值得单记，因为现场演示的说服力和视频不同。</b> <span class='k'>讲稿还提了一个瑕疵：有一场里「the right foot padding just <b>came off</b> and started <b>limping</b>, <b>but it continued to do the full demo</b>」</span>。<b>⇒ 脚垫掉了、瘸了，但把整场演示走完了——这种意外反而是鲁棒性最好的证据。</b>",
+  "⚠️ <b>最后把「<b>涌现</b>」这个词的含义钉清楚，因为它在文献里被用得很滥，而这里它有<b>精确</b>的意思。</b> <span class='k'>这两个行为之所以算涌现，是因为它们<b>三处都没出现过</b>：<b>① 不在奖励里</b>（奖励只有跟踪速度和省能量，没有一项说「把腿向外张开」）；<b>② 不在动作参数化里</b>（没有预设步态、没有预设落脚相位）；<b>③ 不在训练数据里</b>（没有示范，是纯 RL 搜出来的）</span>。",
+  "<b>⇒ 所以判断一个行为算不算涌现，就问这三件事：<b>它被奖励了吗？它被编码进动作空间了吗？它被示范过吗？</b></b> <span class='w'>⚠ 三个都否，才叫涌现。<b>⇒ 而文献里大量「涌现」其实是第二类：行为被写进了动作参数化（比如一个「跨步」原语），然后作者报告模型「学会了跨步」。</b></span>",
+  "<b>⇒ 这个标准对你读论文有直接用处，而对你写论文的用处更大：<b>如果你要声称什么东西是涌现的，先自己过这三问</b>。</b> <span class='k'>⇒ 比如「我们的路由策略学会了在数学题上升档」—— 如果你的奖励里有 Acc，而数学题恰好是 Acc 最敏感的一类，那这不是涌现，<b>这就是奖励在起作用</b>，照实说反而更可信。</span>"
+   ],
+   "eq": "两个数钉住难度：**台阶 26 cm 宽、17 cm 高**，而机器人很矮\n   「the height of the step is **almost as high as the robot**」\n   ⇒ 换算成人：每级台阶都到你大腿根\n\n下楼时特有的困难（纯粹由尺寸带来）：\n   「the amount of tilt in a **taller** robot would be much smaller…\n     for a **small** robot, it needs to use **majority of its leg** and the\n     discrepancy will be much higher **just because the legs are smaller**」\n   ⇒ 腿短 ⇒ 下一级要用掉整条腿的行程 ⇒ 姿态变化剧烈\n\n⚠ 解法是**涌现**出来的，不是设计的：**髋关节外展**\n   「what it learns is it learns to **move the leg out sideways** to climb stairs」\n   ⇒ 侧向张开绕开了「正前方抬不了那么高」的限制\n     —— 一个人类不会用、但对这个身体合理的办法\n\n⇒ 之所以可能，是因为**什么都没规定**：\n   「this is possible because we **don't use any predefined gait or foot motions**…\n     And we let it be learned using reinforcement learning **through search**」\n   ⇒ 「through search」呼应 p3 对 AlphaGo 的评价（发现人没见过的新行为）\n     也呼应 p78 那句 **sparse reward + lots of search**\n\n第二个涌现行为：**落脚规划**，判据很具体 —— **只在需要时才迈步**\n   「this footstep planning is also **emergent**. So **it only takes a step when\n     it needs to**. It **doesn't constantly move its feet**」\n   ⇒ 预设步态的机器人按固定节拍迈腿；这个会**停下来等**，直到有必要动\n\np57 **Map Free, Gait Free** 把两件事并列：\n   **既没有中间地图，也没有预设步态**\n   ⇒ 同一哲学的两面：**别替策略做它自己能学会的决定**\n\n⚠ 一个很值得记的观察（关于**重试**）：**后一次尝试比前一次更合理**\n   「**it doesn't always get everything in one shot. It sometimes needs to try\n     and retry, and the retries make more sense than the previous try.**\n     That is an example of **learning within the context** of what is fed into the model」\n\n   ⇒ 这是**上下文学习在真机上的证据**：\n     权重没变，但第二次尝试确实用上了第一次的信息\n   ⇒ 与 L16 p43「没有上下文就会一直往前撞」正好是正反两面：\n     **有上下文的重试会改进，无上下文的重试只是重复**\n\np58 两场现场演示（CoRL 2022，新西兰与新奥尔良）\n   讲稿提到的瑕疵：有一场里「the right foot padding just **came off** and started\n     **limping**, **but it continued to do the full demo**」\n   ⇒ 脚垫掉了、瘸了，但把整场走完 —— 这种意外反而是鲁棒性最好的证据",
+   "tbl": {
+    "head": ["两个涌现行为", "表现", "为什么可能"],
+    "rows": [
+     ["<b>髋关节外展</b>", "<b>把腿向侧面张开再抬上去</b>", "<b>没有预设步态</b>"],
+     ["<b>落脚规划</b>", "<b>只在需要时才迈步</b>", "<b>没有固定节拍</b>"],
+     ["<b>⚠ 有上下文的重试</b>", "<b>后一次比前一次更合理</b>", "<b>权重没变，用上了前一次的信息</b>"],
+     ["p57 的口号", "<b>Map Free, Gait Free</b>", "<b>别替策略做它能学会的决定</b>"]
+    ]
+   },
+   "say": "原话（因为没规定步态，才涌现出侧向张腿）：<em>“I think stairs are designed for humans and this robot is extremely short. So relative to the height of the robot these stairs are tall. So there isn't enough clearance under the robot to just raise its leg and then take the step… So, what it learns is <b>it learns to move the leg out sideways to climb all of these stairs. And this is possible because we don't use any predefined gait or foot motions or any of that. And we let it be learned using reinforcement learning through search.</b>”</em><br><br>原话（落脚规划也是涌现的：只在需要时才迈步）：<em>“And <b>this footstep planning is also emergent. So it only takes a step when it needs to. It doesn't constantly move its feet</b> [as] if we had a predefined gait of any sort. And we see that it's actually quite smooth and seems to work <b>with intention and precision</b>.”</em><br><br>原话（重试比前一次更合理——上下文学习的真机证据）：<em>“one thing to note here is that <b>it doesn't always get everything in one shot. It sometimes needs to try and retry and the retries make more sense than the previous try. That is an example of learning within the context of what is fed into the model.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>那条「<b>后一次尝试比前一次更合理</b>」的观察，是这一讲对你最直接可用的一条，因为它把 L16 那个「一直往前撞」的反例补成了正例。</b><br><span class='k'>讲者说的是：机器人常常一次过不去，<b>但它的重试不是重复</b>——第二次的动作比第一次更合理，而且权重<b>完全没有变</b>。他把这叫做「learning within the context」</span>。<br><b>⇒ 对照 L16 p43 那个反例：没有上下文的腿式机器人「<b>不知道自己刚才已经试过往前走了</b>」，于是一直往前撞。</b><b>两处合起来给了你一个很干净的判据：<b>重试要不要带上下文，决定了它是「改进」还是「重复」</b>。</b><br><b>⇒ 落到你的工作流上，这条是可以立刻执行的：<b>重试时必须把「上一次试了什么、失败在哪」放进上下文</b>。</b> <span class='w'>而且注意这不需要改权重、不需要训练——<b>它纯粹是一个 prompt 构造问题</b></span>。<b>⇒ 成本接近零，而收益是把「无效重试」变成「有效重试」。</b><br><b>⇒ 而它对你的 <code>G</code> 有一个双重效果，值得分开想：</b><br><span class='k'><b>① 提高 Acc</b>（重试更可能成功）；<b>② 降低 Cost</b>（更少的重试次数就能成功）</span>。<b>⚠ 注意这两个方向<b>同向</b>——这在你的问题里不常见，因为 Acc 和 Cost 通常是此消彼长的。<b>凡是能同时改善两者的改动，都应该优先做，而且它们不需要做 λ 扫描就知道是赚的。</b></b><br><b>⇒ 建议把这类改动单独归一类并在论文里点明：<b>「帕累托改进」</b>（同时提升 Acc 与降低 Cost），与「权衡型」改动（升档换准确率）分开报。</b> <span class='w'>审稿人会很欣赏这个区分，因为它说明你清楚自己每一步在换什么。</span><br><b>⚠ 另外「没有预设步态所以涌现出侧向张腿」那条，对你有一个克制的提醒。</b> <span class='k'>讲者的论点是「别替策略做它自己能学会的决定」；而你的工作流结构（节点怎么分、谁连谁）<b>是人定的</b>，不是搜出来的</span>。<b>⇒ 这是你方法的一个<b>已知限制</b>（L15 主线卡那条先有鸡先有蛋也指向它），而这一页提醒你：<b>人定的结构可能恰好挡住了某个更好的解</b>，就像预设步态会挡住侧向张腿。</b><b>⇒ 诚实的处理是在限制一节写明：我们固定工作流结构，而结构本身的搜索留作未来工作。</b>",
+    "ref": "本讲 p55–p58（逐字核对）· 讲稿（重试更合理、没有预设步态）· L16 p43 · L15 p17 主线卡 · 简报 §2 §4b（已核）"
+   },
+   "link": {
+    "t": "你学过的对应：本课 L16 精读（p43）—— 那里是反例「没有上下文就会一直往前撞」，这里是正例「带上下文的重试一次比一次合理」，两处合起来正好是一条判据",
+    "href": "L16-精读.html"
+   }
+  },
+  {
+   "r": [59, 60],
+   "t": "对比表：在楼梯上，瞎走比用噪声地图强一倍",
+   "star": 3,
+   "quote": "<b>Performance is better without maps</b> — <em>Average Distance</em><br><em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>Blind</b> &nbsp; <b>Map Based</b> &nbsp; <b>Ours</b><br>Slopes &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 34.72 &nbsp;&nbsp;&nbsp; 36.14 &nbsp;&nbsp;&nbsp;&nbsp; <b>43.98</b><br>Stepping Stones &nbsp; 1.02 &nbsp;&nbsp;&nbsp;&nbsp; 1.09 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>18.83</b><br>Stairs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>16.64</b> &nbsp;&nbsp;&nbsp; <b>6.74</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <b>31.24</b><br>Discrete Obstacles &nbsp; 32.41 &nbsp;&nbsp; 29.08 &nbsp;&nbsp;&nbsp;&nbsp; <b>40.13</b></em><br><em><b>Performance gap is larger on challenging terrains</b></em>",
+   "one": "<b>四行数字里最该盯的是楼梯那一行：16.64 / 6.74 / 31.24。用了噪声地图的那一版，比什么都看不见的瞎走还差一倍多——多给的信息不是没用，是有害。</b>",
+   "pts": [
+    "<b>三列分别是：<b>Blind</b>（完全不用视觉，就是前半讲那个 RMA 式的盲策略）· <b>Map Based</b>（建地形图再喂给控制器，且训练时也加了噪声）· <b>Ours</b>（深度直接进策略）。</b> <span class='k'>指标是 <b>Average Distance</b>（平均走出的距离），越大越好。</span>",
+    "<b>先读最容易的一行：<b>踏脚石</b>——<b>1.02 / 1.09 / 18.83</b>。</b> <span class='w'>盲策略和地图法<b>都基本走不动</b>（1 左右），而直接用深度的走出了 <b>18.83</b>，差了将近二十倍</span>。<b>⇒ 这印证了 p39 的理由一：<b>踏脚石是「非看不可」的情形</b>，盲策略在这里没有任何办法。</b>",
+    "⚠️ <b>而最值得盯的是<b>楼梯</b>那一行：<b>Blind 16.64 · Map Based 6.74 · Ours 31.24</b>。</b> <span class='k'><b>用了地图的那一版，比什么都看不见的瞎走还差一倍多</b></span>。",
+    "<b>⇒ 讲者把这件事直接说了出来，而且用词很直白：<b>「for stairs <b>it's better to be blind</b> and just learn to put your steps blindly <b>than to use a map which is noisy</b> and which gives you an <b>inaccurate estimate of where you might have to place your foot</b>」</b>。</b>",
+    "<b>⇒ 这是整张表最有信息量的一格，因为它说明：<b>多给的信息不是「没用」，而是「有害」</b>。</b> <span class='w'>一个带噪的落脚点估计，会把策略<b>骗到</b>错误的地方去踩；而完全没有估计时，策略至少会老老实实地用本体感觉去试探</span>。<b>⇒ <b>错误的信息比没有信息更糟</b>，这是一条很硬的经验。</b>",
+    "<b>⇒ 而这正好是 p42–p44 那个论证的<b>实证兑现</b>：<b>「建图」这一步丢了信息又加了噪声，于是整条路线不如不走</b>。</b> <span class='k'>⇒ 加上 p37 的系统辨识，<b>同一条教训在这一讲里有了两处独立的实验证据</b>。</span>",
+    "<b>再看<b>坡</b>那一行：<b>34.72 / 36.14 / 43.98</b>——三者差距最小。</b> <span class='w'>⇒ 因为坡是最简单的地形，<b>盲策略本来就够用</b>，视觉带来的边际收益小</span>。",
+    "<b>⇒ 幻灯自己把这个规律写出来了：<b><em>Performance gap is larger on challenging terrains</em></b>。</b> <span class='k'>⇒ 这和 L16 p24 那条读表经验是同一个：<b>在简单任务上分不出高下，不等于方法之间没有差别</b></span>。<b>⇒ 反过来说：<b>如果你的基准全是简单任务，你会得出「几种方法差不多」的错误结论</b>。</b>",
+    "<b>⚠ 读这张表时还要留意一个公平性问题：<b>Map Based 那一版的噪声是怎么加的</b>。</b> <span class='w'>讲稿说：「if we sample from the <b>same distribution that other works have done</b>, we see that the sim performance goes down significantly」</span>。<b>⇒ 即噪声模型取自<b>已有文献</b>，而不是作者自己编的——这一点让对比更可信，但也意味着结论依赖于那个噪声模型的真实性。</b>",
+    "<b>讲者给出的总结是一个关于<b>瓶颈位置</b>的判断：<b>「you need the final action head to know <b>whatever it needs to from perception directly</b>, <b>without adding any noise or any bottlenecks</b>, for it to work well」</b>。</b> <span class='k'>⇒ 注意 <b>bottleneck</b> 这个词：中间表示不只是加噪声，它还是一个<b>信息瓶颈</b>——能通过的只有被编码进去的那部分。</span>"
+   ],
+   "eq": "三列：\n   **Blind**（完全不用视觉，前半讲那个 RMA 式盲策略）\n   **Map Based**（建地形图再喂控制器，训练时也加了噪声）\n   **Ours**（深度直接进策略）\n   指标 **Average Distance**（平均走出的距离），越大越好\n\n**踏脚石**：1.02 / 1.09 / **18.83**\n   盲策略和地图法**都基本走不动**（1 左右），直接用深度走出近二十倍\n   ⇒ 印证 p39 理由一：**踏脚石是「非看不可」的情形**\n\n⚠⚠ **楼梯**（最该盯的一行）：**Blind 16.64 · Map Based 6.74 · Ours 31.24**\n   **用了地图的那一版，比什么都看不见的瞎走还差一倍多**\n\n   讲者直说：「for stairs **it's better to be blind** and just learn to put your\n     steps blindly **than to use a map which is noisy** and which gives you an\n     **inaccurate estimate of where you might have to place your foot**」\n\n   ⇒ **多给的信息不是「没用」，而是「有害」**\n     带噪的落脚点估计会把策略**骗到**错误的地方去踩\n     而完全没有估计时，策略至少会老老实实用本体感觉试探\n   ⇒ **错误的信息比没有信息更糟** —— 一条很硬的经验\n\n   ⇒ 这正是 p42–p44 那个论证的**实证兑现**\n     加上 p37 的系统辨识，**同一条教训在这一讲有两处独立实验证据**\n\n**坡**：34.72 / 36.14 / 43.98 —— 三者差距最小\n   因为坡最简单，**盲策略本来就够用**，视觉边际收益小\n\n⇒ 幻灯自己写出了规律：**Performance gap is larger on challenging terrains**\n   与 L16 p24 那条读表经验同一个：\n   **在简单任务上分不出高下，不等于方法之间没有差别**\n   反过来：**如果基准全是简单任务，你会得出「几种方法差不多」的错误结论**\n\n⚠ 公平性：**Map Based 那一版的噪声是怎么加的**\n   「if we sample from the **same distribution that other works have done**,\n     we see that the sim performance goes down significantly」\n   ⇒ 噪声模型取自**已有文献**而非作者自编 —— 让对比更可信\n     但也意味着结论依赖那个噪声模型的真实性\n\n讲者的总结（关于**瓶颈位置**）：\n   「you need the final action head to know **whatever it needs to from\n     perception directly**, **without adding any noise or any bottlenecks**」\n   ⚠ 注意 **bottleneck** 这个词：中间表示不只是加噪声，\n     它还是一个**信息瓶颈** —— 能通过的只有被编码进去的那部分",
+   "tbl": {
+    "head": ["地形", "Blind", "Map Based", "Ours"],
+    "rows": [
+     ["Slopes（最简单）", "34.72", "36.14", "<b>43.98</b>"],
+     ["Stepping Stones", "<span class='w'>1.02</span>", "<span class='w'>1.09</span>", "<b>18.83</b>"],
+     ["<b>Stairs</b>", "<b>16.64</b>", "<span class='w'>⚠ 6.74</span>", "<b>31.24</b>"],
+     ["Discrete Obstacles", "32.41", "29.08", "<b>40.13</b>"],
+     ["<b>⚠ 规律</b>", "—", "<b>越难差距越大</b>", "—"]
+    ]
+   },
+   "say": "原话（楼梯上瞎走比用噪声地图强）：<em>“<b>One interesting thing is for stairs it's better to be blind and just learn to put your steps blindly than to use a map which is noisy and which gives you an inaccurate estimate of where you might have to place your foot.</b>”</em><br><br>原话（简单地形差距小，越难差距越大；以及噪声取自已有文献）：<em>“we see that the gap is not that much for simple terrains like a slope. But the moment we get to more challenging terrains, <b>a map-based method is almost as bad as blind</b>. Because <b>if we sample from the same distribution that other works have done</b>, we see that the sim performance goes down significantly. So <b>you need the final action head to know whatever it needs to from perception directly without adding any noise or any bottlenecks</b> for it to work well in this scenario.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>楼梯那一格（16.64 vs 6.74）是这一讲最该带走的一个数，因为它把一句软话变成了硬证据：<b>错误的信息比没有信息更糟</b>。</b><br><span class='k'>一个带噪的落脚点估计会<b>主动把策略骗到</b>错误的位置；而完全没有估计时，策略至少会老实地用本体感觉试探</span>。<b>⇒ 这不是「收益为零」，而是<b>负收益</b>。</b><br><b>⇒ 对你最直接的靶子还是那个<b>节点级裁判</b>（我在 L15 主线卡里推荐、在 L17.b 已经加过一次限定的那条）。这一页把限定变成了一个可操作的判据：</b><br><b><b>在把裁判接进决策回路之前，先确认它比「不用裁判」强</b>——而且基线要用<b>真正的</b>不用裁判，不是用一个更差的裁判。</b> <span class='w'>具体做法：三条线对比——① 完全不用节点级信号（只看端到端 <code>G</code>）；② 用裁判打分；③ 用<b>真值</b>（在小规模穷举集上能拿到的那个 oracle 节点级标签）</span>。<br><b>⇒ 这正好对应讲义的 Blind / Map Based / Ours 三列，而且第 ③ 条给了你一个上界：<b>如果连用真值都提升不大，那裁判做得再准也没意义；如果用真值提升很大而用裁判反而变差，那就是楼梯那一格的重演</b>。</b><br><b>⚠ 而讲者那个 <b>bottleneck</b>（信息瓶颈）的用词，提醒了另一个我之前没强调的风险。</b> <span class='k'>中间表示的问题<b>不只是</b>加噪声——它还<b>限制了能通过的信息</b>：只有被编码进去的那部分才能到达下游</span>。<b>⇒ 映射到你这里：如果你把节点的输出压成一个<b>标量</b>质量分，那么「它错在哪里」这个信息就<b>永久丢失</b>了。</b><span class='w'>而「错在格式」与「错在内容」对「该不该升档」的含义完全不同——前者可能改 prompt 就够，后者才需要更强的模型。</span><br><b>⇒ 所以如果要保留节点级信号，<b>别压成一个标量</b>，至少保留一个粗粒度的<b>错误类型</b>。</b> <span class='k'>这个建议的代价几乎为零（裁判本来就要输出理由），而它避免的正是「信息瓶颈」那一类损失。</b><br><b>⚠ 最后那条读表经验也要带走：<b>Performance gap is larger on challenging terrains</b>。</b> <span class='w'>这是 L16 p24 之后<b>第二次</b>撞上它</span>。<b>⇒ 对你：<b>如果你的 benchmark 整体偏易，各配置都接近满分，你会得出「逐节点分配没什么用」的错误结论</b>——而真相可能只是你的测试集分不出高下。<b>这是在设计评估集时就要防的，事后补救不了。</b></b>",
+    "ref": "本讲 p60（逐字核对）· 讲稿（楼梯那一格、bottleneck）· p37 · p42–p44 · L16 p24 · L15 主线卡 · 简报 §4b §4d（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "39": [
+   {
+    "q": "前半讲刚证明了盲策略能走遍七种地形。那为什么还要视觉？讲者给了两个理由。",
+    "o": ["为了在黑暗中工作", "为了减少本体感觉传感器的数量", "为了识别物体和导航", "① 有些情形非看不可（跨沟、踏脚石、跳跃要提前知道落脚点）；② 效率、优雅与寿命 —— 「如果每次上楼梯都要先撞一下，那是个很不优雅的策略，而且硬件撑不了多久」"],
+    "a": 3,
+    "why": "<b>值得记的区分：本体感觉只能告诉你<b>已经发生</b>的事（我滑了、我陷了），视觉才能告诉你<b>将要发生</b>的事——前者是反应式补偿，后者是预判式规划。</b><span class='k'>而理由二正好呼应 p16 那条奖励项 Minimize hardware damage。</span>"
+   }
+  ],
+  "42": [
+   {
+    "q": "「先建地形图再喂给控制器」这条路线，讲者认为错在哪？",
+    "o": ["地图分辨率不够高", "错在你先解了一个比最终任务更难的问题：建一张精确的度量地图本身就很难（非刚体、位姿漂移），而「那一步你已经丢了信息，而且再也找不回来」", "控制器无法处理高维输入", "地图更新频率太低"],
+    "a": 1,
+    "why": "<b>因果被点成一句话：「<b>因为我们在解一个更难的问题，所以我们丢了信息</b>——而如果直接把感知输入喂给策略，本来不会丢。」</b><span class='w'>具体例子：有时候「边缘在哪」就足够告诉你怎么迈那一步，但一旦转成度量地图，你就得再训练策略去对付各种噪声。</span>"
+   },
+   {
+    "q": "这条教训在本讲里出现过两次。另一次是哪里？",
+    "o": ["两阶段训练那里", "RNN vs transformer 那里", "奖励函数设计那里", "p37 的系统辨识基线：被迫精确估摩擦（而你只需要知道「该多使点劲」），结果连什么都不估的 Robust 基线都不如 —— 和这里「被迫精确估地形高度，而你只需要知道边缘在哪」是同一个错误"],
+    "a": 3,
+    "why": "<b>一讲之内同一条教训出现两次，而且两次都有实验支持——这不是巧合，是讲者的中心论点。</b><span class='k'>提炼成可迁移的原则：<b>别在流水线中间插入一个比最终任务更难的子问题</b>。p44 的解法是「把视觉与控制紧耦合」——不建中间表示。</span>"
+   }
+  ],
+  "45": [
+   {
+    "q": "视觉版的两阶段训练里，第一阶段喂的 scandots（地形高度）是怎么处理的？",
+    "o": ["用随机值替代", "加了与真实传感器匹配的噪声", "完全不加噪声，喂的是完美的地形高度 —— 因为第一阶段的任务不是学会对付噪声，而是在理想信息下学会走路；对付噪声是第二阶段学生的事，而学生面对的是真实深度图不是人造噪声", "只在部分地形上提供"],
+    "a": 2,
+    "why": "<span class='k'>这也呼应 p42–p44：人造的地图噪声和真实的感知噪声不是一回事，照着前者训出来的鲁棒性未必管用。</span><b>而分两阶段在这里还有一个非常具体的工程理由：把昂贵的<b>渲染</b>从强化学习的循环里挪出去——直接训第二阶段会慢一个数量级。</b>"
+   },
+   {
+    "q": "部署策略用了 RNN。讲者对这个选择说了什么？",
+    "o": ["RNN 在这个任务上优于 transformer", "坦白说 RNN「不以保存很长程信息著称，这也是社区后来转向 transformer 的原因」，而且他们没有做 transformer 的消融来看会不会更好", "RNN 只用于处理深度图", "RNN 是因为算力限制才选的"],
+    "a": 1,
+    "why": "<b>「我们没做这个消融」——直接承认一个没验证的设计选择，这比含糊带过要好。</b><span class='w'>而整个结构与 RMA 一模一样，只是「特权信息」从物理参数换成了完美地形高度——说明那个两阶段套路是一个可以反复用的<b>模板</b>。</span>"
+   }
+  ],
+  "53": [
+   {
+    "q": "机器人上楼梯时涌现出了「髋关节外展」（把腿向侧面张开）。这为什么可能？",
+    "o": ["因为用了更大的动作空间", "因为训练地形里包含了侧向移动的示范", "因为奖励里鼓励侧向运动", "因为没有任何预设步态或足部运动 —— 「我们让它通过搜索用强化学习自己学」，于是它找出了一个人类不会用、但对这个身体合理的办法"],
+    "a": 3,
+    "why": "<span class='k'>「through search」这三个字呼应 p3 对 AlphaGo 的评价（发现人没见过的新行为），也呼应 p78 那句 sparse reward + lots of search。</span><b>第二个涌现行为是落脚规划：<b>只在需要时才迈步</b>，而不像预设步态那样按固定节拍动。p57 把两件事并列成 Map Free, Gait Free。</b>"
+   },
+   {
+    "q": "讲稿里关于「重试」的那个观察是什么？它为什么重要？",
+    "o": ["后一次尝试比前一次更合理，而权重完全没变 —— 讲者称之为「在被喂进模型的上下文里学习」；重要在于它是上下文学习在真机上的证据", "重试会导致硬件损坏", "重试次数越多成功率越低", "重试需要重新估计 extrinsics"],
+    "a": 0,
+    "why": "<b>⇒ 这和 L16 p43 那条「没有上下文就会一直往前撞」正好是正反两面：<b>有上下文的重试会改进，无上下文的重试只是重复</b>。</b><span class='w'>另记一个现场演示的瑕疵：有一场里右脚脚垫掉了、机器人开始瘸着走，但它把整场演示走完了——这种意外反而是鲁棒性最好的证据。</span>"
+   }
+  ],
+  "59": [
+   {
+    "q": "对比表里最值得盯的是楼梯那一行（Blind 16.64 / Map Based 6.74 / Ours 31.24）。它说明了什么？",
+    "o": ["楼梯是最难的地形", "地图法需要更好的传感器", "盲策略在楼梯上有特殊优化", "错误的信息比没有信息更糟：带噪的落脚点估计会主动把策略骗到错误的位置去踩，而完全没有估计时策略至少会老实地用本体感觉试探 —— 不是收益为零，是负收益"],
+    "a": 3,
+    "why": "<b>讲者直说：「在楼梯上，瞎走并学会盲目落脚，比用一张有噪声、给你不准确落脚点估计的地图要好。」</b><span class='k'>这正是 p42–p44 那个论证的实证兑现；加上 p37 的系统辨识，同一条教训在这一讲有了两处独立的实验证据。</span>"
+   },
+   {
+    "q": "幻灯自己写出的那条规律「Performance gap is larger on challenging terrains」，对读实验表有什么含义？",
+    "o": ["应该为每种地形单独训练策略", "在简单任务上分不出高下，不等于方法之间没有差别 —— 反过来说，如果你的基准全是简单任务，你会得出「几种方法差不多」的错误结论", "应该只在困难地形上做评估", "困难地形的方差更大，结果不可信"],
+    "a": 1,
+    "why": "<b>这是 L16 p24 之后第二次撞上同一条读表经验。</b><span class='w'>⚠ 另注意一个公平性细节：Map Based 那一版的噪声是从<b>已有文献</b>的分布里采样的，不是作者自编——这让对比更可信，但也意味着结论依赖那个噪声模型的真实性。</span>"
+   }
+  ]
+ }
+}

@@ -1,0 +1,272 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p61/p62 **用到灵巧操作**：**In-Hand Object Rotation via Rapid Motor Adaptation**（Qi\\* et al., **CoRL 2022**）—— 任务是**在手里转动物体**，同一套策略",
+  "p63 **跨物理性质的泛化**：**Weight 5 g → 198 g** · **Coefficient of Friction**（冰球 vs 猕猴桃）· **Center of Mass**（高于手指 / 低于手指）· **Shape**（立方体 / 杯子）",
+  "⚠ 讲稿里出现的物体：纸巾、羽毛球、冰球、猕猴桃、橘子皮、一个适配器；而且**同样是仿真训练、真机零样本**",
+  "p64–p66 **用本体感觉历史做接触检测**（Proprioceptive history for Contact Detection）：把 **Actions**（指令的关节位置）与 **Joint Position**（实际到达的关节位置）画在一起",
+  "⚠⚠ p66 的判据一句话：**Joint Position != Action** —— **没接触时两条线重合，一接触就分开**（实际到不了指令位置）。讲稿：「if you can **estimate contacts**, you can figure out the **shape and size of the object**」",
+  "⚠ 讲者对这个解释的限定：「**since we don't know exactly what the model is doing**, one **hypothesis** is it uses proprioceptive history for contact detection」—— 这是**假说**，不是已验证的机制",
+  "p67 真机演示（University of Bristol, CoRL 2022 / ICRA）。⚠ 讲稿两个细节：**橘子皮**「if you apply a slightly larger force than necessary, it will **completely deform**」；**适配器**「has **not been seen in training data and simulation**. We **don't simulate objects to this level of granularity**」",
+  "p68–p70 **用到无人机**：**同一套权重**控制两台无人机，上面那台**重 4 倍、臂长 3 倍**；**直接控制每个螺旋桨的电机转速**（「not abstracting away to a level where this becomes an easy problem」）；拿**网球**打螺旋桨仍然稳",
+  "p71/p72 **还剩什么没解决** → **Humanoids**（人形）。讲者在 Tesla 的进展：双足上坡（**仿真训练、真机零样本**）· 机器人跳舞（**全程实时、板载、自主**）",
+  "⚠ 讲稿一句很有分量的话：「**Getting the first thing to work and the 10th thing to work does not take very long because the pipeline is very simple.** Once you get one thing to work, you can actually pump out a lot more results very easily」",
+  "⚠ 操作那一半：同一个神经网络**吃语言指令**；「**The key ingredient is the use of videos.** We learned this from **videos and a little bit of robot data**」；但讲者承认「these results are **not very reliable**」",
+  "p75 **核心问题**：运动控制 3–4 年前就做到了很敏捷、很可靠，**为什么操作还没有**？第一条答案：**Simulation technology is still very primitive**（刚体接触对运动控制够用，而操作要模拟可变形物体、面团、切菜）",
+  "⚠ 第二条答案（讲稿，幻灯上没有）：**奖励**。运动控制「programmatically write out a reward which asks you to **track a certain velocity**, it's **complete**. This is the **full task specification**」；而操作不行 —— 切菜要「come up with a reward which **measures the size of each of the slices**, and that itself will depend on **what exactly is it that you're trying to cook**」",
+  "⚠⚠ 而且那个奖励**不可复用**：「let's say you put in the work to write that reward — **that only gets you one task. It doesn't get you the full generality of manipulation**… it's a very **manual** process and **even if you get one of this right, it will not scale to anything else**」",
+  "p76 **仿真怎么办**：可变形物体其实**能**模拟，只是**慢**；而更复杂的交互目前根本模拟不了。对策是**押注算力** —— **the bitter lesson**（Rich Sutton）：**「general methods that leverage computation are ultimately the most effective, and by a large margin」**",
+  "p77 **通用奖励模型怎么办**：最显然的答案是用大模型做通用理解。⚠ **Could work, but RL will exploit weaknesses if they exist** —— 讲稿举了两个现成的例子：**RLHF 继续调下去模型会完全跑偏**；**DeepSeek 那篇也说，如果不用可验证/规则型奖励，RL 迟早开始钻奖励的空子**",
+  "⚠ 讲者为什么仍然乐观：**最坏情况是让人来标全部奖励，而「humans are very scalable because we have billions of them」**",
+  "p78 **超越人类**：现在的工作多半把机器人定位成**与人持平**（「the day we achieve that, it will be a **civilization changing event**」），但那**只是第一步** —— 电驱动的执行器与硅基的计算，可能做到人想不到或做不到的事。**Learnings from AlphaGo: Sparse reward + lots of search!**"
+ ],
+ "notes": [
+  {
+   "r": [61, 67],
+   "t": "手内操作：从「指令与实际的差」里读出接触",
+   "star": 3,
+   "quote": "<b>Application to dexterous manipulation</b> — <em>Qi* et al. <b>In-Hand Object Rotation via Rapid Motor Adaptation</b>. CoRL 2022.</em><br><b>Generalization across Objects with Different Physical Properties</b><br><em><b>Weight</b>: 5 g → 198 g &nbsp;·&nbsp; <b>Coefficient of Friction</b>: Small / Large &nbsp;·&nbsp; <b>Center of Mass</b>: Higher than Finger / Lower than Finger &nbsp;·&nbsp; <b>Shape</b>: Cube / Cup</em><br><b>Proprioceptive history for Contact Detection</b><br><em>Actions vs Joint Position &nbsp;—&nbsp; <b>Joint Position != Action</b>（Pinky Finger in Contact / No Contact on Pinky Finger）</em>",
+   "one": "<b>同一套 RMA 的办法换到手上：在手里转物体，从 5 克的羽毛球到 200 克的冰球。而它判断手里是什么的方式，和腿判断地面是什么一样——看指令和实际之间的那道缝。</b>",
+   "pts": [
+    "<b>任务是<b>在手里转动物体</b>，而这是一个与走路很不一样的问题：<b>接触点多、而且不断在变</b>。</b> <span class='k'>⇒ 但讲者要说明的恰恰是：<b>同一套办法不用改就能搬过来</b></span>。",
+    "<b>泛化的跨度很大，而且是沿着<b>四个独立的物理维度</b>展开的。</b> <span class='w'><b>重量</b>：5 g 到 198 g（<b>差 40 倍</b>）；<b>摩擦</b>：冰球 vs 猕猴桃（一个极滑、一个粗糙）；<b>质心</b>：高于手指 vs 低于手指（后者是因为有重物吊在下面）；<b>形状</b>：立方体 vs 杯子</span>。<b>⇒ 讲稿提到的实物还有纸巾、羽毛球、橘子皮。</b>",
+    "<b>⚠ 而训练方式和前面完全一样：<b>仿真训练、真机零样本</b>。</b> <span class='k'>「this was also trained in simulation, deployed in the real world <b>zero shot</b>」</span>。",
+    "⚠️ <b>p64–p66 是这几页的技术核心，而它给出的是一个<b>很朴素、也很漂亮</b>的信号：<b>指令的关节位置 vs 实际到达的关节位置</b>。</b>",
+    "<b>⇒ 判据只有一句：<b><code>Joint Position != Action</code></b>。</b> <span class='w'>讲稿：「the time when it is <b>not in contact</b> correlates with the bottom part of the graph where <b>they do overlap with each other</b>, and the time when it <b>does make contact</b> is at the top where <b>it's not able to achieve the desired joint position</b> that it is commanding」</span>。",
+    "<b>⇒ 道理很直白：<b>没碰到东西时，你让手指到哪它就到哪；碰到了，它就到不了了</b>。</b> <span class='k'>于是「指令与实际的落差」就是一个<b>免费的接触传感器</b>——不需要任何触觉硬件。</span>",
+    "<b>⇒ 而接触信息又能推出更多东西：<b>「if you can estimate contacts, you can figure out the <b>shape and size</b> of the object」</b>。</b> <span class='w'>⇒ 哪几根手指在什么位置碰到了东西，就勾勒出了物体的轮廓。</span>",
+    "⚠️ <b>⇒ 注意这和 L17.a p18 那个腿的洞察<b>是同一个机制</b>：<b>预期与实测的落差编码了环境</b>。</b> <span class='k'>腿那边是「我让你走你却滑了 ⇒ 地面很滑」；手这边是「我让你弯到这个角度你却弯不过去 ⇒ 那里有个东西」</span>。<b>⇒ 同一个原理，两个完全不同的身体。</b>",
+    "<b>⚠ 但讲者对这个解释加了一个重要限定，不能当成已证实的机制：<b>「<b>since we don't know exactly what the model is doing</b>, <b>one hypothesis</b> is it uses proprioceptive history for contact detection」</b>。</b> <span class='w'>⇒ 这是研究者<b>看图提出的假说</b>，而不是从网络内部验证出来的。和 p32 那条「学出来的 extrinsics 解释不了」是同一种诚实。</span>",
+    "<b>p67 两个真机细节很能说明难度。</b> <span class='k'><b>橘子皮</b>：「if you apply a <b>slightly larger force than necessary</b>, it will <b>completely deform</b>」——力大一点就捏坏了；<b>一个适配器</b>：「has <b>not been seen in training data and simulation</b>. <b>We don't simulate objects to this level of granularity</b>」</span>。<b>⇒ 后一条尤其值得记：<b>仿真里压根没有这种精细的物体，而策略照样处理了</b>——这是泛化而不是记忆。</b>"
+   ],
+   "eq": "任务：**在手里转动物体** —— 与走路很不一样（**接触点多、不断在变**）\n   而讲者要说明的恰恰是：**同一套办法不用改就能搬过来**\n\n泛化沿**四个独立物理维度**展开：\n   **重量**：5 g → 198 g（**差 40 倍**）\n   **摩擦**：冰球 vs 猕猴桃（极滑 vs 粗糙）\n   **质心**：高于手指 vs 低于手指（后者因为有重物吊在下面）\n   **形状**：立方体 vs 杯子\n   讲稿提到的实物还有：纸巾、羽毛球、橘子皮\n\n⚠ 训练方式完全一样：**仿真训练、真机零样本**\n\n⚠⚠ **p64–p66 的技术核心**（朴素而漂亮的信号）：\n   **指令的关节位置 vs 实际到达的关节位置**\n   判据一句话：**Joint Position != Action**\n\n   「the time when it is **not in contact** correlates with the bottom part\n     where **they do overlap with each other**, and the time when it\n     **does make contact** is at the top where **it's not able to achieve\n     the desired joint position**」\n\n   ⇒ 道理很直白：**没碰到东西时你让手指到哪它就到哪；碰到了，它就到不了了**\n     于是「指令与实际的落差」就是一个**免费的接触传感器**\n     —— 不需要任何触觉硬件\n\n   ⇒ 接触又能推出更多：\n     「if you can **estimate contacts**, you can figure out the\n       **shape and size** of the object」\n     哪几根手指在什么位置碰到东西，就勾勒出了物体轮廓\n\n⚠⚠ **与 L17.a p18 那个腿的洞察是同一个机制**：\n   **预期与实测的落差编码了环境**\n     腿：我让你走你却滑了 ⇒ 地面很滑\n     手：我让你弯到这个角度你却弯不过去 ⇒ 那里有个东西\n   ⇒ 同一个原理，两个完全不同的身体\n\n⚠ 讲者的限定（不能当成已证实的机制）：\n   「**since we don't know exactly what the model is doing**,\n     **one hypothesis** is it uses proprioceptive history for contact detection」\n   ⇒ 研究者**看图提出的假说**，不是从网络内部验证出来的\n     与 p32「学出来的 extrinsics 解释不了」是同一种诚实\n\np67 两个真机细节（很能说明难度）：\n   **橘子皮**：「if you apply a **slightly larger force than necessary**,\n     it will **completely deform**」—— 力大一点就捏坏了\n   **一个适配器**：「has **not been seen in training data and simulation**.\n     **We don't simulate objects to this level of granularity**」\n   ⇒ 后一条尤其值得记：**仿真里压根没有这种精细物体，而策略照样处理了**\n     —— 这是泛化而不是记忆",
+   "tbl": {
+    "head": ["", "腿（L17.a p18）", "手（本页）"],
+    "rows": [
+     ["信号是什么", "<b>指令运动 vs 实际运动</b>", "<b>指令关节位置 vs 实际关节位置</b>"],
+     ["落差意味着", "<b>滑了 / 陷了 / 负重了</b>", "<b>碰到东西了</b>"],
+     ["推出什么", "<b>摩擦、质量、地形</b>", "<b>物体的形状与大小</b>"],
+     ["要额外传感器吗", "<b>不要</b>", "<b>不要（免费的接触传感器）</b>"],
+     ["⚠ 确定吗", "<span class='w'>extrinsics 不可解释</span>", "<span class='w'>⚠ 这只是一个假说</span>"]
+    ]
+   },
+   "say": "原话（接触检测的判据：碰到了就到不了指令位置）：<em>“One hypothesis — since we don't know exactly what the model is doing — is it uses proprioceptive history for contact detection. So if you look at this and if you look at the bottom joint that's what we have plotted. So we have the <b>actions</b> and then we have the <b>joint position which is actually achieved</b>. And if you look at the time when it makes the contact or not, it turns out that <b>the time when it is not in contact correlates with the bottom part of the graph where they do overlap with each other, and the time when it does make contact is at the top of the graph where it's in contact and then it's not able to achieve the desired joint position that it is commanding</b>. And this is enough signal for the network to estimate it. And <b>if you can estimate contacts, you can figure out the shape and size of the object</b>.”</em><br><br>原话（橘子皮与那个仿真里没有的适配器）：<em>“in the center one, this is an <b>orange peel</b>. So <b>if you apply a slightly larger force than necessary, it will completely deform</b>. And on the right is an <b>adapter</b>. This <b>has not been seen in training data and simulation. We don't simulate objects to this level of granularity.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给你的是一个<b>找免费信号</b>的方法，而那个方法比它的具体形式更值得学。</b><br><span class='k'>方法是：<b>你发出的指令你是知道的；实际发生了什么你也能观测到；那么两者之差就是一个你本来就拥有、却没在用的信号</b>。腿那边是「我让你走你却滑了 ⇒ 地面很滑」，手这边是「我让你弯到这个角度你却弯不过去 ⇒ 那里有个东西」。<b>两处都不需要加任何传感器。</b></span><br><b>⇒ 那么在你的问题里，「指令」与「实际」各是什么？这个问题值得认真想一遍，因为答案不只一个：</b><br><b>① <b>格式</b>：你要求节点输出 JSON / 要求它只回一个数字 —— 而它<b>没照做</b>。</b> <span class='w'>格式违规是一个<b>零成本、强相关</b>的信号：小模型在它吃不住的任务上，第一个崩的往往是格式。<b>⇒ 而你本来就要解析输出，所以这个信号你已经在采集了，只是扔掉了。</b></span><br><b>② <b>长度</b>：你给了一个预期长度（few-shot 示例的长度就隐含了它）—— 而实际输出长得多或短得多。</b><br><b>③ <b>自洽</b>：同一个节点采两次，两次答得不一样。</b> <span class='k'>这一条要花钱（多采一次），但它是最直接的「这个档位撑不住」的证据，而且<b>可以只在可疑的节点上采</b>。</span><br><b>④ <b>下游的反应</b>：后一个节点触发了重试、或者它的输出里出现了「信息不足」这类措辞。</b><br><b>⇒ 这四样的共同点，正是这一页的要点：<b>它们都不是「预测难度」，而是「观测到了不一致」</b>。</b><span class='w'>⚠ 而这正好避开了 p37 那个陷阱 —— <b>不要去解「这条 query 多难」这个更难的问题，去看「有没有迹象说明现在不对劲」</b>。</span><br><b>⚠ 但这一页也给了一个必须照抄的限定：<b>讲者说这只是 one hypothesis，因为「我们并不确切知道模型在做什么」</b>。</b> <span class='k'>⇒ 所以你报这些信号时，<b>报相关性，不要宣称机制</b>：「格式违规率与降档失败率相关（<code>r</code> = …）」是可以说的；「小模型因为能力不足所以格式崩了」是一个<b>你没验证过</b>的因果故事。</b></span><br><b>⇒ 顺带，那个「仿真里压根没有这种精细物体，而策略照样处理了」的细节对你有一条安慰：<b>泛化到没见过的输入是可能的，而证明它的办法就是故意在测试集里放训练分布里没有的东西</b>。</b> <span class='w'>⇒ 你的版本：留出一类<b>训练时完全没出现过</b>的任务类型，单独报它的结果。<b>这比在同分布测试集上多刷一个点有说服力得多。</b></span>",
+    "ref": "本讲 p61–p67（逐字核对）· 讲稿（one hypothesis、橘子皮与适配器）· L17.a p18 · p37 · 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [68, 70],
+   "t": "无人机：同一套权重飞两台差四倍重的机器",
+   "star": 2,
+   "quote": "<b>Application to drone flight</b>",
+   "one": "<b>第三个应用，而这次跨度最大：同一套权重同时控制两台无人机，上面那台重四倍、臂长三倍。而它直接控制每个螺旋桨的转速，没有任何中间抽象。</b>",
+   "pts": [
+    "<b>这几页只有视频没有文字，但讲稿把数字给全了，而且这些数字是整讲泛化跨度最大的一组。</b> <span class='k'>「the same policy controlling the drone at the top and the bottom. So <b>the same weights</b> which tries to estimate the <b>mass and arm length</b>… The top drone is <b>four times heavier</b> than the one at the bottom. And the <b>arm length is also three times</b>」</span>。",
+    "<b>⇒ 四倍质量、三倍臂长，而且<b>一套权重</b>——这比腿那边（12 kg 的机器人背 8 kg）跨度还大，因为这里变的是<b>机身本身</b>而不只是负载。</b>",
+    "<b>⚠ 而且 extrinsics 的含义也跟着换了：这里要估的是<b>质量与臂长</b>，也就是<b>「我现在是哪一台无人机」</b>。</b> <span class='w'>讲稿：「the same weights is able to <b>estimate what morphology it's operating in</b> and it's able to adapt and fly the drones」</span>。<b>⇒ <b>morphology</b>（形态）这个词用得准：不是环境变了，是<b>身体</b>变了。</b>",
+    "<b>⇒ 这其实比「环境自适应」更强：<b>同一个大脑装在不同的身体上，靠落差信号认出自己是谁</b>。</b> <span class='k'>⇒ 而这又一次是同一个机制：发出指令、观察实际响应、从差异里推断。</span>",
+    "⚠️ <b>讲者特意强调了一个容易被忽略的点：<b>控制的层级很低</b>。</b> <span class='w'>「It's <b>directly controlling the motor velocity of each of the propellers</b>. So <b>it's not abstracting away to a level where this becomes an easy problem</b>」</span>。",
+    "<b>⇒ 这句话值得记，因为它防的是一种常见的「注水」：<b>如果你在一个高层抽象上控制（比如直接指定期望姿态，让底层控制器去实现），那适应不同机型就容易得多</b>——因为底层控制器替你吸收了差异。</b> <span class='k'>⇒ 而这里是<b>直接给每个螺旋桨发转速</b>，没有任何中间层兜底。</span>",
+    "<b>鲁棒性测试也很直接：<b>拿网球打螺旋桨</b>。</b> <span class='w'>讲稿：「we'll take a <b>tennis ball and shoot it at the fins</b>… And it's still quite robust to it」</span>。",
+    "<b>⚠ 还有一个很有画面感的细节：<b>刚起飞时它会晃一下</b>。</b> <span class='k'>「initially it <b>wobbles a bit</b>. I think it's <b>still trying to estimate what drone it is flying</b>」</span>。<b>⇒ 这是 extrinsics 在线估计的<b>直接可见证据</b>：估计需要几步观测才能收敛，而在收敛之前行为是不稳的。</b>",
+    "<b>⇒ 这个「开头晃一下」对应到腿那边，就是 p29 那个消融里讲的「只估第一步」为什么不够——<b>第一步的估计本来就不准</b>。</b> <span class='w'>⇒ 三个应用（腿、手、无人机）到这里已经把同一个机制演示了三遍，而讲者下一节才转向「还剩什么没解决」。</span>"
+   ],
+   "eq": "这几页只有视频，但讲稿把数字给全了（整讲泛化跨度最大的一组）：\n   「**the same weights** which tries to estimate the **mass and arm length**…\n     The top drone is **four times heavier**… the **arm length is also three times**」\n\n   ⇒ 四倍质量、三倍臂长，**一套权重**\n     比腿那边（12 kg 机器人背 8 kg）跨度还大\n     —— 因为这里变的是**机身本身**而不只是负载\n\n⚠ extrinsics 的含义也跟着换了：这里估的是**质量与臂长**\n   也就是 **「我现在是哪一台无人机」**\n   「the same weights is able to **estimate what morphology it's operating in**」\n   ⇒ **morphology（形态）**这个词用得准：**不是环境变了，是身体变了**\n\n   ⇒ 这比「环境自适应」更强：\n     **同一个大脑装在不同的身体上，靠落差信号认出自己是谁**\n   ⇒ 又一次是同一机制：发出指令 → 观察实际响应 → 从差异里推断\n\n⚠ 讲者特意强调的一点：**控制的层级很低**\n   「It's **directly controlling the motor velocity of each of the propellers**.\n     So **it's not abstracting away to a level where this becomes an easy problem**」\n\n   ⇒ 这句防的是一种常见的「注水」：\n     **如果在高层抽象上控制（指定期望姿态，让底层控制器实现），\n       适应不同机型就容易得多** —— 底层控制器替你吸收了差异\n   ⇒ 而这里是**直接给每个螺旋桨发转速**，没有任何中间层兜底\n\n鲁棒性测试：**拿网球打螺旋桨**，「it's still quite robust to it」\n\n⚠ 很有画面感的细节：**刚起飞时它会晃一下**\n   「initially it **wobbles a bit**. I think it's **still trying to estimate\n     what drone it is flying**」\n   ⇒ 这是 extrinsics 在线估计的**直接可见证据**：\n     估计需要几步观测才能收敛，收敛之前行为不稳\n\n⇒ 「开头晃一下」正对应 p29 那个消融里「只估第一步」为什么不够\n   —— **第一步的估计本来就不准**\n⇒ 三个应用（腿、手、无人机）已把同一机制演示三遍，\n   讲者下一节才转向「还剩什么没解决」",
+   "tbl": {
+    "head": ["三个应用", "extrinsics 估的是什么", "泛化跨度"],
+    "rows": [
+     ["<b>腿（RMA）</b>", "<b>摩擦、质量、地形</b>", "<b>七种地形 · 背 8 kg</b>"],
+     ["<b>手（在手转物）</b>", "<b>接触 ⇒ 形状与大小</b>", "<b>5 g → 198 g · 冰球到猕猴桃</b>"],
+     ["<b>无人机</b>", "<b>⚠ 质量与臂长（我是哪台）</b>", "<b>重 4 倍 · 臂长 3 倍</b>"],
+     ["共同机制", "<b>指令与实际的落差</b>", "<b>在线、持续、不改权重</b>"]
+    ]
+   },
+   "say": "原话（同一套权重飞两台差四倍的无人机，而且直接控制螺旋桨转速）：<em>“the same thing can be applied to drone flight as well. So we have the same policy controlling the drone at the top and the bottom. So <b>the same weights which tries to estimate the mass and arm length</b> of all of these drones. <b>The top drone is four times heavier than the one at the bottom. And the arm length is also three times.</b> And the same weights is able to <b>estimate what morphology it's operating in</b> and it's able to adapt and fly the drones. <b>It's directly controlling the motor velocity of each of the propellers. So, it's not abstracting away to a level where this becomes an easy problem.</b>”</em><br><br>原话（起飞时晃一下，因为还在估自己是哪台）：<em>“this is another drone with a higher mass. <b>initially it wobbles a bit. I think it's still trying to estimate what what drone it is flying.</b> And then we'll take a <b>tennis ball and shoot it at the fins</b>. So these are the propellers of the drone… And it's still quite robust to it.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页有两样东西对你有用，而第二样是一个<b>没人提醒过你</b>的问题。</b><br><b><b>第一样：<code>morphology</code> 这个词。</b>讲者说策略估的是「<b>what morphology it's operating in</b>」—— <b>不是环境变了，是身体变了</b>。</b><br><span class='k'>⇒ 映到你的问题，这正好是「<b>换了一个工作流</b>」与「<b>换了一条 query</b>」的区别：前者改的是<b>结构</b>（节点数、拓扑、算子类型），后者改的是<b>输入</b></span>。<b>⇒ 而这一页说的是：<b>同一套权重可以同时适应这两种变化</b>，只要你把两者都当成「要在线估计的东西」而不是「要分别训练的情形」。</b><br><b>⇒ 这给了你一个很具体的、也很有力的实验：<b>在若干个工作流上训一套路由策略，然后在一个<b>训练时没见过的工作流</b>上零样本测试</b>。</b> <span class='w'>讲者的版本是「重 4 倍、臂长 3 倍」；你的版本是「节点数多一倍、多了一类没见过的算子」。<b>⇒ 如果这个实验成立，它比任何同分布的提升都更能说明你做出了一个方法而不是一组调好的参数。</b></span><br>⚠️ <b><b>第二样：那个「刚起飞时会晃一下」。</b>讲者说它「<b>still trying to estimate what drone it is flying</b>」—— 而这是一个<b>冷启动代价</b>。</b><br><b>⇒ 这一条对你格外要紧，因为<b>你的时间轴短得多</b>。</b> <span class='k'>无人机晃几百毫秒就收敛了，占全程的比例微不足道；而<b>你的工作流只有 3–8 个节点</b>。如果你的在线估计量需要两三个节点才收敛，<b>那就是一半的工作流都在「晃」</b></span>。<br><b>⇒ 所以<b>第一个节点的决策是你最弱的一环</b>，而这不是实现细节，是一个结构性的问题：<b>第一个节点没有任何历史可看</b>。</b><br><b>⇒ 三条可行的应对，按推荐顺序：<b>① 第一个节点一律用高档</b>（成本可控，因为只有一个节点，而它的错误会污染整条链）；<b>② 从 prompt 本身提取事前特征</b>（长度、任务类型、关键词），这是唯一在第一个节点就可得的信息；<b>③ 把第一个节点的决策交给一个单独的、只看 prompt 的小分类器</b>，与后续节点的策略分开训。</b><br><b>⚠ 而无论选哪条，<b>这个问题必须在论文里写出来</b>。</b> <span class='w'>它是你的方法与「工作流级一次决定」之间差异的<b>核心所在</b> —— 如果第一个节点只能盲猜，那你的节点级优势就只体现在后面那几个节点上，<b>而那个事实决定了你的收益上限</b>。<b>⇒ 自己把这个上限算出来并报告，比让审稿人估它要好得多。</b></span>",
+    "ref": "本讲 p68–p70（逐字核对）· 讲稿（morphology、起飞时晃一下）· p29 · 简报 §1 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [71, 75],
+   "t": "还剩什么：为什么运动控制三四年前就成了，而操作还没有",
+   "star": 3,
+   "quote": "<b>So what's left to solve?</b> &nbsp;·&nbsp; <b>Humanoids</b><br><b>Getting to reliability and dexterity</b> — <em>Epic Kitchens</em><br><em>- <b>Simulation technology is still very primitive</b></em>",
+   "one": "<b>讲者把整场的结论收成一个问题：运动控制三四年前就做到了敏捷又可靠，为什么操作还不行？答案正好是开场那两个要素——仿真不够用，奖励写不出来。</b>",
+   "pts": [
+    "<b>讲者先交代了 Tesla 那边的进展，而这几段视频的共同点是「和前面一样的配方」。</b> <span class='k'><b>双足上坡</b>：同样是仿真训练、真机<b>零样本</b>；而双足比四足难得多——「a biped is <b>much less forgiving</b> because it's a much more unstable system and you need to be more reactive」；<b>机器人跳舞</b>：「All <b>realtime onboard autonomous</b>」</span>。",
+    "⚠️ <b>而有一句关于<b>工程节奏</b>的话很有分量，值得单独记：<b>「Getting the first thing to work and the 10th thing to work <b>does not take very long</b> because <b>the pipeline is very simple</b>. Once you get one thing to work, you can actually <b>pump out a lot more results very easily</b>」</b>。</b> <span class='w'>⇒ 这说的是<b>边际成本</b>：难的是打通第一条路，之后每条新路都便宜。</span>",
+    "<b>操作那一半进展就不一样了，而讲者没有粉饰。</b> <span class='k'>做法：同一个神经网络<b>吃语言指令</b>；「<b>The key ingredient is the use of videos.</b> We learned this from <b>videos and a little bit of robot data</b>」（用的是人的第一视角视频）</span>；<b>但结论是：「we can get decent performance on these tasks, but <b>they're not very reliable</b>」。</b>",
+    "<b>⇒ 于是全讲收束到一个很干净的问题：<b>运动控制的结果是三四年前的，而且很敏捷、很可靠；为什么操作到今天还做不到同样的水平？</b></b>",
+    "<b>⚠ 答案正好回到开场 p3/p4 那<b>两个要素</b>，而这个结构上的呼应是整场讲座设计得最好的一处。</b>",
+    "<b><b>第一条：仿真不够用。</b></b> <span class='w'>运动控制之所以能成，是因为「<b>rigid body contact was good enough</b> to get very robust locomotion」；而操作要模拟<b>可变形物体</b>——「if you have to <b>chop vegetables</b>, we need to simulate that… and <b>deformable objects, dough</b>, and everything in simulation to get the sim-to-real transfer to work」</span>。<b>⇒ 幻灯的措辞是 <b><em>Simulation technology is still very primitive</em></b>。</b>",
+    "⚠️ <b><b>第二条：奖励写不出来。</b>而这一条幻灯上没有，只在讲稿里，却可能比第一条更要命。</b> <span class='k'>运动控制的奖励是<b>完备</b>的：「if you programmatically write out a reward which asks you to <b>track a certain velocity</b>, <b>it's complete. This is the full task specification</b>」——写完这一条，再随机化地形，就能得到一个通用策略</span>。",
+    "<b>⇒ 而操作不是这样。切菜的奖励要「<b>measure the size of each of the slices</b> that are cut」，而且「<b>that itself will depend on what exactly is it that you're trying to cook</b>」。</b> <span class='w'>⇒ 同一个动作，目标不同，奖励就不同。</span>",
+    "⚠️ <b>⇒ 但最致命的是<b>不可复用</b>这一点：<b>「let's say you put in the work to write that reward — <b>that only gets you one task. It doesn't get you the full generality of manipulation</b>… it's a very <b>manual</b> process and <b>even if you get one of this right, it will not scale to anything else</b>」</b>。</b> <span class='k'>⇒ 想拉伸面团？再写一个。想往面团上撒面粉？再写一个。<b>每个任务一条，而且互相不通用</b>。</span>",
+    "<b>⇒ 所以两条答案的性质很不一样，这个区分值得想清楚：<b>仿真是「算力不够」的问题（会随时间改善），而奖励是「人工不可扩展」的问题（不会自己变好）</b>。</b> <span class='w'>⇒ 这也正是下一页为什么对两者给出了<b>不同</b>的对策。</span>"
+   ],
+   "eq": "Tesla 那边的进展（共同点：**和前面一样的配方**）：\n   **双足上坡**：仿真训练、真机**零样本**\n     而双足比四足难得多 ——「a biped is **much less forgiving**\n       because it's a much more unstable system」\n   **机器人跳舞**：「All **realtime onboard autonomous**」\n\n⚠ 一句关于**工程节奏**的话（值得单记）：\n   「Getting the first thing to work and the 10th thing to work **does not take\n     very long** because **the pipeline is very simple**. Once you get one thing\n     to work, you can **pump out a lot more results very easily**」\n   ⇒ 说的是**边际成本**：难的是打通第一条路，之后每条新路都便宜\n\n操作那一半（讲者没有粉饰）：\n   同一个神经网络**吃语言指令**\n   「**The key ingredient is the use of videos.** We learned this from\n     **videos and a little bit of robot data**」（人的第一视角视频）\n   但：「we can get decent performance… but **they're not very reliable**」\n\n⇒ 全讲收束到一个干净的问题：\n   **运动控制的结果是三四年前的、而且敏捷可靠；\n     为什么操作到今天还做不到同样水平？**\n\n⚠ 答案正好回到开场 p3/p4 那**两个要素**（整场设计得最好的一处呼应）：\n\n**第一条：仿真不够用**\n   运动控制能成，因为「**rigid body contact was good enough**」\n   操作要模拟**可变形物体** ——「if you have to **chop vegetables**…\n     and **deformable objects, dough**, and everything in simulation」\n   幻灯：**Simulation technology is still very primitive**\n\n⚠ **第二条：奖励写不出来**（幻灯上没有，只在讲稿里，却可能更要命）\n   运动控制的奖励是**完备**的：\n     「programmatically write out a reward which asks you to **track a certain\n       velocity** — **it's complete. This is the full task specification**」\n     写完这一条，再随机化地形，就得到一个通用策略\n\n   操作不是这样：切菜的奖励要\n     「**measure the size of each of the slices** that are cut」\n     而且「**that itself will depend on what exactly is it\n       that you're trying to cook**」\n   ⇒ 同一个动作，目标不同，奖励就不同\n\n⚠⚠ 最致命的是**不可复用**：\n   「let's say you put in the work to write that reward — **that only gets you\n     one task. It doesn't get you the full generality of manipulation**…\n     it's a very **manual** process and **even if you get one of this right,\n     it will not scale to anything else**」\n   ⇒ 想拉伸面团？再写一个。想撒面粉？再写一个。\n     **每个任务一条，互相不通用**\n\n⇒ 两条答案的性质很不一样（这个区分值得想清楚）：\n   **仿真是「算力不够」的问题（会随时间改善）\n     奖励是「人工不可扩展」的问题（不会自己变好）**\n   ⇒ 正是下一页为什么对两者给出**不同**的对策",
+   "tbl": {
+    "head": ["", "运动控制（已做成）", "操作（还没有）"],
+    "rows": [
+     ["仿真够用吗", "<b>刚体接触就够</b>", "<span class='w'>⚠ 要可变形物体、面团</span>"],
+     ["奖励写得出来吗", "<b>「跟踪某个速度」就是完整任务说明</b>", "<span class='w'>⚠ 切菜要量每片的大小</span>"],
+     ["奖励能复用吗", "<b>一条管所有地形</b>", "<span class='w'>⚠ 一条只管一个任务</span>"],
+     ["问题的性质", "—", "<b>仿真缺算力 · 奖励缺可扩展性</b>"]
+    ]
+   },
+   "say": "原话（为什么运动控制成了而操作没成——第一条：仿真）：<em>“if you go back to the two things which got locomotion to work well. One was <b>the simulation technology was ready. Rigid body contact was good enough to get very robust locomotion.</b> But when it comes to manipulation and if you have to <b>chop vegetables</b>, we need to simulate that. And then we need to simulate <b>deformable objects, dough</b> and everything in simulation to get the sim-to-real transfer to work for this.”</em><br><br>原话（第二条：奖励写不出来，而且写出来也不可复用）：<em>“the second comparison are <b>rewards which are much easier to specify for locomotion</b>. So if you programmatically write out a reward which asks you to <b>track a certain velocity, it's complete. This is the full task specification</b> and now you can just randomize the terrain and then you can get a general policy out of it. <b>But that's not true for manipulation.</b> So… if you want to chop a vegetable and even if you had the full state of simulation, you would still need to come up with a reward which <b>measures the size of each of the slices</b> that are cut and so on — and <b>that itself will depend on what exactly is it that you're trying to cook</b> eventually. So that's one reward, and let's say you put in the work to write that reward — <b>that only gets you one task. It doesn't get you the full generality of manipulation.</b>… So it's a very <b>manual</b> process and <b>even if you get one of this right, it will not scale to anything else</b>.”</em><br><br>原话（打通第一条路之后，后面便宜得多）：<em>“<b>Getting the first thing to work and the 10th thing to work does not take very long because the pipeline is very simple. Once you get one thing to work, you can actually pump out a lot more results very easily.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页把整场的论点闭环了，而那个闭环对你有一条很实在的用处：<b>它给了你一个判断「什么问题适合用 RL/自动搜索去做」的检查表</b>。</b><br><span class='k'>两条检查项就是开场那两个要素：<b>① 奖励写得出来吗，而且写一条能管很多任务吗？② 评估跑得起吗？</b></span><b>⇒ 讲者用它解释了「运动控制成了、操作没成」，而你可以用它解释<b>你的问题为什么可做</b>。</b><br><b>⇒ 逐条过一遍你的问题，结论相当有利：</b><br><b>① <b>奖励</b>：<code>G = Acc − λ·Cost</code> 是<b>完备</b>的任务说明，而且<b>一条管所有配置</b></b>——<span class='w'>这正是讲者说运动控制「写完一条、再随机化地形就能得到通用策略」的那种性质；<b>你不需要为每个工作流重写一个 G</b></span>；<b>② <b>评估</b>：可自动化、可重放。</b><br><b>⇒ 所以你的问题在这张检查表上<b>更像运动控制而不像操作</b>——这是一个很有力的、也很具体的「这件事做得成」的论证。</b><br><b>⚠ 但那条「<b>奖励不可复用</b>」的警告，指出了你会<b>在哪里</b>失去这个优势，而这一点值得提前想清楚：<b>一旦你的 Acc 不再来自标准答案，而要靠一个为特定任务写的评判标准，你就掉进操作那一侧了</b>。</b><br><span class='k'>讲者的切菜例子是「每片的大小取决于你究竟要做什么菜」；你的对应是「<b>这个回答好不好，取决于用户究竟想要什么</b>」——开放式生成、摘要、创意写作全都是这一类</span>。<b>⇒ 在这些任务上，<code>Acc</code> 没有可程序化的定义，而你整套方法赖以成立的第一个要素就塌了。</b><br><b>⇒ 所以你的适用范围应当<b>主动</b>声明：<b>本方法适用于 Acc 可程序化判定的任务（数学、代码、问答、抽取），不适用于需要主观评判的开放式生成。</b></b> <span class='w'>这不是示弱——<b>恰恰相反，它说明你清楚自己方法的边界在哪，而这个边界有一个讲得通的理由</b>。</span><br><b>⚠ 最后那句「打通第一条路之后，第十条就很便宜」对你有一条实验安排上的建议：<b>先把一个工作流上的完整管线打通，再铺开到别的工作流</b>。</b> <span class='k'>而且<b>报告这个边际成本</b>——「第一个工作流花了 X 人天，后三个各花了 Y」——是一个很有说服力的、却常被忽略的结果：它证明你的方法是<b>可推广的流程</b>而不是一次性的调参。</b>",
+    "ref": "本讲 p75（逐字核对）· 讲稿（两条答案、奖励不可复用、第十条很便宜）· p3–p4 · 简报 §1 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [76, 77],
+   "t": "仿真押算力，奖励模型押人——以及那句「RL 会钻你奖励的空子」",
+   "star": 3,
+   "quote": "<b>Simulation?</b><br><em>- We can, in fact model complex scenarios like <b>deformable objects</b>, etc. However, <b>they are slow</b>.<br>- <b>Learn from the bitter lesson and bet on compute</b><br>&nbsp;&nbsp;“<b>The biggest lesson that can be read from 70 years of AI research is that general methods that leverage computation are ultimately the most effective, and by a large margin</b>” — Rich Sutton</em><br><b>General reward model?</b><br><em>- Most obvious answer are large models trained for general understanding<br>- <b>Could work, but RL will exploit weaknesses if they exist</b><br>&nbsp;&nbsp;<b>Worst case: humans label everything for us!</b></em>",
+   "one": "<b>两个难题，两种乐观的理由。仿真押的是算力会继续涨；而通用奖励模型押的是——最坏情况下还有人可以标，而人有几十亿个。</b>",
+   "pts": [
+    "<b><b>仿真这一边</b>，讲者的诊断比「做不到」要精确：<b>可变形物体其实<b>能</b>模拟，只是<b>慢</b></b>。</b> <span class='k'>「We <b>can, in fact, model</b> complex scenarios like deformable objects… <b>However, they are slow</b>」；而更复杂的交互目前确实模拟不了</span>。",
+    "<b>⇒ 而「慢」是一个<b>会随时间自己变好</b>的问题，所以他的对策是<b>押算力</b>。</b> <span class='w'>「there's <b>no obvious fundamental reason</b> why we cannot simulate more complex scenarios <b>as we get more compute</b>… if we bet on compute then the hope is <b>as compute progresses, simulation can progress</b>」</span>。",
+    "<b>依据是 Rich Sutton 的 <b>the bitter lesson</b>（苦涩的教训），而讲者直接建议读原文：「it's a very short piece… I <b>highly recommend everyone to read it</b>」。</b> <span class='k'>引的那一句是：<b>「general methods that <b>leverage computation</b> are ultimately the most effective, <b>and by a large margin</b>」</b></span>。",
+    "⚠️ <b><b>奖励模型这一边</b>才是对你最要紧的一页，而且它的论证很硬。</b> <span class='w'>最显然的想法是：<b>训一个大模型做通用理解，拿它来定义奖励</b></span>。<b>讲者说 <b><em>Could work</em></b>，但紧接着是一句很重的但书：<b><em>RL will exploit weaknesses if they exist</em></b>。</b>",
+    "<b>⇒ 而他给了<b>两个现成的证据</b>，都不是假想的。</b> <span class='k'><b>① RLHF</b>：「when we do RLHF, <b>if we continue tuning with RLHF, we see that the model goes completely out of distribution</b> from what you would like it to do」；<b>② DeepSeek 那篇</b>：「they find that <b>if you don't use verifiable rewards or rule-based rewards</b> like they do, <b>at some point RL can start exploiting the rewards</b> that you have defined for them」</span>。",
+    "<b>⇒ 注意这两个例子的指向：<b>凡是奖励来自一个「学出来的模型」而不是一条「可验证的规则」，RL 迟早会去钻它的空子</b>。</b> <span class='w'>⇒ 而这正好反过来印证了开场 p3 那条「<b>well specified rewards</b>」——那里强调的「rule-based 所以可自动化」，现在多了一层含义：<b>rule-based 所以<b>没有空子可钻</b></b>。</span>",
+    "<b>⚠ 那么讲者为什么对这一条仍然乐观？理由很意外，而且带点幽默：<b>最坏情况是让人来标</b>。</b> <span class='k'>「the absolute worst case is we get <b>humans to label all the rewards</b> for us, and <b>humans are very scalable because we have billions of them</b>」</span>。",
+    "<b>⇒ 这个说法值得想一想：它把「人工标注」从「不可扩展的瓶颈」重新定位成了「<b>一个很贵但确实能扩展的后备方案</b>」。</b> <span class='w'>⇒ 对比 p75 那条「每个任务都要手写一个奖励，而且不可复用」——<b>手写奖励不可扩展，但人类打分可以</b>。</span>",
+    "<b>⇒ 所以两个难题的对策结构是对称的：<b>仿真押「算力会涨」，奖励押「人力可堆」</b>。</b> <span class='k'>两者都是在赌一个<b>能随规模扩展的东西</b>，而这正是 the bitter lesson 的精神。</span>"
+   ],
+   "eq": "**仿真这一边**（诊断比「做不到」精确）：\n   **可变形物体其实能模拟，只是慢**\n   「We **can, in fact, model** complex scenarios like deformable objects…\n     **However, they are slow**」；更复杂的交互目前确实模拟不了\n\n   ⇒ 「慢」是一个**会随时间自己变好**的问题 ⇒ 对策是**押算力**\n     「there's **no obvious fundamental reason** why we cannot simulate more\n       complex scenarios **as we get more compute**… **as compute progresses,\n       simulation can progress**」\n\n   依据：Rich Sutton 的 **the bitter lesson**（讲者建议读原文，「very short piece」）\n     「general methods that **leverage computation** are ultimately\n       the most effective, **and by a large margin**」\n\n⚠⚠ **奖励模型这一边**（对课题最要紧，论证很硬）：\n   最显然的想法：**训一个大模型做通用理解，拿它定义奖励**\n   讲者：**Could work**，但紧接着是重重的但书：\n     **RL will exploit weaknesses if they exist**\n\n   **两个现成的证据**（不是假想的）：\n     **① RLHF**：「if we continue tuning with RLHF, we see that the model\n        **goes completely out of distribution** from what you would like it to do」\n     **② DeepSeek**：「if you **don't use verifiable rewards or rule-based rewards**…\n        **at some point RL can start exploiting the rewards** you have defined」\n\n   ⇒ 指向很明确：**凡是奖励来自一个「学出来的模型」而不是一条「可验证的规则」，\n     RL 迟早会去钻它的空子**\n   ⇒ 反过来印证开场 p3 那条 **well specified rewards**：\n     那里强调「rule-based 所以可自动化」，现在多一层：\n     **rule-based 所以没有空子可钻**\n\n⚠ 讲者为什么仍然乐观（理由意外且带点幽默）：**最坏情况是让人来标**\n   「the absolute worst case is we get **humans to label all the rewards** for us,\n     and **humans are very scalable because we have billions of them**」\n\n   ⇒ 这把「人工标注」从「不可扩展的瓶颈」重新定位成\n     **「一个很贵但确实能扩展的后备方案」**\n   ⇒ 对比 p75「每个任务都要手写一个奖励，而且不可复用」：\n     **手写奖励不可扩展，但人类打分可以**\n\n⇒ 两个难题的对策结构**对称**：\n   **仿真押「算力会涨」，奖励押「人力可堆」**\n   两者都在赌一个**能随规模扩展的东西** —— 正是 the bitter lesson 的精神",
+   "tbl": {
+    "head": ["两个难题", "诊断", "对策", "赌的是什么"],
+    "rows": [
+     ["<b>仿真</b>", "<b>能模拟，但慢</b>", "<b>押算力</b>", "<b>算力会继续涨</b>"],
+     ["<b>通用奖励模型</b>", "<span class='w'>⚠ RL 会钻它的空子</span>", "<b>最坏让人来标</b>", "<b>人有几十亿个</b>"],
+     ["⚠ 证据一", "<b>RLHF 调久了模型完全跑偏</b>", "—", "—"],
+     ["⚠ 证据二", "<b>不用可验证奖励，RL 迟早钻空子</b>", "—", "—"]
+    ]
+   },
+   "say": "原话（仿真：能模拟但慢，所以押算力）：<em>“For some scenarios like deformable objects, <b>it is true that we can simulate it except that we cannot simulate it very fast</b>. And then there are some other more complex interactions that we cannot simulate at all. But there's <b>no obvious fundamental reason why we cannot simulate more complex scenarios as we get more compute</b>. So if we <b>bet on compute</b> then the hope is <b>as compute progresses simulation can progress</b>… And if we are to learn from the <b>bitter lesson</b>, then compute would be the right bet to take here.”</em><br><br>原话（RL 会钻奖励模型的空子——两个现成的证据）：<em>“can we train a very general large big model for general understanding of the world and somehow use that to define the rewards… <b>This could work but RL as we know has exploited weaknesses in the model if they exist.</b> So <b>when we do RLHF, if we continue tuning with RLHF, we see that the model goes completely out of distribution from what you would like it to do</b>. Same with the <b>deepseek</b> paper, they find that <b>if you don't use verifiable rewards or rule-based rewards like they do, at some point RL can start exploiting the rewards that you have defined for them</b>.”</em><br><br>原话（为什么仍然乐观：人很能扩展）：<em>“So I was optimistic about simulation. Why am I optimistic about this general reward model which also seems to be a very hard problem to solve? <b>The reason I'm optimistic is because the absolute worst case is we get humans to label all the rewards for us and humans are very scalable because we have billions of them.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>p77 这一页直接限定了我在 L15 主线卡里给过你的一条建议，所以这里要把那条建议<b>改一下</b>。</b><br><span class='k'>我当时建议：用一个强模型当裁判，给每个节点打「这一步做对了没有」的标签，用来做信用分配。而这一页说的是：<b>凡是奖励来自一个「学出来的模型」而不是一条「可验证的规则」，RL 迟早会钻它的空子</b>——而且给了两个现成的证据（RLHF 调久了跑偏、DeepSeek 不用可验证奖励就会被钻）</span>。<br><b>⇒ 关键在于<b>你的优化压力有多大</b>。如果裁判的分数只是<b>事后报告</b>，钻空子无从谈起；但一旦它<b>进入决策回路</b>（用它来选配置、来决定升不升档），你就在对它做优化——而被优化的裁判一定会被钻。</b><br><b>⇒ 具体会怎么钻？不难想：<b>搜索会偏向那些「让裁判打高分」而不是「真的更好」的配置</b>。</b> <span class='w'>比如裁判偏好更长、更有条理的中间输出，于是搜索就系统性地选出「话多」的配置——而话多意味着 token 多，<b>恰好与你的 Cost 目标相反</b>，而你还会以为自己找到了好配置。</span><br><b>⇒ 所以修正后的建议是：<b>节点级裁判可以用于分析与解释，但不要让它进入 <code>G</code> 的定义或搜索的目标函数</b>。</b> <span class='k'>你的 <code>G</code> 必须锚在<b>可验证</b>的东西上——Acc 来自标准答案，Cost 来自 token 计数。这两样都是 rule-based，<b>没有空子可钻</b>，而这正是开场 p3 说的那个「well specified reward」的真正含义。</span><br><b>⇒ 这其实是你相对很多 agentic 工作的一个<b>优势</b>，值得在论文里点明：<b>我们的目标函数完全由可验证的量构成，因此不存在奖励模型被利用的风险——而这正是当前用 LLM-as-judge 的方法所面临的问题。</b></b><br><b>⚠ 而那条「<b>最坏情况是让人来标，而人有几十亿个</b>」的乐观，对你有一个<b>相反</b>方向的提醒。</b> <span class='w'>讲者能这么说，是因为他要的标注量虽大但单价低（看视频打个分）；<b>而你如果要靠人标 Acc，标的是「这个数学题答对了吗」「这段代码对吗」——单价高得多，而且需要专业判断</b></span>。<b>⇒ 所以「人工兜底」这条后路对你<b>没有</b>对他那么宽。<b>更该做的是守住「只做 Acc 可程序化判定的任务」这条边界</b>（p75 科研格那条）。</b><br><b>最后 the bitter lesson 那条对你有一条冷静的提醒：<b>你的方法本质上是在「省算力」，而苦涩的教训说的是长期押算力的人会赢</b>。</b> <span class='k'>⇒ 怎么调和？你的定位应该是「<b>在给定预算下把钱花对</b>」，而不是「<b>比用大模型更好</b>」——前者随算力变便宜仍然成立（总有预算约束），后者会被算力进步直接碾过去。<b>这个措辞上的区别，决定了你的工作五年后还站不站得住。</b></span>",
+    "ref": "本讲 p76–p77（逐字核对）· 讲稿（RLHF 与 DeepSeek 两个证据、人很能扩展）· p3 · p75 科研格 · L15 主线卡 · 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [78, 79],
+   "t": "超越人类：与人持平只是第一步",
+   "star": 2,
+   "quote": "<b>Superhuman capabilities</b><br><em><b>Learnings from AlphaGo: Sparse reward + lots of search!</b></em><br><em><b>Can we get robots that exceed human capability?</b></em>",
+   "one": "<b>讲者最后把目标往上抬了一层：现在整个领域都在追「和人一样」，而那一天到来时固然是文明级的事件——但它只是第一步。</b>",
+   "pts": [
+    "<b>讲者先承认了现状，包括他自己整场讲的东西：<b>机器人学习的目标被设定成「与人持平」</b>。</b> <span class='k'>「most of the definition that I've used during the course of the talk and most work in robot learning tries to approach robotics as <b>achieving parity with human</b>」</span>。",
+    "<b>⇒ 而他对这个目标的评价并不低：<b>「the day we achieve that, it will be a <b>civilization changing event</b>」</b>。</b> <span class='w'>⇒ 所以这不是在贬低现有工作，而是在它之上再加一层。</span>",
+    "⚠️ <b>但紧接着的转折是全页的要点：<b><em>However, that will just be the <b>first step</b></em></b>。</b>",
+    "<b>理由基于一个很具体的观察：<b>机器人的身体和人的身体<b>不一样</b></b>。</b> <span class='k'>「the actuators that we make, driven by <b>electrical torque</b>, and the computers which are based on <b>silicon as opposed to carbon</b>… it is possible that they can <b>exploit all of that</b> to achieve capabilities which <b>humans have not thought of or cannot figure out how to do</b>」</span>。",
+    "<b>⇒ 具体可能是：<b>更快、更高效、更好，或者比人<b>敏捷得多</b></b>。</b> <span class='w'>⇒ 这里的逻辑和 p53–p56 那个「髋关节外展」其实是同一个：<b>那只矮机器人找出的上楼办法，人不会用，因为人的身体不是那样的</b>。</b>",
+    "<b>⇒ 所以「超越人类」在这里不是一句口号，而是有<b>机制</b>的：<b>不同的身体 + 不受人类先验约束的搜索 = 人想不到的解法</b>。</b> <span class='k'>⇒ 而「不受人类先验约束」正是 p55 那条 <b>No predefined gait</b> 的价值。</span>",
+    "<b>而方法论的依据只有一句：<b>Learnings from AlphaGo: <b>Sparse reward + lots of search!</b></b></b> <span class='w'>⇒ 两个要素缺一不可：<b>稀疏奖励</b>（不要用密集的塑形奖励把人的偏好强加进去，那会把搜索框死在人类已知的解法附近）+ <b>大量搜索</b>（才可能撞上那些反直觉的解）</span>。",
+    "<b>⇒ 讲者在 p3 就说过 AlphaGo「learned to <b>exceed what humans can do</b> by figuring out <b>innovative or new behaviors that humans have not seen before</b>」——<b>整场讲座在这里首尾呼应</b>。</b>",
+    "<b>⚠ 但要留意这条建议和前面内容之间的一处<b>张力</b>，讲者没有挑明。</b> <span class='k'>他自己的 RMA 用的是<b>十个</b>手工奖励函数（p16），而且承认「不太优雅」、权重「没有好办法」调——<b>那恰恰是密集的塑形奖励，不是稀疏奖励</b></span>。<b>⇒ 所以「稀疏奖励 + 大量搜索」是一个<b>方向性的主张</b>，而不是他已经在用的做法。读的时候要把两者分开。</b>",
+    "<b>⇒ 这种张力本身也值得记：<b>一个领域当下能跑通的做法，和它认为自己应该走的方向，常常不是一回事</b>。</b> <span class='k'>⇒ 而把这种张力明说出来（而不是假装一致），恰恰是这场讲座值得学的地方——p75 那个「为什么操作还没成」也是同样的坦率。</span>"
+   ],
+   "eq": "讲者先承认现状（包括他自己整场讲的东西）：\n   **机器人学习的目标被设定成「与人持平」**\n   「most work in robot learning tries to approach robotics as\n     **achieving parity with human**」\n   而他对这个目标评价并不低：\n     「the day we achieve that, it will be a **civilization changing event**」\n\n⚠ 转折是全页要点：**However, that will just be the first step**\n\n理由基于一个具体观察：**机器人的身体和人的身体不一样**\n   「the actuators that we make, driven by **electrical torque**, and the\n     computers which are based on **silicon as opposed to carbon**…\n     they can **exploit all of that** to achieve capabilities which\n     **humans have not thought of or cannot figure out how to do**」\n   具体可能：更快、更高效、更好，或比人**敏捷得多**\n\n   ⇒ 这与 p53–p56 的「髋关节外展」是同一个逻辑：\n     **那只矮机器人找出的上楼办法，人不会用，因为人的身体不是那样的**\n\n⇒ 「超越人类」在这里不是口号，而是有**机制**的：\n   **不同的身体 + 不受人类先验约束的搜索 = 人想不到的解法**\n   而「不受人类先验约束」正是 p55 那条 **No predefined gait** 的价值\n\n方法论依据只有一句：**Learnings from AlphaGo: Sparse reward + lots of search!**\n   两个要素缺一不可：\n     **稀疏奖励** —— 不要用密集塑形奖励把人的偏好强加进去\n                    （那会把搜索框死在人类已知的解法附近）\n     **大量搜索** —— 才可能撞上那些反直觉的解\n\n   ⇒ p3 就说过 AlphaGo「learned to **exceed what humans can do** by figuring out\n     **innovative or new behaviors that humans have not seen before**」\n     —— **整场讲座在这里首尾呼应**\n\n⚠ 一处**张力**（讲者没挑明）：\n   他自己的 RMA 用的是**十个**手工奖励函数（p16），承认「不太优雅」、\n   权重「没有好办法」调 —— **那恰恰是密集的塑形奖励，不是稀疏奖励**\n   ⇒ 「稀疏奖励 + 大量搜索」是一个**方向性主张**，不是他已在用的做法\n     读的时候要把两者分开\n\n⇒ 这种张力本身值得记：\n   **一个领域当下能跑通的做法，和它认为自己应该走的方向，常常不是一回事**\n   而把张力明说出来（而不是假装一致），正是这场讲座值得学的地方\n   （p75「为什么操作还没成」也是同样的坦率）",
+   "tbl": {
+    "head": ["", "与人持平（当前目标）", "超越人类（下一步）"],
+    "rows": [
+     ["讲者的评价", "<b>文明级的事件</b>", "<b>但只是第一步</b>"],
+     ["凭什么可能", "—", "<b>电驱动执行器 · 硅基计算（身体不同）</b>"],
+     ["方法", "<b>模仿 + 手工奖励</b>", "<b>稀疏奖励 + 大量搜索</b>"],
+     ["已有先例", "—", "<b>AlphaGo</b>"],
+     ["⚠ 与本讲的张力", "<b>RMA 用了 10 个手工奖励</b>", "<b>那不是稀疏奖励</b>"]
+    ]
+   },
+   "say": "原话（与人持平只是第一步，而身体不同是超越的基础）：<em>“most of the definition that I've used during the course of the talk and most work in robot learning tries to approach robotics as <b>achieving parity with human. The day we achieve that, it will be a civilization changing event. However, that will just be the first step</b> in everything that we can achieve from robotics because <b>the actuators that we make, driven by electrical torque, and the computers which are based on silicon as opposed to carbon</b> than what we have, <b>it is possible that they can exploit all of that to achieve capabilities which humans have not thought of or cannot figure out how to do</b>. So they could do things <b>much faster, more efficiently or better, or can be much more agile</b> than what humans are. And then one system that we know which has already done it is AlphaGo where <b>the key was to use a sparse reward and then lots and lots of search</b> to get it to discover new behaviors which are beyond what humans could think.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你的用处不在「超越人类」那个愿景，而在它背后那条机制，以及讲者<b>没有挑明的那处张力</b>。</b><br><span class='k'>机制是：<b>不同的身体 + 不受人类先验约束的搜索 = 人想不到的解法</b>。而证据是 p55 那个髋关节外展——因为<b>没有规定步态</b>，所以搜索找出了一个人类不会用的办法</span>。<br><b>⇒ 对你，这条机制指向一个很具体的问题：<b>你的搜索空间里，有多少是「人类先验」塞进去的？</b></b><br><span class='w'>你的配置空间是「每个节点选一个档位」——而<b>节点是谁定的？工作流结构是谁定的？档位有哪几档是谁定的？</b>都是人（或 AFlow 在人定的算子集合上搜的）</span>。<b>⇒ 这就是你的「预设步态」。</b><br><b>⇒ 讲义不会让你立刻去掉它（那是另一篇论文），但它给了你一个<b>该怎么说</b>的框架：<b>明确区分「我们搜索的那一层」与「我们固定的那一层」，并指出固定的那一层可能挡住了更好的解</b>。</b> <span class='k'>这比含糊地说「未来工作包括搜索工作流结构」要有力，因为它给出了<b>为什么</b>那是一个真问题。</span><br><b>⚠ 而那处张力对你的论文写作有一条直接的教训，可能是这一页最值得带走的东西。</b><br><span class='w'>讲者在终章主张「稀疏奖励 + 大量搜索」，而他自己的方法用了<b>十个手工塑形奖励</b>，还承认权重「没有好办法」调。他没有把这个矛盾挑明</span>。<b>⇒ 而你读出来了——这说明<b>读者会读出来</b>。</b><br><b>⇒ 所以反过来要求自己：<b>如果你的方法里有一处与你主张的原则不一致，自己先说</b>。</b> <span class='k'>你很可能有这样一处：比如你主张「不该依赖人工先验」，但你的节点划分、档位设置、λ 的取值范围全是人定的；或者你主张「分布无关的保证」，但你的线性假设是一个很强的分布假设</span>。<b>⇒ 自己点出来并给出理由（「我们在这一层做了人工设定，因为 X；放开它是未来工作」），比被审稿人点出来好得多。</b><br><b>⇒ 而讲者在 p75 其实<b>做对了</b>这件事（坦率地说「为什么操作还没成」「这些结果不太可靠」「这不是机器人公司今天在用的」），只是在最后一页没做。<b>两相对照，正好是一个关于学术诚实的现成案例。</b></b>",
+    "ref": "本讲 p78（逐字核对）· p55 · p16 · p75 · L15 p17 主线卡 · 简报 §1 §4d（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "61": [
+   {
+    "q": "手内转物任务里，网络判断「碰到东西了」用的是什么信号？",
+    "o": ["关节电流的变化", "指尖的触觉传感器", "视觉估计的物体位姿", "指令的关节位置与实际到达的关节位置之差：没接触时两条线重合，一接触就分开（实际到不了指令位置）—— 一个不需要任何触觉硬件的「免费接触传感器」"],
+    "a": 3,
+    "why": "<b>⇒ 这和 L17.a p18 那个腿的洞察是<b>同一个机制</b>：预期与实测的落差编码了环境。腿那边是「我让你走你却滑了 ⇒ 地面很滑」，手这边是「我让你弯到这个角度你却弯不过去 ⇒ 那里有个东西」。</b><span class='k'>而估出接触还能推出更多：哪几根手指在什么位置碰到，就勾勒出了物体的形状与大小。</span>"
+   },
+   {
+    "q": "讲者对这个「接触检测」的解释加了什么限定？",
+    "o": ["这是一个假说而不是已验证的机制 ——「因为我们并不确切知道模型在做什么，一个假设是它用本体感觉历史做接触检测」", "它只在低速下成立", "它需要额外的校准", "它只在刚性物体上成立"],
+    "a": 0,
+    "why": "<b>这和 p32 那条「学出来的 extrinsics 我们解释不了」是同一种诚实。</b><span class='w'>而真机演示里两个细节很说明难度：橘子皮「力气稍大一点就会完全变形」；还有一个适配器「在训练数据和仿真里都没见过——我们不会把物体模拟到这种精细程度」。</span>"
+   }
+  ],
+  "68": [
+   {
+    "q": "无人机那组里，讲者特意强调控制层级很低。为什么这一点重要？",
+    "o": ["因为低层控制更省算力", "因为高层控制会引入延迟", "因为它直接控制每个螺旋桨的电机转速，「没有抽象到让这个问题变容易的层级」—— 如果在高层抽象上控制（指定期望姿态让底层控制器实现），适应不同机型就容易得多，因为底层替你吸收了差异", "因为电机转速更容易仿真"],
+    "a": 2,
+    "why": "<span class='k'>泛化跨度是整讲最大的一组：同一套权重飞两台无人机，上面那台<b>重 4 倍、臂长 3 倍</b>。而 extrinsics 的含义也换了——这里估的是「我现在是哪一台」，讲者用的词是 morphology（形态）：<b>不是环境变了，是身体变了</b>。</span>"
+   },
+   {
+    "q": "讲者提到无人机「刚起飞时会晃一下」。这个细节说明了什么？",
+    "o": ["这是 extrinsics 在线估计的直接可见证据：它还在估自己在飞哪一台，估计需要几步观测才能收敛，收敛之前行为不稳", "控制器增益没调好", "电池电压不稳", "螺旋桨存在制造差异"],
+    "a": 0,
+    "why": "<b>⇒ 这正对应 p29 那个消融里「只估第一步」为什么不够——<b>第一步的估计本来就不准</b>。</b><span class='w'>到这里，腿、手、无人机三个应用已经把同一个机制演示了三遍。</span>"
+   }
+  ],
+  "71": [
+   {
+    "q": "运动控制三四年前就做到了敏捷可靠，而操作至今没有。讲者给了哪两条原因？",
+    "o": ["硬件不够精密 + 传感器不够多", "缺少大规模机器人数据集", "① 仿真不够用（刚体接触对运动控制够用，操作要模拟可变形物体、面团、切菜）；② 奖励写不出来（「跟踪某个速度」就是完整的任务说明，而切菜要量每片的大小，还取决于你究竟要做什么菜）", "算力不够 + 数据不够"],
+    "a": 2,
+    "why": "<b>这正好回到开场 p3/p4 那两个要素——整场讲座设计得最好的一处呼应。</b><span class='k'>而奖励那一条最致命的是<b>不可复用</b>：「就算你花工夫写出那条奖励，那也只给你<b>一个</b>任务，拿不到操作的通用性……而且就算写对了一个，它也扩展不到别的任何事情上」。</span>"
+   },
+   {
+    "q": "讲者关于「工程节奏」说了一句很有分量的话。是什么？",
+    "o": ["让第一件事跑通和让第十件事跑通花的时间差不多，因为管线很简单 —— 一旦打通一条路，后面就能很容易地大量产出", "工程进度取决于硬件迭代", "每个新任务都要从头开始", "第一个结果最重要，后面都是重复"],
+    "a": 0,
+    "why": "<b>⇒ 说的是<b>边际成本</b>：难的是打通第一条路，之后每条新路都便宜。</b><span class='w'>而两条答案的性质很不一样：<b>仿真是「算力不够」的问题（会随时间改善），奖励是「人工不可扩展」的问题（不会自己变好）</b>——这也是下一页为什么对两者给出不同对策。</span>"
+   }
+  ],
+  "76": [
+   {
+    "q": "「用一个大模型当通用奖励模型」，讲者说 Could work，但那个但书是什么？",
+    "o": ["大模型无法处理机器人数据", "大模型的判断不够一致", "RL will exploit weaknesses if they exist —— 而且他给了两个现成的证据：RLHF 继续调下去模型会完全跑偏；DeepSeek 那篇也说，不用可验证/规则型奖励的话，RL 迟早开始钻奖励的空子", "大模型推理太慢"],
+    "a": 2,
+    "why": "<b>⇒ 指向很明确：凡是奖励来自一个「<b>学出来的模型</b>」而不是一条「<b>可验证的规则</b>」，RL 迟早会去钻它的空子。</b><span class='k'>这反过来给开场 p3 那条 well specified rewards 加了一层含义：rule-based 不只是「可自动化」，更是「<b>没有空子可钻</b>」。</span>"
+   },
+   {
+    "q": "讲者为什么对「通用奖励模型」这个难题仍然乐观？",
+    "o": ["因为可以用多个模型投票", "因为最坏情况是让人来标全部奖励，而「人是很能扩展的，我们有几十亿个」", "因为可以用仿真生成奖励", "因为大模型会继续变强"],
+    "a": 1,
+    "why": "<b>这把「人工标注」从「不可扩展的瓶颈」重新定位成了「一个很贵但确实能扩展的后备方案」——对比 p75 那条「每个任务都要手写一个奖励，而且不可复用」：<b>手写奖励不可扩展，但人类打分可以</b>。</b><span class='w'>而仿真那一边的对策是押算力（the bitter lesson）。两者结构对称：一个赌算力会涨，一个赌人力可堆。</span>"
+   }
+  ],
+  "78": [
+   {
+    "q": "「超越人类」在这一页不是口号，它背后的机制是什么？",
+    "o": ["更精确的仿真", "更长的训练时间", "更大的模型与更多的数据", "不同的身体 + 不受人类先验约束的搜索：电驱动的执行器与硅基的计算与人不同，而只要不把人的先验（比如预设步态）强加进去，搜索就可能找出人想不到的解法"],
+    "a": 3,
+    "why": "<b>证据就在 p55：因为<b>没有规定步态</b>，那只矮机器人才找出了「把腿向侧面张开上台阶」这个人类不会用的办法。</b><span class='k'>方法论依据是一句：Learnings from AlphaGo — <b>Sparse reward + lots of search</b>。两个要素缺一不可：稀疏奖励（别用密集塑形奖励把人的偏好框进去）+ 大量搜索（才可能撞上反直觉的解）。</span>"
+   },
+   {
+    "q": "这一页的主张与本讲前面的内容之间有一处张力，讲者没有挑明。是什么？",
+    "o": ["他主张端到端，却用了两阶段训练", "他主张零样本部署，却做了真机微调", "他主张仿真不可靠，却全程用仿真训练", "他在终章主张「稀疏奖励 + 大量搜索」，而他自己的 RMA 用了十个手工塑形奖励，还承认「不太优雅」、权重「没有好办法」调 —— 那恰恰不是稀疏奖励"],
+    "a": 3,
+    "why": "<b>⇒ 所以「稀疏奖励 + 大量搜索」是一个<b>方向性主张</b>，不是他已在用的做法，读的时候要把两者分开。</b><span class='w'>而这种张力本身值得记：一个领域<b>当下能跑通的做法</b>，和它<b>认为自己应该走的方向</b>，常常不是一回事。</span>"
+   }
+  ]
+ }
+}

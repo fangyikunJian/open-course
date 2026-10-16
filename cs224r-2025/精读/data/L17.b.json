@@ -1,0 +1,234 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p21–p28 **室内评测**（讲者自家客厅）：**Oily surface and plastic wrapped feet**（塑料布上倒橄榄油，机器人脚上也包了塑料）· **5kg payload throw**（抛 5 公斤重物）· **Planks - uneven footholds and moving surfaces**（会随脚移动的木板）",
+  "⚠ 讲稿的数：机器人自重 **12 kg**，所以 **5 kg 大约是它体重的一半**；脚上包塑料「**partially to make it challenging, but also to protect the feet of the robot**」",
+  "⚠ 抛重物那一段的细节：慢放可以看到「**the bot actually goes down**… if you focus on the green dots, in a few steps **it tries to go back up and recover the regular motion style**」",
+  "⚠ 活动板那一段：「this plank **just moves with the foot**. So there's **no clear estimate of the ground** that you can get」",
+  "p29–p31 **关掉适应模块的对照**（Comparison to RMA w/o Adaptation）：负重 **8 kg**。⚠ 做法是「估出第一个时间步的 extrinsics 然后**冻住**、后面不再更新」",
+  "⚠ 讲稿：这台机器人**出厂标称载重约 3 kg**，而 8 kg 已经是「maxing this out」、会让电机更快发热；关掉适应后「the weight **tilts the bot forward** and it **doesn't know to correct for it** by applying more force or torque in the front legs or get back to a higher clearance」",
+  "p32–p36 **适应模块分析**：三张图 —— ① **步态图**（四只脚，线实心 = 触地，硬件有足底传感器）② **右前膝的请求力矩** ③ 从适应模块里取出的两个分量（油面那组取 **z1, z5**，抛重物那组取 **z2, z7**），选它们是因为「show the most variation」",
+  "⚠ p32–p36 讲者的坦白：**这些是学出来的 extrinsics，不好解释** ——「Since these are learned extrinsics, **we cannot interpret them very easily**. But we see that **some change has happened**」",
+  "⚠ 抛重物那组最有信息量的一点：适应完成之后，**力矩稳定到的新水平比事件之前更高** ——「the torque it saturates to after it is done with adapting to this event is **higher than before because it needs more torque to balance the weight that it is carrying**」",
+  "p37 **定量对比**的四条基线：① **Robust**（域随机化但**不把参数喂给策略**）② **System Identification**（直接预测摩擦、质量等物理量）③ **测试时微调**（在真实世界里 rollout 再改策略）④ **RMA w/o Adaptation**",
+  "⚠⚠ **最反直觉的一条结果**：显式做系统辨识（直接预测摩擦、质量）**不但不如 RMA，甚至不如什么都不估的 Robust 基线** ——「interestingly **it's lower than having a robust policy** which is just agnostic to it」",
+  "⚠ 讲者给的理由：精确预测摩擦本来就难（「you might not even detect the full scope of the slip」），**而且对最终任务来说也没有必要** ——「it's also **not necessary to solve** for the final downstream task of walking robustly」",
+  "⚠ Robust 基线的具体毛病：「a bit **conservative**, but it also has a **weaker success rate**. And the amount of **torque** it's exerting is also **higher**. The amount of **jerk** that it experiences is higher **because it has no idea of the environment around it. It is just trying to be as aggressive as possible to make sure that it does not fall**」",
+  "⚠ 讲者把 RMA 与「测试时微调」的区别讲清了：**RMA 更接近上下文学习** ——「you take the history of everything and then **the learning happens in the feed forward pass itself**」，所以是零点几秒；而微调要在真实世界里 rollout 策略才能改进",
+  "p38 **已有的做法**（Existing Attempts at Learning General Policies）：**Domain Randomization (Robust)** · **System Identification** · **Fine tuning at test time in the real world**",
+  "⚠ 讲者承认教师与学生之间有差距：「there's a **small amount of gap** between what we get from the **expert** and from distilling it into an RMA method which can actually be deployed」"
+ ],
+ "notes": [
+  {
+   "r": [21, 28],
+   "t": "室内评测：橄榄油、抛过来的 5 公斤、和会跑的木板",
+   "star": 2,
+   "quote": "<b>Indoors Evaluation</b><br><em><b>Oily surface and plastic wrapped feet</b> &nbsp;·&nbsp; <b>5kg payload throw</b> &nbsp;·&nbsp; <b>Planks - uneven footholds and moving surfaces</b> &nbsp;·&nbsp; <b>RMA - Indoors</b></em>",
+   "one": "<b>三组测试各打一个不同的物理量：油面打摩擦，抛重物打质量，活动板打地面本身的可预测性。而三组都是在讲者自家客厅做的。</b>",
+   "pts": [
+    "<b>这几页是「可控的室内评测」，和 p5–p11 那些野外视频互补：<b>野外证明泛化，室内证明机制</b>。</b> <span class='k'>室内可以<b>精确地</b>改变某一个物理量，从而验证适应模块到底在适应什么</span>。",
+    "<b><b>第一组 · 油面</b>：塑料布上倒橄榄油，而且机器人<b>脚上也包了塑料</b>。</b> <span class='w'>讲稿解释了包塑料的两个目的：「<b>partially to make it challenging, but also to protect the feet of the robot</b>」</span>。<b>⇒ 这一组打的是<b>摩擦</b>。结果是「it slips a bit here, but it <b>continues to march forward without an issue</b>」，慢放能看到打滑的瞬间它<b>保持了平衡没有翻</b>。</b>",
+    "<b><b>第二组 · 抛 5 公斤</b>：而这个数字要配着机器人的自重看才有感觉。</b> <span class='k'>讲稿：机器人自重 <b>12 kg</b>，所以「<b>5 kg is roughly half the weight of the robot</b>」</span>。<b>⇒ 相当于一个 70 公斤的人背上突然多了 35 公斤。</b>",
+    "<b>⚠ 而这一组最值得看的是慢放里的<b>恢复过程</b>：<b>先被压下去，再爬回来</b>。</b> <span class='w'>讲稿：「you see that <b>the bot actually goes down</b>. If you focus on the green dots, in a few steps <b>it tries to go back up and recover the regular motion style</b> that it is working with」</span>。<b>⇒ 这不是「扛住了」，而是<b>先塌陷、再调整、最后回到原来的步态</b>——适应是一个有过程的动作，不是瞬时的。</b>",
+    "<b><b>第三组 · 活动木板</b>：打的是一个更根本的东西——<b>地面本身不可信</b>。</b> <span class='k'>讲稿：「this plank <b>just moves with the foot</b>. So there's <b>no clear estimate of the ground</b> that you can get」</span>。<b>⇒ 前两组至少地面是固定的（只是滑或者重），这一组连「地在哪」都在变。</b>",
+    "<b>⇒ 三组合起来覆盖了三类扰动：<b>摩擦（接触的性质）· 质量（自身的性质）· 地形（环境的几何）</b>，正好对上 p14 随机化的那几个参数。</b>",
+    "<b>讲稿还提到评测范围比幻灯上展示的更广：<b>「a bunch of places including my <b>mattress</b>, on <b>foam</b>, taking a <b>step down</b>, <b>step up</b>」</b>，而且「relatively robust in all of these scenarios」。</b>",
+  "⚠️ <b>但读这几页要带一个清醒的判断：<b>这一整节是<b>定性的</b>，没有一个数字</b>。</b> <span class='w'>「它继续往前走了」「它保持了平衡」「相对鲁棒」——都是看视频得出的描述，<b>没有成功率、没有重复次数、没有误差棒</b></span>。<b>⇒ 真正的定量结果要等到 p29（消融）和 p37（基线对比），而那两处才是仿真里跑的、有数的。</b>",
+  "<b>⇒ 为什么会这样？因为<b>真机实验的样本量天然很小</b>。</b> <span class='k'>每一次「倒油、放机器人、录视频」都要人在场、要清场、要修机器人（这也是为什么要给脚包塑料「to protect the feet」）。<b>想在真机上得到一个带误差棒的成功率，成本是仿真的几百倍</b></span>。<b>⇒ 所以这个领域普遍的做法是：<b>定量结果在仿真里做，真机实验只用来证明「这事在现实里真的发生了」</b>。</b>",
+  "<b>⇒ 这个分工本身是合理的，但它有一个代价要知道：<b>你无法从这些视频里判断方法的<b>可靠性</b></b>——你只知道「成功过」，不知道「十次成几次」。</b> <span class='w'>⇒ 而讲者在 p74 讲 Tesla 的操作结果时，恰恰就自己点出了这一点（「these results are <b>not very reliable</b>」）。<b>同一位讲者，在自己更有信心的那一半用视频，在没信心的那一半主动说不可靠——这个对比值得记。</b></span>",
+    "<b>⚠ 最后别忘了一个贯穿的限定（p5 已经说过，这里仍然成立）：<b>全程是盲的</b>。</b> <span class='w'>机器人看不见油、看不见砸下来的重物、看不见板子在动</span>。<b>⇒ 它只能从自己的动作误差里<b>推断</b>出这些——这正是下两页（p29–p36）要验证的事。</b>",
+  "<b>⇒ 顺带留意「盲」在这里的<b>准确</b>含义，别读成「没有传感器」：<b>它有关节编码器、有 IMU，只是<b>没有外部感知</b></b>（相机、激光雷达、足底接触）。</b> <span class='k'>讲稿的措辞是「all of these just use <b>proprioception history</b>」—— <b>本体</b>感觉，也就是「关于自己身体的感觉」，而不是「关于世界的感觉」。</span><b>⇒ 这个区分到 p39 会变成整个后半讲的出发点。</b>"
+   ],
+   "eq": "这几页是**可控的室内评测**，与 p5–p11 的野外视频互补：\n   **野外证明泛化，室内证明机制**\n   室内可以**精确地**改变某一个物理量，验证适应模块到底在适应什么\n\n**第一组 · 油面**（打**摩擦**）：\n   塑料布上倒橄榄油，机器人**脚上也包了塑料**\n   「**partially to make it challenging, but also to protect the feet of the robot**」\n   结果：「it slips a bit here, but it **continues to march forward without an issue**」\n   慢放能看到打滑的瞬间它**保持平衡没有翻**\n\n**第二组 · 抛 5 公斤**（打**质量**）：\n   机器人自重 **12 kg** ⇒「**5 kg is roughly half the weight of the robot**」\n   相当于 70 公斤的人突然多背 35 公斤\n\n   ⚠ 最值得看的是慢放里的**恢复过程**：**先被压下去，再爬回来**\n     「you see that **the bot actually goes down**. If you focus on the green dots,\n       in a few steps **it tries to go back up and recover the regular motion style**」\n     ⇒ 不是「扛住了」，而是**先塌陷、再调整、最后回到原步态**\n       —— 适应是一个**有过程**的动作，不是瞬时的\n\n**第三组 · 活动木板**（打**地面本身的可预测性**）：\n   「this plank **just moves with the foot**.\n     So there's **no clear estimate of the ground** that you can get」\n   ⇒ 前两组地面至少是固定的（只是滑或重），这一组连「地在哪」都在变\n\n⇒ 三组覆盖三类扰动：\n   **摩擦（接触的性质）· 质量（自身的性质）· 地形（环境的几何）**\n   正好对上 p14 随机化的那几个参数\n\n讲稿提到范围更广：「a bunch of places including my **mattress**, on **foam**,\n   taking a **step down**, **step up**」，而且「relatively robust in all of these」\n\n⚠ 贯穿的限定（p5 已说，这里仍成立）：**全程是盲的**\n   看不见油、看不见砸下来的重物、看不见板子在动\n   ⇒ 只能从自己的**动作误差**里推断 —— 正是 p29–p36 要验证的事",
+   "tbl": {
+    "head": ["三组室内测试", "打的是哪个物理量", "难点"],
+    "rows": [
+     ["<b>橄榄油 + 包塑料的脚</b>", "<b>摩擦</b>", "<b>打滑</b>"],
+     ["<b>抛 5 kg（自重 12 kg）</b>", "<b>质量 / 负载</b>", "<b>⚠ 突然多半个自重</b>"],
+     ["<b>会跑的木板</b>", "<b>地形几何</b>", "<span class='w'>⚠ 连「地在哪」都在变</span>"],
+     ["共同限定", "<b>全程是盲的</b>", "<b>只能从动作误差推断</b>"]
+    ]
+   },
+   "say": "原话（油面那组，以及为什么给脚包塑料）：<em>“This is my living room and I'll pour some oil in it. This is a plastic tarp. I think that is <b>olive oil</b>… And then the robot's feet also have plastic covered on top of it. <b>Partially to make it challenging, but also to protect the feet of the robot.</b> And it slips a bit here, but it <b>continues to march forward without an issue</b>.”</em><br><br>原话（5 公斤是自重的一半，以及先塌陷再恢复）：<em>“here I'm throwing a 5 kg payload on the robot and it seems to be doing fine. Just to be clear, <b>this robot is 12 kgs. 5 kg is roughly half the weight of the robot.</b> I can make this a bit slower and you see that <b>the bot actually goes down</b>. If you focus on the green dots, in a few steps <b>it tries to go back up and recover the regular motion style</b> that it is working with.”</em><br><br>原话（活动木板：地面本身不可信）：<em>“here it's like the foot hold is not even stable. So <b>this plank just moves with the foot. So there's no clear estimate of the ground that you can get.</b> And it's still walking.”</em><br><br>原话（范围比幻灯上更广，而措辞一律是定性的）：<em>“<b>All of these results are blind by the way. There's no vision. All of these just use proprioception history.</b> And I evaluated it on a bunch of places including my <b>mattress</b>, on <b>foam</b>, taking a <b>step down step up</b> and all of these. And it was <b>relatively robust in all of these scenarios</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一节对你的用处不在那三个测试，而在那个<b>定量 / 定性的分工</b> —— 因为你也要做同样的分工，而且你那条线划在哪里会被审稿人追问。</b><br><span class='k'>机器人这边的分工是：<b>定量结果在仿真里做（可重复、可跑几千次），真机只用来证明「这事在现实里真的发生了」</b>。而真机那半<b>没有数</b>，只有视频和「relatively robust」这样的措辞</span>。<br><b>⇒ 你的对应分工是：<b>在固定测试集上跑，和在真实流量上跑</b>。</b><span class='w'>前者可重复、可换种子、可报误差棒；后者只能跑一遍，而且分布不受你控制。</span><br><b>⇒ 建议把两者<b>明确分开报</b>，并学机器人这边的措辞纪律：<b>定量的那半给数（成功率、<code>G</code>、误差棒、种子数），定性的那半只说「发生了什么」，不要偷偷当证据使</b>。</b><br><b>⚠ 而你有一个机器人这边<b>没有</b>的便宜，应该用足：<b>你的「真机」几乎不贵</b>。</b><span class='k'>倒一次油要清场、要修机器人（这就是为什么要给脚包塑料「to protect the feet」）；而你跑一条 query 就是几分钱。<b>⇒ 所以「真机样本量天然小」这个在机器人领域被接受的借口，在你这里<b>不成立</b></b> —— 审稿人会（也应该）要求你在真实设定上也给带误差棒的数字。</span><br><b>⇒ 具体说：<b>至少 3 个随机种子，报均值与标准差；并按任务类型分列，而不是只给一个总平均</b>。</b> <span class='w'>这是一件你<b>做得到</b>而机器人领域做不到的事，所以它不是额外负担，<b>而是你应该主动展示的严谨度</b>。</span><br>⚠️ <b>另一条更要紧的提醒来自「定性视频看不出可靠性」这个问题：<b>你的方法一定会有「省错了」的时候</b>（该用大模型的地方用了小的），而<b>平均 <code>G</code> 会把这些失败藏起来</b>。</b><span class='k'>⇒ 所以除了均值，<b>报分布的左尾</b>：有多少比例的 query 因为降档而从「对」变成了「错」？<b>这个数比平均 <code>G</code> 更能说明你的方法安不安全，而且审稿人一定会问</b>。</span><br><b>⇒ 顺带一个写作上的观察：同一位讲者在自己更有信心的那半（运动控制）用视频，在没信心的那半（p74 的操作结果）主动说「<b>not very reliable</b>」。<b>这个对比就是「诚实的分寸」长什么样。</b></b>",
+    "ref": "本讲 p21–p28（逐字核对）· 讲稿（relatively robust 的措辞、保护机器人的脚）· p74 · 简报 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [29, 31],
+   "t": "把适应模块关掉：同样的重量，它就栽了",
+   "star": 3,
+   "quote": "<b>Comparison to RMA w/o Adaptation</b><br><em><b>RMA 8kg payload</b> &nbsp;vs&nbsp; <b>RMA w/o Adaptation</b></em>",
+   "one": "<b>这是全讲唯一的消融：只关掉「持续更新」这一件事，别的都不变。结果是机器人被压得往前倾，而它不知道该多使点劲——因为它压根没察觉身上多了东西。</b>",
+   "pts": [
+    "<b>先看这个对照的<b>做法</b>，它设计得很干净。</b> <span class='k'>「w/o Adaptation」不是把适应模块删掉，而是<b>只估第一个时间步、然后冻住</b>——「we estimate the extrinsics at the <b>first time step</b> and then we <b>freeze</b> that update and then we <b>don't update</b> the extrinsics for the rest of the run」</span>。",
+    "<b>⇒ 所以这是一个很精确的消融：<b>两边的网络、权重、输入通道完全一样，唯一的差别是「<code>z_t</code> 要不要持续更新」</b>。</b> <span class='w'>它隔离出来的正是 p18 那两个词：<em>Continuously</em> 与 <em>online</em>。</span>",
+    "<b>负重也加到了 <b>8 kg</b>，而这个数字比上一组更夸张。</b> <span class='k'>讲稿：这台机器人<b>出厂标称载重约 3 kg</b>，所以 8 kg 是「<b>maxing this out</b>」，而且会让「motors heat much faster」</span>。<b>⇒ 即便如此，<b>带适应的那一版还能走</b>（「it can still manage to walk」）。</b>",
+    "⚠️ <b>而关掉适应之后的失败方式很具体，值得记住，因为它说明了适应模块到底补了什么。</b> <span class='w'>讲稿：「the weight actually <b>tilts the bot forward</b> and <b>it doesn't know to correct for it</b> by applying <b>more force or torque in the front legs</b> or get back to a <b>higher clearance</b>, and just ends up <b>tilting forward</b> when it doesn't have enough torque to clear for the next step」</span>。",
+    "<b>⇒ 拆开看，它缺的是两个具体的补偿动作：<b>① 前腿加力矩（对抗前倾）；② 抬高离地间隙（免得迈不过去）</b>。</b> <span class='k'>⇒ 这两个动作<b>策略本来是会做的</b>（带适应的那版就做了），它只是<b>不知道现在需要做</b>。</span>",
+    "<b>⇒ 所以这个消融证明的不是「策略能力不足」，而是「<b>策略缺少关于当前情形的信息</b>」——而这正好回到 p15 那句话：<b>aware vs oblivious</b>。</b>",
+    "<b>泡沫垫那一组也是同一个故事：<b>即使脚陷进去，带适应的能处理；而关掉之后「it doesn't know to again apply more force to get higher clearance… <b>because it hasn't detected that event or that change</b>」</b>。</b> <span class='w'>⇒ 注意最后那半句——问题是<b>没检测到事件</b>，不是不会应对。</span>",
+    "<b>⚠ 一个容易忽略但很重要的点：<b>这个消融只有在环境<b>中途</b>变化时才区分得出来</b>。</b> <span class='k'>如果重物从一开始就在身上，那么「只估第一步」也能估对</span>。<b>⇒ 所以实验故意设计成<b>抛</b>过来——<b>让变化发生在运行中间</b>，这才测得到「持续更新」的价值。</b>",
+    "<b>⇒ 这也解释了为什么 p18 要强调 <em>Continuously</em>：<b>真实世界里环境是会变的</b>（踩进水坑、背上东西、地面从硬变软），而一次性标定对付不了这个。</b>"
+   ],
+   "eq": "对照的**做法**（设计得很干净）：\n   「w/o Adaptation」**不是**把适应模块删掉，而是\n   **只估第一个时间步、然后冻住**\n     「we estimate the extrinsics at the **first time step** and then we\n       **freeze** that update and **don't update** the extrinsics for the rest」\n\n   ⇒ 很精确的消融：**网络、权重、输入通道完全一样，\n     唯一差别是「z_t 要不要持续更新」**\n     隔离出来的正是 p18 那两个词：**Continuously** 与 **online**\n\n负重加到 **8 kg**（比上一组更夸张）：\n   这台机器人**出厂标称载重约 3 kg** ⇒ 8 kg 是「**maxing this out**」\n   而且「motors heat much faster」\n   即便如此，**带适应的那一版还能走**（「it can still manage to walk」）\n\n⚠ 关掉适应之后的失败方式（说明了适应模块到底补了什么）：\n   「the weight actually **tilts the bot forward** and **it doesn't know to\n     correct for it** by applying **more force or torque in the front legs**\n     or get back to a **higher clearance**, and just ends up **tilting forward**」\n\n   拆开看，缺的是两个具体补偿动作：\n     ① **前腿加力矩**（对抗前倾）\n     ② **抬高离地间隙**（免得迈不过去）\n   ⇒ 这两个动作**策略本来会做**（带适应的那版就做了），\n     它只是**不知道现在需要做**\n\n⇒ 所以这个消融证明的不是「策略能力不足」，而是\n   **「策略缺少关于当前情形的信息」** —— 回到 p15 那句 **aware vs oblivious**\n\n泡沫垫那组同一个故事：\n   关掉之后「it doesn't know to apply more force to get higher clearance…\n     **because it hasn't detected that event or that change**」\n   ⇒ 注意最后半句：问题是**没检测到事件**，不是不会应对\n\n⚠ 容易忽略但重要：**这个消融只有在环境中途变化时才区分得出来**\n   如果重物从一开始就在身上，「只估第一步」也能估对\n   ⇒ 所以实验故意设计成**抛**过来 —— **让变化发生在运行中间**\n     这才测得到「持续更新」的价值\n\n⇒ 也解释了 p18 为什么强调 Continuously：\n   **真实世界里环境是会变的**（踩进水坑、背上东西、地面从硬变软）\n   一次性标定对付不了这个",
+   "tbl": {
+    "head": ["", "RMA（带适应）", "RMA w/o Adaptation"],
+    "rows": [
+     ["z<sub>t</sub> 怎么来", "<b>每步持续更新</b>", "<b>只估第一步，之后冻住</b>"],
+     ["网络与权重", "<b>一样</b>", "<b>一样</b>"],
+     ["8 kg 负重下", "<b>还能走</b>", "<span class='w'>⚠ 前倾、迈不过去</span>"],
+     ["缺了什么", "—", "<b>前腿加力矩 + 抬高离地间隙</b>"],
+     ["根本原因", "—", "<b>⚠ 没检测到事件，不是不会应对</b>"],
+     ["什么时候才测得出差别", "—", "<b>环境在运行中途变化时</b>"]
+    ]
+   },
+   "say": "原话（消融的做法：只估第一步然后冻住）：<em>“let's see what happens if we switch off this adaptation module. So what this means is <b>we estimate the extrinsics at the first time step and then we freeze that update and then we don't update the extrinsics for the rest of the run</b>.”</em><br><br>原话（8 公斤是标称载重的两倍多，以及关掉之后的失败方式）：<em>“it looks like it is 8 kg. This is like a 12 kg robot and 8 kg is very high and you can see the bot is struggling a bit. So <b>the rated payload for this robot when I bought it was around 3 kg. So I'm maxing this out</b>, leads heats the motors much faster, but it can still manage to walk. <b>If you switch off this adaptation module, so the weight actually tilts the bot forward and it doesn't know to correct for it by applying more force or torque in the front legs or get back to a higher clearance, and just ends up tilting forward when it doesn't have enough torque to clear for the next step.</b>”</em><br><br>原话（泡沫垫那组：问题是没检测到事件）：<em>“Same thing with the foam. Even if it is getting stuck, it seems to manage that fine. But here it doesn't know to again apply more force to get higher clearance to continue walking <b>because it hasn't detected that event or that change</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这个消融的<b>设计</b>比它的结论更值得你学，因为它示范了怎么把一个机制隔离出来测——而你那套方法里有好几个机制混在一起。</b><br><span class='k'>它的做法是：<b>不删模块，只关掉「持续更新」这一个性质</b>。网络、权重、输入通道全都不变，唯一的差别是 <code>z_t</code> 冻不冻</span>。<b>⇒ 于是结论可以精确归因：差别<b>只</b>来自「在线持续估计」这一件事。</b><br><b>⇒ 对照你现在可能会做的消融：「有逐节点分配 vs 没有」——<b>这个对照太粗了</b>，因为两边差的不止一件事。</b><span class='w'>关掉逐节点分配的同时，你也关掉了「不同节点可以不同」「可以逐 query 变化」「搜索算法选出来的」这三件事。</span><br><b>⇒ 按 RMA 的做法重新设计，你应该做的是<b>逐性质</b>的消融：</b><br><span class='k'>· <b>关掉「跨节点可变」</b>：仍然逐 query 自适应，但同一条 query 内所有节点用同一档位 ⇒ 测「节点间异质性」值多少<br>· <b>关掉「跨 query 可变」</b>：仍然逐节点分配，但所有 query 用同一套配置 ⇒ 测「query 间异质性」值多少<br>· <b>关掉「搜索」</b>：保留两种异质性，但配置用随机/启发式选 ⇒ 测「算法」值多少</span><br><b>⇒ 三行，每行只关一个性质，而不是一次关三个。</b><span class='w'>这正是 L15 p16 那句「想清楚好处从哪来」的操作化版本，而 RMA 给了一个具体范例。</span><br><b>⚠ 而第二条最值得你认真看，因为它可能揭穿一件事：<b>如果「所有 query 用同一套配置」表现得几乎一样好，那么你的「逐 query 自适应」就是多余的</b>。</b> <span class='k'>这完全可能——如果 query 之间难度差异不大，一套固定配置就够了</span>。<b>⇒ 与其等审稿人问，不如自己先测并报出来。</b><br><b>另外那条「只有环境<b>中途</b>变化时才测得出差别」的洞察，对你也有一个直接的类比：<b>如果你的 query 难度在执行过程中「揭示」得很早，那逐节点自适应的价值就小</b>。</b> <span class='w'>讲义那边重物是<b>抛</b>过来的，所以必须持续更新；而如果难度从第一个节点就看得出来，那估一次就够了（这也呼应 p20 那个 10 Hz 的意外）</span>。<b>⇒ 可做的检验：<b>看「用前 k 个节点的信号预测最优配置」的准确率随 k 怎么变</b>。如果 k=1 就饱和了，就别做复杂的在线适应。</b>",
+    "ref": "本讲 p29–p31（逐字核对）· 讲稿（冻住第一步、前倾的失败方式）· p15 · p20 · L15 p16 · 简报 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [32, 36],
+   "t": "适应模块到底在做什么：三张图，和一条讲者自己都读不懂的曲线",
+   "star": 3,
+   "quote": "<b>Analysis of Adaptation Module</b><br><em>三张图：① <b>步态图</b>（四只脚，线实心 = 触地）② <b>右前膝的请求力矩</b>（Knee Tau<sub>RL</sub>）③ 适应模块的两个分量（油面组取 <b>z1, z5</b>；抛重物组取 <b>z2, z7</b>）</em><br><em>Oily surface and plastic wrapped feet &nbsp;·&nbsp; 5kg payload throw</em>",
+   "one": "<b>三张图叠在一起看：脚一打滑，步态乱了、力矩变了、而适应模块的输出也跟着跳了一下。至于它跳的那个值是什么意思——讲者自己说解释不了。</b>",
+   "pts": [
+    "<b>先搞清楚三张图各是什么，它们是同一段时间的三个切面。</b> <span class='k'>① <b>步态图</b>：四只脚各一行，<b>线是实心的就表示这只脚在触地</b>（硬件有足底传感器）；② <b>右前膝的请求力矩</b>；③ 从适应模块输出的 <code>z_t</code> 里挑出来的<b>两个分量</b></span>。",
+    "<b>⚠ 为什么只挑两个分量？因为它们「变化最明显」。</b> <span class='w'>讲稿：「I chose these two because they <b>show the most variation</b> in the course of this run」</span>。<b>⇒ 这是一个诚实的说明——<b>这是挑出来给你看的，不是全部</b>。</b>",
+    "<b><b>油面那一组</b>的故事：脚一滑，三张图同时有反应。</b> <span class='k'>「the moment it slips there's some <b>shuffling in the gait</b>. We also see a variation in the <b>torque profile</b>, and we see that <b>the adaptation module changes its value</b> to capture that something has happened」</span>。",
+    "<b>⇒ 而恢复过程也在图上：「after that, it seems to have <b>recovered to the same gait pattern</b> and a similar torque profile as before <b>once the event is detected</b>」。</b> <span class='w'>⇒ 注意因果顺序：<b>事件被检测到 → 然后才恢复</b>。</span>",
+    "⚠️ <b>而讲者对第三张图的坦白值得照录，因为它是一个很重要的限定：<b>「Since these are <b>learned</b> extrinsics, <b>we cannot interpret them very easily</b>. But we see that <b>some change has happened</b>」</b>。</b>",
+    "<b>⇒ 也就是说：<b><code>z_t</code> 的某一维到底代表「摩擦」还是「负载」还是别的什么，没人知道</b>。</b> <span class='k'>它是网络自己学出来的一个 8 维压缩表示，<b>没有被约束成可解释的物理量</b></span>。<b>⇒ 这张图能证明的只有一件事：<b>发生事件时它变了，而且变化与行为的恢复同步</b>。</b>",
+    "<b>⇒ 这个限定很要紧，因为它正好是 p37 那个反直觉结果的<b>另一面</b>：<b>不可解释，恰恰是因为它没有被强迫去预测真实的物理量</b>——而下一页会说，强迫它去预测反而更差。</b>",
+    "<b><b>抛重物那一组</b>多出一个很有信息量的细节，而且它是整页最硬的证据。</b> <span class='w'>重物落下的瞬间力矩很高（冲击），这不奇怪；<b>奇怪的是适应完成之后</b>：「the torque it saturates to after it is done with adapting to this event is <b>higher than before</b>」</span>。",
+    "<b>⇒ 为什么？「<b>because it needs more torque to balance the weight that it is carrying</b>」——<b>它身上确实多了 5 公斤，所以维持同样的步态本来就需要更大的力矩</b>。</b> <span class='k'>⇒ 这说明适应不是「把扰动压回去然后恢复原状」，而是<b>切换到了一个适合新情形的新工作点</b>。</b>",
+    "<b>⇒ 这是一个比「它没摔倒」强得多的证据：<b>力矩稳态的改变，说明策略确实改变了行为，而不只是碰巧扛住了</b>。</b> <span class='w'>⚠ 而且这个证据是<b>定量</b>的、可以从图上读出来的，不依赖主观判断视频里机器人走得好不好。</span>",
+  "⚠️ <b>最后一个容易被跳过、却很说明方法论的细节：<b>画这张步态图用的足底传感器，策略自己是<b>看不到</b>的</b>。</b> <span class='k'>讲稿：「there <b>are feet sensors in the hardware</b> which let us plot this」。而 p15 那张输入表里<b>没有</b>足底接触信号 —— 策略的输入只有关节位置、速度和上一步动作</span>。",
+  "<b>⇒ 所以这里有一个清楚的分工，值得作为一条通用做法记住：<b>策略只用部署时能依赖的输入；分析可以用任何你拿得到的仪器</b>。</b> <span class='w'>⇒ 足底传感器贵、易坏、未必每台机器都有，所以不进策略；但它在实验室里能给你一张干净的触地图，所以进分析。</span>",
+  "<b>⇒ 这个分工对应到你自己的工作，是一条很实用的纪律：<b>「决策能看什么」和「我能测什么」是两张不同的清单，而混起来就是泄漏</b>。</b> <span class='k'>你的分析里可以用标准答案、可以用更大模型的判断、可以用事后的重试记录；<b>但这些一样都不能进入决策的输入</b>。⇒ 写代码时把这两张清单<b>物理上分开</b>（两个 dataclass、两条管线），比靠记性可靠。</span>",
+  "<b>⚠ 而这也解释了为什么这三张图只能做<b>定性</b>的证据：<b>它们是单次运行的轨迹，不是统计</b>。</b> <span class='w'>一次打滑、一次抛重物，各一张图。<b>⇒ 想说「适应模块普遍有效」，靠的是 p29 的消融和 p37 的基线表（那两处是仿真里跑的、有数的）；这三张图的作用是<b>说明机制长什么样</b>，而不是证明它成立。</b></span>"
+   ],
+   "eq": "**三张图是同一段时间的三个切面**：\n   ① **步态图**：四只脚各一行，**线实心 = 这只脚在触地**（硬件有足底传感器）\n   ② **右前膝的请求力矩**（Knee Tau_RL）\n   ③ 适应模块输出 z_t 里挑出来的**两个分量**\n\n   ⚠ 为什么只挑两个：「I chose these two because they **show the most variation**」\n     ⇒ 诚实的说明 —— **这是挑出来给你看的，不是全部**\n\n**油面那组**：脚一滑，三张图同时有反应\n   「the moment it slips there's some **shuffling in the gait**. We also see a\n     variation in the **torque profile**, and we see that **the adaptation module\n     changes its value** to capture that something has happened」\n   恢复：「after that, it seems to have **recovered to the same gait pattern**…\n          **once the event is detected**」\n   ⇒ 注意因果顺序：**事件被检测到 → 然后才恢复**\n\n⚠⚠ 讲者对第三张图的坦白（很重要的限定）：\n   「Since these are **learned** extrinsics, **we cannot interpret them very easily**.\n     But we see that **some change has happened**」\n\n   ⇒ **z_t 的某一维代表「摩擦」还是「负载」还是别的，没人知道**\n     它是网络自己学出来的 8 维压缩表示，**没有被约束成可解释的物理量**\n   ⇒ 这张图能证明的只有：**发生事件时它变了，而且变化与行为恢复同步**\n\n   ⇒ 这个限定正是 p37 那个反直觉结果的**另一面**：\n     **不可解释，恰恰因为它没有被强迫去预测真实物理量**\n     —— 而下一页会说，强迫它去预测反而**更差**\n\n**抛重物那组**多出一个最硬的证据：\n   重物落下瞬间力矩很高（冲击）—— 不奇怪\n   **奇怪的是适应完成之后**：\n     「the torque it saturates to after it is done with adapting to this event\n       is **higher than before**」\n   为什么：「**because it needs more torque to balance the weight\n             that it is carrying**」\n     —— 身上确实多了 5 公斤，维持同样步态本来就需要更大力矩\n\n   ⇒ 适应不是「把扰动压回去然后恢复原状」，\n     而是**切换到了一个适合新情形的新工作点**\n   ⇒ 这比「它没摔倒」强得多：\n     **力矩稳态的改变说明策略确实改变了行为，而不只是碰巧扛住了**\n   ⚠ 而且这个证据是**定量**的、可从图上读出，\n     不依赖主观判断视频里走得好不好",
+   "tbl": {
+    "head": ["三张图", "看什么", "事件发生时"],
+    "rows": [
+     ["<b>步态图</b>", "<b>四只脚什么时候触地</b>", "<b>步态出现紊乱</b>"],
+     ["<b>右前膝力矩</b>", "<b>请求了多大力矩</b>", "<b>力矩剖面变化</b>"],
+     ["<b>z<sub>t</sub> 的两个分量</b>", "<span class='w'>⚠ 含义不可解释</span>", "<b>数值跳变</b>"],
+     ["⚠ 抛重物组的硬证据", "<b>适应后力矩稳态<b>更高</b></b>", "<b>因为真的多背了 5 kg</b>"]
+    ]
+   },
+   "say": "原话（三张图同时有反应，以及「事件被检测到之后才恢复」）：<em>“if you see that <b>the moment it slips there's some shuffling in the gait</b>. We also see a variation in the <b>torque profile</b>, and we see that <b>the adaptation module changes its value to capture that something has happened</b>. <b>Since these are learned extrinsics, we cannot interpret them very easily. But we see that some change has happened.</b> And after that, it seems to have <b>recovered to the same gait pattern</b> and a similar torque profile as before <b>once the event is detected</b>.”</em><br><br>原话（适应之后力矩稳态更高——整页最硬的证据）：<em>“for this example, there's the 5 kg payload which is dropped, which means that at the time of impact, the force is probably even more… And we see that there's again the shuffling of this gait. And the torque is very high at the moment when this drops. <b>But it comes back to a regular gait. But the torque that it saturates to after it is done with adapting to this event — the torque it saturates to is higher than before because it needs more torque to balance the weight that it is carrying.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>那个「适应后力矩稳态更高」的证据，是一个<b>实验设计上的范例</b>，而你的论文正缺这种东西。</b><br><span class='k'>它的妙处在于：<b>不是去证明「系统表现更好」，而是去证明「系统的内部工作点确实改变了，而且改变的方向与物理解释一致」</b></span>。<b>⇒ 「它没摔倒」可以是运气；而「它稳定到了一个更高的力矩，因为确实多背了 5 公斤」<b>只能</b>由「它真的察觉并补偿了」来解释。</b><br><b>⇒ 你需要一个同类的证据，而且你有材料做：<b>证明「逐节点档位分配确实在<b>按节点难度</b>分配，而不是碰巧凑出一个好分数」</b>。</b><br><span class='w'>可做的形式：<b>把搜出来的最优配置里「各节点被分到大模型的频率」，与一个独立测出的「各节点难度指标」画成散点图</b></span>。<b>⇒ 那个难度指标要<b>独立于你的搜索过程</b>——比如「把该节点单独换成小模型时，该节点输出质量的下降幅度」。</b><b>如果两者相关，那就说明你的方法学到的是<b>结构</b>而不是噪声；如果不相关，那你的提升来自别的东西，而你需要知道是什么。</b><br><b>⚠ 而讲者那句「<b>学出来的 extrinsics 我们解释不了</b>」，对你有一条相反方向的提醒，值得认真想。</b><br><span class='k'>RMA 可以不解释 <code>z_t</code>，因为它的交付物是<b>一个能走路的机器人</b>——用户不关心中间表示</span>。<b>⇒ 而你的交付物很可能<b>包含</b>解释：「<b>哪些节点值得花钱</b>」本身就是一个有价值的结论，甚至可能比那几个百分点的 <code>G</code> 提升更有价值。</b><br><b>⇒ 所以你<b>不</b>应该学 RMA 走「学一个不可解释的压缩表示」那条路。</b> <span class='w'>你的 <code>θ</code>（逐节点逐档位的系数）天然是可解释的——<b>这是你的线性模型相对黑盒方法的一个真实优势</b>，而不只是一个为了可分析而做的妥协。</span><br><b>⇒ 这句话值得写进论文：<b>我们选择线性模型不只是为了可分析性，也因为它的参数直接回答了实践者真正关心的问题——「钱该花在哪个节点上」。</b></b><br><b>⚠ 最后一条方法上的：那个「只挑了变化最明显的两个分量」的诚实说明也该学。</b> <span class='k'>你报节点级结果时，如果只展示几个最显著的节点，<b>要明说是挑出来的</b>，并把完整的表放进附录。</b>",
+    "ref": "本讲 p32–p36（逐字核对）· 讲稿（不可解释、力矩稳态更高）· p37 · 简报 §1 §4c §4d（已核）"
+   }
+  },
+  {
+   "r": [37, 38],
+   "t": "四条基线，和那个反直觉的结果：显式估物理量反而更差",
+   "star": 3,
+   "quote": "<b>Quantitative Comparison</b> — 四条基线<br><b>Existing Attempts at Learning General Policies</b><br><em>• <b>Domain Randomization (Robust)</b><br>• <b>System Identification</b><br>• <b>Fine tuning at test time in the real world</b></em>",
+   "one": "<b>最值得记的不是 RMA 赢了，而是输的那一条输得多难看：直接去预测摩擦和质量，不但不如 RMA，甚至不如一个压根不估环境的笨策略。</b>",
+   "pts": [
+    "<b>四条基线对应四种「怎么应对未知环境」的思路，值得逐条看清它们各自赌的是什么。</b>",
+    "<b><b>① Robust（域随机化但不喂参数）</b>：赌的是「我不需要知道环境，我只要对一切都扛得住」。</b> <span class='k'>做法就是 p14 那一套减掉「把参数喂给策略」这一步</span>。<b>⇒ 讲者的评价很具体：「a bit <b>conservative</b>, but it also has a <b>weaker success rate</b>. And the amount of <b>torque</b> it's exerting is also <b>higher</b>. The amount of <b>jerk</b> that it experiences is higher」。</b>",
+    "<b>⇒ 而原因一句话点透：<b>「because it has <b>no idea of the environment</b> around it. It is just trying to be <b>as aggressive as possible</b> to make sure that it does not fall」</b>。</b> <span class='w'>⇒ 不知道情况，就只能<b>一律用最大的力气</b>——又费电、又伤硬件、成功率还更低。</span>",
+    "⚠️ <b><b>② System Identification（直接预测摩擦、质量这些物理量）</b>：这是最「正统」的思路，而它的结果最意外。</b> <span class='k'>做法是不去预测压缩的 <code>z_t</code>，而是<b>直接预测真实的物理参数</b></span>。",
+    "<b>⇒ 结果是：<b>不但不如 RMA，而且「interestingly <b>it's lower than having a robust policy</b> which is just agnostic to it」——连那个什么都不估的笨策略都不如</b>。</b>",
+    "<b>⇒ 讲者给了两条理由，而<b>第二条才是真正的要害</b>。</b> <span class='w'><b>理由一</b>：精确预测本来就难——「you might not even <b>detect the full scope of the slip</b> or you might not even know <b>exactly how much the mass is</b>」</span>；<b><b>理由二</b>：<b>「it's also <b>not necessary</b> to solve for the final downstream task of walking robustly」</b>——<b>你根本不需要知道摩擦系数是 0.3 还是 0.35，你只需要知道「该多使点劲」</b>。</b>",
+    "<b>⇒ 所以这条基线输在<b>解了一个比需要的更难的问题</b>：它被迫去估一个精确的物理量，而那个精度既达不到、也用不上，于是误差反而污染了下游。</b> <span class='k'>⚠ 这条教训在本讲会<b>再出现一次</b>——p42–p44 的「地形图」是同一个错误的视觉版本。</span>",
+    "<b><b>③ 测试时微调</b>：赌的是「到了真实世界再改权重」。</b> <span class='w'>而讲者把 RMA 与它的区别讲得很清楚：「The RMA style is closer to <b>in context learning</b> where you take the history of everything and then <b>the learning happens in the feed forward pass itself</b>, which lets it do it in <b>fractions of a second</b> instead of trying to estimate that at inference time by <b>rolling out policies</b>」</span>。<b>⇒ 一个要跑很多次才能改进，一个一次前向就完成。</b>",
+    "<b><b>④ RMA w/o Adaptation</b>：就是 p29 那个消融，性能低于完整的 RMA。</b>",
+    "<b>⚠ 最后讲者还承认了一处差距，这种诚实值得记：<b>教师与学生之间有小差距</b>。</b> <span class='k'>「there's a <b>small amount of gap</b> between what we get from the <b>expert</b>（用特权信息的那个）and from distilling it into an RMA method which can actually be deployed」</span>。<b>⇒ 蒸馏不是无损的——学生从历史里估出来的 <code>z_t</code> 毕竟不如真值。</b>",
+    "<b>把 p38 和这一页并起来看：<b>三条已有路线各自的失败方式，正好定义了 RMA 的位置</b></b>——<span class='w'>比 Robust 更知情、比系统辨识更不贪心、比测试时微调更快</span>。",
+  "<b>⚠ 读这张表要留意它报了<b>三类指标</b>，而不只是成功率，这个选择本身有讲究。</b> <span class='k'><b>① 成功率</b>（走完没摔）；<b>② 力矩</b>（花了多少劲）；<b>③ jerk</b>（加速度的变化率，衡量动作有多<b>颠</b>）</span>。<b>⇒ 后两个不是「附加的工程指标」——<b>它们是硬件寿命和能耗的直接代理</b>，而这正好对上 p16 那十个奖励里的 <em>Energetics</em> 与 <em>Minimize hardware damage</em>。</b>",
+  "⚠️ <b>⇒ 而 Robust 这一行最值得想清楚：<b>它同时「更保守」<b>和</b>「成功率更低」</b>。</b> <span class='w'>这两件事直觉上该是反的——越保守应该越不容易摔</span>。<b>⇒ 但它保守的方式是<b>对一切都绷着</b>：力矩拉满、动作僵硬、jerk 很高，像人在冰面上走路时那种全身紧张。<b>⇒ 结论是：<b>「小心」如果不是针对当前情形的小心，就既不省力、也不管用</b>。</b></b>",
+  "<b>⇒ 这一条对比其实比「RMA 比 Robust 强」这个结论更有意思，因为它说明了<b>强在哪</b>：<b>不是更小心，而是小心得有针对性</b>。</b> <span class='k'>⇒ 带适应的策略在平地上可以放松（省力矩），只在检测到异常时才绷紧；而 Robust 没有这个开关，<b>只能全程按最坏情况活着</b>。</span>",
+  "<b>⚠ 最后一个读表的提醒：这张表是<b>仿真里</b>跑的。</b> <span class='w'>讲者前面那一大段真机视频（p21–p28）<b>没有对应的定量基线对比</b>——真机上只有 RMA 自己的消融（p29），没有和系统辨识、测试时微调的真机对拼</span>。<b>⇒ 这不是造假，是这个领域的通例（真机实验太贵）。<b>但读的时候要知道：「比基线强」这个结论的证据是仿真的，「在真实世界能用」这个结论的证据是视频的，两者没有在同一处交汇。</b></b>"
+   ],
+   "eq": "四条基线 = 四种「怎么应对未知环境」的思路\n\n**① Robust（域随机化但不喂参数）**\n   赌的是：「我不需要知道环境，我只要对一切都扛得住」\n   做法 = p14 那一套**减掉**「把参数喂给策略」\n   评价：「a bit **conservative**, but **weaker success rate**.\n           **torque** is **higher**. **jerk** is higher」\n   原因一句话：「because it has **no idea of the environment** around it.\n     It is just trying to be **as aggressive as possible** to make sure it does not fall」\n   ⇒ 不知道情况就只能**一律用最大力气** —— 费电、伤硬件、成功率还更低\n\n⚠⚠ **② System Identification（直接预测摩擦、质量）** —— 最「正统」，结果最意外\n   做法：不预测压缩的 z_t，而**直接预测真实物理参数**\n   结果：不但不如 RMA，而且\n     「interestingly **it's lower than having a robust policy**\n       which is just agnostic to it」\n     —— **连那个什么都不估的笨策略都不如**\n\n   两条理由，**第二条才是要害**：\n     理由一：精确预测本来就难\n       「you might not even **detect the full scope of the slip** or\n         you might not even know **exactly how much the mass is**」\n     理由二：**「it's also not necessary to solve for the final downstream\n               task of walking robustly」**\n       ⇒ **你不需要知道摩擦是 0.3 还是 0.35，你只需要知道「该多使点劲」**\n\n   ⇒ 它输在**解了一个比需要的更难的问题**：\n     被迫去估一个精确物理量，而那个精度既达不到、也用不上，\n     于是误差反而污染了下游\n   ⚠ 这条教训本讲会**再出现一次** —— p42–p44 的「地形图」是它的视觉版本\n\n**③ 测试时微调**：赌的是「到了真实世界再改权重」\n   RMA 与它的区别：\n     「The RMA style is closer to **in context learning**… **the learning happens\n       in the feed forward pass itself**, which lets it do it in **fractions of a\n       second** instead of estimating at inference time by **rolling out policies**」\n   ⇒ 一个要跑很多次才能改进，一个**一次前向就完成**\n\n**④ RMA w/o Adaptation**：p29 那个消融，低于完整 RMA\n\n⚠ 讲者承认的一处差距（诚实值得记）：\n   「there's a **small amount of gap** between what we get from the **expert**\n     and from distilling it into an RMA method which can actually be deployed」\n   ⇒ **蒸馏不是无损的** —— 学生从历史估出的 z_t 毕竟不如真值\n\np38 + 这一页：**三条已有路线各自的失败方式，正好定义了 RMA 的位置**\n   比 Robust 更**知情**、比系统辨识更**不贪心**、比测试时微调更**快**",
+   "tbl": {
+    "head": ["四条基线", "赌的是什么", "怎么输的"],
+    "rows": [
+     ["<b>Robust（域随机化）</b>", "<b>不必知道环境，扛住就行</b>", "<b>保守 · 力矩大 · 成功率反而低</b>"],
+     ["<b>System Identification</b>", "<b>把物理量精确估出来</b>", "<span class='w'>⚠ 连 Robust 都不如</span>"],
+     ["<b>测试时微调</b>", "<b>到真实世界再改权重</b>", "<b>要反复 rollout，慢</b>"],
+     ["<b>RMA w/o Adaptation</b>", "<b>估一次就够</b>", "<b>环境中途变化就垮</b>"],
+     ["<b>RMA</b>", "<b>只估「够用的压缩量」并持续更新</b>", "<b>⚠ 与教师仍有小差距</b>"]
+    ]
+   },
+   "say": "原话（Robust 基线为什么力矩和冲击都更高）：<em>“if you compare that with robust, we see that it is <b>a bit conservative, but it also has a weaker success rate. And the amount of torque it's exerting is also higher. The amount of jerk that it experiences is higher because it has no idea of the environment around it. It is just trying to be as aggressive as possible to make sure that it does not fall.</b>”</em><br><br>原话（系统辨识输得最意外，以及那条要害理由）：<em>“in this instantiation of system identification what we try to do is instead of trying to predict the extrinsics which is a compressed version of these environment parameters, we directly go for these sys ID parameters. So we directly try to predict friction and all of these other parameters. And <b>this is a hard problem to predict exactly what the friction is because you might not even detect the full scope of the slip or you might not even know exactly how much the mass is, but it's also not necessary to solve for the final downstream task of walking robustly</b>. And we see the gap in performance if we try to explicitly estimate these parameters, and <b>interestingly it's lower than having a robust policy which is just agnostic to it</b>.”</em><br><br>原话（RMA 更像上下文学习，所以快）：<em>“The RMA style is closer to <b>in context learning</b> where you take the history of everything and then <b>the learning happens in the feed forward pass itself</b>. So you'll see all of these parameters and then you estimate how the network should behave, which lets it do it <b>in fractions of a second</b> instead of trying to estimate that at inference time by <b>rolling out policies</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>系统辨识那条基线的失败，是这一讲里对你<b>最有警示价值</b>的一个结果，而且它直接针对一条我在 L15 主线卡里给过你的建议。</b><br><span class='k'>结论是：<b>被迫去精确估计一个中间物理量，不但不如估一个「够用的压缩量」，甚至不如什么都不估</b>。理由是那个精度「既达不到，对下游任务也没必要」</span>。<br><b>⇒ 而我在 L15 建议过你给每个节点打一个「这一步做对了没有」的标签（节点级信用分配）。<b>这一页提醒了那条建议的风险</b>：如果那个节点级判别器<b>不够准</b>，它可能比不打标签<b>更糟</b>——因为你会拿一个有偏的中间信号去指导配置选择。</b><br><b>⇒ 所以那条建议要加一个前置检验：<b>先量一下判别器自身的准确率，再决定用不用它</b>。</b><span class='w'>而且判据不是「准确率够高吗」，而是讲者那两条：<b>① 你估得准吗？② 这个精度对最终决策有必要吗？</b></span><br><b>⇒ 第 ② 条尤其值得想：<b>你真的需要知道「节点 j 的输出质量是 0.7 还是 0.8」吗？</b></b> <span class='k'>你真正要的决策只是「这个节点该不该升档」——那是一个<b>二元</b>判断，远比估一个连续质量分容易</span>。<b>⇒ 按 RMA 的教训，你应该直接去学那个<b>够用的量</b>（升不升档），而不是先精确估质量再推导。</b><br><b>⚠ 而 Robust 基线那条教训也有直接对应，而且它描述了一个你很可能见过的现象：<b>不知道情况就一律用最大力气</b>。</b><br><span class='w'>讲义的 Robust 策略「因为完全不知道周围环境，就尽可能地用力，以保证不摔倒」——结果是力矩更大、冲击更大、成功率反而更低</span>。<b>⇒ 你的对应是：<b>不做配置选择就全用大模型</b>。那正是「一律用最大力气」。</b><br><b>⇒ 而讲义给了一个你可能没想到的论点：<b>这样做不只是贵，它的成功率<b>也</b>可能更低</b>。</b> <span class='k'>机器人那边是因为过度用力带来冲击；而在你这边，<b>全用大模型未必在所有节点上都更好</b>——更强的模型可能在简单的格式化节点上过度发挥（加解释、改格式），反而破坏下游解析</span>。<b>⇒ 这是一个<b>可检验</b>的假设，而且如果成立就是一个很有力的结果：<b>存在某些节点，降档不仅省钱而且更准</b>。</b><br><b>⚠ 最后那条「蒸馏有小差距」的诚实，也值得照搬：<b>如果你做了「穷举教师 → 可部署学生」那套（L17.a p19 科研格），一定要把教师与学生的差距报出来</b>。</b> <span class='w'>那个差距就是「用可观测特征替代穷举」的代价，而审稿人一定会想知道它有多大。</span>",
+    "ref": "本讲 p37–p38（逐字核对）· 讲稿（系统辨识那两条理由、Robust 的力矩与冲击）· L15 主线卡 · L17.a p19 科研格 · 简报 §4b §4d（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "21": [
+   {
+    "q": "三组室内测试各打一个不同的物理量。活动木板那一组打的是什么？",
+    "o": ["打的是摩擦，因为木板很滑", "打的是电机强度", "打的是地面本身的可预测性 —— 板子会随脚移动，「没有任何关于地面的明确估计可言」；前两组地面至少是固定的（只是滑或重），这一组连「地在哪」都在变", "打的是机器人的平衡感"],
+    "a": 2,
+    "why": "<span class='k'>另两组：橄榄油打摩擦（脚上包塑料「既是为了增加难度，也是为了保护机器人的脚」），抛 5 公斤打质量（机器人自重 12 kg，相当于突然多背半个自己）。</span><b>⚠ 而贯穿的限定是：全程是盲的——它看不见油、看不见砸下来的重物、看不见板子在动。</b>"
+   },
+   {
+    "q": "抛 5 公斤那一段慢放里，讲者让你注意什么？",
+    "o": ["先被压下去，再爬回来 —— 不是「扛住了」，而是先塌陷、再调整、最后回到原来的步态；适应是一个有过程的动作", "机器人改变了行进方向", "机器人完全没有受影响", "机器人停下来等待"],
+    "a": 0,
+    "why": "<span class='w'>讲稿：「you see that the bot actually goes down. If you focus on the green dots, in a few steps it tries to go back up and recover the regular motion style」。</span><b>三组合起来覆盖三类扰动：摩擦（接触的性质）· 质量（自身的性质）· 地形（环境的几何），正好对上 p14 随机化的那几个参数。</b>"
+   }
+  ],
+  "29": [
+   {
+    "q": "「关掉适应模块」这个对照实验具体是怎么做的？为什么这个做法很干净？",
+    "o": ["只估第一个时间步然后冻住，之后不再更新；干净在于两边的网络、权重、输入通道完全一样，唯一差别是「z_t 要不要持续更新」", "降低适应模块的更新频率到 1 Hz", "换成一个更小的适应模块", "把适应模块整个删掉，改用固定的默认值"],
+    "a": 0,
+    "why": "<b>它隔离出来的正是 p18 那两个词：Continuously 与 online。</b><span class='k'>⚠ 而这个消融只有在环境<b>中途</b>变化时才区分得出来——如果重物从一开始就在身上，「只估第一步」也能估对。所以实验故意设计成<b>抛</b>过来。</span>"
+   },
+   {
+    "q": "关掉适应之后，机器人的失败方式是什么？它说明了什么？",
+    "o": ["电机过热导致停机", "被压得往前倾，而它不知道该给前腿加力矩、也不知道该抬高离地间隙 —— 说明问题不是「策略能力不足」而是「策略缺少关于当前情形的信息」", "它选择了站着不动", "策略发散，动作变成随机"],
+    "a": 1,
+    "why": "<b>这两个补偿动作策略本来是会做的（带适应的那版就做了），它只是<b>不知道现在需要做</b>。</b><span class='w'>泡沫垫那组同一个故事，讲稿的措辞是「because it hasn't <b>detected</b> that event or that change」——问题是没检测到事件，不是不会应对。</span>"
+   }
+  ],
+  "32": [
+   {
+    "q": "讲者对适应模块输出的那两条曲线，给了什么坦白？",
+    "o": ["它们是手工设计的特征", "这是学出来的 extrinsics，不好解释 —— 「我们没法轻易解释它们，但我们看到发生了某种变化」；它是网络自己学的压缩表示，没有被约束成可解释的物理量", "它们只在仿真里有意义", "它们精确对应摩擦系数和负载"],
+    "a": 1,
+    "why": "<b>⇒ 这张图能证明的只有一件事：发生事件时它变了，而且变化与行为的恢复同步（注意因果顺序：<b>事件被检测到 → 然后才恢复</b>）。</b><span class='k'>而「不可解释」恰恰是 p37 那个反直觉结果的另一面：它没有被强迫去预测真实物理量——而强迫它去预测反而更差。</span>"
+   },
+   {
+    "q": "抛重物那一组里，最硬的那个定量证据是什么？",
+    "o": ["适应完成之后，力矩稳定到的新水平比事件之前更高 —— 因为身上确实多了 5 公斤，维持同样步态本来就需要更大力矩；这说明适应不是「压回原状」而是切换到了适合新情形的新工作点", "步态频率变慢了", "冲击瞬间的力矩很高", "四只脚的触地时间变长了"],
+    "a": 0,
+    "why": "<b>这比「它没摔倒」强得多：「没摔倒」可以是运气，而力矩稳态的改变只能由「它真的察觉并补偿了」来解释。</b><span class='w'>而且这个证据是<b>定量</b>的、可从图上读出，不依赖主观判断视频里走得好不好。</span>"
+   }
+  ],
+  "37": [
+   {
+    "q": "四条基线里最反直觉的结果是哪一条？",
+    "o": ["RMA w/o Adaptation 与完整 RMA 相当", "测试时微调比 RMA 更好", "Robust 基线的成功率最高", "显式做系统辨识（直接预测摩擦、质量）不但不如 RMA，甚至不如那个什么都不估的 Robust 基线"],
+    "a": 3,
+    "why": "<b>讲者给了两条理由，而第二条才是要害：精确预测本来就难，<b>而且对最终任务来说也没有必要</b>——「你不需要知道摩擦是 0.3 还是 0.35，你只需要知道该多使点劲」。</b><span class='k'>⇒ 它输在<b>解了一个比需要的更难的问题</b>。而这条教训在 p42–p44 的「地形图」那里会再出现一次。</span>"
+   },
+   {
+    "q": "Robust 基线（域随机化但不喂参数）的毛病是什么？根本原因呢？",
+    "o": ["需要更多训练样本", "无法泛化到新地形", "训练不稳定，容易发散", "保守、成功率反而更低、力矩和冲击都更大；根本原因是「它对周围环境一无所知，只能尽可能用力以保证不摔倒」"],
+    "a": 3,
+    "why": "<b>⇒ 不知道情况，就只能一律用最大的力气——又费电、又伤硬件、成功率还更低。</b><span class='w'>而讲者还承认了一处差距：用特权信息的<b>教师</b>与蒸馏出来的 RMA 学生之间仍有小差距——蒸馏不是无损的。</span>"
+   }
+  ]
+ }
+}

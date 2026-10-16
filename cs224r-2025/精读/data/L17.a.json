@@ -1,0 +1,290 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p1 **客座讲者 Ashish Kumar（Tesla Optimus）**，题目 **Advancing Robot Intelligence with Reinforcement Learning**",
+  "p2 **模仿学习 vs 强化学习对照（逐字）**：**Imitation Learning** —— Used in: VLMs, video generation, image segmentation；Characteristics: **Relies heavily on off-policy data** · **Learns from good examples** · **Gives generalists**。**Reinforcement learning** —— Used in: Game playing, reasoning, **robotics**；Characteristics: **On policy data** · **Uses good as well as bad data** · **Gives Specialists**",
+  "⚠ p2 讲稿的限定必须带上：**「I'm going to compare imitation learning that actually works with reinforcement learning that actually works」** —— 这张表描述的是**最成功的那一批**的共性，不是定义；而且**不是说哪个严格更好**（AlphaGo 与 LLM 都是先用模仿学习热启动）",
+  "p3 **强化学习成就了什么**：**AlphaGo** —— Learned to **exceed what humans can do**；**Reasoning in LLMs**（DeepSeek-R1）—— **Coherent over long horizon**；**Dexterity in robotics** —— **Reliability**",
+  "p3 **两个共同的成功要素（全讲的论点）**：**Well specified rewards** · **Scalable evaluation of policies**",
+  "⚠ 讲稿：这三件事**相隔七八年**发生，而两个要素始终没变。AlphaGo 的奖励稀疏但清楚（看棋盘就知道赢没赢）；DeepSeek-R1 用 **rule-based reward function**，「since it is rule-based you can automate it and you can get it very cleanly and clearly **at scale**」",
+  "p4 **机器人怎么拿到这两样**：Well specified rewards → **Programmatically calculate them**；Scalable evaluation of policies → **Simulation**；然后问：**Simulation to real?**",
+  "⚠ 讲稿把仿真的作用说得很准：「we have converted a **physical problem to a digital problem** which now just will scale with compute」",
+  "p5–p11 真实世界结果（视频）：Berkeley 的碎石、看不见的楼梯、草地、向左倾斜的坡、家门口的建筑工地、泥地、沙地。⚠ **全部是同一套权重、零样本部署、而且全程是盲的（只用本体感觉历史）**：「all of these results are from the **exact exact same policy**… **deployed zero shot** in the real world **without any tuning**」",
+  "p12/p13 **RMA = Rapid Motor Adaptation for Legged Robots**（Ashish Kumar, Zipeng Fu, Deepak Pathak, Jitendra Malik），**RSS 2021**",
+  "p14/p15 **在仿真里学走路**：随机化 **Mass · COM · Friction · Terrain Height · Motor Strength** → **Environmental Factor Encoder** → **z_t（extrinsics，外在参数）** → **Base Policy** → a_t",
+  "⚠ p15 关键在于**把这些参数直接喂给策略**：「we will randomize all of these parameters… and the important part is **we will let the policy have access to all of these parameters**… **it's not oblivious or blind to the environment. It's actually aware of what it's dealing with**」",
+  "p16 **奖励函数三块**：**Forward Walking**（任务）· **Energetics**（能耗）· **Stability + Minimize hardware damage**（稳定与别弄坏硬件）",
+  "⚠ 讲稿：实际有 **10 个**奖励函数，「This is **not very elegant**, but we tried to be as principled as we can」；训练约 **10 亿样本**；而「minimize work and ground impact」的依据是**生物力学与能量学**",
+  "p17 **部署时的坎**：**Unknown Extrinsics · Unavailable** —— z_t 在真实世界里拿不到。讲稿：就算在自家客厅标定好，「the moment I get to something which is not my living room, let's say sand or mulch… it would fail to work and **I have to retune it again**」",
+  "p18 **关键洞察 —— Extrinsics from Observation History**：拿最近 **50 步**的 (x, a) 历史喂进 **Adaptation Module** 估出 z_t。依据是 **Discrepancy b/w expected movement and actual measured movement**，并 **Continuously estimate these extrinsics online**",
+  "⚠ p18 讲稿给的直觉最好记：「you give a command to walk and then one of your legs **slips more than what you expected**… the **discrepancy between your signal and what you actually commanded** will tell you that you actually slipped」",
+  "p19 **两阶段训练**：**Phase 1** 用特权信息（Environmental Factor Encoder + Base Policy）端到端训；**Phase 2** 冻住 Base Policy，用 **Regress / DAgger** 把 Adaptation Module 训成从历史回归出 z_t",
+  "⚠ p19 讲稿点明 DAgger 的用法：**roll out the student policy** 生成数据分布，再用 **teacher** 对每一个时间步做监督",
+  "p20 **测试时的频率**：**Adaptation Module 10 Hz** · **Base Policy 100 Hz**。⚠ 而这**不是设计出来的**：「this is **not by choice**, it's because of whatever compute is available on board… this was **not accounted for during training**. In training we train everything at **100 Hz in lock step**」—— 而**性能没有掉**"
+ ],
+ "notes": [
+  {
+   "r": [1, 4],
+   "t": "两个成功要素：奖励说得清，评估跑得起",
+   "star": 3,
+   "quote": "<b>What is reinforcement learning?</b><br><em><b>Imitation Learning</b> — Used in: VLMs, video generation, image segmentation, etc. Characteristics: <b>Relies heavily on off-policy data</b> · <b>Learns from good examples</b> · <b>Gives generalists</b></em><br><em><b>Reinforcement learning</b> — Used in: Game playing, reasoning, <b>robotics</b>. Characteristics: <b>On policy data</b> · <b>Uses good as well as bad data</b> · <b>Gives Specialists</b></em><br><b>What has reinforcement learning achieved?</b><br><em>- <b>AlphaGo</b>: Learned to <b>exceed what humans can do</b><br>- <b>Reasoning in LLMs</b>: <b>Coherent over long horizon</b><br>- <b>Dexterity in robotics</b>: <b>Reliability</b></em><br><em><b>What enabled these successes? &nbsp;- Well specified rewards &nbsp;- Scalable evaluation of policies</b></em><br><b>Zooming in on robotics</b> — <em>Well specified rewards → <b>Programmatically calculate them</b> &nbsp;·&nbsp; Scalable evaluation → <b>Simulation</b> &nbsp;·&nbsp; <b>Simulation to real?</b></em>",
+   "one": "<b>三个相隔七八年的成功——AlphaGo、LLM 推理、机器人灵巧性——共用同样两个前提：奖励能说清楚，策略能大规模评估。而机器人拿到这两样的办法只有一个：仿真。</b>",
+   "pts": [
+    "<b>p2 那张对照表值得整张背下来，但<b>先记住讲者给它的限定</b>，否则会读成教条。</b> <span class='k'>原话：「I'm going to compare <b>imitation learning that actually works</b> with <b>reinforcement learning that actually works</b>. That doesn't mean that there don't exist RL algorithms which don't follow these characteristics. But these are the characteristics of <b>the ones that have been the most successful</b>」</span>。<b>⇒ 这是对<b>成功案例</b>的归纳，不是对两类算法的定义。</b>",
+    "<b>三条特征里，第二条最有意思：<b>模仿学习只用好数据，强化学习好坏通吃</b>。</b> <span class='w'>讲稿：「In imitation learning, you take your data set, you <b>clean it up</b>, you get the good data set and then you use that to train your model. But in RL, <b>every data point that is generated during the policy rollout is fair game</b>」</span>。<b>⇒ 而这正是 RL 强的地方：「you learn from <b>not just the positive but also the negative data</b> which gives you very precise behaviors」。</b>",
+    "<b>第三条「泛才 vs 专才」也要加个限定。</b> <span class='k'>讲稿：RL「either gives you <b>specialists</b> or it <b>helps you specialize pre-trained general models</b>」</span>——<b>后半句很重要：RL 不只是造专才，它也可以把一个通才<b>专化</b>。</b>",
+    "⚠️ <b>而讲者明确说<b>不是在比高低</b>，这一点别读漏：「That is not to say that one is strictly better than the other」。</b> <span class='w'>证据就在那三个成功案例里：<b>AlphaGo 用模仿学习热启动自对弈，LLM 也是先用模仿学习预热再做推理训练</b></span>。<b>⇒ 实践中两者是<b>接力</b>而不是竞争。</b>",
+    "<b>p3 问的是一个很好的问题：<b>RL 到底做成了什么别的办法做不成的事</b>？三条答案各指一种能力。</b> <span class='k'><b>AlphaGo</b> → <b>超过人</b>（发现人没见过的新行为）；<b>LLM 推理</b> → <b>长程连贯</b>（远超模仿学习预训练能达到的）；<b>机器人灵巧性</b> → <b>可靠性</b></span>。",
+    "⚠️ <b>然后是全讲的论点：<b>这三件事共用两个前提——<b>奖励说得清</b>，<b>评估跑得起</b></b>。</b>",
+    "<b><b>第一个要素</b>：奖励不必密集，但必须<b>清楚</b>。</b> <span class='w'>AlphaGo 的奖励极稀疏（整盘棋只有赢/输），但<b>看一眼棋盘就能判定</b>；DeepSeek-R1 用的是 <b>rule-based reward function</b>，而讲者强调的是后果：「since it is rule-based <b>you can automate it</b> and you can get it very cleanly and clearly <b>at scale</b>」</span>。<b>⇒ 重点不在稀疏不稀疏，在<b>能不能自动算</b>。</b>",
+    "<b><b>第二个要素</b>：能不能大规模地把策略跑起来并评估。</b> <span class='k'>AlphaGo 把围棋放进仿真，于是「it <b>scales beautifully with compute</b>. We can just throw compute at it… and we can <b>convert that compute to data</b>」；LLM 则是「roll them out in a cluster and evaluate them using some form of an automatic reward function」</span>。",
+    "<b>⇒ 讲者还点出一个观察，说明这两条不是事后总结：<b>这三件事相隔七八年发生，而两个要素始终没变</b>。</b>",
+    "<b>p4 把它落到机器人上，而答案只有一个词：<b>仿真</b>。</b> <span class='w'>「Well specified rewards → <b>programmatically calculate them</b>」（因为仿真里你有世界的全部状态）；「Scalable evaluation → <b>Simulation</b>」</span>。<b>⇒ 讲稿那句概括最准：<b>「we have converted a <b>physical problem to a digital problem</b> which now just will scale with compute」</b>。</b>",
+    "<b>⇒ 但这只解决了「在仿真里做机器人」，而不是「在真实世界里做机器人」。于是 p4 结尾那个问号 <b><em>Simulation to real?</em></b> 就是整场讲座剩下的全部内容。</b>"
+   ],
+   "eq": "⚠ 先记住讲者给 p2 那张表的限定（否则会读成教条）：\n   「I'm going to compare **imitation learning that actually works** with\n     **reinforcement learning that actually works**… these are the characteristics\n     of **the ones that have been the most successful**」\n   ⇒ 对**成功案例**的归纳，不是对两类算法的定义\n\n**p2 对照表**：\n                模仿学习                      强化学习\n   用在哪      VLM · 视频生成 · 图像分割      博弈 · 推理 · **机器人**\n   数据        **大量 off-policy**            **on-policy**\n   用什么数据  **只用好的**（清洗过）          **好坏通吃**\n   产出        **泛才**                       **专才**（或把通才专化）\n\n   第二条最有意思：\n     「In imitation learning, you **clean it up**, you get the good data set…\n       But in RL, **every data point generated during the policy rollout\n       is fair game**」\n     ⇒ 「you learn from **not just the positive but also the negative data**\n        which gives you very precise behaviors」\n\n   ⚠ 讲者明确**不是在比高低**：「That is not to say that one is strictly\n     better than the other」\n     证据：**AlphaGo 用模仿学习热启动自对弈；LLM 先用模仿学习预热再做推理训练**\n     ⇒ 实践中两者是**接力**而不是竞争\n\n**p3 RL 到底做成了什么别的办法做不成的事**（三条各指一种能力）：\n   **AlphaGo**     → **超过人**（发现人没见过的新行为）\n   **LLM 推理**    → **长程连贯**\n   **机器人灵巧性** → **可靠性**\n\n⚠⚠ 全讲的论点：**这三件事共用两个前提**\n   **① Well specified rewards（奖励说得清）**\n     不必密集，但必须**清楚**：\n       AlphaGo 奖励极稀疏（只有赢/输），但**看一眼棋盘就能判定**\n       DeepSeek-R1 用 **rule-based reward function**\n       「since it is rule-based **you can automate it**…\n         very cleanly and clearly **at scale**」\n     ⇒ 重点不在稀疏不稀疏，在**能不能自动算**\n\n   **② Scalable evaluation of policies（评估跑得起）**\n     AlphaGo：把围棋放进仿真 ⇒「it **scales beautifully with compute**…\n       we can **convert that compute to data**」\n     LLM：在集群上 roll out，用自动奖励函数评估\n\n   ⇒ 这三件事**相隔七八年**发生，而两个要素**始终没变**\n\n**p4 落到机器人上**，答案只有一个词：**仿真**\n   Well specified rewards → **Programmatically calculate them**（仿真里有全部状态）\n   Scalable evaluation    → **Simulation**\n   讲稿的概括最准：\n     「we have converted a **physical problem to a digital problem**\n       which now just will scale with compute」\n\n⇒ 但这只解决了「在仿真里做机器人」\n   于是 p4 结尾那个问号 **Simulation to real?** 就是整场讲座剩下的全部内容",
+   "tbl": {
+    "head": ["", "模仿学习（成功的那些）", "强化学习（成功的那些）"],
+    "rows": [
+     ["数据来源", "<b>大量 off-policy</b>", "<b>on-policy</b>"],
+     ["用哪些数据", "<b>只用好的（清洗过）</b>", "<b>好坏通吃</b>"],
+     ["产出", "<b>泛才</b>", "<b>专才 / 把通才专化</b>"],
+     ["典型战场", "VLM · 视频生成 · 图像分割", "博弈 · 推理 · 机器人"],
+     ["⚠ 两者关系", "<b>接力（先模仿热启动）</b>", "<b>不是竞争</b>"]
+    ]
+   },
+   "say": "原话（那张表的限定——描述的是成功案例的共性，不是定义）：<em>“one thing to note here is that <b>I'm going to compare imitation learning that actually works with reinforcement learning that actually works. That doesn't mean that there don't exist reinforcement learning algorithms which don't follow this characteristics. But these are the characteristics of the ones that have been the most successful at actually solving extremely hard problems.</b>”</em><br><br>原话（好坏通吃才是 RL 强的地方）：<em>“In imitation learning, you take your data set, <b>you clean it up, you get the good data set</b> and then you use that to train your model. But in reinforcement learning, <b>every data point that is generated during the policy rollout is fair game</b>. So you can use all of that to improve and update your policy and that actually is one of the things that makes reinforcement learning quite powerful. So <b>you learn from not just the positive but also the negative data</b> which kind of gives you very precise behaviors that you want.”</em><br><br>原话（两个要素，以及「相隔七八年而要素没变」）：<em>“I would like to point out two things which let on-policy reinforcement learning shine in all three of these domains. The first is <b>well specified rewards</b>… for AlphaGo the reward was a very sparse one. It was <b>very clear if you won the game</b>… Similarly for reasoning in LLMs… they say that we use a <b>rule-based reward function</b> which is very clear to evaluate and <b>now since it is rule-based you can automate it and you can get it very cleanly and clearly at scale</b>. And the second critical component is <b>can we run these policies at scale</b>… <b>all of these results happened 7 to 8 years spaced out by 7 to 8 years and all of these successes still have these very two key ingredients</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你一个<b>非常好用的定位句式</b>，而且你的问题在两个要素上<b>都</b>及格——这件事值得在引言里直接说出来。</b><br><span class='k'>讲者的论点是：RL 的三次大成功共用两个前提——<b>奖励说得清</b>（能自动算）与<b>评估跑得起</b>（能规模化）</span>。<b>⇒ 逐条对照你的问题：</b><br><b>① <b>奖励说得清</b>：<code>G = Acc − λ·Cost</code> 是<b>完全程序化</b>的</b>——<span class='w'>Acc 由标准答案判定（benchmark 自带），Cost 由 token 数与单价算出，<b>两边都不需要人打分</b></span>。<b>⇒ 这正是讲者说的「rule-based ⇒ 可自动化 ⇒ 可规模化」那一条。</b><br><b>② <b>评估跑得起</b>：你的「仿真」就是<b>离线重放</b></b>——<span class='k'>配置可以在固定的 query 集上随便跑，不需要真实用户、不需要线上流量，<b>物理问题已经是数字问题</b></span>。<b>⇒ 讲者那句「converted a physical problem to a digital problem which now just will scale with compute」对你<b>字面</b>成立，而且你连转换都不用做。</b><br><b>⇒ 所以可以这样开头：<b>强化学习三次大的成功都建立在「奖励可程序化计算」与「策略可规模化评估」之上；而配置选择这个问题天然同时满足这两条——这正是它值得用有保证的方法去做、而不是靠手工调的原因。</b></b><span class='w'>这比「我们用 bandit 算法」有分量得多。</span><br><b>⚠ 但有一处你必须<b>主动</b>承认，否则这个类比会被拆穿：<b>你的「仿真」不是免费的</b>。</b> <span class='k'>AlphaGo 的仿真每步几乎零成本，所以「throw compute at it」成立；<b>而你每评估一次配置都要付真金白银的 API 费用</b></span>。<b>⇒ 这恰恰是你方法存在的理由：<b>因为评估不便宜，所以才需要实验设计去省它</b>。</b><br><b>⇒ 一个很漂亮的说法是：<b>我们的设定满足「奖励可程序化」，但只<b>部分</b>满足「评估可规模化」——评估是可自动化的，却不是廉价的。我们的方法正是补上这个缺口：用实验设计把「可自动化」变成「可负担」。</b></b><br><b>最后 p2 那条「好坏通吃」对你也有一条直接含义，而且它呼应 L15 p43 的事后重标注：<b>失败的 run 也是数据</b>。</b> <span class='w'>模仿学习要清洗数据只留好的，而你这边<b>一个配置跑砸了同样是关于那个配置的证据</b>——不该丢，也不该只记一个端到端的 0。</span>",
+    "ref": "本讲 p2–p4（逐字核对）· 讲稿（两个要素、数字化那句）· L15 p43 · 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [5, 13],
+   "t": "先看结果：同一套权重，零样本，而且全程是盲的",
+   "star": 2,
+   "quote": "<b>One Policy to Walk them All</b><br><b>Rapid Motor Adaptation for Legged Robots</b> — <em>Ashish Kumar, Zipeng Fu, Deepak Pathak, Jitendra Malik（RSS 2021）</em><br>〔p5–p11 真实世界视频：碎石 · 看不见的楼梯 · 草地 · 向左倾斜的坡 · 建筑工地 · 泥地 · 沙地〕",
+   "one": "<b>七段视频，七种地形，而讲者强调的是一个数字：一。同一套权重，零样本部署，没有任何针对地形的调参——而且机器人全程是盲的。</b>",
+   "pts": [
+    "<b>讲者把结果放在方法<b>之前</b>，理由他自己说了：<b>先让你相信这事真能成</b>。</b> <span class='k'>「before I get into how we solve these sim to real problem, <b>let me convince you first that this actually works</b>」</span>。<b>⇒ 这是一个值得学的讲法：先给证据，再讲机制。</b>",
+    "<b>七段视频覆盖的地形差别很大，而每一段都有一个具体的难点。</b> <span class='w'><b>碎石</b>：脚卡住了，「it keeps trying and then figures out that there's something and then continues to walk」；<b>楼梯</b>：机器人看不见，所以「a bit fumbly… but it can still get them and <b>doesn't fall</b>」；<b>草地</b>：「<b>even if you had vision in this scenario, you would not see the ground underneath</b>」</span>。",
+    "<b>⇒ 草地那一句值得单独留意，因为它提前回答了一个很自然的质疑：<b>有些情形下视觉根本帮不上忙</b>，必须靠本体感觉的鲁棒性。</b>",
+    "<b>其余几段：<b>向左倾斜的坡</b>（左边是个大沟，而它没有一路漂过去）；<b>建筑工地</b>（讲者家门口，「we were able to <b>repeat</b> this」）；<b>泥地</b>（脚会陷，但「it knows how to correct for it by <b>applying more force</b> and then just getting out of it」）；<b>沙地</b>。</b>",
+    "⚠️ <b>而全页的要点是那个被强调两次的事实：<b>这些全部来自<b>同一套</b>权重</b>。</b> <span class='k'>原话：「all of these results are from the <b>exact exact same policy</b>. So the <b>exact same weights</b> deployed <b>zero shot</b> in the real world <b>without any tuning or specific improvement related to any of these terrains</b>」</span>。",
+    "<b>⇒ 「零样本」这三个字在这里的含义要说准：<b>策略在仿真里训完就直接搬上真机，没有在任何真实地形上微调过</b>。</b> <span class='w'>不是「在一种地形上微调后泛化到别的」，而是<b>一次都没碰过真实世界</b>。</span>",
+    "⚠️ <b>还有一个更容易被漏掉、但同样关键的限定：<b>这些结果全是盲的</b>。</b> <span class='k'>讲稿：「<b>All of these results are blind by the way. There's no vision.</b> All of these just use <b>proprioception history</b>」</span>。<b>⇒ 机器人<b>看不见</b>地形，它只知道自己的关节位置和刚才发过的指令。</b>",
+    "<b>⇒ 这个限定让整件事的难度陡然上升，也让后面那个「关键洞察」（p18）更有分量：<b>如果看不见，那它凭什么知道脚下是油还是沙？</b></b> <span class='w'>答案就是本体感觉历史里的那个「落差」。</span>",
+    "<b>p12 那个标题 <b><em>One Policy to Walk them All</em></b> 是个玩笑式的双关，但它把目标说得很准：<b>不是七个策略，是一个</b>。</b>",
+    "<b>最后记一下出处与年份：<b>RMA（Rapid Motor Adaptation），RSS 2021</b></b>。 <span class='k'>⇒ 讲者后面会提到，这些结果是「3 到 4 年前」的，而这个时间差在 p75 会变成一个论点：<b>运动控制早就做到了，而操作还没有——为什么？</b></span>"
+   ],
+   "eq": "讲者把结果放在方法**之前**，理由他自己说了：\n   「before I get into how we solve these sim to real problem,\n     **let me convince you first that this actually works**」\n   ⇒ 值得学的讲法：**先给证据，再讲机制**\n\n七段视频，每段一个具体难点：\n   **碎石**：脚卡住 →「it keeps trying and then figures out that there's\n           something and then continues to walk」\n   **楼梯**：机器人看不见 →「a bit fumbly… but it can still get them and **doesn't fall**」\n   **草地**：「**even if you had vision in this scenario, you would not see\n           the ground underneath**」\n           ⇒ 提前回答了一个质疑：**有些情形视觉根本帮不上忙**\n   **斜坡**：左边是大沟，而它没有一路漂过去\n   **建筑工地**：讲者家门口，「we were able to **repeat** this」\n   **泥地**：脚会陷，但「it knows how to correct for it by **applying more force**」\n   **沙地**\n\n⚠⚠ 全页的要点（被强调两次）：**这些全部来自同一套权重**\n   「all of these results are from the **exact exact same policy**.\n     So the **exact same weights** deployed **zero shot** in the real world\n     **without any tuning or specific improvement related to any of these terrains**」\n\n   「零样本」在这里的准确含义：\n     **仿真里训完直接搬上真机，没有在任何真实地形上微调过**\n     不是「在一种地形上微调后泛化」，而是**一次都没碰过真实世界**\n\n⚠⚠ 另一个容易漏、同样关键的限定：**这些结果全是盲的**\n   「**All of these results are blind by the way. There's no vision.**\n     All of these just use **proprioception history**」\n   ⇒ 机器人**看不见**地形，只知道自己的关节位置和刚才发过的指令\n   ⇒ 难度陡升，也让 p18 那个「关键洞察」更有分量：\n     **如果看不见，它凭什么知道脚下是油还是沙？**\n\np12 标题 **One Policy to Walk them All**（玩笑式双关，但目标说得准）：\n   **不是七个策略，是一个**\n\n出处：**RMA（Rapid Motor Adaptation），RSS 2021**\n   ⇒ 讲者后面说这些结果是「3 到 4 年前」的，\n     而这个时间差在 p75 会变成一个论点：\n     **运动控制早就做到了，而操作还没有 —— 为什么？**",
+   "tbl": {
+    "head": ["七段视频", "难点", "机器人怎么应对"],
+    "rows": [
+     ["<b>碎石</b>", "脚卡住", "<b>反复试，察觉后继续走</b>"],
+     ["<b>楼梯</b>", "<b>看不见</b>", "<b>踉跄但不摔</b>"],
+     ["<b>草地</b>", "<span class='w'>⚠ 有视觉也看不到地面</span>", "<b>靠本体感觉的鲁棒性</b>"],
+     ["<b>泥地</b>", "脚陷进去", "<b>加大力气拔出来</b>"],
+     ["⚠ 共同点", "<b>同一套权重 · 零样本 · 全程盲的</b>", "—"]
+    ]
+   },
+   "say": "原话（同一套权重、零样本、没有任何调参）：<em>“the important point here is that <b>all of these results are from the exact exact same policy. So the exact same weights deployed zero shot in the real world without any tuning or specific improvement related to any of these terrains.</b> And the question is how do we get it?”</em><br><br>原话（草地那一段：有视觉也没用）：<em>“We also tried this on this grass patch. <b>Even if you had vision in this scenario, you would not see the ground underneath.</b> So you need like a certain level of robustness just to get through some of these.”</em><br><br>原话（全是盲的，只用本体感觉历史）：<em>“<b>All of these results are blind by the way. There's no vision. All of these just use proprioception history.</b> And I evaluated it on a bunch of places including my mattress, on foam, taking a step down, step up and all of these. And it was relatively robust in all of these scenarios.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这几页反复强调的那句「<b>same weights</b>」（七种地形、一套权重、零样本）对你的用处，是它站在一个<b>你迟早要做的选择</b>的对面。</b><br><span class='k'>那个选择是：<b>一套策略管所有工作流，还是每个工作流训一个专门的？</b></span><br><b>⇒ 「每个工作流一个」几乎总是更容易做出好数字 —— 它能过拟合那个工作流的节点结构。而这一讲的整个论点是：<b>那不值得</b>，因为真正有价值的东西是「同一套权重换个环境也能用」。</b><br><b>⇒ 但要注意讲者是<b>靠什么</b>做到这一点的，而这是关键：<b>不是让策略对所有环境都鲁棒，而是让它在线认出自己在哪个环境里</b>。</b><span class='w'>⚠ 这个区别就是 p37 那张表里 RMA 与 Robust 的差别 —— <b>后者「对一切都扛得住」，结果力矩大、jerk 高、成功率反而低</b>。</span><br><b>⇒ 映到你的问题：<b>一套路由策略 + 一个「当前是什么工作流/什么 query」的在线估计量</b>，而不是「一套对所有工作流都稳妥的保守路由」（那等于永远用大模型）、也不是「每个工作流一个专用模型」（那不可推广）。</b><br><b>⚠ 而这条路线有一个你必须回答的问题，讲者在 p37 已经替你问了：<b>你那个在线估计量，该不该被约束成可解释的真实物理量？</b></b> <span class='k'>他的答案是<b>不该</b>（见 p32/p37 的科研格）。<b>⇒ 所以你的「当前工作流的特征向量」允许是一个学出来的低维嵌入，不必是「节点数、平均 token 数、工具调用次数」这类手工特征。</b></span><br><b>⇒ 最后一个可以直接搬的<b>实验设计</b>：<b>按环境分列地报，而不是只给一个平均数</b>。</b> <span class='w'>讲者在七种地形上<b>分别</b>报成功率，而这让读者能看出方法在哪类地形上收益大。<b>⇒ 你的对应是按工作流、按任务类型分列 —— 很可能你的收益高度集中在几类任务上，而那个分布本身就是一个结果。</b></span>",
+    "ref": "本讲 p5–p13（逐字核对）· 讲稿（same weights / 全程盲）· p37 · 简报 §1 §2 §4d（已核）"
+   }
+  },
+  {
+   "r": [14, 16],
+   "t": "在仿真里学走路：把特权信息<b>直接喂给</b>策略",
+   "star": 3,
+   "quote": "<b>Learn to Walk in Simulation</b><br><em><b>Mass · COM · Friction · Terrain Height · Motor Strength</b> → <b>Environmental Factor Encoder</b> → <b>z<sub>t</sub></b>（<b>Extrinsics</b>）<br>x(t), a(t−1) + z<sub>t</sub> → <b>Base Policy</b> → a<sub>t</sub> → Physics Simulation</em><br><em>Important: <b>Reward Function minimizes work and ground impact</b>（Biomechanics and Energetics）</em><br><b>Reward Function</b> — <em><b>Forward Walking</b> · <b>Energetics</b> · <b>Stability + Minimize hardware damage</b></em>",
+   "one": "<b>做法反直觉：既然仿真里什么都能拿到，那就把质量、摩擦、地形高度这些真实世界里绝对拿不到的参数，直接喂给策略。于是策略不是对环境「鲁棒」，而是对环境「知情」。</b>",
+   "pts": [
+    "<b>起手式讲者说得很干脆：<b>仿真里一切都是你的</b>。</b> <span class='k'>「let's just <b>pretend that this simulation is the real world</b> and <b>everything we can access is fair game</b>」</span>。",
+    "<b>第一步先训一个最朴素的东西：一个能在<b>某一组</b>物理参数下走路的策略。</b> <span class='w'>但讲者立刻否掉了它：「this would be a very <b>narrow</b> policy that can walk in one scenario… <b>But this is not good enough</b> because we actually don't want a single policy. <b>We want a generalist policy</b> that can work in all of these scenarios」</span>。",
+    "<b>于是第二步：<b>把这些物理参数随机化</b>——质量、质心、摩擦、地形高度、电机强度。</b> <span class='k'>到这里为止还是标准的<b>域随机化</b>（domain randomization），没有新东西</span>。",
+    "⚠️ <b><b>而真正不一样的是第三步，也是全页的要点</b>：<b>把这些参数<b>作为输入喂给策略</b></b>。</b> <span class='w'>原话：「and the important part is <b>we will let the policy have access to all of these parameters</b>」</span>。",
+    "<b>⇒ 这个区别有多大？讲者用一句话点透：<b>「it's <b>not oblivious or blind</b> to the environment. It's actually <b>aware</b> of what it's dealing with」</b>。</b> <span class='k'>⇒ 普通的域随机化是训一个「对所有情形都还行」的<b>鲁棒</b>策略；而这里是训一个「<b>知道</b>自己在什么情形下、并据此调整」的策略</span>。<b>⇒ 前者只能取一个折中，后者可以针对每种情形给出最优动作。</b>",
+    "<b>这个被压缩的参数向量 <code>z_t</code> 有个名字：<b>extrinsics</b>（外在参数）。</b> <span class='w'>讲稿后面提到维度：完整物理参数大约 17–18 维，压缩后的 extrinsics 大约 8 维——<b>约 2 倍压缩</b></span>。",
+    "<b>⚠ 但这一步显然有个大问题，而讲者留到 p17 才说：<b>真实世界里你拿不到这些参数</b>。所以这一整套在部署时会直接失效。</b> <span class='k'>⇒ 这是一个标准的<b>「特权信息」</b>套路：先用只有仿真里才有的信息训出一个好策略（<b>教师</b>），再想办法让一个只用可观测量的<b>学生</b>去逼近它。</span>",
+    "<b>奖励函数那一页看着朴素，但有两处值得记。</b> <span class='w'><b>三块</b>：<b>Forward Walking</b>（任务本身）· <b>Energetics</b>（能耗）· <b>Stability + Minimize hardware damage</b>（稳定 + 别弄坏硬件）</span>。",
+    "<b>⚠ 第三块那个「别弄坏硬件」是一个<b>仿真里本来不存在</b>的概念，必须人为注入。</b> <span class='k'>讲稿：「in simulation there's <b>no concept of hardware damage</b>. So we need to <b>inject all of those biases</b> so that it can learn something which can actually transfer to the real world」</span>。<b>⇒ 这是 sim2real 的一个典型动作：<b>把真实世界的约束写进仿真的奖励里</b>。</b>",
+    "<b>⚠ 而讲者对奖励工程的坦白值得照录：<b>实际有 10 个奖励函数</b>，「This is <b>not very elegant</b>, but we tried to be as principled as we can」。</b> <span class='w'>讲稿后面还答了「这么多奖励怎么配权重」：<b>「there's <b>no good way</b> to do it. That is the real answer」</b>；实用做法是<b>一次只加一个奖励</b>，看当前缺什么，加进去后只调它相对其他的系数——「instead of this <b>exponential complexity</b>, you can reduce it somewhat to just adding one at a time」</span>。<b>⇒ 而他也承认「the coefficients we get are probably <b>not the most optimal</b>」。</b>",
+    "<b>训练规模：<b>约 10 亿个样本</b>，用 PPO。</b>"
+   ],
+   "eq": "起手式：**仿真里一切都是你的**\n   「let's just **pretend that this simulation is the real world**\n     and **everything we can access is fair game**」\n\n第一步：训一个能在**某一组**物理参数下走路的策略\n   立刻被否掉：「this would be a very **narrow** policy… **not good enough**\n     because we **want a generalist policy**」\n\n第二步：**把物理参数随机化**（质量 · 质心 · 摩擦 · 地形高度 · 电机强度）\n   ⇒ 到这里还是标准的**域随机化**，没有新东西\n\n⚠⚠ **第三步才是要点：把这些参数作为输入喂给策略**\n   「and the important part is **we will let the policy have access\n     to all of these parameters**」\n\n   区别有多大（一句话点透）：\n     「it's **not oblivious or blind** to the environment.\n       It's actually **aware** of what it's dealing with」\n   ⇒ 普通域随机化 = 训一个「对所有情形都还行」的**鲁棒**策略（只能取折中）\n     这里 = 训一个「**知道**自己在什么情形下并据此调整」的策略（可给每种情形最优动作）\n\n压缩后的参数向量叫 **extrinsics（外在参数）z_t**\n   维度：完整物理参数约 17–18 维，压缩后约 8 维（**约 2 倍压缩**）\n\n⚠ 但显然有个大问题（p17 才说）：**真实世界里拿不到这些参数**\n   ⇒ 标准的**「特权信息」**套路：\n     先用只有仿真才有的信息训出好策略（**教师**），\n     再让只用可观测量的**学生**去逼近它\n\n**奖励函数三块**：\n   **Forward Walking**（任务本身）\n   **Energetics**（能耗）\n   **Stability + Minimize hardware damage**（稳定 + 别弄坏硬件）\n\n   ⚠ 第三块是**仿真里本来不存在**的概念，必须人为注入：\n     「in simulation there's **no concept of hardware damage**.\n       So we need to **inject all of those biases** so that it can learn\n       something which can actually transfer to the real world」\n     ⇒ sim2real 的典型动作：**把真实世界的约束写进仿真的奖励里**\n\n   ⚠ 讲者对奖励工程的坦白（值得照录）：\n     实际有 **10 个**奖励函数\n     「This is **not very elegant**, but we tried to be as principled as we can」\n     「这么多奖励怎么配权重？」——「there's **no good way** to do it.\n       That is the real answer」\n     实用做法：**一次只加一个奖励**，看当前缺什么，加进去后只调它相对其他的系数\n       「instead of this **exponential complexity**, you can reduce it\n         to just adding one at a time」\n     而且承认「the coefficients we get are probably **not the most optimal**」\n\n训练规模：**约 10 亿个样本**，PPO",
+   "tbl": {
+    "head": ["", "普通域随机化", "RMA 的做法"],
+    "rows": [
+     ["参数随机化了吗", "<b>随机化了</b>", "<b>随机化了</b>"],
+     ["参数喂给策略吗", "<span class='w'>⚠ 没有</span>", "<b>喂了（z<sub>t</sub>）</b>"],
+     ["策略学到什么", "<b>对一切都还行（折中）</b>", "<b>知道当前是什么情形并据此调整</b>"],
+     ["讲者的说法", "<span class='w'>oblivious / blind</span>", "<b>aware of what it's dealing with</b>"],
+     ["⚠ 部署时的问题", "<span class='w'>没有</span>", "<b>z<sub>t</sub> 拿不到（p17）</b>"]
+    ]
+   },
+   "say": "原话（仿真里一切都是你的，以及「把参数喂给策略」这一步）：<em>“let's just <b>pretend that this simulation is the real world and everything we can access is fair game</b>… So this would be a very narrow policy that can walk in one scenario… <b>But this is not good enough</b> because we actually don't want a single policy. We want a generalist policy that can work in all of these scenarios. So we will randomize all of these parameters in simulation. And <b>the important part is we will let the policy have access to all of these parameters</b>. So now when we train this policy, it can walk not just for any specific value of mass or friction. It would have seen a huge range of it and it will know how to walk accordingly. So <b>it's not oblivious or blind to the environment. It's actually aware of what it's dealing with.</b>”</em><br><br>原话（硬件损坏在仿真里不存在，必须注入）：<em>“there are a bunch of reward functions which minimize energetics. And then the last one is like stability and minimizing hardware damage because <b>in simulation there's no concept of hardware damage. So we need to inject all of those biases so that it can learn something which can actually transfer to the real world.</b>”</em><br><br>原话（10 个奖励函数怎么配权重——「没有好办法」）：<em>“how do we balance between all of these different rewards? <b>There's no good way to do it. That is the real answer. I think it's a very hard problem.</b> The practical way to do it is to <b>add one reward at a time</b> and then try to see what is lacking in the current set of rewards, add a new reward and then <b>tune only that reward relative to every other reward</b>. So instead of this <b>exponential complexity</b>, you can kind of reduce it somewhat to just adding one at a time. But the coefficients we get are probably <b>not the most optimal</b> you can get.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这几页有两样东西对你有用，而它们指向相反的方向 —— 一样是该学的，一样是该当成警告的。</b><br>⚠️ <b><b>该学的：把你知道的东西<b>喂给</b>决策，而不是训练一个对它鲁棒的决策。</b></b><br><span class='k'>p15 那句 <b>aware vs oblivious</b> 是整讲的技术枢纽：随机化环境参数是常规做法，而<b>把那些参数也作为输入交给策略</b>才是关键的一步。少了这一步，你得到的是 Robust 基线（p37：保守、费力、成功率反而低）</span>。<br><b>⇒ 映到你的问题，这条对应一个很具体的设计决定：<b>你的路由策略应该<b>看得到</b>它能看到的一切</b></b> —— prompt 长度、任务类型标签、节点在工作流中的位置、前序节点的输出长度与自洽程度、历史上这类 query 的降档成功率。<span class='w'>⚠ 一个只看「节点编号」的路由策略就是 oblivious 的那一版，而它一定会退化成「要么全用大的、要么全用小的」。</span><br><b><b>该当成警告的：那十个手工奖励，和讲者自己的三句话。</b></b><br><span class='k'>p16 的十个奖励里，只有 <em>Forward Walking</em> 是真正的任务，其余九个是塑形项。而讲者说得很直：<b>「it's <b>not very elegant</b>」「there is <b>no good way</b> to tune these coefficients」「the coefficients we get are probably <b>not the most optimal</b>」</b></span>。<br>⚠️ <b>⇒ 对你的意义：<b>你的 <code>G = Acc − λ·Cost</code> 只有<b>一个</b>需要调的系数，而这是一个被低估的优势</b>。</b> <span class='w'>讲者在一个十系数的加权和上束手无策；而你只有 <code>λ</code>，所以你<b>能</b>做一件他做不到的事：<b>扫一条完整的 λ 曲线，把帕累托前沿画出来</b>。</span><br><b>⇒ 建议把这件事做成论文里的一张主图：<b>横轴 Cost、纵轴 Acc，你的方法画成一条曲线，各个固定档位的基线画成散点</b>。</b> <span class='k'>这样你就不必论证「λ 该取多少」这个没有正确答案的问题 —— <b>你给出整条前沿，让读者自己选工作点</b>。而这同时也消掉了「你是不是调 λ 调出来的结果」这个质疑。</span><br><b>⚠ 最后一条纪律，来自讲者的坦率本身：<b>他把「系数没调好」这件事说出来了，而这没有削弱那篇论文</b>。</b> <span class='w'>⇒ 所以你那些「我们没有调到最优」「这个超参是拍的」也直接写出来。<b>审稿人在意的是你知不知道哪里不严谨，而不是你是否样样都最优。</b></span>",
+    "ref": "本讲 p14–p16（逐字核对）· 讲稿（not very elegant / no good way / not the most optimal）· p37 · 简报 §1 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [17, 18],
+   "t": "部署的坎，和那个关键洞察：落差里藏着答案",
+   "star": 3,
+   "quote": "<b>How can we deploy it?</b><br><em>Mass · COM · Friction · Terrain Height · Motor Strength → Environmental Factor Encoder<br><b>Unknown Extrinsics · Unavailable</b>（During Deployment）</em><br><b>Key Insight — Extrinsics from Observation History</b><br><em>x(t−50), a(t−50) … x(t−1), a(t−1) → <b>Adaptation Module</b> → z<sub>t</sub> → Base Policy → a<sub>t</sub></em><br><em><b>Discrepancy b/w expected movement and actual measured movement</b><br><b>Continuously estimate these extrinsics online</b></em>",
+   "one": "<b>真实世界里你不知道地面摩擦是多少。但你知道自己刚才下了什么指令、以及身体实际动成了什么样——两者的落差，就是环境在告诉你它是什么。</b>",
+   "pts": [
+    "<b>p17 把问题摆明：<code>z_t</code> 在真实世界里 <b><em>Unknown · Unavailable</em></b>。</b> <span class='k'>⇒ 上一页那个「知情的策略」在部署时拿不到它赖以知情的那个输入</span>。",
+    "<b>讲者先否掉了最笨的办法——<b>人工标定</b>——而理由很具体。</b> <span class='w'>「even if I <b>estimated that in my living room</b>, it would still not be enough because <b>the moment I get to something which is not my living room</b>, let's say sand or mulch or any of those, it would fail to work and <b>I have to retune it again</b>」</span>。<b>⇒ 标定一次只对一种环境有效，而目标恰恰是「一套权重走遍所有地形」。</b>",
+    "⚠️ <b>于是关键洞察登场，而它的漂亮之处在于<b>不需要新的传感器</b>：<b>从观测历史里把 <code>z_t</code> 估出来</b>。</b> <span class='k'>输入是最近 <b>50 步</b>的 <code>(x, a)</code>——状态与下过的指令</span>。",
+    "<b>为什么这个信号里会含有环境信息？讲稿那个例子说得最清楚，值得背下来。</b> <span class='w'>「you give a command to walk and then <b>one of your legs slips more than what you expected it to</b>. <b>The discrepancy between your signal and what you actually commanded will tell you that you actually slipped.</b> <b>This was not intentional.</b>」</span>",
+    "<b>⇒ 核心是一个<b>预期 vs 实测</b>的对比：<b>你下的指令隐含了一个预期的运动；实际发生的运动如果偏离了它，这个偏离量就编码了环境</b>。</b> <span class='k'>滑了多少 → 摩擦有多小；下沉了多少 → 地面有多软；需要多大力矩才动 → 负载有多重</span>。",
+    "<b>⇒ 而这正好解释了 p5–p11 那个「全程是盲的」为什么可能：<b>机器人不需要<b>看见</b>油污，它只需要注意到自己滑了</b>。</b> <span class='w'>环境的物理性质不必直接观测，它会<b>印在你自己的运动误差上</b>。</span>",
+    "<b>⚠ 注意两个限定词：<b><em>Continuously</em></b> 与 <b><em>online</em></b>。</b> <span class='k'>估计不是开局做一次就完事，而是<b>每一步都在更新</b>——讲稿强调是「in <b>fractions of a second</b> at runtime」</span>。<b>⇒ 这很要紧，因为环境会<b>中途变化</b>（有人往机器人身上扔了 5 公斤重物），而中途变化恰恰是 p29–p31 那组对照实验要测的。</b>",
+    "<b>⇒ 讲者把这种做法归类为<b>上下文学习</b>（in-context learning），而不是微调。</b> <span class='w'>原话（在和基线对比时）：「The RMA style is closer to <b>in context learning</b> where you take the history of everything and then <b>the learning happens in the feed forward pass itself</b>」</span>。<b>⇒ 不改权重，只改输入——所以才能在零点几秒内完成。</b>",
+    "<b>⚠ 最后记一个讲稿里很有价值的反常识提醒：<b>多数成功的 sim2real 策略其实<b>不</b>用历史</b>。</b> <span class='k'>「most successful sim-to-real policies are actually the ones which <b>don't have a history</b>. They usually just use the <b>current state</b>」</span>；<b>理由是：一旦用了历史，策略就从「以状态为索引」变成「以状态和时间为索引」，而这<b>更容易在仿真里学到可被利用的捷径</b>。</b>",
+    "<b>⇒ 讲者给的具体例子很有画面感：<b>如果你周期性地推机器人一把，它会学会「在预期被推的那一刻变得特别稳」</b>——这在仿真里得分很高，到真机上就没用。</b> <span class='w'>解法是把那个周期也随机化掉。⇒ <b>用历史是有代价的，必须配更仔细的随机化</b>。</span>"
+   ],
+   "eq": "p17 把问题摆明：z_t 在真实世界里 **Unknown · Unavailable**\n   ⇒ 上一页那个「知情的策略」，在部署时拿不到它赖以知情的那个输入\n\n先否掉最笨的办法 —— **人工标定**：\n   「even if I **estimated that in my living room**, it would still not be enough\n     because **the moment I get to something which is not my living room**,\n     let's say sand or mulch… **I have to retune it again**」\n   ⇒ 标定一次只对一种环境有效，而目标恰恰是「一套权重走遍所有地形」\n\n⚠⚠ **关键洞察（漂亮在不需要新传感器）**：**从观测历史里把 z_t 估出来**\n   输入 = 最近 **50 步**的 (x, a)：状态与下过的指令\n\n   为什么这个信号里含有环境信息（这个例子值得背）：\n     「you give a command to walk and then **one of your legs slips more than\n       what you expected it to**. **The discrepancy between your signal and\n       what you actually commanded will tell you that you actually slipped.\n       This was not intentional.**」\n\n   ⇒ 核心是**预期 vs 实测**：\n     **你下的指令隐含一个预期运动；实际运动偏离它的量就编码了环境**\n       滑了多少      → 摩擦有多小\n       下沉了多少    → 地面有多软\n       多大力矩才动  → 负载有多重\n\n   ⇒ 这正好解释了 p5–p11 那个「全程是盲的」为什么可能：\n     **机器人不需要看见油污，它只需要注意到自己滑了**\n     环境的物理性质不必直接观测，它会**印在你自己的运动误差上**\n\n⚠ 两个限定词：**Continuously** 与 **online**\n   不是开局估一次，而是**每一步都在更新**（「in **fractions of a second** at runtime」）\n   ⇒ 很要紧，因为环境会**中途变化**（有人扔 5 公斤重物上来）\n     而中途变化正是 p29–p31 那组对照实验要测的\n\n⇒ 讲者把这种做法归类为**上下文学习**（in-context learning）而非微调：\n   「The RMA style is closer to **in context learning** where you take the history\n     of everything and then **the learning happens in the feed forward pass itself**」\n   ⇒ **不改权重，只改输入** —— 所以才能在零点几秒内完成\n\n⚠ 一个很有价值的反常识提醒：**多数成功的 sim2real 策略其实不用历史**\n   「most successful sim-to-real policies are actually the ones which\n     **don't have a history**. They usually just use the **current state**」\n   理由：一旦用历史，策略就从「以状态为索引」变成「以状态和时间为索引」，\n         **更容易在仿真里学到可被利用的捷径**\n   具体例子：**周期性地推机器人一把 ⇒ 它会学会「在预期被推的那一刻特别稳」**\n             （仿真里得分很高，真机上没用）\n   解法：把那个周期也随机化掉\n   ⇒ **用历史是有代价的，必须配更仔细的随机化**",
+   "tbl": {
+    "head": ["拿到 extrinsics 的三条路", "怎么做", "问题"],
+    "rows": [
+     ["<b>人工标定</b>", "<b>在当前环境测一次</b>", "<span class='w'>⚠ 换个地方就要重标</span>"],
+     ["<b>显式系统辨识</b>", "<b>直接预测摩擦、质量……</b>", "<span class='w'>⚠ 难，而且没必要（p38）</span>"],
+     ["<b>RMA：从历史估</b>", "<b>预期动作 vs 实测动作的落差</b>", "<b>⚠ 用历史更易学到捷径</b>"],
+     ["RMA 属于哪一类", "<b>上下文学习（不改权重）</b>", "<b>零点几秒完成</b>"]
+    ]
+   },
+   "say": "原话（为什么落差里藏着环境信息——这段值得背）：<em>“the reason this signal has the right thing that we care about is let's say that <b>you give a command to walk and then one of your legs slips more than what you expected it to</b>. <b>Your the discrepancy between your signal and what you actually commanded will tell you that you actually slipped. This was not intentional. You slipped forward.</b> So the idea is to use the history of this signal to estimate what these extrinsics are… which will let us estimate this online at runtime <b>in fractions of a second</b>.”</em><br><br>原话（人工标定为什么不行）：<em>“this vector is unknown in the real world. And <b>even if I estimated that in my living room, it would still not be enough because the moment I get to something which is not my living room, let's say sand or mulch or any of those, it would fail to work and I have to retune it again.</b>”</em><br><br>原话（多数成功的 sim2real 策略不用历史，以及周期性推搡那个捷径）：<em>“<b>most successful sim-to-real policies are actually the ones which don't have a history. They usually just use the current state to deploy.</b> And my guess for why that is the case is because the moment you have only the current state… <b>it becomes a state indexed policy as opposed to a state and time indexed policy</b>. So if you were to have a history, you need to make sure that the distribution you see in your history, you randomize it sufficiently enough that when you go into the real world, <b>there's no exploitation that happened during training</b>… <b>if you give a periodic push to the robot, it is very common for the robot to just learn to be very robust when it expects the push</b>. When it has a long enough context or it has a notion of time — but when you randomize that as well then you can get around it.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页的机制可以<b>整个搬到</b>你那条「逐 query 自适应」上，而且它把一个你一直说得比较虚的东西落成了具体可实现的方案。</b><br><span class='k'>RMA 的逻辑链是：<b>① 有一个决定最优行为的隐变量（环境参数）；② 它在部署时观测不到；③ 但它会在「预期 vs 实测」的落差上留下印记；④ 于是从执行历史里把它估出来，喂给策略</b></span>。<br><b>⇒ 你的问题有<b>完全一样</b>的结构。隐变量是<b>这条 query 有多难</b>——它决定了最优档位配置，而你在<b>开跑之前看不到它</b>（只看 query 文本很难判断）。</b><br><b>⇒ 而它同样会在执行过程中留下印记，而且你的「落差信号」比机器人那边还丰富：</b><br><span class='w'>· <b>重试次数</b>（反思节点打回了几次）· <b>中间输出的长度与波动</b>（模型是不是在绕圈）· <b>自评分数的轨迹</b>（是在收敛还是在震荡）· <b>各节点的实际耗时与 token 消耗</b>（与该节点的典型值相比偏离多少）</span><br><b>⇒ 这些全都是「我预期这一步该这样，实际却那样」的度量，而且<b>全部免费</b>——它们是执行的副产品，不需要额外调用。</b><br><b>⇒ 于是一个很具体、也很可做的方法出来了：<b>用前几个节点的执行轨迹，在线估计这条 query 的难度，再据此决定<b>后续</b>节点的档位</b>。</b><span class='k'>前半程用保守档位探路，看落差信号，难就给后半程升档，不难就继续省。</span><br><b>⇒ 这比「按 query 文本静态分类难度」强得多，因为<b>执行信号比文本信号准</b>——正如机器人不去<b>看</b>地面是不是油，而是去<b>感觉</b>自己滑了。</b><br><b>⚠ 但三条限定必须一起带上，否则这个方案会翻车：</b><br><b>① <b>只能影响还没执行的节点</b></b>（<span class='w'>前几个节点的成本已经花掉了，所以这个机制省的是<b>后半程</b>的钱</span>）；<b>② <b>讲者那条「多数成功的 sim2real 不用历史」的警告对你同样成立</b></b>——<span class='k'>用执行历史做决策，会让策略变得「以时间为索引」，更容易学到<b>benchmark 特有的捷径</b>（比如「这个数据集里第 3 步重试过的题通常是难题」）。<b>要用不同来源的 query 混合训练来打掉这种捷径。</b></span><b>③ <b>这会让你的 <code>G</code> 不再是配置的函数，而是「策略」的函数</b></b>——<span class='w'>同一条 query 在不同执行路径下可能走到不同配置</span>。<b>⇒ 那你的线性模型 <code>G(x) = xᵀθ</code> 就要重新定义 <code>x</code>（变成实际执行的那个配置，而不是事先指定的那个），而且<b>倾向性要记录下来</b>（L14 p2）。这是一个实质性的建模改动，不能顺手加。</b>",
+    "ref": "本讲 p18（逐字核对）· 讲稿（落差那个例子、周期性推搡的捷径）· L14 p2 · 简报 §2 §4b §4e（已核）"
+   }
+  },
+  {
+   "r": [19, 20],
+   "t": "两阶段训练，和一个没人设计过的频率不匹配",
+   "star": 3,
+   "quote": "<b>Training Summary</b><br><em><b>Phase 1</b>: Mass/COM/Friction/Terrain Height/Motor Strength → <b>Environmental Factor Encoder</b> → z<sub>t</sub> → <b>Base Policy</b> → a<sub>t</sub>（Physics Simulation）<br><b>Phase 2</b>: x(t−50),a(t−50) … → <b>Adaptation Module</b> → z<sub>t</sub> → Base Policy → a<sub>t</sub> &nbsp;（<b>Regress</b>；*Trainable Modules in Red）</em><br><b>Test Time</b><br><em>Adaptation Module <b>10 Hz</b> &nbsp;·&nbsp; Base Policy <b>100 Hz</b></em>",
+   "one": "<b>第一阶段用特权信息训出一个好策略，第二阶段冻住它、只训一个「从历史猜出特权信息」的模块。而上线之后那两个模块跑在不同频率上——这不是设计，是板子上的算力只够这样，但性能居然没掉。</b>",
+   "pts": [
+    "<b>两阶段的分工很清楚，而且第二阶段<b>只训一个模块</b>。</b> <span class='k'><b>Phase 1</b>：用特权信息（真实的物理参数）端到端训出 Environmental Factor Encoder + Base Policy；<b>Phase 2</b>：<b>冻住 Base Policy</b>，只训 Adaptation Module，让它从 50 步历史里<b>回归</b>出同一个 <code>z_t</code></span>。<b>⇒ 幻灯用红色标出「可训练模块」，两阶段的红色部分是不同的。</b>",
+    "<b>这是一个标准的<b>教师—学生</b>结构，而讲稿明确说用的是 <b>DAgger</b>。</b> <span class='w'>原话：「we will use <b>dagger</b> in which you <b>roll out the student policy</b> to generate the data distribution and then you use the <b>teacher</b> to supervise <b>every single point</b>」</span>。",
+    "<b>⚠ 注意 DAgger 在这里的那个关键细节（也正是 L02 讲的那个撇号）：<b>数据分布由学生产生，标签由教师给</b>。</b> <span class='k'>讲稿把流程说得很细：先随机初始化 Adaptation Module → 跑它收数据（一开始全是烂数据）→ 用教师编码器逐步监督「本该预测什么」→ 监督学习更新 → 拿回仿真再跑 → 重复</span>。<b>⇒ 如果反过来（在教师走过的状态上标注），学生一旦偏离就没数据可参考——这正是 L02 复合误差的老问题。</b>",
+    "<b>⇒ 所以这里的「特权信息 → 蒸馏」套路可以总结成三步：<b>① 用作弊的信息训一个强教师；② 让学生在自己的分布上跑；③ 用教师逐点监督学生</b>。</b> <span class='w'>而这套路在 p51 的视觉版本里会<b>原样再用一遍</b>（那里特权信息换成了完美地形高度）。</span>",
+    "<b>讲稿里有人问「能不能跳过第一阶段、直接端到端训第二阶段」，答案是<b>能，但更贵也更危险</b>。</b> <span class='k'>「you can with <b>more compute</b>. But you need to be careful with sim2real because <b>the more information you give it in sim</b>… it might learn to <b>exploit</b> things of either your environment or physics in simulation or <b>your reward structure</b>」</span>。<b>⇒ 两阶段不只是省算力，它还<b>限制了学生能看到的东西</b>，从而减少了可被利用的捷径。</b>",
+    "⚠️ <b>p20 那个频率是全页最有意思的一处，而它完全是个<b>意外</b>。</b> <span class='w'>Base Policy 跑 <b>100 Hz</b>，Adaptation Module 只跑 <b>10 Hz</b></span>；<b>而讲稿说得很直白：「this is <b>not by choice</b>, it's because of <b>whatever compute is available on board</b>」。</b>",
+    "<b>⇒ 更要紧的是：<b>训练时两者是 100 Hz 同步的，这个不匹配完全没被考虑过</b>。</b> <span class='k'>「this was <b>not accounted for during training</b>. In training we train everything at <b>100 Hz in lock step</b>」</span>；<b>而结果是 <b>「we see that the performance doesn't drop」</b>。</b>",
+    "<b>⇒ 这件事本身是一个有信息量的观察：<b>环境参数变化得比动作慢得多</b>。</b> <span class='w'>摩擦、负载、地形这些东西在 0.1 秒内基本不变，所以 10 Hz 的更新频率绰绰有余</span>；<b>⇒ 而这又一次印证了 L15 p9 那条「不同层次可以跑在不同频率上」——只是这里是被硬件逼出来的，不是设计出来的。</b>",
+    "<b>⚠ 但别把这当成普遍规律：<b>它成立的前提是被估计的量变化缓慢</b>。</b> <span class='k'>如果环境参数本身高频变化（比如踩在不断晃动的板子上，p27 那个例子），10 Hz 可能就不够了</span>。<b>⇒ 讲者自己也说这是「good enough to get the results that we want」，而不是「在任何情况下都够」。</b>"
+   ],
+   "eq": "**两阶段分工**（第二阶段**只训一个模块**）：\n   **Phase 1**：用**特权信息**（真实物理参数）端到端训\n                Environmental Factor Encoder + Base Policy\n   **Phase 2**：**冻住 Base Policy**，只训 Adaptation Module\n                让它从 50 步历史里**回归**出同一个 z_t\n   幻灯用红色标「可训练模块」，两阶段的红色部分不同\n\n标准的**教师—学生**结构，用的是 **DAgger**：\n   「we will use **dagger** in which you **roll out the student policy** to generate\n     the data distribution and then you use the **teacher** to supervise\n     **every single point**」\n\n   ⚠ 关键细节（正是 L02 讲的那个撇号）：\n     **数据分布由学生产生，标签由教师给**\n   流程：随机初始化 Adaptation Module → 跑它收数据（一开始全是烂数据）\n         → 用教师编码器逐步监督「本该预测什么」→ 监督学习更新\n         → 拿回仿真再跑 → 重复\n   ⇒ 反过来（在教师走过的状态上标注）则学生一偏离就没数据可参考\n     —— 正是 L02 复合误差的老问题\n\n⇒ **「特权信息 → 蒸馏」三步套路**：\n   ① 用作弊的信息训一个强教师\n   ② 让学生在**自己的分布**上跑\n   ③ 用教师**逐点**监督学生\n   （p51 的视觉版本会原样再用一遍，特权信息换成完美地形高度）\n\n「能不能跳过第一阶段、直接端到端训第二阶段？」——**能，但更贵也更危险**：\n   「you can with **more compute**. But you need to be careful with sim2real\n     because **the more information you give it in sim**… it might learn to\n     **exploit** things of either your environment or physics in simulation\n     or **your reward structure**」\n   ⇒ 两阶段不只是省算力，它还**限制了学生能看到的东西**，减少可被利用的捷径\n\n⚠⚠ **p20 的频率完全是个意外**：\n   Base Policy **100 Hz** · Adaptation Module **10 Hz**\n   「this is **not by choice**, it's because of **whatever compute is\n     available on board**」\n\n   更要紧的是：**训练时两者是 100 Hz 同步的，这个不匹配完全没被考虑过**\n     「this was **not accounted for during training**.\n       In training we train everything at **100 Hz in lock step**」\n   而结果是 **「we see that the performance doesn't drop」**\n\n   ⇒ 有信息量的观察：**环境参数变化得比动作慢得多**\n     摩擦、负载、地形在 0.1 秒内基本不变 ⇒ 10 Hz 绰绰有余\n   ⇒ 又一次印证 L15 p9「不同层次可跑在不同频率上」\n     —— 只是这里是被硬件逼出来的，不是设计出来的\n\n   ⚠ 别当普遍规律：**前提是被估计的量变化缓慢**\n     若环境参数本身高频变化（踩在不断晃动的板子上，p27），10 Hz 可能不够\n     讲者自己说的是「good enough to get the results that we want」",
+   "tbl": {
+    "head": ["", "Phase 1（教师）", "Phase 2（学生）"],
+    "rows": [
+     ["输入", "<b>真实物理参数（特权）</b>", "<b>50 步观测历史</b>"],
+     ["训什么", "<b>Encoder + Base Policy</b>", "<b>只训 Adaptation Module</b>"],
+     ["Base Policy", "<b>训</b>", "<span class='w'>冻住并复制</span>"],
+     ["用什么算法", "<b>PPO（强化学习）</b>", "<b>DAgger（监督）</b>"],
+     ["数据分布谁产生", "—", "<b>⚠ 学生自己（标签由教师给）</b>"],
+     ["测试时频率", "<b>100 Hz</b>", "<b>10 Hz（硬件所迫，性能没掉）</b>"]
+    ]
+   },
+   "say": "原话（DAgger 在这里怎么用——学生产生分布、教师逐点监督）：<em>“we will use dagger in which you <b>roll out the student policy to generate the data distribution</b> and then you use the <b>teacher to supervise every single point</b> of the student policy… we initialize the adaptation module which is random weights. We run the phase 2 policy, collect the data. <b>Initially it's just going to be bad data</b> because it hasn't learned to do anything meaningful. And then we'll use the teacher encoder to supervise at every time step <b>what should the prediction have been</b>. And then we will just use supervised learning to update the adaptation module. We will take it back in simulation. We will roll it again… and then repeat.”</em><br><br>原话（能不能直接端到端训——能，但信息给多了它会学会钻空子）：<em>“can we just directly train phase 2? And the answer is yes, you can <b>with more compute</b>. But you need to be careful with sim2real because <b>the more information you give it in sim</b>, which is possible if you have a very very long and dense history, <b>it might learn to exploit things of either your environment or physics in simulation or your reward structure</b>.”</em><br><br>原话（10 Hz vs 100 Hz 完全是意外，而性能没掉）：<em>“the base policy runs at 100 Hz and the adaptation module, which is the one that estimates this extrinsics, that only runs at 10 hertz and <b>this is not by choice it's because of whatever compute is available on board</b>, and we see that <b>the performance doesn't drop</b>. So <b>this was not accounted for during training</b>. In training we train everything at <b>100 Hz in lock step</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「特权信息 → 蒸馏」这个三步套路，是这一讲里<b>第二件</b>你可以直接拿去用的东西，而且它解决的是一个你绕不开的难题：<b>你想预测的那个量，只有事后才知道</b>。</b><br><span class='k'>RMA 的处境是：<b>最优动作取决于摩擦系数，而摩擦系数部署时测不到</b>。它的解法不是「想办法测摩擦」，而是「<b>先假装能测，训一个强教师；再训一个学生从可观测的东西里把它猜出来</b>」</span>。<br><b>⇒ 你的同构处境是：<b>这条 query 最优的档位配置，只有把所有配置都跑一遍才知道</b>。</b><span class='w'>而你当然不可能在线上对每条 query 都穷举。</span><br><b>⇒ 于是三步套路照搬：</b><br><b>① <b>造教师</b>：在一个<b>小</b>的离线集合上<b>穷举</b>配置，得到每条 query 的真实最优配置</b>（<span class='k'>这正是你简报 §4d 里那条「最强的一招不是 OPE，是穷举 oracle」——穷举在小规模上是做得到的</span>）。<b>这个教师用了「特权信息」：它看过所有配置的结果。</b><br><b>② <b>训学生</b>：学生只能看<b>可观测特征</b>（query 文本、前几个节点的执行信号），输出「该用哪个配置」。</b><br><b>③ <b>⚠ 用 DAgger 而不是普通监督</b>：让学生<b>在自己选出的配置下</b>跑，再用教师标注「本该选什么」。</b><span class='w'>这一步是整个套路里最容易被省掉、也最不能省的——因为学生一旦偏离，普通监督就没有数据覆盖那些状态了（L02 的复合误差）。</span><br><b>⇒ 这给了你一条通往「逐 query 自适应」的<b>可实现</b>路径，而且它回避了那个最难的部分：<b>你不需要在线估计难度，你只需要离线学会「从可观测特征映射到配置」</b>。</b><br><b>⚠ 两条必须带上的限定：</b><br><b>· <b>教师的穷举集必须足够多样</b></b>——<span class='k'>如果穷举用的那批 query 难度分布很窄，学生学到的映射就只在那个窄带里对（这正是 L16 p23 那条「起点要铺开」）</span>。<br><b>· <b>讲者那条「信息给多了会学会钻空子」的警告，在你这里是真实风险</b></b>。<span class='w'>如果学生能看到的特征里混进了<b>与难度相关但与因果无关</b>的东西（比如 query 的长度、某个 benchmark 特有的格式标记），它会学会用那个捷径。</span><b>⇒ 对策和讲者一样：<b>把那个维度随机化掉</b>——用多个来源的 query 混合训练，让捷径失效。</b><br><b>最后那个「频率不匹配却没掉性能」的意外，对你也有一条便宜的推论：<b>难度估计不必每个节点都做一次</b>。</b> <span class='k'>query 的难度在一次执行内基本不变（就像摩擦在 0.1 秒内不变）</span>。<b>⇒ 所以估一次、或者在前两个节点后估一次就够了，<b>不需要每步都重估</b>——这直接省掉了大部分开销。</b>",
+    "ref": "本讲 p19–p20（逐字核对）· 讲稿（DAgger 流程、信息给多了会钻空子）· L02（复合误差）· L16 p23 · 简报 §4d（已核）"
+   },
+   "link": {
+    "t": "你学过的对应：本课 L02 精读（DAgger）—— 这里把它用在了「学生从历史回归出特权信息」上，而那个「数据分布由学生产生、标签由教师给」的撇号，正是 L02 讲的那一个",
+    "href": "L02-精读.html"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "p2 那张「模仿学习 vs 强化学习」的对照表，讲者给了什么限定？",
+    "o": ["它只适用于机器人领域", "这是两类算法的严格定义", "它比较的是「真正奏效的那些」模仿学习与强化学习 —— 是对最成功案例的归纳，不是定义；而且明确说不是在比高低（AlphaGo 与 LLM 都先用模仿学习热启动）", "它来自一篇综述论文"],
+    "a": 2,
+    "why": "<span class='k'>三条特征里第二条最有意思：模仿学习要「清洗数据、只留好的」，而 RL 里「rollout 产生的每一个数据点都是公平竞争的」——好坏通吃，所以能学出很精确的行为。</span><b>第三条也有个后半句常被漏掉：RL 不只造专才，它也可以把一个通才<b>专化</b>。</b>"
+   },
+   {
+    "q": "讲者认为 AlphaGo、LLM 推理、机器人灵巧性这三次成功共用哪两个前提？",
+    "o": ["深度网络与 GPU", "奖励说得清（能自动算）+ 评估跑得起（能规模化）", "大模型与大数据", "模仿学习预训练与微调"],
+    "a": 1,
+    "why": "<b>重点不在奖励稀疏不稀疏——AlphaGo 的奖励极稀疏，但看一眼棋盘就能判定。重点在<b>能不能自动算</b>。</b><span class='w'>而讲者还点出这三件事相隔七八年发生，两个要素始终没变。落到机器人上，拿到这两样的办法只有一个：仿真——「把物理问题变成了数字问题，于是随算力扩展」。</span>"
+   }
+  ],
+  "5": [
+   {
+    "q": "那七段真实世界视频，讲者强调的关键事实是什么？",
+    "o": ["每种地形都单独微调过", "全部来自同一套权重，零样本部署、没有任何针对地形的调参，而且全程是盲的（只用本体感觉历史）", "用了多个策略投票", "都是在仿真里录的"],
+    "a": 1,
+    "why": "<span class='k'>「零样本」在这里的准确含义是：仿真里训完直接搬上真机，<b>一次都没碰过真实世界</b>——不是「在一种地形上微调后泛化到别的」。</span><b>而「全程是盲的」这个限定让 p18 那个关键洞察更有分量：如果看不见，它凭什么知道脚下是油还是沙？</b>"
+   },
+   {
+    "q": "草地那一段视频，讲者补了一句什么？它为什么重要？",
+    "o": ["草地摩擦系数最低", "草地上必须降低速度", "「就算你有视觉，在这种情形下也看不到下面的地面」—— 它提前回答了一个很自然的质疑：有些情形下视觉根本帮不上忙，必须靠本体感觉的鲁棒性", "草地是训练分布内的"],
+    "a": 2,
+    "why": "<span class='w'>其余几段各有难点：碎石（脚卡住，反复试后察觉并继续）· 楼梯（看不见，踉跄但不摔）· 泥地（脚陷进去，加大力气拔出来）。</span><b>而 p12 那个标题 One Policy to Walk them All 把目标说得很准：不是七个策略，是一个。</b>"
+   }
+  ],
+  "14": [
+   {
+    "q": "RMA 在仿真里学走路，和普通的「域随机化」差在哪一步？",
+    "o": ["差在把这些参数作为输入喂给策略：普通域随机化训的是「对一切都还行」的鲁棒策略（只能取折中），而这里训的是「知道自己在什么情形下并据此调整」的策略", "用了更长的训练时间", "用了更大的网络", "随机化的参数更多"],
+    "a": 0,
+    "why": "<b>讲者一句话点透：「it's <b>not oblivious or blind</b> to the environment. It's actually <b>aware</b> of what it's dealing with」。</b><span class='k'>这个被压缩的参数向量叫 extrinsics（外在参数）z_t，完整物理参数约 17–18 维，压缩后约 8 维。</span>"
+   },
+   {
+    "q": "奖励函数里「Minimize hardware damage」这一项，为什么必须人为加进去？",
+    "o": ["因为硬件损坏难以量化", "因为 PPO 不支持约束", "因为仿真里根本没有「硬件损坏」这个概念 —— 必须把真实世界的约束注入仿真的奖励里，学出来的东西才可能迁移过去", "因为电机参数是随机化的"],
+    "a": 2,
+    "why": "<span class='w'>⚠ 讲者对奖励工程的坦白值得记：实际有 <b>10 个</b>奖励函数，「不太优雅，但我们尽量做得有原则」；而被问到怎么配权重时的回答是「<b>没有好办法，这是实话</b>」——实用做法是一次只加一个奖励，把指数级的复杂度降成逐个添加。</span>"
+   }
+  ],
+  "17": [
+   {
+    "q": "RMA 的关键洞察是「从观测历史估计 extrinsics」。这个信号里为什么会含有环境信息？",
+    "o": ["因为历史里包含了传感器读数", "因为 50 步足够长", "因为神经网络能拟合任何函数", "因为预期与实测的落差编码了环境：你下的指令隐含一个预期运动，如果腿滑得比预期多，这个偏离量就告诉你「你滑了，而且不是故意的」"],
+    "a": 3,
+    "why": "<b>⇒ 这正好解释了为什么那些结果能「全程是盲的」：机器人不需要<b>看见</b>油污，它只需要注意到<b>自己滑了</b>——环境的物理性质会印在你自己的运动误差上。</b><span class='k'>而人工标定行不通的理由很具体：在客厅标好了，一换到沙地或覆盖物上就得重标。</span>"
+   },
+   {
+    "q": "讲稿提到一个反常识的事实：多数成功的 sim2real 策略其实<b>不</b>用历史。为什么？",
+    "o": ["历史数据难以采集", "历史会增加推理延迟", "RNN 难以训练", "用了历史，策略就从「以状态为索引」变成「以状态和时间为索引」，更容易在仿真里学到可被利用的捷径 —— 比如周期性推它一把，它会学会「在预期被推的那一刻特别稳」"],
+    "a": 3,
+    "why": "<b>解法是把那个周期也随机化掉。⇒ <b>用历史是有代价的，必须配更仔细的随机化</b>。</b><span class='w'>另注意讲者把 RMA 归类为<b>上下文学习</b>而非微调：「学习发生在前向传播本身里」——不改权重只改输入，所以才能在零点几秒内完成。</span>"
+   }
+  ],
+  "19": [
+   {
+    "q": "第二阶段用 DAgger 训 Adaptation Module，关键细节是什么？",
+    "o": ["用教师走过的状态做标注", "数据分布由学生产生，标签由教师给：跑学生收数据（一开始全是烂数据），再用教师编码器逐点监督「本该预测什么」，然后回仿真重复", "教师和学生交替训练", "用强化学习微调学生"],
+    "a": 1,
+    "why": "<b>如果反过来在教师走过的状态上标注，学生一旦偏离就没数据可参考——正是 L02 讲的复合误差。</b><span class='k'>而「特权信息 → 蒸馏」这个三步套路（用作弊信息训强教师 → 学生在自己分布上跑 → 教师逐点监督）在 p51 的视觉版本里会原样再用一遍。</span>"
+   },
+   {
+    "q": "测试时 Adaptation Module 只跑 10 Hz 而 Base Policy 跑 100 Hz。这个设计是怎么来的？",
+    "o": ["是为了匹配传感器采样率", "完全是意外 —— 板上算力只够这样，而且训练时两者是 100 Hz 同步的、这个不匹配完全没被考虑过；但性能没有掉，因为环境参数变化得比动作慢得多", "是为了节省功耗而刻意设计的", "是训练时就按这个比例设定的"],
+    "a": 1,
+    "why": "<b>⚠ 但别当成普遍规律：它成立的前提是<b>被估计的量变化缓慢</b>。</b><span class='w'>如果环境参数本身高频变化（比如踩在不断晃动的板子上），10 Hz 可能就不够了——讲者自己说的也是「够拿到我们想要的结果」而不是「任何情况下都够」。</span>"
+   },
+   {
+    "q": "有人问「能不能跳过第一阶段、直接端到端训第二阶段」。答案是什么？",
+    "o": ["能，但要更多算力，而且更危险 —— 在仿真里给它的信息越多，它越可能学会钻环境、物理或奖励结构的空子", "不能，因为学生没有特权信息", "不能，因为梯度无法回传", "能，而且效果更好"],
+    "a": 0,
+    "why": "<b>⇒ 所以两阶段不只是省算力，它还<b>限制了学生能看到的东西</b>，从而减少了可被利用的捷径。</b><span class='k'>这和「用历史会学到周期性推搡的捷径」是同一个担忧的两种形态。</span>"
+   }
+  ]
+ }
+}
