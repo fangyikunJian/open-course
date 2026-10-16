@@ -1,0 +1,220 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p3 **今天的提纲**（重复出现五次）：Why aren't robots autonomous already? · Defining the problem: autonomous RL · Developing the algorithms（Learning policies without human intervention · Single life RL）；旁注目标：**Build autonomous agents that can learn and interact in the real world**",
+  "p5 **RL = Trial-and-Error**：Learn a policy to go from s₀ to g；Repeat：Execute actions from the policy → Observe data from the environment → Update the policy",
+  "p6 **Standard Reinforcement Learning** 配一段 gym 的代码截图，旁边一句红字：**Only in simulation!**",
+  "p7 **The Continual Real World** 三个例子：“Grasp the mug” · “Navigate to the basketball court” · “Learn how to shelf a book”，旁注 **Several thousands of trials!**",
+  "p8 三段真实视频：真人在旁边**手动复位**（讲稿点名了三位同学：Yevgen 捡冰球、Ali 关门、Archit 把毛巾铺回去）",
+  "p10 **Reset Environment** —— **Problem: this requires human supervision**；**What if we increase H?** → **Fewer environment resets, less human supervision**",
+  "p11 **自主 RL 的定义（逐字）**：**Agent interacts autonomously** · **No environment resets\\*** · **Initialize once at the beginning**；⚠ 星号：**can relax this constraint to reset occasionally, or at low frequency**",
+  "p12 **两件我们可能在意的事**：**The amount of reward recovered over the course of its life (ex: Mars rover)** vs **The quality of the learned policy (ex: robot chef)**",
+  "p13 **两种评估（本讲最该记住的一组名字）**：**Deployed Policy Evaluation = Quality of policy learned** —— J(π) = E_{s₁∼p(s₁), a_t∼π}[ Σ_t r(s_t,a_t) ]，从初始状态分布出发、按策略取动作、把一幕的奖励加起来；**Continuing Policy Evaluation\\* = Reward accumulated over lifetime** —— 对整个生命期的奖励取平均，\\*即 **average reward RL**",
+  "⚠ 讲稿把持续评估写成 **lim_{H→∞} (1/H) Σ_{t=1}^{H} r_t 的期望**，并强调「**this expectation isn't under a single policy. It's over the learning process itself**」——期望是对**学习过程**取的，不是对某个固定策略取的",
+  "p14 **为什么重要（逐字）**：We want robots to operate with minimal human supervision · We want robots to **\\*train\\*** with minimal human supervision · RL on real robots is promising path towards high success rate, reliability · **Autonomy unlocks more data, more data may unlock greater generalization**",
+  "⚠ 讲稿里学生问「只跑一条轨迹为什么还要取期望」，答案是：**要衡量的是算法而不是单次运行** —— 环境的随机性、采样批次的随机性都会带来波动，「if you want to measure how good the algorithm is, you want an expectation over multiple runs of the algorithm」",
+  "⚠ 下一讲（p46）：客座讲者 **Ashish Kumar（Tesla Optimus）**，讲 sim2real 与人形机器人"
+ ],
+ "notes": [
+  {
+   "r": [1, 4],
+   "t": "今天要补的那一环：「自主」其实有两层意思",
+   "star": 2,
+   "quote": "<b>RL for Robots: Autonomous Learning</b><br><b>Plan for Today</b><br><em>- Why aren't robots autonomous already?<br>- Defining the problem: autonomous RL<br>- Developing the algorithms<br>&nbsp;&nbsp;- Learning policies without human intervention<br>&nbsp;&nbsp;- Single life RL</em><br><em><b>Goal: Build autonomous agents that can learn and interact in the real world</b></em>",
+   "one": "<b>强化学习已经比模仿学习更「自主」了——智能体在自己试错。但在真实机器人上跑一遍就会发现：试完一次之后，是人把场景摆回去的。</b>",
+   "pts": [
+    "<b>先接上上一讲：L15 的末页预告的正是这一讲（<em>learning with autonomy</em> 与 <em>sim2real</em>）。</b> <span class='k'>⇒ 两讲连起来是一组：L15 讲「策略怎么组织」（分层），这一讲讲「怎么在真实机器人上把它训出来」</span>。<b>而下一讲（p46）是 Tesla Optimus 团队的客座讲者讲 sim2real。</b>",
+    "<b>开场的对比值得记，因为它说明「自主」这个词在这一讲里是有<b>层次</b>的。</b> <span class='w'>讲稿：模仿学习是「训练智能体去模仿专家给的示范」；而强化学习是「智能体<b>通过试错在练</b>」</span>；<b>⇒ 「练」这件事本身<b>已经</b>比模仿更自主了，因为智能体在从自己的经验里学。</b>",
+    "⚠️ <b>但紧接着那句转折是全讲的起点：<b>「<em>it actually isn't entirely autonomous in practice, when you think about running these algorithms on physical robots</em>」</b>。</b> <span class='k'>⇒ 在仿真里自主，在真机上不自主——而差别<b>不在算法里</b>，在算法<b>没写出来</b>的那一步。</span>",
+    "<b>p14 把「自主」的两层意思拆得很清楚，这是读这一讲前要先分开的一对概念。</b> <span class='w'>① <b>部署时</b>自主运行（<em>operate</em> with minimal human supervision）——这是大家默认在想的那个；② <b>训练时</b>自主（<em>**train**</em> with minimal human supervision）——幻灯特意在 train 两边加了星号</span>。<b>⇒ 这一讲讲的是第 ②。</b>",
+    "<b>提纲里那个 <code>Goal</code> 一句写得很直白：<b>造出能在真实世界里自己学、自己交互的智能体</b>。</b> <span class='k'>讲稿展开成「on their own, learn, interact, practice, get better <b>without a human in the loop</b>」</span>——<b>注意这四个动词都落在<b>学习过程</b>上，不是落在部署上。</b>",
+    "<b>提纲的三块各管一件事，读的时候按这个分：<b>① 为什么现在还不自主（p5–8）；② 问题怎么定义、怎么评估（p9–14）；③ 算法（p15–44，又分「无人干预地学策略」与「单生命 RL」两段）</b>。</b> <span class='w'>⇒ 和 L15 一样，这一讲也是按<b>问题结构</b>而不是按算法组织的。</span>",
+    "<b>⚠ 最后留意一个本讲自己限定的范围：<b>这里讲的「自主」是「不需要人把环境摆回去」，不是「不需要奖励函数」</b>。</b> <span class='k'>奖励从哪来是另一个问题（L08 奖励学习那一讲的内容）</span>；<b>⇒ 不过讲稿在 p26 提了一句，真机实验里奖励确实也是用模型给的（VLM 或学出来的），「so that this entire process can be autonomous, and you can actually run it overnight」。</b>"
+   ],
+   "eq": "接上一讲：L15 末页预告的正是这一讲（learning with autonomy · sim2real）\n   L15：策略**怎么组织**（分层）\n   L16：怎么在**真实机器人上把它训出来**\n   L17（p46）：Tesla Optimus 客座讲者讲 sim2real\n\n开场的对比（「自主」是有层次的）：\n   模仿学习 = 训练智能体**模仿**专家示范\n   强化学习 = 智能体**通过试错在练**\n   ⇒ 「练」**已经**比模仿更自主（从自己的经验里学）\n\n⚠ 全讲的起点就是紧接着那句转折：\n   「**it actually isn't entirely autonomous in practice,\n     when you think about running these algorithms on physical robots**」\n   ⇒ 仿真里自主，真机上不自主\n     而差别**不在算法里**，在算法**没写出来**的那一步\n\n**「自主」的两层意思**（p14 拆得很清楚，要先分开）：\n   ① **部署时**自主运行  operate with minimal human supervision\n   ② **训练时**自主      **train** with minimal human supervision ← 幻灯给 train 加了星号\n   ⇒ **这一讲讲的是第 ②**\n\nGoal 一句：造出能在真实世界里自己学、自己交互的智能体\n   讲稿展开：「on their own, learn, interact, practice, get better\n               **without a human in the loop**」\n   ⇒ 四个动词都落在**学习过程**上，不是部署上\n\n提纲三块（读的时候按这个分）：\n   ① 为什么现在还不自主        p5–8\n   ② 问题怎么定义、怎么评估     p9–14\n   ③ 算法                      p15–44\n      （又分「无人干预地学策略」与「单生命 RL」两段）\n   ⇒ 和 L15 一样，按**问题结构**而不是按算法组织\n\n⚠ 本讲自己限定的范围：\n   这里的「自主」= **不需要人把环境摆回去**，**不是**「不需要奖励函数」\n   奖励从哪来是另一个问题（L08 奖励学习）\n   不过 p26 提了一句：真机实验里奖励确实也用模型给（VLM 或学出来的）\n   「so that this entire process can be autonomous,\n     and you can actually **run it overnight**」",
+   "tbl": {
+    "head": ["「自主」的两层", "指什么", "本讲讲哪层"],
+    "rows": [
+     ["<b>部署时自主</b>", "<b>operate</b> 不需要人盯着", "<span class='w'>不是本讲重点</span>"],
+     ["<b>训练时自主</b>", "<b>train</b> 不需要人摆回场景", "<b>✓ 本讲</b>"],
+     ["⚠ 不包括", "<span class='w'>奖励函数从哪来</span>", "<span class='w'>L08 的内容</span>"]
+    ]
+   },
+   "link": {
+    "t": "你学过的对应：本课 L15 精读（分层）—— L15 末页预告的就是这一讲；两讲连起来是「策略怎么组织」与「怎么在真机上训出来」",
+    "href": "L15-精读.html"
+   }
+  },
+  {
+   "r": [5, 8],
+   "t": "env.reset() 只在仿真里有",
+   "star": 3,
+   "quote": "<b>Reinforcement Learning = Trial-and-Error</b> — <em>Learn a policy π to go from s₀ to g. Repeat: Execute actions from the policy π → Observe data from the environment → Update the policy π</em><br><b>Standard Reinforcement Learning</b> — <em>How does this happen?</em>〔配一段 gym 的代码截图〕<em><b>Only in simulation!</b></em><br><b>The Continual Real World</b> — <em>“Grasp the mug” · “Navigate to the basketball court” · “Learn how to shelf a book”</em> &nbsp; <em><b>Several thousands of trials!</b></em>",
+   "one": "<b>每条轨迹的内部都是全自主的——动作由策略采样、控制权完全在智能体手里。不自主的是两条轨迹<b>之间</b>那一步：怎么回到起点。而课堂上一直把这一步当成理所当然。</b>",
+   "pts": [
+    "<b>讲稿把那个被跳过的缺口描述得非常精确，值得逐句跟。</b> <span class='k'>「as you're rolling out your policy, <b>this part is fully autonomous</b>. Control is fully with the policy π」——<b>一条轨迹内部完全自主</b></span>；<b>「one little catch is that after you've attempted the task… when you then attempt the task again, <b>magically</b>, you'll somehow get back over here」。</b>",
+    "<b>⇒ 问题不在轨迹<b>里</b>，在轨迹<b>之间</b>。而「<em>magically</em>」这个词是故意用的：课程前面十几讲一直假装这一步不存在。</b> <span class='w'>讲稿：「we've been assuming that a human or, somehow, you'll <b>magically</b> get reset to this initial starting place」</span>。",
+    "<b>p6 那张 gym 代码截图配的一句红字 <b><em>Only in simulation!</em></b> 把这件事坐实了。</b> <span class='k'>讲稿：仿真里你可以「take actions for a thousand time steps. And then once we're done, then we can call <b>env.reset</b>, which is a very nice little friendly utility. But that's something that we can only really do in simulation. <b>We can't reset the physical world to our own will.</b>」</span>",
+    "<b>⇒ <code>env.reset()</code> 这一行在真实世界里对应的是<b>一个人伸手去摆</b>——这就是这一讲要消除的东西。</b>",
+    "<b>p7 三个例子把「复位」在不同形态上的样子讲清楚了，而它们<b>难度不一样</b>。</b> <span class='w'><b>导航</b>：小车拐错弯，得想办法从那个物理位置绕回起点、或者从拐错的地方另找路；<b>抓取</b>：机械臂把杯子<b>碰倒</b>了，要再练抓取，杯子得先回到够得着的地方；<b>上架</b>：书掉了，得回到「书在手边」的初始状态</span>。",
+    "⚠️ <b>而让这件事真正致命的是<b>次数</b>：<b><em>Several thousands of trials!</em></b></b> <span class='k'>讲稿：「reinforcement learning often takes many attempts. It's <b>not a matter of trying three times</b> and then solving the task… <b>every time the agent tries again</b>, that means that you have some human intervention」</span>。<b>⇒ 人工复位不是偶尔帮个忙，是<b>每一次试验都要来一遍</b>，几千次。</b>",
+    "<b>p8 那三段视频是全讲最有说服力的一页，因为它们把抽象问题变成了画面。</b> <span class='w'>讲稿点了名：<b>Yevgen</b> 在旁边给学打冰球的机器人捡球（「he's probably <b>doing more work than the robot</b> is right now」）；<b>Ali</b> 在给学开门的机器人<b>关门</b>；<b>Archit</b>（本学期来做过客座）在给学叠毛巾的机器人把毛巾铺回去</span>。",
+    "<b>⇒ 「人比机器人干得还多」这句吐槽点出了核心荒谬之处：<b>你本来是想让机器人替你干活，结果你在替机器人做准备工作，而且是几千遍</b>。</b>",
+    "<b>最后记一个结构性的点：<b>这个问题是「连续世界」特有的，不是「机器人」特有的</b>。</b> <span class='k'>p7 的标题是 <em>The Continual <b>Real World</b></em></span>；<b>⇒ 任何在一个<b>不能回滚</b>的环境里学习的系统都有这个问题——真实世界不提供撤销键。</b>"
+   ],
+   "eq": "讲稿把那个被跳过的缺口描述得非常精确：\n   「as you're rolling out your policy, **this part is fully autonomous**.\n     Control is fully with the policy π」          ← 一条轨迹**内部**完全自主\n   「after you've attempted the task… when you attempt the task again,\n     **magically**, you'll somehow get back over here」\n\n   ⇒ 问题不在轨迹**里**，在轨迹**之间**\n     「magically」是故意用的 —— 前面十几讲一直假装这一步不存在\n     「we've been assuming that a human or, somehow, you'll **magically** get reset」\n\np6（gym 代码截图 + 一句红字）：**Only in simulation!**\n   「…then we can call **env.reset**, which is a very nice little friendly utility.\n     But that's something we can only really do in simulation.\n     **We can't reset the physical world to our own will.**」\n   ⇒ env.reset() 在真实世界里对应的是**一个人伸手去摆**\n\np7 三个例子（复位的不同形态，难度不一样）：\n   **导航**：小车拐错弯 → 从那个物理位置绕回起点，或从拐错处另找路\n   **抓取**：机械臂把杯子**碰倒** → 杯子得先回到够得着的地方\n   **上架**：书掉了 → 回到「书在手边」的初始状态\n\n⚠ 真正致命的是**次数**：**Several thousands of trials!**\n   「RL often takes many attempts. It's **not a matter of trying three times**…\n     **every time the agent tries again**, that means you have some human intervention」\n   ⇒ 人工复位不是偶尔帮忙，是**每一次试验都要来一遍**，几千次\n\np8 三段视频（把抽象问题变成画面，讲稿点了名）：\n   **Yevgen** 给学打冰球的机器人捡球\n     ——「he's probably **doing more work than the robot** is right now」\n   **Ali** 给学开门的机器人**关门**\n   **Archit**（本学期来做过客座）给学叠毛巾的机器人把毛巾铺回去\n\n   ⇒ 核心的荒谬：**你本来想让机器人替你干活，\n     结果你在替机器人做准备工作，而且是几千遍**\n\n结构性的点：**这个问题是「连续世界」特有的，不是「机器人」特有的**\n   p7 的标题是 The Continual **Real World**\n   ⇒ 任何在**不能回滚**的环境里学习的系统都有这个问题\n     —— 真实世界不提供撤销键",
+   "say": "原话（轨迹内部自主，轨迹之间「变魔术」）：<em>“when we're rolling out these policies, we are sampling actions from our policy distribution and acting according to the agent's own actions. And so each of these trajectories are under the control of the robot or the agent. And as you're rolling out your policy, <b>this part is fully autonomous</b>. Control is fully with the policy pi. But one thing, one little catch is that after you've attempted the task, once you're in a state over here… when you then attempt the task again, <b>magically, you'll somehow get back over here</b> and attempt the task from this starting place. And we haven't really talked about how do you get from here, all the way back to here.”</em><br><br>原话（env.reset 只在仿真里有）：<em>“if we're in a simulation-based environment, then what we can do is we can create the environment, take actions for a thousand time steps. And then once we're done, then we can call <b>env.reset</b>, which is a very nice little friendly utility. But that's something that we can only really do in simulation. <b>We can't reset the physical world to our own will.</b>”</em><br><br>原话（人比机器人干得还多）：<em>“this video on the left is a video of a robot, learning how to hit a hockey puck into a goal. And you can see that the human here — this is a friend of mine, Yevgen — <b>he's probably doing more work than the robot is right now</b>, as it attempts to do this. Here's another example, where Ali is <b>closing the doors so that the robot can learn how to open them</b>. And here's an example where Archit… is resetting the robot so that it can attempt to fold the towel.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「真实世界不提供撤销键」这件事在你的工作流里有一个具体的形态，而且它决定了你能不能用某些评估方法。</b><br><span class='k'>你的评估是<b>可以</b>复位的：每条 query 独立重跑，起点永远是干净的——这正是 <code>env.reset()</code> 在仿真里成立的那种情形</span>。<b>⇒ 这是一个<b>优势</b>，值得明确意识到：你处在这一讲说的「幸运」那一侧。</b><br><b>⇒ 但有两处例外，而它们恰好是你最容易踩的坑：</b><br><b>① <b>带外部副作用的节点</b></b>——<span class='w'>如果工作流里有节点会写文件、调用外部 API、改数据库，那么「重跑这条 query」就<b>不是</b>干净的复位了</span>。<b>第二次跑时环境已经被第一次改过。⇒ 这会让你的重复测量产生相关性，而你的置信区间假设的是独立。</b><span class='k'>⚠ 如果有这种节点，要么沙箱化，要么在报告里声明。</span><br><b>② <b>缓存</b></b>——<span class='w'>LLM 服务端或你自己的缓存会让第二次调用变快、变便宜、甚至返回完全相同的结果</span>。<b>⇒ 这对 Cost 的测量是<b>致命</b>的：你测的是缓存命中率，不是真实成本。<b>做重复测量前必须确认缓存是关的</b>，这是一行配置却能毁掉整组数据。</b><br><b>而这一页真正值得搬的是那个<b>视角</b>：<b>去数一数你的流程里「人伸手摆一下」的地方有几处</b>。</b> <span class='k'>讲义的荒谬之处是「人比机器人干得还多」；而在一个研究流程里，等价的问题是「这套自动化里还有多少步要我手动介入」</span>。<b>⇒ 具体到你这里，值得查的几处：失败的 run 要不要手动重跑？结果表要不要手动合并？λ 扫描要不要手动改参数再跑一遍？</b><br><b>⇒ 这不只是省力的问题。<b>每一处人工介入都是一个不被记录的自由度</b></b>——<span class='w'>你手动重跑了哪些失败、按什么标准重跑的，这些决定不会进日志，却会影响结果</span>。<b>⇒ 讲义说自主「解锁更多数据」（p14）；而对你，自主首先解锁的是<b>可复现性</b>。</b>",
+    "ref": "本讲 p5–p8（逐行核对）· 讲稿（Yevgen/Ali/Archit 三段视频）· p14 · 简报 §4b §4e（已核）"
+   }
+  },
+  {
+   "r": [9, 11],
+   "t": "自主 RL 的定义，和那个很要紧的星号",
+   "star": 3,
+   "quote": "<b>Reset Environment</b> — <em><b>Problem: this requires human supervision</b></em> &nbsp;·&nbsp; <em>What if we increase H? &nbsp; <b>Fewer environment resets, less human supervision</b></em><br><b>Autonomous RL: Definition</b><br><em><b>Agent interacts autonomously</b><br><b>No environment resets</b><sup>*</sup><br><b>Initialize once at the beginning</b></em><br><em><sup>*</sup>can relax this constraint to <b>reset occasionally, or at low frequency</b></em>",
+   "one": "<b>定义只有三行，而最有信息量的是那个星号：允许偶尔复位。它把一个非黑即白的问题变成了一个连续谱——真正的变量是「多久复位一次」。</b>",
+   "pts": [
+    "<b>p10 先给出了一个<b>看起来</b>能解决问题的想法，而这个想法之所以重要，是因为它会在 p16 被实验否掉。</b> <span class='k'>想法很直接：<b>把 <code>H</code>（每幕的长度）加长</b>。幕越长，复位次数越少，需要的人工监督就越少</span>。<b>⇒ 而且好处是你<b>什么算法都不用改</b>，课上学过的那些原样能跑。</b>",
+    "<b>讲稿把这个诱惑说得很明白：「we might be able to apply <b>the same exact reinforcement learning algorithms</b> that we've learned about in the course, just with less supervision」。</b> <span class='w'>⇒ 留着这个念头读 p16–p17，那两页就是在回答「为什么不行」。</span>",
+    "<b>p11 的定义只有三行，但每一行都在排除某种「作弊」。</b> <span class='k'>① <b><em>Agent interacts autonomously</em></b>——交互过程中没有人；② <b><em>No environment resets</em></b>——不许把世界摆回去；③ <b><em>Initialize once at the beginning</em></b>——只在最开始初始化<b>一次</b></span>。",
+    "<b>第 ③ 行容易被当成废话，其实它是在堵一个漏洞：<b>不许用「多次初始化」绕开「不许复位」</b>。</b> <span class='w'>否则你可以声称自己没有 reset，只是「又初始化了一次」</span>。",
+    "⚠️ <b>而那个星号是整页最该留意的地方：<b><em>can relax this constraint to reset occasionally, or at low frequency</em></b>（可以放松成偶尔复位、或者低频复位）。</b>",
+    "<b>⇒ 这一笔把问题从「有没有复位」变成了<b>「多久复位一次」</b>——一个连续谱，而不是一个二选一。</b> <span class='k'>后面 EARL 基准的设定正是落在这个谱上：<b>每 20 万步才复位一次</b>（p24）</span>。<b>⇒ 所以「自主 RL」在实践中的含义不是「零人工」，而是<b>「把人工介入压到可以忽略的频率」</b>。</b>",
+    "<b>这个放松有很实际的理由，讲稿顺带说了：<b>偶尔复位是一个兜底</b>。</b> <span class='w'>原话（在 FBRL 那里）：「You can also have a reset very infrequently, so occasionally reset it, <b>just in case it does get stuck in a really challenging state</b>」</span>。<b>⇒ 它防的正是 L15 p5 那个「卡住」：一旦进了出不来的状态，没有兜底就永远出不来。</b>",
+    "<b>⚠ 还有一个很有人情味的理由，讲稿在 p19 附近提到：<b>只要过程是自主的，花多长时间就没那么要紧了</b>。</b> <span class='k'>原话：「if this process is autonomous, then the number of time steps actually matters a little bit less <b>because you can go to sleep while your robot is trying to learn</b>」</span>。<b>⇒ 自主性把「时间成本」换成了「挂机成本」，而后者便宜得多。</b>"
+   ],
+   "eq": "p10 先给一个**看起来**能解决问题的想法（它会在 p16 被实验否掉）：\n   **把 H（每幕长度）加长** ⇒ 幕越长，复位越少，人工监督越少\n   好处：**什么算法都不用改**，课上学过的原样能跑\n   讲稿：「we might be able to apply **the same exact RL algorithms**\n           that we've learned about in the course, just with less supervision」\n   ⇒ 留着这个念头读 p16–p17，那两页就是在回答「为什么不行」\n\n**p11 定义**（三行，每行都在排除某种「作弊」）：\n   ① **Agent interacts autonomously**     交互过程中没有人\n   ② **No environment resets**            不许把世界摆回去\n   ③ **Initialize once at the beginning** 只在最开始初始化**一次**\n\n   第 ③ 行不是废话 —— 它堵的是\n   **「不许用多次初始化绕开不许复位」**\n   （否则可以声称没有 reset，只是「又初始化了一次」）\n\n⚠⚠ **那个星号是整页最该留意的地方**：\n   **can relax this constraint to reset occasionally, or at low frequency**\n\n   ⇒ 把问题从「**有没有**复位」变成「**多久复位一次**」\n     —— 一个连续谱，不是二选一\n   后面 EARL 基准正落在这个谱上：**每 20 万步才复位一次**（p24）\n   ⇒ 「自主 RL」的实践含义不是「零人工」，\n     而是**「把人工介入压到可以忽略的频率」**\n\n放松的两个实际理由（讲稿）：\n   ① **偶尔复位是兜底**：\n      「occasionally reset it, **just in case it does get stuck\n        in a really challenging state**」\n      ⇒ 防的正是 L15 p5 那个「卡住」—— 进了出不来的状态，\n        没有兜底就永远出不来\n   ② ⚠ 很有人情味的那个理由：\n      「if this process is autonomous, then the number of time steps\n        actually matters a little bit less **because you can go to sleep\n        while your robot is trying to learn**」\n      ⇒ 自主性把「时间成本」换成了「挂机成本」，后者便宜得多",
+   "tbl": {
+    "head": ["定义的三行", "它排除了什么"],
+    "rows": [
+     ["<b>Agent interacts autonomously</b>", "交互过程中有人盯着"],
+     ["<b>No environment resets*</b>", "把世界摆回初始状态"],
+     ["<b>Initialize once at the beginning</b>", "<b>⚠ 用「多次初始化」绕开「不许复位」</b>"],
+     ["<b>* 可偶尔 / 低频复位</b>", "<b>把问题变成「多久一次」的连续谱</b>"]
+    ]
+   },
+   "say": "原话（加长 H 这个诱惑，以及它诱人在哪）：<em>“what if we could just increase h? What if we just increase the length of the episodes in which our agents are attempting the task? And if we increase the length of the episodes, then in principle, we won't require as much human supervision. And we might be able to apply <b>the same exact reinforcement learning algorithms that we've learned about in the course, just with less supervision</b> during the learning process.”</em><br><br>原话（偶尔复位是一个兜底，防的是卡住）：<em>“You can also have a reset very infrequently, so occasionally reset it, <b>just in case it does get stuck in a really challenging state</b>.”</em><br><br>原话（自主性把时间成本换成挂机成本）：<em>“ideally, if this process is autonomous, then the number of time steps actually matters a little bit less <b>because you can go to sleep while your robot is trying to learn</b>.”</em>"
+  },
+  {
+   "r": [12, 13],
+   "t": "两种评估：火星车还是厨师",
+   "star": 3,
+   "quote": "<b>Autonomous RL: Evaluation</b><br><em>We might care about two different things:<br>- <b>The amount of reward recovered over the course of its life (ex: Mars rover)</b><br>- <b>The quality of the learned policy (ex: robot chef)</b></em><br><em><b>Deployed Policy Evaluation = Quality of policy learned</b><br>J(π) = 𝔼<sub>s₁∼p(s₁), a<sub>t</sub>∼π</sub>[ Σ<sub>t</sub> r(s<sub>t</sub>,a<sub>t</sub>) ]<br>（Start from initial state distribution · Take actions according to π · Total reward over the episode）</em><br><em><b>Continuing Policy Evaluation* = Reward accumulated over lifetime</b><br>（Average over reward accumulated in the lifetime）&nbsp; <sup>*</sup><b>average reward RL</b></em><br><em>We'll look at algorithms for both!</em>",
+   "one": "<b>火星车在意的是「这一路上一共采集到多少数据」，厨师在意的是「学完之后做菜做得好不好」。两者要的不是同一个数，而且优化它们的算法也不一样。</b>",
+   "pts": [
+    "<b>这一页给了一对名字，而这对名字值得记住，因为它把一个常被混在一起的区分讲清楚了。</b>",
+    "<b><b>部署策略评估</b>（Deployed Policy Evaluation）= <b>学出来的策略有多好</b>。</b> <span class='k'><code>J(π) = E_{s₁∼p(s₁), a_t∼π}[Σ_t r(s_t,a_t)]</code>——从初始状态分布抽一个起点，按策略走一幕，把奖励加起来</span>。<b>⇒ 这就是课程前面一直在用的那个目标函数，<b>一个字没变</b>。</b>",
+    "<b><b>持续策略评估</b>（Continuing Policy Evaluation）= <b>一辈子一共拿到多少奖励</b>。</b> <span class='w'>讲稿写成 <code>lim_{H→∞} (1/H)Σ_{t=1}^H r_t</code> 的期望，并点明这叫 <b>average reward RL</b>（平均奖励强化学习）</span>。",
+    "⚠️ <b>两者的差别比「换一个公式」深得多，而讲稿点出的那一处最要紧：<b>期望是对谁取的</b>。</b> <span class='k'>原话：「this expectation <b>isn't under a single policy. It's over the learning process itself</b>」</span>。<b>⇒ 部署评估衡量的是<b>一个固定策略</b>；持续评估衡量的是<b>整个学习过程</b>——包括它学得快不快、中间犯了多少错。</b>",
+    "<b>那两个例子把差别说得最清楚，而且它们是<b>互斥</b>的。</b> <span class='w'><b>火星车</b>：你要的是它在这一路上采集到的科学数据。「You <b>don't really care</b> about whether it learned a good policy that you're going to deploy after the learning process」——学习结束之后那个策略好不好，<b>无所谓</b></span>；<b><b>机器人厨师</b>：训练过程中做砸多少顿饭都不要紧，你在意的是之后能不能稳定地给客人做菜。</b>",
+    "<b>⇒ 关键在于：<b>对火星车，学习过程中的失败是<b>真实损失</b>；对厨师，学习过程中的失败只是<b>训练成本</b></b>。</b> <span class='k'>两者要优化的东西因此不同，算法也不同——幻灯说 <em>We'll look at algorithms for both!</em></span>",
+    "<b>⚠ 一个容易搞混的地方：<b>持续评估不等于「不复位」</b>。</b> <span class='w'>这一页讲的是<b>评估指标</b>，p11 讲的是<b>环境设定</b>，两者是两个维度</span>。<b>⇒ 你完全可以在无复位的环境里关心「最终策略有多好」（这正是后面 FBRL/MEDAL 做的事，p24 的评估写着 <em>Evaluation: policy performance from s₀</em>）。</b>",
+    "<b>讲稿里学生问了一个很好的问题：<b>只跑一条轨迹，为什么还要写期望？</b></b> <span class='k'>答案是：如果你只想知道这一次跑得怎么样，那确实直接测就行；<b>但要衡量的是<b>算法</b>而不是单次运行</b>——环境的随机性、采样批次的随机性都会带来波动</span>。<b>⇒ 「if you want to measure how good <b>the algorithm</b> is, you want an expectation over <b>multiple runs of the algorithm</b>」。</b>",
+    "<b>⇒ 这条对任何做实验的人都适用：<b>报一次运行的结果，报的是那次运行；报算法，就得多跑几次</b>。</b> <span class='w'>而学习过程本身的随机性往往比环境的随机性更大，这一点很容易被低估。</span>"
+   ],
+   "eq": "**两个名字**（把一个常被混在一起的区分讲清楚了）：\n\n**部署策略评估** Deployed Policy Evaluation = **学出来的策略有多好**\n   J(π) = E_{s₁∼p(s₁), a_t∼π}[ Σ_t r(s_t, a_t) ]\n   从初始状态分布抽起点 → 按策略走一幕 → 把奖励加起来\n   ⇒ **就是课程前面一直在用的那个目标函数，一个字没变**\n\n**持续策略评估** Continuing Policy Evaluation = **一辈子一共拿到多少奖励**\n   讲稿：lim_{H→∞} (1/H) Σ_{t=1}^{H} r_t 的期望\n   别名：**average reward RL**（平均奖励强化学习）\n\n⚠⚠ 差别比「换个公式」深得多 —— **期望是对谁取的**：\n   「this expectation **isn't under a single policy.\n     It's over the learning process itself**」\n   ⇒ 部署评估衡量**一个固定策略**\n     持续评估衡量**整个学习过程**（学得快不快、中间犯了多少错）\n\n**两个例子（互斥）**：\n   **火星车**：要的是这一路采集到的科学数据\n     「You **don't really care** about whether it learned a good policy\n       that you're going to deploy after the learning process」\n   **机器人厨师**：训练时做砸多少顿饭都不要紧，\n     在意的是之后能不能稳定给客人做菜\n\n   ⇒ 关键：**对火星车，学习过程中的失败是真实损失；\n            对厨师，学习过程中的失败只是训练成本**\n     两者优化的东西不同，算法也不同（We'll look at algorithms for both!）\n\n⚠ 容易搞混：**持续评估 ≠ 不复位**\n   这一页讲的是**评估指标**，p11 讲的是**环境设定** —— 两个维度\n   ⇒ 完全可以在无复位环境里关心「最终策略有多好」\n     （FBRL/MEDAL 正是如此：p24 写着 Evaluation: policy performance from s₀）\n\n讲稿里的好问题：**只跑一条轨迹，为什么还要写期望？**\n   只想知道这次跑得怎样 ⇒ 直接测就行\n   但要衡量的是**算法**而不是单次运行 ——\n   环境的随机性、采样批次的随机性都会带来波动\n   「if you want to measure how good **the algorithm** is,\n     you want an expectation over **multiple runs of the algorithm**」\n   ⇒ **报一次运行的结果，报的是那次运行；报算法，就得多跑几次**\n     而学习过程本身的随机性往往比环境的随机性更大，很容易被低估",
+   "tbl": {
+    "head": ["", "部署策略评估", "持续策略评估"],
+    "rows": [
+     ["衡量什么", "<b>学出来的策略有多好</b>", "<b>一辈子的平均奖励</b>"],
+     ["公式", "<b>J(π)（课程一直用的那个）</b>", "<b>lim (1/H)Σr<sub>t</sub>（average reward RL）</b>"],
+     ["期望对谁取", "<b>一个固定策略</b>", "<b>⚠ 整个学习过程</b>"],
+     ["例子", "<b>机器人厨师</b>", "<b>火星车</b>"],
+     ["学习中的失败算什么", "<b>训练成本</b>", "<span class='w'>⚠ 真实损失</span>"]
+    ]
+   },
+   "say": "原话（火星车 vs 厨师，以及「无所谓」那半句）：<em>“One thing that we might care about is the amount of reward recovered over the course of its life. As one example of this, imagine that you're deploying the <b>Mars Rover</b>, and you want the Rover to be able to collect scientific data. <b>You don't really care about whether it learned a good policy that you're going to deploy after the learning process.</b> You really care about whether or not it did a good job, as it was deployed, as it was learning… Or you could [care] about the quality of the learned policy. An example of this is that if you're learning how to <b>cook meals</b>, maybe there's some training process. And <b>you don't really care that much about during the training process, how well it was able to cook</b> as it was learning. But then you really care about, then can I deploy this system and have it be able to cook meals effectively, repeatedly for a variety of customers in the future.”</em><br><br>原话（期望是对学习过程取的，不是对某个策略取的）：<em>“we would want to be considering what is the average reward that it saw during that learning process… So this would be a limit, evaluating average reward and the limit in which h goes to infinity… And there should be an expectation over this quantity. Now, <b>this expectation isn't under a single policy. It's over the learning process itself.</b> So that's another difference from measuring how good a learned policy is.”</em><br><br>原话（学生问「只跑一条为什么要期望」）：<em>“If you want to evaluate just a single lifetime or a single rollout of your learning process, then you could just measure precisely that, run it and see how well it does. Now, in practice, there's variability that's caused by variability in the environment, variability in your learning process, like how you sample batches and so forth. And you may want to measure, like at the algorithm level, how good is your algorithm at this problem? And <b>if you want to measure how good the algorithm is, you want an expectation over multiple runs of the algorithm</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你一个<b>学名</b>，而你一直在用这个区分、却没有名字可引。</b><br><span class='k'>你做的是 <b>deployed policy evaluation</b>：你在意的是<b>最终选出来的那个配置</b>的 <code>G</code>，而<b>不</b>在意搜索过程中跑了多少个烂配置</span>。<b>⇒ 那正是「机器人厨师」那一侧：<b>训练时做砸的饭不计入评价</b>。</b><br><b>⇒ 这给了你一句可以直接写进论文的话：<b>我们优化的是 deployed policy evaluation——搜索阶段的调用是训练成本，不计入目标函数；我们报告的是最终配置在留出集上的 G。</b></b><span class='w'>比含糊地说「我们做离线选择」清楚得多，而且 EARL 那条线有现成的引用。</span><br><b>⚠ 但这里有一个你必须<b>主动</b>挑明的紧张关系，否则会被审稿人抓住：<b>你的目标函数里本来就有成本项</b>。</b><br><span class='k'>于是「成本」在你这里出现了<b>两次</b>，而且性质完全不同：① <b><code>G</code> 里的 <code>λ·Cost</code></b>——那是<b>最终配置每次推理</b>的成本，属于部署评估；② <b>搜索阶段烧掉的调用</b>——那是训练成本，按部署评估的定义<b>不</b>计入</span>。<b>⇒ 这两个不能混为一谈，但一个只看总账单的审稿人会把它们加在一起问你。</b><br><b>⇒ 稳妥的报法是<b>两个数都给</b>：<b>最终配置的 <code>G</code></b>（主结果）+ <b>达到它所花的搜索预算</b>（方法开销，单独一栏）。</b> <span class='w'>再给一条摊销曲线：搜索成本摊到多少条 query 上就回本了</span>。<b>⇒ 如果你的方法要跑 5000 次调用去搜，而最终配置每条 query 省 0.3 分钱，那回本点是一个很具体、也很好讲的数。</b><br><b>而<b>持续评估</b>那一侧在你这里也不是空的——它对应的是「<b>边服务边调</b>」的场景</b>：<span class='k'>系统上线后持续根据真实流量调整各节点档位，此时每一次错误的档位选择都在真实地损害用户</span>。<b>⇒ 那就是火星车那一侧，而且那时候该用的算法完全不同（要控遗憾，而不是最后选一个好的）——这正是 L14/L10 那条遗憾线的适用场合。</b><br><b>⇒ 所以一个干净的定位是：<b>本文做 deployed policy evaluation（离线选配置）；在线自适应留作未来工作，并指出那时候目标函数要换成遗憾。</b></b><span class='w'>把两者的界划清楚，比假装只有一种设定要可信。</span><br><b>最后一条实验纪律，来自那个「期望对谁取」的问答：<b>你报的是算法还是那一次运行？</b></b> <span class='k'>你的搜索过程<b>本身有随机性</b>（采样哪些 query、平局怎么破、LLM 的温度）</span>。<b>⇒ 只跑一遍搜索然后报结果，报的是那一次的运气。<b>至少跑 3–5 个种子，报均值与范围</b>——而且这比多测几条 query 更重要，因为学习过程的方差往往大于环境的方差。</b>",
+    "ref": "本讲 p12–p13（逐字核对）· 讲稿（火星车/厨师、期望对学习过程取、算法 vs 单次运行）· L14 主线卡 · 简报 §2 §4b §4d（已核）"
+   }
+  },
+  {
+   "r": [14, 14],
+   "t": "为什么值得做：自主解锁的是数据",
+   "star": 2,
+   "quote": "<b>Why is autonomous RL important?</b><br><em>Robotics ↔ Autonomy<br>- We want robots to <b>operate</b> with minimal human supervision<br>- We want robots to <b>*train*</b> with minimal human supervision</em><br><em>RL on real robots is promising path towards <b>high success rate, reliability</b>.</em><br><em><b>Autonomy unlocks more data, more data may unlock greater generalization.</b></em>",
+   "one": "<b>自主的理由不是「省人力」，而是「解锁数据」——而数据才是泛化的来源。这条链子有三环：自主 → 更多数据 → 更强泛化。</b>",
+   "pts": [
+    "<b>这一页只有四行，但它回答的是「费这么大劲图什么」，而给出的理由比「省人力」要深。</b>",
+    "<b>前两行把 L16.a p1 说过的那两层再点一遍，这次把星号加在了 <code>train</code> 上。</b> <span class='k'>部署时自主（<em>operate</em>）是大家默认在想的；而<b>训练时自主</b>（<em>**train**</em>）才是这一讲的内容</span>。",
+    "<b>第三行是一个<b>和模仿学习的对比</b>，而且这个对比在讲稿里更明确。</b> <span class='w'>原话：「reinforcement learning on real robots is a promising path towards achieving <b>really high success rates, really high reliability compared to imitation learning</b>」</span>。<b>⇒ 理由在 L15 p41 讲过：<b>模仿学习的上界永远是专家</b>；而 RL 能从自己的经验里改进，理论上能超过示教者。</b>",
+    "⚠️ <b>第四行是全页的要点，而且它是一条<b>三环的链子</b>：<b>自主 → 更多数据 → 更强泛化</b>。</b> <span class='k'>原话：「if you're able to train with minimal human supervision, then you're able to <b>collect more data</b>, and more data may also unlock <b>both greater reliability and also greater generalization</b>」</span>。",
+    "<b>⇒ 所以自主的价值<b>不在省下那个人</b>，而在于：有人盯着的时候，数据量的上限是<b>人的工时</b>。</b> <span class='w'>一个人一天能给机器人复位几百次，这就是天花板</span>；<b>而自主之后，天花板变成了硬件的耐久度和电费——高出好几个数量级。</b>",
+    "<b>⚠ 但要留意第四行里那个 <b><em>may</em></b>：「more data <b>may</b> unlock greater generalization」。</b> <span class='k'>这是一个有条件的期望，不是定论——更多数据能不能换来泛化，取决于数据的<b>多样性</b>而不只是数量</span>。<b>⇒ 而这恰好是后面要处理的问题：无复位学习很容易产生<b>高度重复</b>的数据（p17 的「状态分布坍缩」），那种数据再多也不解锁泛化。</b>",
+    "<b>⇒ 把这一页和 p17 对照着读，这一讲的内在张力就出来了：<b>自主是为了拿到更多数据，但天真的自主恰恰会让数据变得更单调</b>。</b> <span class='w'>后面所有算法（FBRL、MEDAL、任务循环）本质上都在解这同一个矛盾。</span>",
+    "<b>最后记一个措辞上的细节：标题写的是 <b><em>Robotics ↔ Autonomy</em></b>，用的是<b>双向</b>箭头。</b> <span class='k'>⇒ 不只是「机器人需要自主」，也是「自主这个问题天然长在机器人身上」——因为只有在不可回滚的物理世界里，复位才是个问题。</b>"
+   ],
+   "eq": "这一页回答的是「费这么大劲图什么」，而理由比「省人力」深\n\n前两行（L16.a p1 那两层，这次星号加在 train 上）：\n   部署时自主 operate  —— 大家默认在想的\n   **训练时自主 *train*** —— 这一讲的内容\n\n第三行（与模仿学习的对比，讲稿更明确）：\n   「RL on real robots is a promising path towards achieving\n     **really high success rates, really high reliability\n     compared to imitation learning**」\n   ⇒ 理由在 L15 p41：**模仿学习的上界永远是专家**\n     而 RL 能从自己的经验里改进，理论上能超过示教者\n\n⚠⚠ 第四行是要点，而且是一条**三环的链子**：\n   **自主 → 更多数据 → 更强泛化**\n   「if you're able to train with minimal human supervision, then you're able to\n     **collect more data**, and more data may also unlock **both greater\n     reliability and also greater generalization**」\n\n   ⇒ 自主的价值**不在省下那个人**，而在于：\n     有人盯着时，数据量的上限是**人的工时**\n     （一个人一天能复位几百次，这就是天花板）\n     自主之后，天花板变成硬件耐久度和电费 —— 高好几个数量级\n\n⚠ 但留意第四行那个 **may**：「more data **may** unlock greater generalization」\n   有条件的期望，不是定论\n   更多数据能否换来泛化，取决于数据的**多样性**而不只是数量\n   ⇒ 而这恰是后面要处理的问题：无复位学习很容易产生**高度重复**的数据\n     （p17 的「状态分布坍缩」），那种数据再多也不解锁泛化\n\n⇒ 和 p17 对照着读，这一讲的内在张力就出来了：\n   **自主是为了拿到更多数据，但天真的自主恰恰会让数据变得更单调**\n   后面所有算法（FBRL、MEDAL、任务循环）本质上都在解这同一个矛盾\n\n措辞细节：标题是 **Robotics ↔ Autonomy**，**双向**箭头\n   ⇒ 不只是「机器人需要自主」，也是「自主这个问题天然长在机器人身上」\n     —— 只有在不可回滚的物理世界里，复位才是个问题",
+   "tbl": {
+    "head": ["自主解锁什么", "有人盯着时的上限", "自主之后的上限"],
+    "rows": [
+     ["<b>数据量</b>", "<span class='w'>人的工时（一天几百次）</span>", "<b>硬件耐久 + 电费</b>"],
+     ["<b>泛化</b>", "<span class='w'>受数据量限制</span>", "<b>⚠ 要数据够<b>多样</b>才行</b>"],
+     ["⚠ 内在张力", "—", "<b>天真的自主让数据更单调（p17）</b>"]
+    ]
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>那条「自主 → 更多数据 → 更强泛化」的链子，在你这里要换一个环节，而换完之后结论反而更强。</b><br><span class='k'>讲义的瓶颈是<b>人工复位的工时</b>；你的瓶颈不是人，是<b>钱</b>——每次评估一个配置都要真金白银的 LLM 调用</span>。<b>⇒ 所以对你，等价的链子是：<b>测量效率 → 更多配置被评估 → 更可信的最优配置</b>。</b><br><b>⇒ 而你的整套方法（G-最优设计定分配、逐次淘汰砍候选、线性结构让测量跨配置迁移）正是在抬高这条链子的第一环。</b> <span class='w'>这给了你一个比「我们的方法更准」更有力的叙事：<b>我们让同样的预算覆盖更多配置</b>。</span><br><b>⚠ 但那个 <b><em>may</em></b> 的警告对你同样成立，而且形态几乎一样：<b>测得多不等于测得好</b>。</b> <span class='k'>这是第三次撞上同一条道理了——CSE 541 L07 p3 用特征分解说过（「一堆测量全挤在同一个方向上，总次数再多，垂直方向仍然什么都不知道」），L15 的 FTL 失败说过，这里 p17 的「状态分布坍缩」还要再说一遍</span>。<b>⇒ 三门课、三种语言，指的是同一件事：<b>信息来自覆盖，不来自重复</b>。</b><br><b>⇒ 这个三重印证值得写进论文的 motivation，因为它说明「按信息价值分配预算」不是一个 bandit 领域的小技巧，而是一条跨领域的共识。</b><br><b>而第三行那个「RL 比模仿学习更可靠」的论据，对你有一个<b>反向</b>的含义，值得想清楚。</b> <span class='w'>讲义说模仿学习的上界是专家，所以要用 RL 超过它</span>；<b>⇒ 而你的工作<b>不</b>试图超过任何上界——你要的是「用更少的钱接近大模型的表现」。</b><span class='k'>⇒ 所以你的上界是明确的、也是你<b>接受</b>的：<b>全部节点都用最强模型</b>。</b><br><b>⇒ 这一点要在论文里明说，因为它能挡掉一类质疑：<b>有人会问「你的方法能不能超过全大模型」——答案是不能，而且<b>不应该</b>能；你优化的是 <code>G = Acc − λ·Cost</code>，而全大模型在 <code>λ=0</code> 时就是最优解。</b></b><span class='w'>你的贡献在 <code>λ>0</code> 的那一整条曲线上，不在端点。把这句话准备好。</span>",
+    "ref": "本讲 p14（逐字核对）· 讲稿（自主解锁数据）· p17 · L07 p3 · L15 p41 · 简报 §1 §2 §4c（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "5": [
+   {
+    "q": "讲稿说一条轨迹的内部「完全自主」，那不自主的是哪一步？",
+    "o": ["奖励计算那一步", "两条轨迹之间那一步 —— 怎么从上一次结束的状态回到起点；课程前面一直假装这一步会「magically」发生，而实际上是人伸手去摆", "策略更新那一步", "动作采样那一步"],
+    "a": 1,
+    "why": "<b>env.reset() 是仿真里「很友好的小工具」，但「We can't reset the physical world to our own will」。</b><span class='k'>而真正致命的是次数——RL 往往要几千次试验，不是试三次就解决，所以人工复位不是偶尔帮忙，是每一次试验都要来一遍。</span>"
+   },
+   {
+    "q": "p8 那三段视频里，讲者对第一段的评价是什么？它点出了什么荒谬之处？",
+    "o": ["「他现在干的活大概比机器人还多」—— 你本来想让机器人替你干活，结果你在替机器人做准备工作，而且是几千遍", "机器人需要更好的传感器", "视频是加速播放的", "机器人学得比人快"],
+    "a": 0,
+    "why": "<span class='w'>三段分别是 Yevgen 给学打冰球的机器人捡球、Ali 给学开门的机器人关门、Archit 给学叠毛巾的机器人把毛巾铺回去。</span><b>⚠ 而这个问题是「连续世界」特有的而非「机器人」特有的——任何在不能回滚的环境里学习的系统都有它。</b>"
+   }
+  ],
+  "9": [
+   {
+    "q": "自主 RL 定义的三行里，「Initialize once at the beginning」为什么不是废话？",
+    "o": ["因为初始化需要时间", "因为它堵一个漏洞：不许用「多次初始化」绕开「不许复位」—— 否则你可以声称自己没有 reset，只是「又初始化了一次」", "因为初始状态分布要固定", "因为要保证可复现"],
+    "a": 1,
+    "why": "<b>而整页最该留意的是那个星号：can relax this constraint to reset occasionally, or at low frequency。</b><span class='k'>这一笔把问题从「有没有复位」变成「多久复位一次」——一个连续谱。EARL 基准就落在这个谱上：每 20 万步才复位一次。</span>"
+   },
+   {
+    "q": "允许「偶尔复位」这个放松，讲稿给了什么实际理由？",
+    "o": ["为了对比实验公平", "它是一个兜底 ——「just in case it does get stuck in a really challenging state」，防的正是进了出不来的状态就永远出不来", "为了减少方差", "为了加快收敛"],
+    "a": 1,
+    "why": "<span class='w'>讲稿还给了一个很有人情味的理由：只要过程是自主的，花多长时间就没那么要紧了——「because you can go to sleep while your robot is trying to learn」。</span><b>自主性把「时间成本」换成了「挂机成本」，后者便宜得多。</b>"
+   }
+  ],
+  "12": [
+   {
+    "q": "部署策略评估与持续策略评估，最本质的差别是什么？",
+    "o": ["期望是对谁取的：部署评估衡量一个固定策略，而持续评估的期望「isn't under a single policy, it's over the learning process itself」—— 它衡量的是整个学习过程", "一个用折扣一个不用", "一个有复位一个没有", "一个在仿真一个在真机"],
+    "a": 0,
+    "why": "<b>火星车 vs 机器人厨师：对火星车，学习过程中的失败是<b>真实损失</b>；对厨师，那只是<b>训练成本</b>。</b><span class='k'>⚠ 另注意持续评估 ≠ 不复位——这一页讲的是评估指标，p11 讲的是环境设定，是两个维度。</span>"
+   },
+   {
+    "q": "讲稿里学生问「只跑一条轨迹为什么还要写期望」，答案是什么？",
+    "o": ["因为奖励有噪声", "因为策略是随机的", "因为要衡量的是算法而不是单次运行 —— 环境的随机性、采样批次的随机性都会带来波动，所以要对算法的多次运行取期望", "因为环境是随机的，必须取期望才有定义"],
+    "a": 2,
+    "why": "<b>这条对任何做实验的人都适用：报一次运行的结果，报的是那次运行；报算法，就得多跑几次。</b><span class='w'>而学习过程本身的随机性往往比环境的随机性更大，这一点很容易被低估。</span>"
+   }
+  ],
+  "14": [
+   {
+    "q": "自主 RL 的价值，讲义给的理由是什么？",
+    "o": ["提高控制频率", "降低硬件损耗", "解锁数据：自主 → 更多数据 → 更强泛化。有人盯着时数据量的上限是人的工时；自主之后上限变成硬件耐久与电费，高出好几个数量级", "省下人力成本"],
+    "a": 2,
+    "why": "<b>⚠ 但要留意那个 may：more data <b>may</b> unlock greater generalization——这是有条件的期望，取决于数据的<b>多样性</b>而不只是数量。</b><span class='k'>而这恰是这一讲的内在张力：自主是为了拿到更多数据，但天真的自主恰恰会让数据变得更单调（p17 的状态分布坍缩）。</span>"
+   }
+  ]
+ }
+}

@@ -1,0 +1,297 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p28 **任务循环的例子**：Task 1 **put cup in coffee machine** → Task 2 **pick up cup** → Task 3 **replace cup** → Task 4 **clean up spill from cup**…，图上每个任务有 **fail / succeed** 两条出边",
+  "p29 **算法：Autonomous RL with task cycles**：1. Initialize **task-conditioned policy π(·|s,z)**；2. Repeat：① **Propose task z_i to practice based on s** ② Roll out π(·|s,z_i) for **H** steps ③ Update π using **r(s,a,z)** ④ **No reset or very infrequent reset**；**Test time: Deploy π**",
+  "⚠ 与 FBRL/MEDAL 的根本差别：那两个训**两个**策略（其中一个最后扔掉），这里训**一个多任务策略**，**测试时全部留用**",
+  "p30 例子出处：**Gupta, Yu, Zhao, Kumar, Rovinsky, Xu, Devlin, Levine. Reset-Free Reinforcement Learning via Multi-Task Learning: Learning Dexterous Manipulation Behaviors without Human Intervention. 2021**（手内操作：拿起、翻面、旋转）",
+  "p31 例子出处：**Laura Smith, J. Chase Kew, Xue Bin Peng, Sehoon Ha, Jie Tan, Sergey Levine. Legged Robots that Keep on Learning: Fine-Tuning Locomotion Policies in the Real World. 2021**（同时学前进、后退、以及**爬起来**）",
+  "p32 **被点名的公开问题（逐字）**：**How to identify which task to collect data for? &nbsp;In general: an open research question.** &nbsp;**One idea: Ask a vision language model.** 出处 **Zhou\\*, Atreya\\*, Lee, Walke, Mees, Levine. SOAR: Autonomous Improvement of Instruction Following Skills via Foundation Models**",
+  "⚠ 讲稿区分了「任务提议器」与分层里的「高层策略」：**提议器要给你很多可练的东西**（为了学得广），**高层策略是目标导向的**（为了完成某个长期目标）——「its purpose is actually quite different」",
+  "p33 第三条路：**Set up task that can be done repetitively**（“forward-forward RL”?），讲稿举的例子是**给商家叠餐巾**——要叠的餐巾多得叠不完，于是任务天然可重复",
+  "p35/p36 部署之后（反讽那两句，逐字）：**Obviously, everything works perfectly and nothing ever goes wrong.** → **The natural world is complex, and something likely will go wrong, despite preparation.**",
+  "p37–p39 **Even humans make mistakes and adapt** —— 开门视频：钥匙没对准锁孔，人**在一瞬间**把钥匙抽回来重插（讲稿：「the person makes a mistake, and then adapts, really, **in a split second**」）",
+  "p40/p41 **单生命强化学习（SLRL）**：**Given prior data in train env(s), agent has one “life” to autonomously complete task in novel, OOD scenario.** · **Can we fine-tune with RL in a single episode at test time?** 出处 **Chen, Sharma, Levine, Finn. You Only Live Once: Single-Life Reinforcement Learning. NeurIPS 2022**",
+  "⚠ p40 三种设定并排：**Episodic RL**（train 反复、test 部署）· **Reset-free RL**（train 无复位、test 部署）· **Single life RL**（**先有 prior training data，然后只有一条命**）",
+  "p42 **朴素做法不行**：在测试时直接用 RL 微调 —— **Agent fails to handle or recover from out-of-distribution states without interventions**。讲稿的具体现象：机器人**翻过去了**，RL 还在跑、更新也在做，但「it essentially **gets stuck**」",
+  "p43 **三个有用的想法（逐字）**：**Guide the learning process towards good, familiar states to avoid getting stuck** · **Leverage pre-training** —— **Pre-trained skills can allow for adaptation in skill space rather than in action space** · **Pre-trained LLMs may be able to reason through how to adapt**",
+  "p44 **两种适应空间对照**：**低层动作空间** —— Kumar, Fu, Pathak, Malik. **RMA: Rapid Motor Adaptation for Legged Robots**. RSS 2021；**高层技能空间** —— Chen, Lessing, Tang, Chada, Smith, Levine, Finn. **Commonsense Reasoning for Legged Robot Adaptation with Vision-Language Models**. ICRA 2025",
+  "⚠ 讲稿关于安全的问答：可以**学一个恢复策略**回到已知低风险的状态；也可以**在控制器上直接加安全约束**（别把电机用到过热、给机器人围一个盒子）；但**「to learn safety, you need examples of failing. So it's generally a pretty tricky problem」**",
+  "p46 **下次**：客座讲者 **Ashish Kumar（Tesla Optimus）**，讲 sim2real 与人形机器人"
+ ],
+ "notes": [
+  {
+   "r": [27, 29],
+   "t": "任务循环：把「撤销」换成「练点别的」",
+   "star": 3,
+   "quote": "<b>Autonomous RL with task cycles</b><br><em>Task 1: <b>put cup in coffee machine</b> · Task 2: <b>pick up cup</b> · Task 3: <b>replace cup</b> · Task 4: <b>clean up spill from cup</b>…</em>〔图上每个任务有 fail / succeed 两条出边〕<br><b>Algorithm</b><br><em>1. Initialize <b>task-conditioned policy π(·|s,z)</b><br>2. Repeat:<br>&nbsp;&nbsp;1. <b>Propose task z<sub>i</sub> to practice based on s</b><br>&nbsp;&nbsp;2. Roll out π(·|s,z<sub>i</sub>) for H steps<br>&nbsp;&nbsp;3. Update π using <b>r(s,a,z)</b><br>&nbsp;&nbsp;4. <b>No reset or very infrequent reset</b><br><b>Test time: Deploy π</b></em>",
+   "one": "<b>FBRL 的后向策略只为了撤销而存在，最后被扔掉。任务循环把这件事换了个方向：别撤销，去练另一个从这里能练的任务——于是每一步都在学有用的东西。</b>",
+   "pts": [
+    "<b>动机从那个咖啡杯的例子最容易看明白。</b> <span class='k'>机器人要把杯子放进咖啡机（任务 1），结果<b>手滑把杯子掉了</b></span>。<b>传统做法是人过来把杯子摆回去；FBRL 的做法是学一个「把杯子放回原位」的后向策略。</b>",
+    "<b>⇒ 而任务循环的提法是：<b>既然杯子现在在地上，那此刻该练的不是「把杯子放进咖啡机」，而是「把杯子捡起来」</b>。</b> <span class='w'>讲稿：「because it made a mistake, the second task shouldn't be to turn on the coffee machine. Instead, <b>it should be to pick up the cup</b>」</span>。",
+    "⚠️ <b>⇒ 关键的转变在于：<b>「捡起杯子」本身就是一个你<b>想要</b>机器人会的技能，不是为了复位而学的废动作</b>。</b> <span class='k'>⇒ 这直接消掉了 FBRL 那条减号（后向策略最终被扔掉）：<b>这里测试时 <code>Deploy π</code>，整个多任务策略全部留用</b></span>。",
+    "<b>所以结构上的差别是：<b>FBRL/MEDAL 训两个策略、扔一个；任务循环训一个多任务策略、全留</b>。</b> <span class='w'>这是三条路线里最「不浪费」的一条。</span>",
+    "<b>那张图上每个任务有 <b>fail / succeed</b> 两条出边，构成一个<b>循环图</b>而不是一条链。</b> <span class='k'>讲稿：「we practice task 1. Then if we fail, we practice task 2. And then task 2 maybe is <b>resetting</b> task 1… If we do succeed at task 1, we might move to task 3」</span>。<b>⇒ 有些任务<b>兼任</b>了别的任务的复位器——这是循环图带来的免费好处。</b>",
+    "<b>算法只比 FBRL 多一个新零件：<b>第 ① 步的「提议任务」</b>。</b> <span class='w'>其余的（滚动 H 步、更新、不复位、测试时部署）都一样</span>；<b>而策略从「两个单任务策略」变成了「一个 <b>task-conditioned</b> 策略 <code>π(·|s,z)</code>」。</b>",
+    "<b>⚠ 注意提议那一步的措辞：<b><em>Propose task z_i to practice <b>based on s</b></em></b>——<b>依据当前状态</b>提议。</b> <span class='k'>讲稿点明了这一步在干什么：「we'll practice a different task that is <b>possible to practice from that state</b> and <b>exclude tasks that are not feasible</b> from that state」</span>。<b>⇒ 提议器的职责是<b>筛掉此刻做不了的任务</b>。</b>",
+    "<b>这个设计还顺手解决了 L16.b p19 那个「前向后向难度不匹配」的问题。</b> <span class='w'>讲稿：「this can actually address some of the challenges that we talked about with regard to <b>imbalance in tasks</b>, where if you haven't yet successfully run the forward policy to actually change the state… <b>you can keep on running the policy for a task that makes sense</b>」</span>。<b>⇒ 前向还没学会、后向无事可做的僵局，在循环图里不存在——总有一个任务是此刻可练的。</b>",
+    "<b>⚠ 代价也要说清：<b>你需要为<b>所有</b>任务各准备一个奖励函数</b>（<code>r(s,a,z)</code>）。</b> <span class='k'>FBRL 只要两个（<code>r_f</code>、<code>r_b</code>），任务循环要 <code>|z|</code> 个</span>。<b>⇒ 而这正是 p32 那个「用图像当目标」的技巧要解决的问题。</b>",
+    "<b>最后记一个更新上的细节，讲稿提到了：<b>用 off-policy 算法的话，一次交互可以更新<b>所有</b>任务</b>。</b> <span class='w'>「If we have more on-policy algorithm, then this would be updating it for <b>this particular task</b>. If we have an <b>off-policy</b> algorithm, we could update it for <b>any</b> of the tasks」</span>。<b>⇒ 又一次是「off-policy 让数据能被重复利用」——和 L15 p43 的事后重标注是同一个理由。</b>"
+   ],
+   "eq": "动机（咖啡杯的例子）：\n   机器人要把杯子放进咖啡机（任务 1），结果**手滑把杯子掉了**\n   传统：人过来摆回去\n   FBRL：学一个「把杯子放回原位」的后向策略\n   **任务循环**：既然杯子现在在地上，**此刻该练的是「把杯子捡起来」**\n     「because it made a mistake, the second task shouldn't be to turn on the\n       coffee machine. Instead, **it should be to pick up the cup**」\n\n⚠ 关键转变：**「捡起杯子」本身就是你想要机器人会的技能，\n   不是为了复位而学的废动作**\n   ⇒ 直接消掉 FBRL 那条减号（后向策略被扔掉）\n     这里 **Test time: Deploy π** —— 整个多任务策略**全部留用**\n\n结构差别：\n   FBRL / MEDAL  训**两个**策略，**扔一个**\n   任务循环       训**一个多任务**策略，**全留**   ← 三条路线里最不浪费的\n\n那张图：每个任务有 **fail / succeed** 两条出边 ⇒ **循环图**而不是链\n   「we practice task 1. Then if we fail, we practice task 2.\n     And then task 2 maybe is **resetting** task 1…\n     If we do succeed at task 1, we might move to task 3」\n   ⇒ 有些任务**兼任**了别的任务的复位器 —— 循环图带来的免费好处\n\n算法只比 FBRL 多一个新零件：**第 ① 步「提议任务」**\n   其余（滚动 H 步、更新、不复位、测试时部署）都一样\n   策略从「两个单任务策略」变成「一个 **task-conditioned** 策略 π(·|s,z)」\n\n⚠ 提议那一步的措辞：**Propose task z_i to practice based on s**（依据当前状态）\n   「we'll practice a different task that is **possible to practice from that\n     state** and **exclude tasks that are not feasible** from that state」\n   ⇒ 提议器的职责是**筛掉此刻做不了的任务**\n\n顺手解决了 p19 那个「前向后向难度不匹配」：\n   「this can address… **imbalance in tasks**, where if you haven't yet\n     successfully run the forward policy to change the state…\n     **you can keep on running the policy for a task that makes sense**」\n   ⇒ 前向没学会、后向无事可做的僵局，在循环图里不存在\n\n⚠ 代价：**要为所有任务各准备一个奖励函数** r(s,a,z)\n   FBRL 只要两个（r_f、r_b），任务循环要 |z| 个\n   ⇒ 这正是 p32「用图像当目标」要解决的问题\n\n更新上的细节：**off-policy 的话，一次交互可以更新所有任务**\n   「on-policy… updating it for **this particular task**.\n     **off-policy**… we could update it for **any** of the tasks」\n   ⇒ 又一次「off-policy 让数据能被重复利用」\n     —— 与 L15 p43 的事后重标注同一个理由",
+   "tbl": {
+    "head": ["", "FBRL / MEDAL", "任务循环"],
+    "rows": [
+     ["训几个策略", "<b>两个</b>", "<b>一个（多任务）</b>"],
+     ["测试时", "<span class='w'>扔掉后向</span>", "<b>全部留用</b>"],
+     ["失败之后做什么", "<b>撤销，回到起点</b>", "<b>练一个此刻能练的任务</b>"],
+     ["要几个奖励函数", "<b>2 个</b>", "<span class='w'>⚠ |z| 个</span>"],
+     ["难度不匹配的僵局", "<span class='w'>⚠ 会卡住</span>", "<b>不存在</b>"]
+    ]
+   },
+   "say": "原话（咖啡杯掉了之后该练什么）：<em>“if you have a robot that's trying to make coffee, maybe the first subtask is to put the cup in the coffee machine. And maybe if it attempts that, it actually <b>drops the cup on accident</b>. And then, traditionally, what you would do is you would have a human reset the cup back to where it started. But we don't want to do that. And so, instead, maybe the second task is — <b>because it made a mistake, the second task shouldn't be to turn on the coffee machine. Instead, it should be to pick up the cup.</b>”</em><br><br>原话（提议任务时要筛掉此刻做不了的）：<em>“we can have this graph or cycle of different tasks that we're trying, at different points in time, depending on the state we're in. <b>We'll practice a different task that is possible to practice from that state and exclude tasks that are not feasible from that state.</b>”</em><br><br>原话（顺手解决了前向后向难度不匹配）：<em>“this can actually address some of the challenges that we talked about with regard to <b>imbalance in tasks</b>, where if you haven't actually yet successfully run the forward policy to actually change the state — and you may not even be in a state where it makes sense to run the backward policy — then <b>you can keep on running the policy for a task that makes sense</b>.”</em>"
+  },
+  {
+   "r": [30, 33],
+   "t": "该练哪个任务？这是一个被点名的公开问题",
+   "star": 3,
+   "quote": "<b>How to identify which task to collect data for?</b><br><em><b>In general: an open research question.</b> &nbsp;·&nbsp; <b>One idea: Ask a vision language model.</b></em><br>〔出处〕<em>Zhou*, Atreya*, Lee, Walke, Mees, Levine. <b>SOAR: Autonomous Improvement of Instruction Following Skills via Foundation Models</b></em><br><b>Alternatives to Forward-Backward RL?</b> — <em>3. <b>Set up task that can be done repetitively</b>（“forward-forward RL”?）</em>",
+   "one": "<b>循环图里那一步「提议下一个该练什么」，讲义直接标成了公开问题。现成的办法有两条：把图写死，或者问一个视觉语言模型此刻能做什么。</b>",
+   "pts": [
+    "<b>p30/p31 两个例子先说明任务循环<b>确实能跑</b>，而且它们覆盖了两种很不一样的形态。</b> <span class='k'><b>手内操作</b>（Gupta 等 2021）：拿起物体、翻面、旋转——讲稿描述得很生动：「at the beginning… you'll basically just be like <b>practicing picking it up from the hand and putting it back, picking it up, putting it down</b>. And then <b>once you get better at picking it up</b>, then you'll start to actually rotate it or flip it over」</span>。<b>⇒ 能力是<b>按顺序长出来</b>的，而循环图自动适应了这个顺序。</b>",
+    "<b><b>腿式机器人</b>（Laura Smith 等 2021）：同时学前进、后退，<b>以及爬起来</b>。</b> <span class='w'>讲稿：「if it's too far to the back, then it doesn't want to keep on going backwards, and so then you'll practice the task of going forwards」</span>。<b>⇒ 「走到边界了就练反方向」——复位在这里<b>就是另一个任务</b>。</b>",
+    "⚠️ <b>p32 把那个新零件的难处挑明了，而且用的是很直接的措辞：<b><em>How to identify which task to collect data for? In general: <b>an open research question</b></em></b>。</b> <span class='k'>讲稿还加了一句「this is also at the <b>bleeding edge</b> of research in some ways」</span>。",
+    "<b>现成的两条路，各有各的毛病。</b> <span class='w'><b>① 写死</b>：预先定义任务集合<b>和那张图</b>——「if you failed task 1, then you should practice task 2」。简单可靠，但不可扩展，而且要人来设计</span>；<b><b>② 学一个提议器</b>：训练一个模型来提议该练什么。</b>",
+    "<b>而 SOAR 走的是第 ② 条的一个很巧的变体：<b>问视觉语言模型「此刻这个场景里能做什么」</b>。</b> <span class='k'>讲稿的例子很具体：看着这一帧，能做的有「打开玩具微波炉」「拿起香蕉」「推茄子」「移动锅」；<b>而「拿起胡萝卜」不行，因为画面里没有胡萝卜</b></span>。<b>⇒ VLM 在这里的作用是<b>把「此刻可行」这件事判出来</b>——正是 p29 提议步骤要的那个筛选。</b>",
+    "<b>⚠ 讲稿里有一个很好的提问：<b>这和分层里的高层策略有什么区别？</b> 答案点得很准。</b> <span class='w'>「its purpose is actually <b>quite different</b>. So the purpose here is having it propose things that you could do in the environment <b>that you could practice</b>. Whereas, in a hierarchical system, the high-level policy goal is to say <b>what is the next subtask that will achieve some outcome</b>」</span>。",
+    "<b>⇒ 一句话分开：<b>提议器要「广」（给我很多能练的东西），高层策略要「准」（给我通向目标的那一步）</b>。</b> <span class='k'>形式一样，目的相反——一个服务探索，一个服务利用。</span>",
+    "<b>讲稿还提到 SOAR 用了一个很实用的技巧，而它解决的正是 p29 那条代价（要为每个任务写奖励）。</b> <span class='w'>做法是把提议出来的任务<b>喂给图像编辑扩散模型，生成一张目标图像</b>，然后训练策略去够那张图</b></span>。<b>⇒ 「it can be quite challenging to define a reward function for all of the different tasks. Whereas, <b>if you have an image of the task that you're trying to accomplish, then your reward function can be based on whether or not you're close to this image</b>」。</b><span class='k'>⇒ 这正好接上 L15 p38 的图像子目标：<b>用图像当目标，奖励就是「离它有多近」</b>。</b>",
+    "<b>p33 的第三条路最朴素，但有它的道理：<b>把任务设计成可以反复做的</b>。</b> <span class='w'>讲稿的例子是<b>给商家叠餐巾</b>——要叠的餐巾多得叠不完，所以根本不需要复位，叠完一条拿下一条就行</span>。<b>⇒ 老师承认这方面「isn't necessarily a lot of research」，但它提醒了一件事：<b>有时候改任务比改算法便宜</b>。</b>"
+   ],
+   "eq": "p30/p31 两个例子（任务循环确实能跑，覆盖两种形态）：\n   **手内操作**（Gupta 等 2021）：拿起、翻面、旋转\n     「at the beginning… **practicing picking it up and putting it back**…\n       and **once you get better at picking it up**, then you'll start to rotate it」\n     ⇒ 能力是**按顺序长出来**的，循环图自动适应了这个顺序\n   **腿式机器人**（Laura Smith 等 2021）：前进 + 后退 + **爬起来**\n     「if it's too far to the back… then you'll practice the task of going forwards」\n     ⇒ **复位在这里就是另一个任务**\n\n⚠ p32 把新零件的难处挑明：\n   **How to identify which task to collect data for?\n     In general: an open research question.**\n   讲稿还加了一句：「this is also at the **bleeding edge** of research」\n\n现成的两条路：\n   ① **写死**：预定义任务集合**和那张图**（failed task 1 → practice task 2）\n      简单可靠，但不可扩展、要人设计\n   ② **学一个提议器**：训练模型提议该练什么\n\nSOAR = ② 的一个巧变体：**问 VLM「此刻这个场景里能做什么」**\n   例子：这一帧能做的有「打开玩具微波炉」「拿起香蕉」「推茄子」「移动锅」\n         **而「拿起胡萝卜」不行 —— 画面里没有胡萝卜**\n   ⇒ VLM 的作用是**把「此刻可行」判出来**，正是 p29 提议步骤要的筛选\n\n⚠ 好提问：**这和分层里的高层策略有什么区别？**\n   「its purpose is **quite different**. here… propose things that you could do\n     in the environment **that you could practice**. Whereas, in a hierarchical\n     system, the high-level policy goal is **what is the next subtask that will\n     achieve some outcome**」\n   ⇒ 一句话分开：\n     **提议器要「广」（给我很多能练的），高层策略要「准」（给我通向目标的那一步）**\n     形式一样，目的相反 —— 一个服务探索，一个服务利用\n\nSOAR 的实用技巧（解决 p29 那条「要为每个任务写奖励」的代价）：\n   把提议出的任务喂给**图像编辑扩散模型生成目标图像**，训练策略去够那张图\n   「it can be challenging to define a reward function for all the different tasks.\n     Whereas, **if you have an image of the task you're trying to accomplish,\n     then your reward function can be based on whether you're close to this image**」\n   ⇒ 接上 L15 p38 的图像子目标\n\np33 第三条路（最朴素但有道理）：**把任务设计成可以反复做的**\n   例子：**给商家叠餐巾** —— 餐巾多得叠不完，根本不需要复位\n   老师承认这方面「isn't necessarily a lot of research」\n   ⇒ 但它提醒一件事：**有时候改任务比改算法便宜**",
+   "tbl": {
+    "head": ["「该练哪个任务」的两条路", "怎么做", "毛病"],
+    "rows": [
+     ["<b>① 写死</b>", "<b>预定义任务集合 + 转移图</b>", "<span class='w'>不可扩展，要人设计</span>"],
+     ["<b>② 学提议器（SOAR）</b>", "<b>问 VLM「此刻能做什么」</b>", "<span class='w'>⚠ 仍是前沿，不稳定</span>"],
+     ["<b>提议器 vs 高层策略</b>", "<b>提议器要「广」</b>", "<b>高层策略要「准」</b>"],
+     ["<b>奖励怎么办</b>", "<b>生成目标图像，比「离它多近」</b>", "<b>省掉逐任务写奖励</b>"]
+    ]
+   },
+   "say": "原话（提议器与分层高层策略的区别）：<em>“The question is, how is this different from hierarchical learning? … this task proposer, you can think of it — it shares some similarities with the high-level policy that's telling you what to do in a certain circumstance. But <b>its purpose is actually quite different</b>. So the purpose here is actually having it <b>propose things that you could do in the environment that you could practice</b>. Whereas, in a hierarchical system, the high-level policy goal is to say like, <b>what is the next subtask that will achieve some outcome</b> at the end of the day. And so this is actually something where you want it to give you <b>lots of different things</b> that allow you to learn lots of different things. Whereas, a high-level policy, you're much more <b>goal directed</b>.”</em><br><br>原话（VLM 判断此刻可行什么，以及用目标图像省掉逐任务奖励）：<em>“you could ask a language model to say, what are the different things that I could do in this environment to get better… We could open this toy microwave. We could pick up the banana. We could push the eggplant, move the pot. <b>But if we instead told it to pick up the carrot, that's not something that you can do in the scene.</b> … with this approach, you need to update this using a reward function for each task. And <b>it can be quite challenging to define a reward function for all of the different tasks. Whereas, if you have an image of the task that you're trying to accomplish, then your reward function can be based on whether or not you're close to this image.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>p32 这一页对你有一个相当直接的用处：<b>讲义明确标成「公开问题」的那件事，你手上恰好有一个有定理的答案</b>。</b><br><span class='k'>问题是「<b>该去为哪个任务收集数据？</b>」，而讲义给的现成办法是「写死一张图」或「问 VLM 此刻能做什么」——<b>两条都是启发式的</b></span>。<b>⇒ 而这在形式上就是<b>实验设计 / 主动学习</b>：在一堆候选的测量动作里，挑那个最能减少不确定性的。</b><br><b>⇒ 你学过的 <b>CSE 541 L07 的 G-最优设计</b>正是这个问题的最优解</b>：<span class='w'><code>min_λ max_{x∈𝒳} xᵀA(λ)^{-1}x</code>，而且 <code>λ*</code> <b>不需要任何真实奖励</b>就能算，只依赖候选集合的几何</span>。<b>⇒ 两者的对应是逐项的：讲义的「哪个任务」↔ 你的「哪个配置」；讲义的「此刻可行吗」↔ 你的「这个配置在当前预算下跑得起吗」。</b><br><b>⚠ 但要诚实说清一处<b>不</b>对应的地方，否则这个类比会被拆穿：<b>讲义那边的候选是受<b>当前状态</b>约束的</b></b>（<span class='k'>杯子在地上，就只能练「捡杯子」；画面里没胡萝卜，就不能练「拿胡萝卜」</span>）；<b>而你的配置空间<b>不受状态约束</b>——任何配置你随时都能跑。</b><br><b>⇒ 这个差别对你是<b>有利</b>的：<b>你的实验设计问题比机器人那边<b>容易</b></b></b>。<span class='w'>机器人要在「可行集随状态变化」的约束下做设计，这正是它成为公开问题的原因之一；而你的可行集是固定的全集，G-最优设计直接适用。</span><br><b>⇒ 所以这给了你一句很好的定位：<b>在机器人领域「选哪个任务去练」仍是开放问题，因为可行集随状态变化；而在我们的设定里可行集是固定的，于是实验设计的经典解（G-最优设计）可以直接用——这正是我们相对启发式搜索的优势所在。</b></b><br><b>而「提议器要<b>广</b>、高层策略要<b>准</b>」这个区分，对你也有一条实际含义。</b> <span class='k'>你的流程里这两件事<b>都</b>有：<b>搜索阶段</b>要广（覆盖配置空间、别坍缩）；<b>最终部署</b>要准（挑那个 <code>G</code> 最高的）</span>。<b>⇒ 用同一个准则做这两件事是错的——而「用当前最优来决定下一步测什么」恰恰就是在用「准」的准则做「广」的事。</b><span class='w'>这是第四次撞上同一条了（L07 p3、L15 的 FTL、L16 p17 的坍缩，以及这里）。</span>",
+    "ref": "本讲 p32（逐字核对）· 讲稿（提议器 vs 高层策略、VLM 判可行）· L07 p4 p5 · L15 p30 · 本讲 p17 · 简报 §4b §4c（已核）"
+   }
+  },
+  {
+   "r": [34, 39],
+   "t": "部署之后呢：人也会犯错，然后在一瞬间调整过来",
+   "star": 2,
+   "quote": "<b>So far…</b><br><em>We've looked at learning policies without resets: Can improve the quality of the policy through autonomous practice.</em><br><em>What happens after we deploy the policy?</em><br><em><b>Obviously, everything works perfectly and nothing ever goes wrong.</b></em><br><em><b>The natural world is complex, and something likely will go wrong, despite preparation.</b></em><br><b>Even humans make mistakes and adapt</b>〔开门视频：钥匙没对准锁孔，人把钥匙抽回来重插〕",
+   "one": "<b>前半讲解决的是「训练时没人帮忙」。这一页转到下半场：训练得再好，部署之后还是会出岔子——而人遇到这种事是在一瞬间当场调整的，不是回去重训。</b>",
+   "pts": [
+    "<b>这一页的写法值得一提：<b>先写一句反讽，下一页再把它推翻</b>。</b> <span class='k'>p35：「What happens after we deploy the policy? <b>Obviously, everything works perfectly and nothing ever goes wrong.</b>」；p36 加上一句：「<b>The natural world is complex, and something likely will go wrong, despite preparation.</b>」</span>",
+    "<b>⇒ 这个安排是在提醒一件容易被忽略的事：<b>前半讲所有的努力都是为了「学出一个好策略」，而这默认了「好策略部署之后就一直好」</b>。</b> <span class='w'>而这个默认在真实世界里不成立。</span>",
+    "<b>p37–p39 用一段开门的视频把「当场调整」这件事演出来了，而细节很关键。</b> <span class='k'>讲稿：「the person is trying to apply force, and <b>the key actually isn't correctly in the hole</b>. And then they try again by <b>removing the key backwards, and then putting it back into the keyhole</b>」</span>。",
+    "⚠️ <b>⇒ 要注意的是<b>时间尺度</b>：「the person makes a mistake, and then adapts, really, <b>in a split second</b>」——<b>一瞬间</b>。</b> <span class='w'>人没有「回去重新训练」，也没有「多试一百次」；他在<b>同一次尝试里</b>就改了策略。</span>",
+    "<b>⇒ 这正是下一节要定义的那个设定：<b>不是「多试几次学会」，而是「这一次就得解决」</b>。</b>",
+    "<b>把三种设定的时间结构摆开，这一讲的两半就连起来了。</b> <span class='k'><b>分幕 RL</b>：反复试 → 部署；<b>无复位 RL</b>（本讲前半）：不停地试、不复位 → 部署；<b>单生命 RL</b>（本讲后半）：先有训练数据 → <b>只有一次机会</b></span>。",
+    "<b>⚠ 注意这三者<b>不是</b>互相替代的，而是三个不同的阶段。</b> <span class='w'>你可以先用无复位 RL 把策略练好（前半讲），<b>然后</b>在部署时还要面对单生命的问题（后半讲）</span>。<b>⇒ p35 那句「We've looked at… <b>What happens after</b> we deploy」就是在做这个衔接。</b>",
+    "<b>最后记一个措辞：这一节的标题用的是 <b>adapt</b>（适应）而不是 <b>learn</b>（学习）。</b> <span class='k'>⇒ 差别在于时间尺度和数据量：<b>学习</b>是从很多经验里慢慢改进，<b>适应</b>是从极少的经验里立刻改变行为</span>。<b>而后面会看到，这个差别决定了算法要在<b>哪个空间</b>里动手（p43–44）。</b>"
+   ],
+   "eq": "这一页的写法：**先写一句反讽，下一页再把它推翻**\n   p35：「What happens after we deploy the policy?\n          **Obviously, everything works perfectly and nothing ever goes wrong.**」\n   p36：「**The natural world is complex, and something likely will go wrong,\n           despite preparation.**」\n\n   ⇒ 在提醒一件容易被忽略的事：\n     **前半讲所有努力都是为了「学出一个好策略」，\n       而这默认了「好策略部署之后就一直好」** —— 真实世界里不成立\n\np37–p39 开门视频（细节很关键）：\n   「the person is trying to apply force, and **the key actually isn't correctly\n     in the hole**. And then they try again by **removing the key backwards,\n     and then putting it back into the keyhole**」\n\n⚠ 要注意的是**时间尺度**：\n   「the person makes a mistake, and then adapts, really, **in a split second**」\n   ⇒ 人没有「回去重新训练」，也没有「多试一百次」\n     他在**同一次尝试里**就改了策略\n   ⇒ 正是下一节要定义的设定：**不是「多试几次学会」，而是「这一次就得解决」**\n\n**三种设定的时间结构**（这一讲的两半就连起来了）：\n   **分幕 RL**：反复试 → 部署\n   **无复位 RL**（本讲前半）：不停地试、不复位 → 部署\n   **单生命 RL**（本讲后半）：先有训练数据 → **只有一次机会**\n\n⚠ 三者**不是**互相替代，而是三个不同阶段：\n   可以先用无复位 RL 把策略练好（前半讲），\n   **然后**在部署时还要面对单生命的问题（后半讲）\n   p35 那句「We've looked at… **What happens after** we deploy」就是在做衔接\n\n措辞：这一节用的是 **adapt**（适应）而不是 **learn**（学习）\n   差别在时间尺度与数据量：\n     **学习** = 从很多经验里慢慢改进\n     **适应** = 从极少的经验里立刻改变行为\n   ⇒ 这个差别决定了算法要在**哪个空间**里动手（p43–44）",
+   "tbl": {
+    "head": ["", "分幕 RL", "无复位 RL", "单生命 RL"],
+    "rows": [
+     ["训练阶段", "<b>反复试 + 复位</b>", "<b>不停地试，不复位</b>", "<b>先有训练数据</b>"],
+     ["测试阶段", "<span class='w'>部署，不再学</span>", "<span class='w'>部署，不再学</span>", "<b>⚠ 边做边学，只有一次机会</b>"],
+     ["关键词", "learn", "learn", "<b>adapt</b>"],
+     ["时间尺度", "很多次尝试", "很多次尝试", "<b>一瞬间</b>"],
+     ["三者关系", "—", "—", "<b>⚠ 不是替代，是三个阶段</b>"]
+    ]
+   },
+   "say": "原话（那句反讽，以及它要引出的东西）：<em>“we've been trying to learn policies without resets. You'd improve the quality of the policy through practice, but then at some point, we're actually going to be deploying the policy. And ideally, this policy will be pretty good. And maybe you're in a scenario where, <b>obviously, everything's going to work perfectly. Nothing will ever go wrong</b>, when you actually go and deploy your policy. <b>But in practice, that's not the case.</b> And the natural world, things will go wrong, despite having a lot of training.”</em><br><br>原话（开门视频：一瞬间的当场调整）：<em>“here's a video where a person is trying to open a door. And if you look really carefully, you'll notice that, actually, <b>the person makes a mistake, and then adapts, really, in a split second</b> in order to accomplish the task. So if you play this video again, we'll see that right here, the person is trying to apply force, and <b>the key actually isn't correctly in the hole</b>. And then they try again by <b>removing the key backwards, and then putting it back into the keyhole</b>.”</em>"
+  },
+  {
+   "r": [40, 42],
+   "t": "单生命 RL：一条命，而且场景是没见过的",
+   "star": 3,
+   "quote": "<b>Single-Life Reinforcement Learning (SLRL)</b><br><em><b>Given prior data in train env(s), agent has one “life” to autonomously complete task in novel, OOD scenario.</b></em><br><em><b>Can we fine-tune with RL in a single episode at test time?</b></em><br><b>How to approach single-life RL?</b><br><em>Can we fine-tune with vanilla reinforcement learning, but at test time?</em><br><em><b>Agent fails to handle or recover from out-of-distribution states without interventions.</b></em><br>〔出处〕<em>Chen, Sharma, Levine, Finn. <b>You Only Live Once: Single-Life Reinforcement Learning</b>, NeurIPS '22</em>",
+   "one": "<b>设定有两个刺：只有一条命（不能重来），而且环境是训练时没见过的。于是「在测试时继续跑 RL」这个最直接的想法失败了——它确实在更新，但就是爬不起来。</b>",
+   "pts": [
+    "<b>定义要逐个短语读，因为每个短语都在加一道约束。</b> <span class='k'>① <b><em>Given prior data in train env(s)</em></b>——不是从零开始，你有训练环境里的经验；② <b><em>one “life”</em></b>——<b>一次机会，不能重来</b>；③ <b><em>autonomously</em></b>——没有人干预；④ <b><em>novel, OOD scenario</em></b>——<b>场景是训练时没见过的</b></span>。",
+    "<b>⇒ 第 ② 和第 ④ 条合起来才是真正的难点：<b>既不能多试，又不能指望见过</b>。</b> <span class='w'>只要少一条，问题都会容易很多——能多试就退化成无复位 RL；见过就退化成普通部署。</span>",
+    "<b>讲稿给了一个很好记的例子：<b>在平地上训练过的腿式机器人，遇到了一个没见过的障碍</b>。</b> <span class='k'>「you have training experience in flat ground. And then at some point, you encounter some obstacle that you hadn't seen before, and you need to figure out how to get over this obstacle, <b>despite not having seen this during training</b>」</span>。",
+    "<b>p42 试的是最自然的想法：<b>在测试时继续用普通 RL 微调</b>——边跑边做 TD 更新或策略梯度。</b> <span class='w'>讲稿：「If we make a mistake, maybe we can just update our policy with TD updates or policy gradients, <b>live, as we're rolling out our policy</b>」</span>。",
+    "⚠️ <b>结果一半成功一半失败，而失败的那一半很说明问题。</b> <span class='k'>成功的一半：「the policy actually <b>does figure out how to get over the first obstacle</b>, even though it has never seen that obstacle before」</span>；<b>失败的一半：「eventually, it actually <b>gets stuck on flipped over</b>」——<b>翻过去了，爬不起来</b>。</b>",
+    "<b>⇒ 而最值得注意的是讲稿强调的那一点：<b>RL 还在跑</b>。</b> <span class='w'>「even though it's running reinforcement learning, and you can see it's somewhat trying to get up, <b>it essentially gets stuck</b>. And <b>even though you're still running reinforcement learning, still running the policy, and still running updates</b>, it isn't able to recover from these states that it hasn't seen before」</span>。",
+    "<b>⇒ 所以结论不是「RL 没更新」，而是<b>「更新了也没用」</b>。</b> <span class='k'>⇒ 这和 L16.a p5 那个「卡住」是同一个现象的升级版：<b>那里是策略确定性地停在原地；这里是策略在努力、在更新，但更新的方向改变不了局面</b></span>。",
+    "<b>幻灯把原因写成一句：<b><em>Agent fails to handle or recover from out-of-distribution states <b>without interventions</b></em></b>——注意结尾那三个字。</b> <span class='w'>它在说：这个问题<b>本来</b>是靠人干预解决的（有人把机器人扶起来），而单生命设定恰恰不允许干预</span>。",
+    "<b>⚠ 为什么普通 RL 在这里不够？可以这样想：<b>RL 的更新量级是为「很多次尝试」设计的</b>。</b> <span class='k'>梯度下降每一步只挪一点点，靠大量步数累积；而单生命只给你几十上百步</span>。<b>⇒ 所以问题不在 RL 的原理，在<b>它改变行为的速度</b>——这正是下一页两个想法都在攻的点。</b>",
+    "<b>最后记一下这篇的名字，起得很直白：<b><em>You Only Live Once</em></b>（NeurIPS 2022）。</b>"
+   ],
+   "eq": "**定义**（逐个短语读，每个都在加一道约束）：\n   ① **Given prior data in train env(s)** —— 不是从零开始，有训练环境的经验\n   ② **one “life”**                      —— **一次机会，不能重来**\n   ③ **autonomously**                    —— 没有人干预\n   ④ **novel, OOD scenario**             —— **场景是训练时没见过的**\n\n   ⇒ **② + ④ 合起来才是真正的难点：既不能多试，又不能指望见过**\n     少一条都容易很多：能多试 → 退化成无复位 RL；见过 → 退化成普通部署\n\n例子（很好记）：**平地上训练过的腿式机器人，遇到没见过的障碍**\n   「you need to figure out how to get over this obstacle,\n     **despite not having seen this during training**」\n\np42 试最自然的想法：**测试时继续用普通 RL 微调**（边跑边做 TD 更新或策略梯度）\n\n⚠ 结果一半成功一半失败：\n   成功：「the policy **does figure out how to get over the first obstacle**,\n           even though it has never seen that obstacle before」\n   失败：「eventually, it actually **gets stuck on flipped over**」\n          —— **翻过去了，爬不起来**\n\n   最值得注意的是讲稿强调的那一点：**RL 还在跑**\n     「**even though you're still running reinforcement learning, still running\n       the policy, and still running updates**, it isn't able to recover」\n\n   ⇒ 结论不是「RL 没更新」，而是**「更新了也没用」**\n   ⇒ 与 L16.a p5 那个「卡住」是同一现象的升级版：\n     那里是策略**确定性地停在原地**\n     这里是策略**在努力、在更新，但更新的方向改变不了局面**\n\n幻灯写成一句：**Agent fails to handle or recover from OOD states\n   without interventions** —— 注意结尾那三个字\n   它在说：这个问题**本来**是靠人干预解决的（有人把机器人扶起来），\n   而单生命设定恰恰**不允许**干预\n\n⚠ 为什么普通 RL 不够：**RL 的更新量级是为「很多次尝试」设计的**\n   梯度下降每步只挪一点点，靠大量步数累积\n   而单生命只给你几十上百步\n   ⇒ 问题不在 RL 的原理，在**它改变行为的速度**\n     —— 正是下一页两个想法都在攻的点\n\n出处名字很直白：**You Only Live Once**（NeurIPS 2022）",
+   "say": "原话（在测试时跑 RL：过了第一个障碍，然后翻过去爬不起来）：<em>“So the policy actually does figure out how to get over the first obstacle, even though it has never seen that obstacle before. And then, eventually, it actually <b>gets stuck on flipped over</b>. And <b>even though it's running reinforcement learning</b>, and you can see it's somewhat trying to get up, <b>it essentially gets stuck. And even though you're still running reinforcement learning, still running the policy, and still running updates, it isn't able to recover from these states that it hasn't seen before, without interventions.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「更新了也没用」这个现象对你有一个很具体的映射，而且它解释了一类你可能已经见过、却归错因的失败。</b><br><span class='k'>讲义的情形是：机器人翻过去了，RL 还在更新，但更新改变不了局面——因为<b>更新的幅度</b>配不上<b>处境的严重程度</b></span>。<b>⇒ 你的工作流里的同构情形是：某条 query 进了一个坏状态（上游产出了垃圾输入 / 反思环陷入同义重复），而你的<b>重试机制还在跑</b>——换一个采样种子、再调用一次、温度调高一点。</b><br><b>⇒ 但这些都是在<b>同一个层级</b>上扰动，而问题出在更高的层级。</b> <span class='w'>重采样改变不了「上游用的是 7B 所以输出本来就不够好」这件事</span>。<b>⇒ 于是你会看到和讲义完全一样的现象：<b>系统在忙、在重试、在花钱，但不会好转</b>。</b><br><b>⇒ 这给了你一个可以直接加的判据：<b>区分「值得重试的失败」与「该换配置的失败」</b>。</b> <span class='k'>前者是随机性导致的（同样的输入重采样有机会成功），后者是能力导致的（重采样一百次也不会成功）</span>。<b>⚠ 而你现在的重试逻辑多半没有做这个区分——它对两种失败一视同仁地重试，于是在第二种上纯烧钱。</b><br><b>⇒ 一个便宜的检测：<b>看连续几次重试的输出之间的差异度</b>。</b> <span class='w'>如果重试产出的结果彼此高度相似（而且都不对），那就是能力问题不是运气问题</span>——<b>这时候该做的是升档或换路径，而不是再试一次。⇒ 这既省钱又直接改善 <code>G</code>，而且只需要一个相似度函数。</b><br><b>⚠ 另外那个定义里的 <b>OOD</b> 对你也是要正视的，而且比机器人那边更隐蔽。</b> <span class='k'>你在 benchmark 上搜出的最优配置，部署到真实流量上时，query 分布是<b>不一样</b>的</span>。<b>⇒ 讲义的 OOD 是看得见的（地上多了一个障碍）；而你的 OOD 是看不见的——<b>query 还是文字，但难度分布变了</b>，而你的配置是按旧分布调的。</b><br><b>⇒ 所以至少要报一个数：<b>最优配置在 benchmark 上的 <code>G</code> 与在一个留出的、分布不同的集合上的 <code>G</code> 差多少</b>。</b> <span class='w'>差得多，说明你的配置选择对分布敏感，那本身是一个重要的发现；差得少，那是你方法稳健性的证据。<b>两种结果都值得报。</b></span>",
+    "ref": "本讲 p42（逐字核对）· 讲稿（翻过去爬不起来）· L16.a p5 · L15 p5 科研格 · 简报 §4b §4d（已核）"
+   }
+  },
+  {
+   "r": [43, 44],
+   "t": "两个有用的想法：往熟悉的地方靠，和在技能空间里适应",
+   "star": 3,
+   "quote": "<b>How to approach single-life RL? &nbsp; A few useful ideas:</b><br><em>- <b>Guide the learning process towards good, familiar states to avoid getting stuck</b><br>- <b>Leverage pre-training</b><br>&nbsp;&nbsp;- <b>Pre-trained skills can allow for adaptation in skill space rather than in action space</b><br>&nbsp;&nbsp;- <b>Pre-trained LLMs may be able to reason through how to adapt</b></em><br><em><b>Adaptation in low-level action space</b>〔RMA: Rapid Motor Adaptation for Legged Robots, RSS 2021〕 &nbsp;vs&nbsp; <b>Adaptation in high-level skill space</b>〔Commonsense Reasoning for Legged Robot Adaptation with Vision-Language Models, ICRA 2025〕</em>",
+   "one": "<b>第一个想法是换目标：别再朝着终点优化了，先朝着「我认得的地方」走。第二个是换空间：与其微调权重，不如在一组已有技能之间切换——那是换策略，不是换参数。</b>",
+   "pts": [
+    "<b><b>想法一：把学习过程往「熟悉的好状态」引，而不是往目标引。</b></b> <span class='k'>讲稿把对比说得很清楚：「if you're running RL updates, you are running them <b>with regard to the task of getting to the goal</b>. And <b>if instead</b> you tried to run RL updates <b>to get back to states that are familiar</b>, like good states that you visited in your previous experience, then you might have a better time at <b>getting unstuck</b>」</span>。",
+    "<b>⇒ 这是一个<b>换目标函数</b>的办法，而且它的逻辑很干净：<b>卡住的时候，「回到我认得的地方」比「到达终点」容易得多，而且一旦回去了，原来的策略就又能用了</b>。</b> <span class='w'>讲义的说法是这些熟悉状态「might be closer to the ones that are at the goal and <b>help perturb the agent back to something that it knows</b>」。</span>",
+    "<b>⚠ 注意这里<b>需要先验数据</b>才成立：「familiar」是相对<b>训练时见过的状态</b>说的。</b> <span class='k'>⇒ 所以这个想法只在单生命设定里有意义（定义里第 ① 条就是「有训练环境的先验数据」），对从零开始的 RL 没用</span>。",
+    "<b>效果在视频里：「it does get stuck on its back, but <b>it is able to get back up</b> after trying… and then make it to the goal state」。</b> <span class='w'>对比 p42 那个一直翻着爬不起来的——同一个环境，换了目标就出来了。</span>",
+    "⚠️ <b><b>想法二：换一个<b>空间</b>去适应。</b> 这一条更根本，而且讲稿的论证很有说服力。</b> <span class='k'>「if you're trying to run reinforcement learning on the <b>policy weights</b>, like in the <b>low-level action space</b>, <b>you can only change the policy so much</b>. And there's <b>only so many ways you can adapt</b>」</span>。",
+    "<b>⇒ 核心是一个<b>幅度</b>问题：微调权重只能让行为小幅偏移，而单生命的处境往往需要<b>换一个完全不同的办法</b>。</b> <span class='w'>讲稿：「if you could adapt in a <b>higher level space</b>, if you had some set of <b>pre-trained skills</b>, then you might be able to adapt <b>more drastically</b> and actually <b>try to change a strategy</b> that you're taking, rather than just changing the weights or the actions」</span>。",
+    "<b>⇒ 那个腿式机器人的例子把差别演得最清楚：<b>如果只有「往前走」这一个技能，它就会一直往前撞；而如果有「往前、往后、往左、爬起来」几个技能可以切换，它就能试出一条路</b>。</b> <span class='k'>讲稿：「if you just keep on running a policy <b>without any context</b>, it'll just keep on trying to go forward. <b>Because it doesn't know that it tried going forward before</b>」</span>。",
+    "<b>⚠ 那半句「<b>因为它不知道自己刚才已经试过往前走了</b>」点出了另一个要素：<b>上下文</b>。</b> <span class='w'>「with context and adaptation, then you can figure out how to…」——要能在策略之间切换，还得记住自己试过什么</span>。",
+    "<b>p44 把两种适应空间配了出处，正好是一组对照</b>：<span class='k'><b>低层动作空间</b>——RMA（RSS 2021），从近期历史里快速适应，能应付<b>小幅</b>的分布外（不同地形）；<b>高层技能空间</b>——用视觉语言模型做常识推理（ICRA 2025），应付<b>差别大得多</b>的情形</span>。",
+    "<b>⇒ 讲稿的判断是：<b>「if you have things that are more drastically different from what you've seen before, it can be very helpful to adapt in a more high-level space」</b>——<b>偏离越大，越要往高层去适应</b>。</b>",
+    "<b>第三个想法只提了一句，但方向很明确：<b>预训练的语言模型可能有常识，能推理出该怎么适应</b>。</b> <span class='w'>讲稿在安全那个问答里又提了一次：这些模型「may have some common sense, suggesting maybe you shouldn't walk or run into a person, or maybe you should wait」。</span>"
+   ],
+   "eq": "**想法一：把学习过程往「熟悉的好状态」引，而不是往目标引**\n   「if you're running RL updates, you are running them **with regard to the task\n     of getting to the goal**. And **if instead** you tried to run RL updates\n     **to get back to states that are familiar**… then you might have a better\n     time at **getting unstuck**」\n\n   ⇒ 换**目标函数**，逻辑很干净：\n     **卡住时「回到我认得的地方」比「到达终点」容易得多，\n       而一旦回去了，原来的策略就又能用了**\n\n   ⚠ 需要**先验数据**才成立：「familiar」是相对训练时见过的状态说的\n     ⇒ 只在单生命设定里有意义，对从零开始的 RL 没用\n\n   效果：「it does get stuck on its back, but **it is able to get back up**\n           after trying… and then make it to the goal state」\n\n⚠⚠ **想法二：换一个空间去适应**（更根本）\n   「if you're trying to run RL on the **policy weights**, like in the\n     **low-level action space**, **you can only change the policy so much**.\n     And there's **only so many ways you can adapt**」\n\n   ⇒ 核心是**幅度**问题：微调权重只能小幅偏移，\n     而单生命的处境往往需要**换一个完全不同的办法**\n   「if you could adapt in a **higher level space**, if you had **pre-trained\n     skills**, then you might be able to adapt **more drastically** and\n     **try to change a strategy**, rather than just changing the weights」\n\n   腿式机器人的例子（差别演得最清楚）：\n     只有「往前走」一个技能 ⇒ 一直往前撞\n     有「往前/往后/往左/爬起来」可切换 ⇒ 能试出一条路\n     「if you just keep on running a policy **without any context**, it'll just\n       keep on trying to go forward. **Because it doesn't know that it tried\n       going forward before**」\n\n   ⚠ 那半句点出另一个要素：**上下文**\n     要能在策略之间切换，还得**记住自己试过什么**\n\np44 两种适应空间的对照（配了出处）：\n   **低层动作空间** —— RMA（RSS 2021），从近期历史快速适应\n                      能应付**小幅**分布外（不同地形）\n   **高层技能空间** —— VLM 常识推理（ICRA 2025），应付**差别大得多**的情形\n\n   判断：「if you have things that are **more drastically different** from what\n           you've seen before, it can be **very helpful to adapt in a more\n           high-level space**」\n   ⇒ **偏离越大，越要往高层去适应**\n\n第三个想法（只提了一句，方向明确）：\n   **预训练的语言模型可能有常识，能推理出该怎么适应**\n   安全问答里又提一次：这些模型「may have some common sense, suggesting\n     maybe you shouldn't walk or run into a person, or maybe you should wait」",
+   "tbl": {
+    "head": ["", "在低层动作空间适应", "在高层技能空间适应"],
+    "rows": [
+     ["改的是什么", "<b>策略权重 / 动作</b>", "<b>选哪个技能（换策略）</b>"],
+     ["能改多大", "<span class='w'>⚠ 只能小幅偏移</span>", "<b>可以换一整套打法</b>"],
+     ["适合多大的分布外", "<b>小（不同地形）</b>", "<b>大（没见过的障碍）</b>"],
+     ["还需要什么", "近期历史", "<b>⚠ 上下文（记住试过什么）</b>"],
+     ["代表工作", "<b>RMA（RSS 2021）</b>", "<b>VLM 常识推理（ICRA 2025）</b>"]
+    ]
+   },
+   "say": "原话（想法一：朝熟悉状态优化而不是朝目标优化）：<em>“when you're getting stuck, you end up in this state that it's hard to recover from. And if you're doing reinforcement learning updates… <b>you are running reinforcement learning updates, with regard to the task of getting to the goal</b>. And <b>if instead of trying to run RL updates to get to the goal, if you instead tried to run RL updates to get back to states that are familiar, like good states that you visited in your previous experience, then you might have a better time at getting unstuck</b>, where, for example, these states might be closer to the ones that are at the goal and help perturb the agent back to something that it knows.”</em><br><br>原话（想法二：权重只能改这么多，要换空间）：<em>“if you're trying to run reinforcement learning on the policy weights, like in the low-level action space, <b>you can only change the policy so much. And there's only so many ways you can adapt.</b> And if instead, if you could adapt in a higher level space, if you had some set of pre-trained skills, then <b>you might be able to actually adapt more drastically and actually try to change a strategy that you're taking, rather than just changing the weights or the actions that you're using</b>.”</em><br><br>原话（没有上下文就会一直往前撞）：<em>“say that you have this legged robot that's trying to reach a goal over here. Then, if all the agent sees is this image right here, tries to go forward, goes backward, <b>if you just keep on running a policy without any context, it'll just keep on trying to go forward. Because it doesn't know that it tried going forward before.</b> If instead you try different strategies like moving left, moving backwards, <b>with context and adaptation</b>, then you can figure out how to ultimately… problem solve its way through these different obstacles.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「在技能空间里适应，而不是在动作空间里适应」这一条，对你几乎是逐字可搬的——而且它正好给你的<b>逐节点档位</b>找到了一个名分。</b><br><span class='k'>讲义的论证是：微调权重只能让行为<b>小幅</b>偏移，而处境需要的是<b>换一套打法</b>；所以要在一组预训练技能之间切换</span>。<b>⇒ 你的工作流里，「动作空间」是什么？是<b>重采样、调温度、改措辞</b>——全都是小幅扰动。而「技能空间」是什么？<b>正是你的配置空间：换节点档位、换路径、换分解粒度</b>。</b><br><b>⇒ 于是你可以这样说你方法的定位：<b>我们提供的是一个「技能空间」——一组结构化的、可切换的系统配置，使得失败时的适应可以发生在策略层面而不是采样层面。</b></b><span class='w'>这比「我们做模型选择」有分量得多，而且有讲义的论证撑着。</span><br><b>⇒ 而「偏离越大越要往高层适应」那条判断，给了你一个<b>可操作的分级响应</b>：</b><br><span class='k'><b>小偏差</b>（输出格式略有问题）→ 重采样就够了（低层）；<b>中偏差</b>（某节点质量明显不行）→ <b>给那个节点升档</b>（中层）；<b>大偏差</b>（整类 query 都做不好）→ <b>换工作流结构</b>（高层）</span>。<b>⇒ 三级，而且<b>代价递增</b>——这是一个很自然、也很好讲的设计。</b><br><b>⚠ 而「想法一」（往熟悉的状态靠）在你这里对应一条非常实际的<b>兜底策略</b>：<b>失败时回退到已知可用的配置，而不是继续探索</b>。</b> <span class='w'>讲义的逻辑是「回到我认得的地方比到达终点容易，而且回去了原来的策略就又能用」</span>；<b>⇒ 你的版本：某条 query 在搜出来的「最优」配置上反复失败时，<b>退回全大模型的基线配置</b>跑一次。</b><span class='k'>代价是这条 query 变贵了，但<b>它会出结果</b>——而不是烧满预算还是 0 分。</b><br><b>⇒ 这对你的 <code>G</code> 分布有一个很值钱的效果：<b>它砍掉了左尾</b>。</b> <span class='w'>而左尾（卡住的那些 query）正是 L16.a p5 科研格说的那个重尾来源</span>。<b>⇒ 平均 <code>G</code> 可能只升一点，但<b>方差会明显下降</b>，而更低的方差直接意味着更少的测量就能把配置分开（L09 的 <code>ρ_*</code> 里方差在分子上）。<b>这是一个同时改善性能和统计效率的改动。</b></b><br><b>⚠ 最后那个「没有上下文就会一直往前撞」的细节别漏了：<b>你的重试必须知道自己试过什么</b>。</b> <span class='k'>如果每次重试都是无状态的（同样的 prompt、同样的配置），那它就是那个一直往前撞的机器人。<b>把「已经试过什么、失败在哪」写进重试的上下文</b>，是一个一行改动、却决定成败的细节。</span>",
+    "ref": "本讲 p43–p44（逐字核对）· 讲稿（权重只能改这么多、没有上下文就一直往前撞）· L16.a p5 科研格 · L09 p11 · 简报 §2 §4b（已核）"
+   }
+  },
+  {
+   "r": [45, 46],
+   "t": "收尾：自主的两半，以及安全那个没解决的问题",
+   "star": 2,
+   "quote": "<b>Summary</b><br><em>- Why aren't robots autonomous already?<br>- Defining the problem: autonomous RL<br>- Developing the algorithms<br>&nbsp;&nbsp;- Learning policies without human intervention<br>&nbsp;&nbsp;- Single life RL</em><br><b>Next time</b> — <em>Guest lecture from <b>Ashish Kumar (Tesla Optimus)</b></em>",
+   "one": "<b>这一讲是两半：训练时没人帮忙（无复位），部署后没人救场（单生命）。而两半共用同一个核心动作——当你到了一个不该在的地方，怎么自己回来。</b>",
+   "pts": [
+    "<b>把整讲压成一句：<b>「自主」要解决的是同一件事在两个阶段的两种形态——到了不该在的地方，怎么<b>自己</b>回来</b>。</b> <span class='k'><b>训练阶段</b>：试完一次之后怎么回到能再试的状态（无复位 RL）；<b>部署阶段</b>：遇到没见过的情况怎么当场脱困（单生命 RL）</span>。",
+    "<b>前半的三条路线按「拿什么换自主」分，这样记最清楚。</b> <span class='w'><b>FBRL</b>：拿<b>一半算力</b>换（训两个策略扔一个）；<b>MEDAL</b>：拿<b>一小批演示</b>换（而且顺带把起点铺开，样本效率更高）；<b>任务循环</b>：拿<b>多个奖励函数</b>换（而且什么都不浪费，策略全留）</b></span>。",
+    "<b>后半的两个想法按「改什么」分：<b>想法一改<b>目标</b>（朝熟悉状态而不是朝终点）；想法二改<b>空间</b>（在技能之间切换而不是微调权重）</b>。</b>",
+    "<b>⚠ 而贯穿全讲、出现了三次的那个词是 <b>卡住</b>。</b> <span class='k'>p5 的「漂走了回不来」、p17 的「赖在目标不走」、p42 的「翻过去爬不起来」——<b>三种形态，同一个毛病</b></span>。<b>⇒ 而每一次的解法都是同一类：<b>给系统一条回到已知良好区域的通道</b>（后向策略 / 分布匹配 / 朝熟悉状态优化）。</b>",
+    "<b>讲稿最后回答了一个这一讲没解决的问题，而且答得很坦率：<b>安全约束怎么办</b>。</b> <span class='w'>风险是具体的：腿式机器人可能摔坏自己，机械臂可能把玻璃杯掉地上、或者用力过猛撞坏东西</span>。",
+    "<b>给出的办法有两类。</b> <span class='k'><b>① 学一个恢复策略</b>：「learn some notion of safety and learn <b>when you're actually in a high risk state</b>, and then go back to a state that is less risky」——这其实就是想法一的安全版；<b>② 在控制器上直接加硬约束</b>：别把电机用到过热、给机器人围一个盒子限制它能施力的范围</span>。",
+    "⚠️ <b>但老师点出了一个绕不过去的循环，这是全讲最诚实的一句：<b><em>to learn safety, you need examples of failing. So it's generally a pretty tricky problem.</em></b></b> <span class='w'>⇒ 要学会「什么是危险」，就得先危险几次。而硬约束不是哪里都加得上（「that's not possible everywhere」）。</span>",
+    "<b>⇒ 这和前面那些「先有鸡先有蛋」是同一个家族，但更棘手：<b>前面那些循环靠一点演示数据就能打破，而安全这个循环要打破，代价是真实的损坏</b>。</b>",
+    "<b>最后记两条这一讲明确点名的<b>公开问题</b>，它们是留下的研究线索</b>：<span class='k'>① <b>该为哪个任务收集数据（p32）</b>——「an open research question」，而且「bleeding edge」；② <b>单生命 RL 的整套做法（p43）</b>——「also bleeding edge of research」</span>。<b>⇒ 外加一条现状判断：这些无复位方法「仍在研究阶段，机器人公司今天并没有在用」（p26）。</b>",
+    "<b>下一讲是客座：<b>Ashish Kumar（Tesla Optimus）</b>，讲 sim2real 与人形机器人。</b> <span class='w'>⇒ 从「怎么在真机上自主地训」转到「怎么把仿真里训的搬到真机上」——两条互补的路。</span>"
+   ],
+   "eq": "整讲压成一句：**「自主」是同一件事在两个阶段的两种形态 ——\n   到了不该在的地方，怎么自己回来**\n   **训练阶段**：试完一次后怎么回到能再试的状态（无复位 RL）\n   **部署阶段**：遇到没见过的情况怎么当场脱困（单生命 RL）\n\n前半三条路线（按「拿什么换自主」分）：\n   **FBRL**     拿**一半算力**换（训两个策略扔一个）\n   **MEDAL**    拿**一小批演示**换（顺带把起点铺开，样本效率更高）\n   **任务循环** 拿**多个奖励函数**换（什么都不浪费，策略全留）\n\n后半两个想法（按「改什么」分）：\n   想法一 改**目标**（朝熟悉状态而不是朝终点）\n   想法二 改**空间**（在技能之间切换而不是微调权重）\n\n⚠ 贯穿全讲、出现三次的词是 **卡住**：\n   p5  漂走了回不来\n   p17 赖在目标不走\n   p42 翻过去爬不起来\n   ⇒ **三种形态，同一个毛病**\n     而每次的解法都是同一类：**给系统一条回到已知良好区域的通道**\n     （后向策略 / 分布匹配 / 朝熟悉状态优化）\n\n讲稿最后答的那个没解决的问题：**安全约束怎么办**\n   风险很具体：腿式机器人摔坏自己，机械臂把玻璃杯掉地上、用力过猛撞坏东西\n\n   两类办法：\n     ① **学一个恢复策略**：「learn **when you're actually in a high risk state**,\n        and then go back to a state that is less risky」（想法一的安全版）\n     ② **在控制器上加硬约束**：别把电机用到过热、围一个盒子限制施力范围\n\n⚠ 绕不过去的循环（全讲最诚实的一句）：\n   **to learn safety, you need examples of failing.\n     So it's generally a pretty tricky problem.**\n   ⇒ 要学会「什么是危险」，就得先危险几次\n     而硬约束不是哪里都加得上（「that's not possible everywhere」）\n   ⇒ 与前面那些先有鸡先有蛋同一个家族，但**更棘手**：\n     那些循环靠一点演示数据就能打破，\n     **而安全这个循环要打破，代价是真实的损坏**\n\n这一讲明确点名的**公开问题**：\n   ① **该为哪个任务收集数据**（p32）—— an open research question，bleeding edge\n   ② **单生命 RL 的整套做法**（p43）—— also bleeding edge of research\n   外加现状判断：这些无复位方法「仍在研究阶段，机器人公司今天并没有在用」（p26）\n\n下一讲：客座 **Ashish Kumar（Tesla Optimus）**，sim2real 与人形机器人\n   ⇒ 从「怎么在真机上自主地训」转到「怎么把仿真里训的搬到真机上」",
+   "tbl": {
+    "head": ["三条无复位路线", "拿什么换自主", "有没有浪费"],
+    "rows": [
+     ["<b>FBRL</b>", "<b>一半算力</b>（训两个扔一个）", "<span class='w'>有</span>"],
+     ["<b>MEDAL</b>", "<b>一小批演示</b>", "<span class='w'>有（仍扔后向）</span>"],
+     ["<b>任务循环</b>", "<b>多个奖励函数</b>", "<b>没有（策略全留）</b>"],
+     ["⚠ 都没解决的", "<b>安全</b>", "<b>学安全需要先失败几次</b>"]
+    ]
+   },
+   "say": "原话（安全：学恢复策略，加硬约束，以及那个绕不过去的循环）：<em>“another circumstance that might require human oversight is, if you're in scenarios where you could make <b>safety critical mistakes</b> — if you are a legged robot, you can fall in a way that damages the robot. If you're a manipulator, you could drop a glass onto the floor… There's actually work that builds very directly upon some of these ideas, where you actually try to <b>learn some notion of safety and learn when you're actually in a high risk state, and then go back to a state that is less risky</b>… The other practical thing to do is to try to, to the extent possible, <b>impose safety constraints on the controller itself</b> so that you're not using the motors to the point in which they'll overheat, or have a box around the robot… Now, <b>that's not possible everywhere</b>. And learning notions of safety might be the only way to actually address the problem in general. <b>Although to learn safety, you need examples of failing. So it's generally a pretty tricky problem.</b>”</em>"
+  }
+ ],
+ "quiz": {
+  "27": [
+   {
+    "q": "任务循环相对 FBRL，最根本的改变是什么？",
+    "o": ["用了更强的 RL 算法", "不需要奖励函数", "不需要多任务策略", "失败之后不是去「撤销」，而是去练一个此刻能练的任务 —— 而那个任务本身就是你想要机器人会的技能，所以测试时整个多任务策略全部留用，不像 FBRL 要扔掉后向策略"],
+    "a": 3,
+    "why": "<span class='k'>咖啡杯的例子：杯子掉地上了，此刻该练的不是「把杯子放进咖啡机」而是「把杯子捡起来」。</span><b>它还顺手解决了 p19 那个「前向后向难度不匹配」的僵局——循环图里总有一个任务是此刻可练的。⚠ 代价是要为所有任务各准备一个奖励函数。</b>"
+   },
+   {
+    "q": "算法第 ① 步「Propose task z_i to practice <b>based on s</b>」里，依据当前状态提议是为了什么？",
+    "o": ["为了平衡各任务的数据量", "为了避免灾难性遗忘", "为了筛掉此刻做不了的任务 ——「practice a task that is possible to practice from that state and exclude tasks that are not feasible from that state」", "为了减少方差"],
+    "a": 2,
+    "why": "<span class='w'>另记一个更新上的细节：用 off-policy 算法的话，一次交互可以更新<b>所有</b>任务，而 on-policy 只能更新当前这个。</span><b>又一次是「off-policy 让数据能被重复利用」——和 L15 p43 的事后重标注同一个理由。</b>"
+   }
+  ],
+  "30": [
+   {
+    "q": "「该为哪个任务收集数据」这个问题，讲义给了什么定性？",
+    "o": ["已经被 SOAR 解决了", "明确标成「an open research question」，讲稿还说这是 bleeding edge；现成的两条路是把任务图写死，或者问视觉语言模型此刻场景里能做什么", "只是工程问题不是研究问题", "取决于奖励函数的设计"],
+    "a": 1,
+    "why": "<span class='k'>SOAR 的例子很具体：这一帧里能做的有「打开玩具微波炉」「拿起香蕉」「推茄子」，而「拿起胡萝卜」不行——画面里没有胡萝卜。</span><b>VLM 在这里的作用正是把「此刻可行」判出来。</b>"
+   },
+   {
+    "q": "任务提议器和分层里的高层策略，形式相似但目的相反。怎么区分？",
+    "o": ["提议器用 VLM 而高层策略用神经网络", "提议器要「广」（给我很多能练的东西，服务探索），高层策略要「准」（给我通向目标的那一步，服务利用）", "提议器更简单", "提议器只在训练时用"],
+    "a": 1,
+    "why": "<b>讲稿原话：its purpose is actually quite different。</b><span class='w'>SOAR 还用了一个实用技巧解决「要为每个任务写奖励」这条代价：把提议的任务喂给图像编辑模型生成目标图像，奖励就是「离这张图多近」——正好接上 L15 p38 的图像子目标。</span>"
+   }
+  ],
+  "34": [
+   {
+    "q": "p37–p39 那段开门视频，最该注意的细节是什么？",
+    "o": ["钥匙是错的那把", "人重复了很多次", "时间尺度：人「在一瞬间」就调整过来了 —— 没有回去重新训练，也没有多试一百次，而是在同一次尝试里改了策略", "人用了两只手"],
+    "a": 2,
+    "why": "<b>这正是下一节要定义的设定：不是「多试几次学会」，而是「这一次就得解决」。</b><span class='k'>也因此这一节用的词是 adapt（适应）而不是 learn（学习）——学习是从很多经验里慢慢改进，适应是从极少经验里立刻改变行为。</span>"
+   },
+   {
+    "q": "分幕 RL、无复位 RL、单生命 RL 三者是什么关系？",
+    "o": ["只能三选一", "后者依次取代前者", "三者是同一件事的不同名字", "不是互相替代，而是三个不同阶段：可以先用无复位 RL 把策略练好，然后在部署时还要面对单生命的问题"],
+    "a": 3,
+    "why": "<span class='w'>p35 那句「We've looked at… <b>What happens after</b> we deploy」就是在做这个衔接。</span><b>而那句反讽「Obviously, everything works perfectly and nothing ever goes wrong」提醒的是：前半讲所有努力都默认了「好策略部署之后就一直好」。</b>"
+   }
+  ],
+  "40": [
+   {
+    "q": "单生命 RL 的定义里，哪两条合起来才是真正的难点？",
+    "o": ["只有一次机会（不能重来）＋ 场景是训练时没见过的（OOD）—— 少一条都容易很多：能多试就退化成无复位 RL，见过就退化成普通部署", "没有先验数据，且时间有限", "没有奖励函数，且状态不可观测", "需要人干预，且环境随机"],
+    "a": 0,
+    "why": "<span class='k'>讲稿的例子：平地上训练过的腿式机器人遇到一个没见过的障碍。</span><b>而这篇工作的名字起得很直白：You Only Live Once（NeurIPS 2022）。</b>"
+   },
+   {
+    "q": "在测试时直接用普通 RL 微调，失败的方式是什么？为什么说这个失败特别说明问题？",
+    "o": ["RL 更新发散了", "策略退化成随机动作", "机器人过了第一个障碍，然后翻过去爬不起来；特别说明问题是因为RL 还在跑、更新也在做 —— 结论不是「没更新」而是「更新了也没用」", "RL 的奖励信号消失了"],
+    "a": 2,
+    "why": "<b>⇒ 问题不在 RL 的原理，在它<b>改变行为的速度</b>：梯度下降每步只挪一点，靠大量步数累积，而单生命只给你几十上百步。</b><span class='w'>幻灯那句结尾的三个字也别漏：without <b>interventions</b>——这个问题本来是靠人干预解决的。</span>"
+   }
+  ],
+  "43": [
+   {
+    "q": "「想法一：把学习过程往熟悉的好状态引」为什么管用？它有什么前提？",
+    "o": ["因为它减少了更新次数；前提是算力受限", "因为它降低了探索噪声；前提是策略是随机的", "因为熟悉状态的奖励更高；前提是奖励稠密", "因为卡住时「回到我认得的地方」比「到达终点」容易得多，而一旦回去了原来的策略就又能用；前提是要有训练时的先验数据（「熟悉」是相对见过的状态说的）"],
+    "a": 3,
+    "why": "<b>所以这个想法只在单生命设定里有意义，对从零开始的 RL 没用。</b><span class='k'>效果在视频里：同一个环境，换了目标，机器人就从翻倒状态爬起来了。</span>"
+   },
+   {
+    "q": "「想法二：在技能空间而不是动作空间里适应」，核心论证是什么？",
+    "o": ["动作空间不可微", "是一个幅度问题：微调权重「只能把策略改这么多」、「能适应的方式就那么几种」，而单生命的处境往往需要换一整套打法 —— 偏离越大，越要往高层去适应", "技能空间维度更低，优化更快", "技能空间的梯度更稳定"],
+    "a": 1,
+    "why": "<span class='w'>腿式机器人的例子：只有「往前走」一个技能就会一直往前撞；有几个技能可切换就能试出一条路。</span><b>⚠ 还有一个要素别漏：<b>上下文</b>——「因为它不知道自己刚才已经试过往前走了」。要能在策略之间切换，还得记住自己试过什么。</b>"
+   }
+  ],
+  "45": [
+   {
+    "q": "讲稿最后关于「安全」的回答里，那个绕不过去的循环是什么？",
+    "o": ["要学会「什么是危险」，就得先危险几次 ——「to learn safety, you need examples of failing」；而在控制器上加硬约束又不是哪里都加得上", "安全与自主互相矛盾", "安全约束会降低性能", "安全需要人工标注"],
+    "a": 0,
+    "why": "<b>⇒ 这和前面那些「先有鸡先有蛋」是同一个家族，但更棘手：那些循环靠一点演示数据就能打破，而安全这个循环要打破，代价是真实的损坏。</b><span class='k'>给出的两类办法是：学一个恢复策略（想法一的安全版），以及在控制器上直接加硬约束。</span>"
+   },
+   {
+    "q": "贯穿全讲出现了三次的那个毛病是什么？",
+    "o": ["「卡住」—— p5 漂走了回不来、p17 赖在目标不走、p42 翻过去爬不起来；三种形态同一个毛病，而每次的解法都是同一类：给系统一条回到已知良好区域的通道", "分布外泛化", "奖励稀疏", "样本效率低"],
+    "a": 0,
+    "why": "<b>后向策略 / 分布匹配 / 朝熟悉状态优化——三种解法都在做同一件事。</b><span class='w'>而这一讲明确点名了两个公开问题：该为哪个任务收集数据（p32），以及单生命 RL 的整套做法（p43），外加一条现状判断：这些方法「仍在研究阶段，机器人公司今天并没有在用」。</span>"
+   }
+  ]
+ }
+}
