@@ -1,0 +1,106 @@
+{
+  "title": "L10 接上课题的哪一段：它和你做的是同一个问题，只是把「花在哪一步」换成了「花多久」",
+  "arc": "<b>这是 CS224R 十九讲里离课题最近的一讲，而且近到可以逐条对应 —— 它研究的是「给定算力预算，怎么花最划算」，而你研究的是同一个问题的另一个切面。</b><br><br><span class='k'><b>一、设定是同构的，所以它的估计量可以直接搬（p7 · p15–p17）。</b></span> p7 把解题写成<b>稀疏奖励 MDP + 确定性动力学</b>：没有外部环境，<code>s_i</code> 就是 <code>s_{i−1}</code> 与刚写那段字的拼接，奖励只在终局、<code>γ=1</code>。<span class='w'>你的 workflow 四条全中</span>（query 是初始状态、给某节点挑档位是动作、状态是「已定下的那几个档位」、答对与否只在跑完之后）。<b>两个直接后果</b>：① <b>优势是 <code>Q − Q</code> 不是 <code>Q − V</code></b>（确定性动力学下 <code>V(s_i) = Q(s_{i−1},a_{i−1})</code>），<span class='k'>不必引入值函数网络</span>；② p16 那个「把前缀固定住、让 <code>π̃</code> 把后面补完、看成功率」的估计量，<b>落到你这里就是简报 §5 的一步偏离实验</b> —— <span class='w'>这一讲等于给那个实验补上了形式化的名字（Q 函数）与定义</span>。<br><br><span class='w'><b>二、它命名了你要找的那个东西（p12）。</b></span> <b>Spurious step</b>：一条解答答对了，但里面含着一步「既错又没被用到」的内容（Betty 那个例子：先写 <code>100×2=200</code>，下一句改口写 <code>100/2=50</code>，最终答案仍然正确）。<span class='k'>换成你的词：<b>一个答对了的配置，里面可能含着一个纯属浪费的节点档位</b></span>。<b>⇒ 而只看最终 <code>Acc</code> 的筛子<b>在原理上</b>就识别不出它们 —— 它们在 <code>Acc</code> 上完全不可见，只在 <code>Cost</code> 上可见。</b><span class='w'>这又一次、而且是从梯度那一侧，支持简报 §4e「两半要分开估」。</span><br><br><span class='k'><b>三、⭐⭐ p33–p34 给了你的目标函数一个更标准的写法。</b></span> 讲义写的是<b>约束型</b>：<code>max_π E_x[E_{z~π}[r(x,z)]]  s.t. ∀x, E|z| ≤ C₀</code>，并标注 <code>This compute budget is fixed!</code>。<b>而你的 <code>G = Acc − λ·Cost</code> 正是它的<b>拉格朗日松弛</b>，<code>λ</code> 就是那条约束的乘子。</b><span class='w'>⇒ 这给了「λ 该取多少」一个有原则的答案：先定一个你真正在乎的预算（每条 query 平均不超过多少钱），再解出对应的 <code>λ</code></span> —— <b>比扫一遍 <code>λ</code> 再挑一个好看的容易向审稿人交代得多</b>。<span class='k'>⚠ 但两处不等价必须自己守住：① 惩罚型只能达到 Pareto 前沿的<b>凸</b>部分，而配置空间离散时凹陷很常见；② 这一讲的约束是<b>逐题</b>的（<code>∀x</code>），而「难题多花、简单题少花」需要的是<b>平均</b>约束 —— 后者恰恰是 node-level 自适应的全部价值所在，所以你该明确主张平均约束并说明理由。</span><br><br><span class='w'><b>四、两条会改变实验设计的具体结论。</b></span> <b>① p26 的尺子判据</b>：最优的 rollout 策略要的是<b>分辨力</b>，<span class='k'>不是最强的那一个</span> —— 太强的 <code>π̃</code> 什么前缀都能救回来，所有 Q 趋近 1、优势全是 0。<b>⇒ 探测某节点时把其余节点全用最强模型，恰恰是最差的尺子</b>；<span class='w'>参考配置该挑在全强与全弱之间，判据就用「让格子优势方差最大」。简报 §5 的止损闸（全强与全弱差不到 4 个百分点就没 headroom）说的是同一件事，只是换到了 benchmark 那一层。</span><b>② p35 的能力门槛</b>：同一套 RL 配方，一个基座模型长出了验证与回溯行为，另一个<b>一条都没有、而且整个训练过程不提升</b>。<span class='k'>⇒ 有些格子上弱档位<b>根本不可行</b>，那不是一个可以用 <code>λ</code> 权衡的连续量</span>。<b>⇒ 敏感度扫描应当同时产出两张表：一张「降档的准确率跌幅」（连续），一张「这个格子弱档位可不可行」（二值）；优化只在可行的格子上做。</b><br><br><b>五、一张可以直接画的图（p41）。</b> <code>Gap grows as √H</code>：测试期算力预算越大，「用奖励信号训」相对「模仿／蒸馏」的优势越大。<span class='k'>类比到你这里：<b>总预算越宽裕，自适应分配相对最佳固定配置的优势应当越大</b></span>（预算宽裕时「该把钱花在哪」的选择空间更大，而固定配置用不上这个空间）。<b>⇒ 横轴每条 query 的平均预算、纵轴相对最佳固定 workflow 的 <code>G</code> 提升，如果这条曲线随预算张开，就与这一页的形状一致。</b><span class='w'>⚠ 这是类比不是定理搬运，而且讲义只给了结论与示意图、没给条件也没给证明。</span>",
+  "pitfalls": [
+    {
+      "v": "<b>⚠ 这是客座讲座，而且讲者多处自标「这是我的版本」。</b> <span class='k'>主讲 Aviral Kumar（CMU），不是本课主讲；p6 那个按 DeepSeek-R1 切成前后两半的时间轴，他标了 <code>This is my characterization of this whole space</code>；p32 整页顶着 <code>(Disclaimer: this is my version!)</code>；p31–p32 的「动作空间变了」他两次用 <code>crudely</code>，并在讲稿里承认严格说<b>动作空间没变</b>（仍是逐 token），变的是「一步」能装下什么</span>。<b>⇒ 引用这一讲的<b>分类与叙事</b>时必须带上这个限定；引用它的<b>公式与实验数字</b>则没有这个问题。</b>",
+      "tag": "已核",
+      "ref": "本讲 p6、p31、p32 的页面标注与讲稿"
+    },
+    {
+      "v": "<b>⚠ 三个倍数的口径与基准都不同，混用会把结论说错一个量级。</b> <span class='k'>RFT <b>2 倍</b>、逐步 DPO <b>8 倍</b> —— 这两个都是相对「在人写的参考解上做 SFT」；PAV-RL <b>5–6 倍</b> 是相对「只有终局 0/1 奖励的在线 RL（ORM-RL）」</span>。<b>而且三个量的都是「达到同样测试误差需要的<b>数据</b>少几倍」，不是「性能好几倍」。</b><span class='w'>⚠ 不能相乘，也不能直接比大小。</span><b>另外 p27 那个 6–7 个百分点是<b>绝对</b>准确率提升（2B 上 0.19→0.25），与倍数是两回事。</b>",
+      "tag": "已核",
+      "ref": "本讲 p10–p11 讲稿 · p23 · p27"
+    },
+    {
+      "v": "<b>⚠ 这一讲的实验基准<b>已经作废</b>，引用数字必须带时间限定。</b> <span class='k'>讲者明说 GSM8K 与 MATH <code>are fully solved. So it doesn't make sense to, going forward, benchmark methods on these benchmarks</code></span>；<b>而且主力实验用的是 Llama 2 与 DeepSeek V2</b>，<span class='w'>他自己也感慨 <code>Llama 2 feels like a long time ago</code></span>。<b>⇒ 「八倍」这类结论要写成「在 2024 年的那批模型与基准上」，否则很容易被指出过时。</b>",
+      "tag": "已核",
+      "ref": "本讲 p10 讲稿 · p23 讲稿"
+    },
+    {
+      "v": "<b>⚠ p36 那八张「长度与准确率同涨」的图<b>区分不了因果</b>，别读成「写得长所以答得对」。</b> <span class='k'>奖励里<b>没有</b>鼓励长度（仍是 0/1 的答对与否），长度是自己涨上去的 —— 讲义自己也只问了一个 <code>Why?</code> 就过去了</span>。<b>两种解释都成立：① 长度本身带来收益；② 学会了验证与回溯 ⇒ 答得更对，而它们顺带占字数（p35 给了这个机制的证据）。</b><span class='w'>⚠ 而这对你有一个连带后果：如果用 token 数当 <code>Cost</code> 的代理，<code>Acc</code> 与 <code>Cost</code> 会有很强的正相关，拟合 <code>G</code> 时这两项<b>不独立</b>，报告时要说清楚。</span>",
+      "tag": "推断",
+      "ref": "本讲 p36 · p35 · p9 讲稿（RFT 不鼓励冗长那一段）"
+    },
+    {
+      "v": "<b>⚠ <code>Gap grows as √H</code> 那一条诱人，但讲义给的只是一个结论加一张示意图。</b> <span class='k'>没有条件、没有证明，出处是 p30 列的那篇<b>选读</b>博客（Setlur, Qu, Yang, Zhang, Smith, Kumar, CMU MLD Blog 2025）</span>。<b>⇒ 要在论文里用，必须回到原文核对；而且把它搬到你的场景是<b>类比</b>——他们的 <code>H</code> 是 token 预算，你的是 API 开销，「算力」的含义不同。</b><span class='w'>⚠ 旁边那个 <code>n = Ω(H)</code> 也别漏了：预算越大，要撑起它的训练／标定数据越多 —— 对你就是「预算越大，穷举 oracle 那张表要越大」。</span>",
+      "tag": "待核",
+      "ref": "本讲 p41 第三框 · p30（CMU MLD Blog，选读）"
+    },
+    {
+      "v": "<b>⚠ 「逐题约束」与「平均约束」的最优解不同，这一处最容易在写形式化时含糊过去。</b> <span class='k'>讲义写的是 <code>∀x, E_{π(·|x)}|z| ≤ C₀</code> —— <b>每一道题</b>都不许超</span>；<b>而「难题多花、简单题少花」需要的是 <code>E_x[Cost(x)] ≤ C₀</code>，允许在题目之间调剂</b>。<span class='w'>⇒ 后者才是 node-level 自适应分配价值的来源</span>。<b>⚠ 两者都合理，但你主张哪一个必须明说，而且报告实验时要说清你的预算是逐题卡的还是平均卡的</b> —— <span class='k'>否则「省了 30% 成本」这句话会有歧义</span>。",
+      "tag": "推断",
+      "ref": "本讲 p33–p34"
+    },
+    {
+      "v": "<b>⚠ 这一讲里的 rollout 几乎免费，你的每一次都要真金白银 —— 凡是「多采几条」的建议都要先过成本这一关。</b> <span class='k'>p16 的 Q 估计、p20 的偏好对、p25 的优势预测器，三者都建立在「可以大量采样」之上</span>；<b>而 p25 之所以要把 rollout 换成一个参数化的预测器，理由恰恰是<b>在线情形下现做太贵</b> —— 这个理由在你那里从一开始就成立</b>。<span class='w'>⇒ 所以简报 §4c 的敏感度扫描（先把要探的节点压到 3–4 个）不是优化项，是<b>前置条件</b>；这一讲等于从另一个方向论证了同一件事。</span>",
+      "tag": "推断",
+      "ref": "本讲 p16、p20–p22、p25 · 简报 §4c"
+    }
+  ],
+  "ammo": [
+    {
+      "q": "你为什么不直接按最终准确率筛配置？跑一批、留下答对的那些，不就行了吗？",
+      "a": "<b>因为那个筛子在原理上就漏掉了我要找的东西。</b> <span class='k'>CS224R L10 p12 给了这个现象一个名字：<b>spurious step</b>。他们的例子是模型先写 <code>100 × 2 = 200</code>（多余且错），下一句改口写 <code>100 / 2 = 50</code>，最终答案完全正确 —— 于是这条解答通过了「答案对不对」这唯一的筛子，带着那句错话进了训练集</span>。<b>换成我的词：<b>一个答对了的配置，里面可能含着一个纯属浪费的节点档位</b>，而它在 <code>Acc</code> 上<b>完全不可见</b>、只在 <code>Cost</code> 上可见</b>。<span class='w'>⇒ 而识别这些浪费正是 node-level fidelity assignment 的全部价值</span>。<b>他们的解法我也照搬：把前缀固定住、让一个参考配置把后面跑完、看成功率变不变（p15–p17），这给出格子级的优势</b>。<span class='k'>他们量过效果：按优势过滤之后，原本「训得越多反而越差」的那条曲线被压住了（p11 → p19）。</span>",
+      "tag": "推断",
+      "ref": "本讲 p11、p12、p15–p19 · 简报 §4e"
+    },
+    {
+      "q": "你的 λ 是怎么定的？是不是扫一遍挑了个好看的？",
+      "a": "<b>不是，而且有一个更标准的写法可以直接交代。</b> <span class='k'>CS224R L10 p33–p34 把同一类问题写成<b>约束型</b>：<code>max_π E_x[E_{z~π}[r(x,z)]]  s.t.  E|z| ≤ C₀</code>，并明确标注 <code>This compute budget is fixed!</code></span>。<b>而 <code>G = Acc − λ·Cost</code> 正是它的<b>拉格朗日松弛</b>，<code>λ</code> 就是那条约束的乘子</b>。<span class='w'>⇒ 所以我先定一个真正在乎的预算 <code>C₀</code>（每条 query 平均不超过多少钱，这个数由部署场景决定、不是我挑的），再解出对应的 <code>λ</code></span>。<b>⚠ 两处我会主动说明</b>：<span class='k'>① 惩罚型只能达到 Pareto 前沿的<b>凸</b>部分，配置空间离散时前沿常有凹陷，那一段无论 <code>λ</code> 取什么都取不到 —— 所以我同时报约束型的结果；② 我用的是<b>平均</b>约束而不是逐题约束，因为「难题多花、简单题少花」的价值恰恰来自题目之间的调剂，逐题卡死就把这个价值卡没了</span>。",
+      "tag": "推断",
+      "ref": "本讲 p33–p34 · 简报 §3（AFlow 报告权衡但从不优化它）"
+    },
+    {
+      "q": "你探测某个节点的贡献时，其余节点用什么配置？直觉上应该全用最强的吧？",
+      "a": "<b>直觉上是，但那恰恰是最差的选择，而且这一讲给了判据。</b> <span class='k'>CS224R L10 p26 对「最优 rollout 策略」的定义是：能让优势<b>最有效地区分</b>好步骤与坏步骤的那一个 —— <b>不是最强的那一个</b></span>。<b>理由很直接：太强的参考配置什么前缀都能救回来，于是所有格子的 Q 都接近 1、优势全是 0，什么也分辨不出来</b>。<span class='w'>⇒ 而这不是空想：我自己的止损闸写着「若 <code>Acc(全强) − Acc(全弱) < 约 4 个百分点</code>，该 benchmark 没有 headroom」—— 说的是同一件事，只是换到了 benchmark 那一层</span>。<b>⇒ 所以参考配置挑在全强与全弱之间，而怎么挑有判据：<b>让格子优势的方差最大</b>的那个</b>。<span class='k'>我会在扫描阶段先试两三个参考配置，把这个选择本身做成一个可报告的消融。</span>",
+      "tag": "推断",
+      "ref": "本讲 p26 · 本讲 p15 讲稿（rollout 策略应当与被评估的不同）· 简报 §5（止损闸）"
+    },
+    {
+      "q": "你这个和现在很火的 test-time scaling 是什么关系？是不是在做同一件事？",
+      "a": "<b>是同一笔账的三种花法，而我在的那一格他们没覆盖 —— 这正好可以写进 related work。</b> <span class='k'>CS224R L10 p37–p39（Snell et al., ICLR 2025 Oral）比的是两种：<b>把模型做大</b> vs <b>让同一个模型多想一会</b></span>；<b>而我比的是第三种：同一条 workflow 里，把预算<b>在节点之间</b>重新分配</b>。<span class='w'>⇒ 三者的差别是<b>粒度</b>：模型大小是整体一次性的、推理长度是逐题的、节点级档位是<b>逐题 × 逐节点</b>的</span>。<b>⇒ 一句话定位：<b>test-time scaling 问「这道题该花多少」，node-level fidelity assignment 问「这些钱该花在哪一步」</b></b>。<span class='k'>而且两者可以叠加、不冲突 —— 这比把自己摆成它的竞争者更站得住</span>。⚠ <b>我会同时点明一个他们那边没有的不对称</b>：<span class='w'>模型大小是一次性选择，而节点档位和推理长度一样<b>逐题可调</b> —— 可调性本身就是价值来源</span>。",
+      "tag": "推断",
+      "ref": "本讲 p37–p39 · 简报 §1（node-level 是 AFlow 自己放弃的那一维）· 简报 §8"
+    },
+    {
+      "q": "为什么要先花预算去测「哪些节点弱模型能胜任」？直接把它交给优化器不就行了？",
+      "a": "<b>因为有些格子上弱档位<b>根本不可行</b>，那不是一个可以权衡的连续量，而把它混进优化问题会污染整个拟合。</b> <span class='k'>CS224R L10 p35 给了这件事一个很硬的实证：同一套 RL 配方下，一个基座模型长出了大量验证与回溯行为并持续改进，另一个<b>一条行为都没有，而且在整个 RL 过程中完全不提升</b>（讲义原话 <code>This model does not improve during RL</code>）</span>。<b>⇒ 能力是个门槛，不是个连续的旋钮</b>。<span class='w'>落到我这里：若某节点上 7B 根本做不了那件事，<code>Acc</code> 的差就是一个硬性的不可行，而不是一个 <code>λ</code> 能换算的量</span>。<b>⚠ 更要紧的是：把这类格子留在优化空间里，会让拟合出来的 <code>Acc</code> 模型在那一段严重非线性 —— 而线性正是我整套方法里标着「待检验」的那条前提</b>。<b>⇒ 所以敏感度扫描产出两张表：一张连续的「降档跌幅」，一张二值的「可不可行」；优化只在可行格子上做。这既省预算，又让线性假设在剩下的格子上更站得住。</b>",
+      "tag": "推断",
+      "ref": "本讲 p35 · 简报 §4c（敏感度扫描）· 简报 §5（可加性检验）· CSE541 L07 主线卡（线性待检验）"
+    },
+    {
+      "q": "AFlow 已经同时记录了 score 和 cost，你说它「不优化成本」是不是太苛刻了？",
+      "a": "<b>不苛刻，而且这一讲从另一个领域给了佐证：<b>只要目标里没有算力，算力就会被耗尽</b> —— 这是优化的必然，不是实现疏忽。</b> <span class='k'>CS224R L10 p36（Kimi 1.5 技术报告）在八个基准上都观察到：随着 RL 训练，准确率在涨、<b>token 长度也在涨</b>，而奖励里<b>根本没有</b>鼓励长度（仍是 0/1 的答对与否）</span>。<b>⇒ 长度是自己涨上去的。讲义自己也只问了一个 <code>Why?</code></b>。<span class='w'>而这正是 p33 为什么要把算力写成一条<b>硬约束</b>的理由</span>。<b>⇒ 对照我核过的事实：AFlow 的 Executor 同时返回 score 和 cost，但 <b>cost 从不进入 score</b>，成本只出现在事后的 Pareto 图里。所以「它报告权衡但不优化权衡」是一个结构性的陈述，不是挑刺</b>。<span class='k'>⚠ 我会把它写成「方法学差异」而不是「他们错了」—— 在他们的问题设定下那个选择是合理的，只是我的设定不同。</span>",
+      "tag": "推断",
+      "ref": "本讲 p33、p36 · 简报 §3（cost 从不进入 score，已核）"
+    }
+  ],
+  "papers": [
+    {
+      "t": "Setlur, Garg, Geng, Garg, Smith, Kumar — RL on Incorrect Synthetic Data Scales the Efficiency of LLM Math Reasoning by Eight-Fold",
+      "id": "NeurIPS 2024（本讲 Part 1 的主干，p8 点名）",
+      "why": "<b>spurious step、按优势过滤、共享前缀 DPO、八倍数据效率 —— 全部出自这一篇。</b> <span class='k'>对课题最该读的是它<b>怎么量 spurious step</b>：讲者说论文里确实量过，而且它随训练增长，但幻灯上没给方法</span>。<b>⇒ 你要把「浪费的档位」做成一个可报告的量，这篇的度量方式是最直接的参照。</b>⚠ <b>另外讲者明说「普通的拟合指标看不出这件事」</b>，<span class='w'>所以别指望用训练/验证损失去发现它</span>。"
+    },
+    {
+      "t": "Setlur, Nagpal, Fisch, Geng, Eisenstein, R. Agarwal, A. Agarwal, Berant, Kumar — Rewarding Progress: Scaling up Automated Process Supervision for LLM Reasoning",
+      "id": "ICLR 2025（本讲 Part 1 后半，PAV 的出处，p8/p24–p28 点名）",
+      "why": "<b>PAV（Process Advantage Verifier）与 p26 那条「最优 rollout 策略」的正式定义都在这里。</b> <span class='k'>⭐ 对课题最值钱的就是那条定义：<b>尺子要的是分辨力，不是本事大</b></span>——<b>它直接否掉「探测时其余节点全用最强模型」这个默认选择</b>。<span class='w'>讲义给的是 <code>[Informal]</code> 版本，正式的表述与它依赖的条件要回原文查</b></span>。<b>另外 5–6 倍 / 6–7 个百分点那组数也出自这里，引用时记得标明对照组是 ORM-RL 而不是 SFT。</b>"
+    },
+    {
+      "t": "Snell, Lee, Xu, Kumar — Scaling LLM Test-Time Compute Optimally can be more Effective than Scaling Model Parameters",
+      "id": "ICLR 2025 (Oral)（本讲 p37–p39 的出处）",
+      "why": "<b>把「模型做大」与「多想一会」放进同一个预算比较的那一篇，也是你给自己定位时必引的。</b> <span class='k'>你的说法可以是：他们比的是两种花法，而 node-level fidelity assignment 是<b>第三种、粒度更细</b>的一种（逐题 × 逐节点）</span>。⚠ <b>标题里是 <code>can be</code> 而不是「总是」—— 这是条件性结论，而讲义这三页<b>没有给出条件</b></b>，<span class='w'>引用前务必回原文确认它在什么情形下成立、什么情形下不成立</span>。<b>⚠ 作者列表与年份也请自行核对，讲义只给了姓氏与会议。</b>"
+    },
+    {
+      "t": "Gandhi et al. — Cognitive Behaviors that Enable Self-Improving Reasoners",
+      "id": "arXiv 2025（本讲 p35 那张对照图的出处）",
+      "why": "<b>「同一套 RL 配方，一个基座模型长出验证与回溯、另一个什么都没有且完全不提升」——这个结论的出处。</b> <span class='k'>对课题的用处是给「能力是门槛不是旋钮」这句话一个可引用的依据</span>，<b>从而支撑「先用二值表筛掉不可行的格子、再在剩下的格子上优化」这个实验设计</b>。<span class='w'>⚠ 四种行为（Verifications / Subgoal Setting / Backtracking / Backward Chaining）的操作化定义——也就是<b>怎么从文本里数出这些行为</b>——讲义没给，而那恰恰是你要借用的部分。</span>"
+    },
+    {
+      "t": "Setlur, Qu, Yang, Zhang, Smith, Kumar — Optimizing Test-Time Compute requires Solving a Meta-RL Problem",
+      "id": "CMU MLD Blog, 2025（p30 列为<b>选读</b>；p41 第三框的 √H 多半出自这里）",
+      "why": "<b><code>Gap grows as √H</code> 与 <code>n = Ω(H)</code> 这两条的出处，而它们是 p41 三个框里信息量最大的。</b> <span class='k'>如果成立，类比到课题就是「总预算越宽裕，自适应分配相对固定配置的优势越大」——这是一张可以直接画出来的图</span>。⚠ <b>本条标为<b>待核</b></b>：<span class='w'>讲义只给了结论与一张示意图，没有条件、没有证明，而且它是一篇博客不是论文</span>。<b>⇒ 要用必须回原文核对，而且要讲清把 token 预算类比成 API 开销这一步的理由。</b>"
+    }
+  ]
+}
