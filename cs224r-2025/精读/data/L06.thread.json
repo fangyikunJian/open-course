@@ -1,0 +1,89 @@
+{
+ "title": "L06 接上课题的哪一段：赢家诅咒的第三次出场，和一张选型表",
+ "arc": "这一讲走完了在线 RL 的主干（p29：<b>Done with online RL methods!</b>）。三讲的递进很干净：<br><br>· <span class='k'>L03</span>：do more of the <b>above average</b> stuff（和一批的平均比）<br>· <span class='k'>L04</span>：<b>estimate</b> what is good and bad（学一个函数来评价）<br>· <span class='k'>L06</span>：<b>既然能评价每个动作了，为什么还要策略网络？</b>（p8：<span class='w'>forget policies, let's just do this!</span>）<br><br><b>消元的关键只有一行代数</b>：若 π 就是对 Q 取 argmax 的那个策略，那「从 π 采一个动作再查它的 Q」就等于「直接取 Q 的最大值」。<span class='k'>一个策略网络被消掉了，而策略降级成 argmax 的一个推论</span>。<b>副产品是它天然彻底 off-policy —— L03/L04 那套重要性权重与 KL 约束全不需要。</b><br><br><b>但代价立刻来了（p13）</b>：<span class='w'>Yes, if you maintain a table… <b>More generally, no. 😢</b> Can construct scenarios where it diverges, <b>even with linear Q</b></span>。注意是**线性** Q —— 问题不出在「神经网络太复杂」，而出在<span class='k'>自举 + 函数逼近 + 离策略</span>这个组合（Sutton &amp; Barto 管它叫 <b>deadly triad</b>，讲义没用这个词）。<br><br><b>后半讲那三个「技巧」不是锦上添花，它们是在补这个理论缺口，而且都只能在<span class='k'>自举</span>那条边上做文章</b>——因为函数逼近和离策略正是你<b>想要</b>的东西。这也解释了为什么它们全是「缓解」不是「解决」。<br><br><b>⭐ 对你课题最该带走的是 p21 那个高估，因为它是<span class='k'>同一个机制在本站的第三次出场</span>：</b><br>· <span class='w'>L03 p25 Markowitz</span>：<code>min pᵀΣp</code> 专挑 Σ 里「看起来方差小」的方向，而那多半是估计误差 —— <b>error maximization</b><br>· <span class='w'>CSE 541 L06</span>：取经验均值最大的臂，选中的常是<b>采样运气好</b>的那条<br>· <span class='w'>本讲 p21</span>：<code>max_a Q̂(s',a)</code> 专门挑中<b>噪声为正</b>的动作<br><br><b>三处同一个病：在带噪声的估计上做 argmax 再读数，读到的数必然偏高（赢家诅咒）。</b>而三处的解法也同形：<span class='k'>不要直接信那个 argmax</span> —— CSE 541 用置信区间，本讲用<b>另一个</b>网络去评估（双 Q）。<br><br><b>⇒ 你的搜索最后要「挑预测分数最高的配置」，这一步<span class='w'>一定会</span>踩同一个坑</b>：报出来的分数会系统性高于重跑的分数，而审稿人重跑一遍就会发现。主线卡的 ammo 里给了一个几乎零成本的修法。",
+ "pitfalls": [
+  {
+   "v": "<b>把 p13 的「不收敛」当成「神经网络太复杂」的问题。</b>讲义明写 <span class='k'>Can construct scenarios where it diverges, <b>even with linear Q</b></span> —— <b>最简单的函数逼近形式也会发散</b>。<span class='w'>根源是自举 + 函数逼近 + 离策略这个组合（deadly triad），任意两个都安全，三个凑齐才出事</b>：①+② 是 L04 的 on-policy AC（相当稳）；①+③ 是表格型 Q-learning（有收敛证明）；②+③ 是蒙特卡洛离策略（方差大但不发散）。",
+   "tag": "推断",
+   "ref": "本讲 p13；deadly triad 这个词讲义未用，出自 Sutton & Barto 第 11 章"
+  },
+  {
+   "v": "<b>以为「Q 不收敛」就等于「算法没用」。</b>讲稿里学生追问「这句话到底什么意思」，讲者承认 <span class='k'>it is a bit vague</span>，并澄清它<b>不一定与 Q 值的准确性有关</b>。<span class='w'>实践中最常见的情形是：Q 的绝对数值一直是错的，但它对动作的<b>排序</b>是对的，于是 argmax 出来的策略照样好</b>。<b>这也是「理论不收敛但实践能用」的主要原因</b> —— p19 那句「As predicted Q increases, so does the return」说的正是「同向」而非「准确」。",
+   "tag": "已核",
+   "ref": "本讲 p13、p19；讲稿里关于「不收敛是什么意思」的追问"
+  },
+  {
+   "v": "<b>把 p21 的高估当成随机误差。</b>它是<span class='k'>系统性的、一边倒的正偏差</span>：<b>随机误差会在多次更新中互相抵消，系统性偏差会累积</b>，<span class='w'>再加上自举（高估的值又当成下一轮标签），偏差会一轮一轮往上滚</span>。根源写在那个恒等式里：<code>max_{a'} Q_{φ'}(s',a') = Q_{φ'}(s', argmax_{a'} Q_{φ'}(s',a'))</code> —— <b>同一个网络既挑动作又给它打分</b>。⚠ 动作越多、噪声越大，高估越严重。",
+   "tag": "已核",
+   "ref": "本讲 p21 的 this last term is the problem 与那个恒等式"
+  },
+  {
+   "v": "<b>实现双 Q 时把两条更新式写成「各自用自己」。</b>必须<span class='k'>交叉</span>：<code>Q_{φA} ← r + γQ_{φB}(s', argmax Q_{φA})</code>、<code>Q_{φB} ← r + γQ_{φA}(s', argmax Q_{φB})</code>。<b>写成各自用自己就是两个独立的 Q-learning，什么也没改善</b>，<span class='w'>而且不会报错</span>。另：前提 <code>两个 Q 的噪声不相关</code> 在实践中<b>只能部分成立</b>（同一个缓冲区、同样的架构）⇒ <b>双 Q 是缓解而非消除</b>。",
+   "tag": "已核",
+   "ref": "本讲 p22；「缓解而非消除」是基于前提的推断"
+  },
+  {
+   "v": "<b>把 N 步回报无条件搬到 Q-learning 上。</b>讲义明标：<span class='k'>only actually correct when learning on-policy (<b>not an issue when N=1!</b>)</span>。<b>N=1 免疫是因为 1 步目标中间不经过任何动作选择</b>；<span class='w'>而 N>1 时中间 n−1 步的奖励是<b>采数据那个策略</b>走出来的（these are the rewards for policy that collected the data）</span>。⇒ 讲义给的最常见对策是 <b>ignore the problem &amp; still use N > 1</b> —— 这是一个经过比较的工程决定（它把三条对策都列了出来），不是疏忽。",
+   "tag": "已核",
+   "ref": "本讲 p25 的三条「Ways to fix?」"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你报的那个「最优配置分数」，别人重跑能复现吗？",
+   "a": "<b>这是 p21 那个赢家诅咒在你课题里的直接形态，而且<span class='k'>不处理一定会被抓</span>。</b><br><br><span class='w'>你取「过程中观测分数最高的配置」并报那个分数，这个数同时被两重污染</span>：<b>① 代理模型的预测误差；② 那一次评估本身的采样噪声</b> —— <span class='k'>你挑的正是「那一次运气最好」的那个</span>。<br><br><b>修法几乎零成本，三步</b>：<br>① <span class='w'>用搜索过程<b>选</b>出 top-k 候选（k 取 5–10）</span>；<br>② <span class='w'>对这 k 个做<b>新的、独立的</b>评估</b>（固定种子、同一批测试样本 —— 顺便用上 L03 p16 那条配对比较）；<br>③ <b>报第 ② 步的结果</b>。<br><br><b>而且第 ③ 步可以多做一件事</b>：<span class='k'>同时报出「第 ① 步的预测值」与「第 ② 步实测值」的差距</span> —— <b>那个差距本身就是对赢家诅咒严重程度的直接测量</b>，<span class='w'>而这正好是一个别人没做的分析</span>。<br><br><b>这就是双 Q「选择与评估分开」在你这儿的形态</b>：用一份信息<b>选</b>，用另一份独立的信息<b>定</b>。",
+   "tag": "推断",
+   "ref": "本讲 p21–22；对照 CSE 541 L06 与 L03 p16/p25"
+  },
+  {
+   "q": "你的搜索怎么探索？比 ε-贪心好在哪？",
+   "a": "<b>p14 给了深度 RL 的两档，而你能用上第三档 —— 这是一个可以正面说的优势。</b><br><br>· <span class='w'>ε-贪心</span>：以 ε 取<b>均匀</b>随机 —— <b>连 Q 值都不看</b>，把「明显很糟」和「可能更好」一视同仁；<br>· <span class='w'>Boltzmann</span>：按正比于 Q 的概率 —— <b>看 Q 值，但不看不确定性</b>（<span class='k'>简报 §2 已核：AFlow 停在这一档</span>）；<br>· <span class='k'>UCB / 逐次淘汰（CSE 541 L06）</span>：<b>看不确定性</b> —— 试得少的优先。<br><br><b>关键差别一句话：前两档<span class='w'>不记得「这个动作我已经试过多少次、结果有多确定」</span>。</b><br><br><b>那深度 RL 为什么还在用 ε-贪心？</b>因为在高维连续状态空间里，<span class='k'>「这个 (s,a) 我试过几次」根本数不出来</span> —— 每个状态都只出现一次，<b>置信区间需要可数的访问次数，而函数逼近把它抹掉了</b>。<br><br><b>⇒ 而你的问题恰好不在这个困境里</b>：<span class='w'>配置空间有限、离散、结构化，每个配置评估过几次你都记着</span>。<b>CSE 541 那套在你这儿能直接用，在深度 RL 那儿才是用不上的。</b><br><br><b>实验很便宜</b>：固定预算，三档各跑一遍，画「最优配置质量 vs 预算」的曲线。不需要新理论，只换一个选择规则。",
+   "tag": "推断",
+   "ref": "本讲 p14；科研简报 §2（AFlow 的 Boltzmann 爬山，已核）；CSE 541 L06"
+  },
+  {
+   "q": "你的代理模型预测不准，这方法还能用吗？",
+   "a": "<b>用 p13 和 p19 那组对照正面答：<span class='k'>你需要的多半不是准确的分数，是正确的排序</span>。</b><br><br><span class='w'>Q-learning 在理论上不保证收敛，而它在实践中能用，很大程度上正是因为「Q 的绝对数值错了，但排序对了，argmax 出来的策略照样好」</span>（p19 的「同向变化」说的就是这个）。<br><br><b>这个区别对你有三个实际后果</b>：<br>· <span class='k'>训练目标</span>：与其用平方误差拟合绝对分数，<b>不如用排序损失</b>（pairwise ranking）—— <span class='w'>它对「整体偏高/偏低」这类系统性误差免疫</span>；<br>· <span class='k'>评价代理模型</span>：报 RMSE 不如报 <b>Spearman 相关 / top-k 命中率</b> —— <span class='w'>RMSE 很大但排序完美的模型，对搜索完全够用</span>；<br>· <span class='k'>所需数据量</span>：<b>排序是比回归更弱的要求，需要的数据更少</b>。<br><br>⚠ <b>但有一处排序不够、必须要绝对值</b>：<span class='w'>「cheapest-feasible」里的可行性门槛是<b>绝对</b>判据</span>（质量要达到 q₀）。<b>所以可能需要两个量：排序用于搜索，绝对值用于最终的可行性判定</b> —— 这个分工要写清楚。",
+   "tag": "推断",
+   "ref": "本讲 p13、p19；讲稿里关于「不收敛是什么意思」的追问"
+  },
+  {
+   "q": "你的 related work 为什么不逐篇介绍？",
+   "a": "<b>因为 p27 那张表示范了更好的形式：<span class='k'>三行、每行一条可操作的判据、没有一个「最好」</span>。</b><br><br><span class='w'>而且注意那三条判据的<b>性质不同</b></span>：PPO/SAC 之间是连续的取舍（稳定性 ↔ 数据效率），<b>而 DQN 那一行是硬门槛</b>（argmax 算不算得出来）。<span class='k'>所以实际选型是「先过门槛，再权衡」</span>。<br><br><b>你的 related work 该长成同一个形状</b>：一张表，每行一个方法，每列一条判据，最后一行是你的方法。<b>判据列大概是</b>：<br>· <span class='w'>比较类</span>（和全部配置比，还是和搜过的比）<br>· <span class='w'>评估预算的依赖</span>（√T 还是 log T）<br>· <span class='w'>配置数的依赖</span>（n 还是 log n）<br>· <span class='w'>探索机制</span>（掷骰子 / 看分数 / <b>看不确定性</b>）<br>· <span class='k'>是否处理「可行性要边搜边发现」</span><br><br><b>最后那一列很可能就是你的空位</b> —— <span class='k'>上面那些方法大多假设可行域给定</span>。<b>放进表里当一列，贡献位置自己就浮出来了。</b><br><br>⚠ 前提是你真的核过那几篇确实不处理这一列，<span class='w'>别凭印象填表</span>。",
+   "tag": "推断",
+   "ref": "本讲 p27 的形式；对照 L04 主线卡里同一条建议"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Mnih et al., Playing Atari with Deep Reinforcement Learning / Human-level control through deep RL",
+   "id": "NIPS Workshop 2013 / Nature 2015（p18、p26 均明引）",
+   "why": "<b>DQN 的两篇。</b><span class='k'>值得注意的是它的核心创新并不是一个新的学习原理</span> —— Q-learning 本身是 1989 年的东西；<b>DQN 的贡献是两个<span class='w'>稳定性补丁</span>（目标网络 + 回放缓冲区），让它配上神经网络之后还能跑</b>。<span class='w'>p18 说你会在 HW2 里实现它。</span>"
+  },
+  {
+   "t": "van Hasselt, Guez & Silver, Deep Reinforcement Learning with Double Q-learning",
+   "id": "AAAI 2016",
+   "why": "<b>p16 提纲里写的 Double DQN。</b><span class='k'>它给了 p22 那个双 Q 的省事变体：不训两个网络，而是复用已有的目标网络</span> —— <b>用 φ 选动作、用 φ' 评估</b>，<span class='w'>额外成本几乎为零</span>。⚠ 讲义没展开这个变体，是补的。"
+  },
+  {
+   "t": "Kalashnikov et al., QT-Opt: Scalable Deep Reinforcement Learning for Vision-Based Robotic Manipulation",
+   "id": "CoRL 2018（p26 明引）",
+   "why": "<b>p26 那个「Q-learning 训出机器人抓取系统」的出处。</b><span class='k'>从 2015 年 Atari 到 2018 年真机，中间的差距几乎全在数据效率和稳定性上</span> —— <b>Atari 可以跑几千万帧，真机不行</b>。<span class='w'>这正好印证了 p27 那张表为什么把这两条当成主要判据。</span>"
+  },
+  {
+   "t": "Sutton & Barto，第 11 章（Off-policy Methods with Approximation）",
+   "id": "官方免费全书",
+   "why": "<b>p13 那句「More generally, no 😢」的系统版本</b>，也是 <span class='k'>deadly triad</span> 这个词的出处。<b>讲义只给了结论，那一章给了反例构造与分析</b>。<span class='w'>想弄清「到底怎么个发散法」时去翻它。</span>"
+  },
+  {
+   "t": "本课 L05：PPO · L04 p34：SAC",
+   "id": "本站已有精读 / 讲义明引",
+   "why": "<b>p27 那张选型表里的另外两族。</b><span class='k'>三讲合起来才凑齐那张表</span>：<b>L04 p35 给了 PPO↔SAC 那条谱，这一讲加上 DQN 这一支并写成可操作的问句</b>。<span class='w'>读完建议回头把 L01 p41 那张五族表自己补完一遍。</span>"
+  },
+  {
+   "t": "本课 L07：离线强化学习",
+   "id": "lecture_7（33 页）",
+   "why": "<b>p29 预告的下一讲。</b><span class='k'>这三讲暴露的最大限制是「采样太贵」，而离线 RL 的做法是干脆<b>删掉「采数据」那个框</b></span>（L04 p11 那张三框图）。<b>Q-learning 的高估问题在离线设定下会变得严重得多</b> —— <span class='w'>因为再也没有新数据来纠正那些被高估的动作</span>。"
+  }
+ ]
+}

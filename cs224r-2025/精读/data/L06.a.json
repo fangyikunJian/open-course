@@ -1,0 +1,589 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "讲义共 29 页。本片覆盖 p1–15（从 Actor-Critic 到只要 critic）。p1 标题、p2 课务。",
+  "p7 思考题：2D 导航，起点在左下蓝框，星在右上，**奖励只在星处为 1、别处为 0**；当前策略 **π 在所有状态都向右**；向上走那段距离要 **1 个时间步**，另一段要 **2 个时间步**。新策略定义为 π_new(a_t|s_t) = 1 若 a_t = argmax_a Q_φ(s_t,a)，否则 0",
+  "⚠ p7 的答案在讲稿里：**新策略比旧的好，但不是最优**。原因是起点那一行 **所有 Q 值都是 0**（因为按旧策略从那里永远到不了星），于是贪心退回原行为、继续向右。讲稿原话：if we're starting at this initial state, we actually will just keep on going right",
+  "⚠ 讲稿另一处追问：「越靠近星 Q 是不是越高？」答：**我没有显式定义，但只要折扣因子小于 1，越近确实越高**",
+  "p8 的转折：**forget policies, let's just do this!** —— argmax_{a_t} Q^π(s_t,a_t) 就是「从 s_t 出发、之后照 π 走」的最佳动作",
+  "Q-learning 的目标（p11）：**y_i = r_i + γ·max_{a'} Q̂_φ(s'_i, a')** —— 注意这是 **Q-values for new policy!**",
+  "p12 两个名字：**Bellman equation** Q^π(s,a) = r(s,a) + γ𝔼_{s'∼p,ā'∼π}[Q^π(s',ā')]（对任意 π 成立）· **Bellman optimality equation** Q^{π*}(s,a) = r(s,a) + γ𝔼_{s'∼p}[max_{ā'} Q^{π*}(s',ā')]",
+  "p12 的点题：**When we optimize step 3, we are trying to make this equation hold!**",
+  "p13 收敛性：**Yes, if you maintain a table of Q-values for every state and action. More generally, no. 😢** · **Can construct scenarios where it diverges, even with linear Q.** · **But, it can be made to work well**",
+  "p14 两种采数据方式：**epsilon-greedy**（以概率 ε 取均匀随机动作，常随训练把 ε 调小）· **Boltzmann exploration**（按正比于 Q 值的概率取动作）；目的是 **want coverage for many actions**",
+  "p15：K = 1 is common, though larger K more efficient；最终策略仍是对 Q_φ 取 argmax 的那个确定性策略"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    6
+   ],
+   "t": "开场：三讲走到这里，第三次改动那个梯度式子——这次是干脆不要它",
+   "star": 2,
+   "quote": "CS 224R Q-Learning.  Recap: Some Useful Objects — V^π(s) value function; Q^π(s,a) Q-function.  Recap: Methods — Online RL with policy gradients: ∇_θJ(θ) ≈ (1/N)ΣΣ ∇_θ log π_θ(a_{i,t}|s_{i,t})((Σ_{t'=t}^T r) − b).  Do more of the above average stuff, less of the below average stuff.  Online RL with actor-critic: ∇_θJ(θ) ≈ (1/N)ΣΣ ∇_θ log π_θ(a_{i,t}|s_{i,t})A^π(s_{i,t},a_{i,t}).  Estimate what is good and bad, then do more of the good stuff.  Recap: Off-Policy Policy Evaluation — Q^{π_θ}(s,a) = r(s,a) + γ𝔼_{s'∼p(·|s,a), ā'∼π_θ(·|s')}[Q^{π_θ}(s',ā')].  1. Sample (s_i,a_i,s'_i) from the buffer.  2. Sample ā'_i ∼ π_θ(·|s'_i) from current policy.  Note: To be accurate, targets need sufficient action coverage.  The plan for today — Value-based RL methods: 1. Q-learning RL method (a. Policy iteration b. Bellman optimality equation c. How to collect data) 2. Q-learning in practice (d. Target networks e. Double DQN f. N-step returns).  Key learning goals: How Q-functions relate to policies; How to do RL without learning an explicit policy; How to stabilize Q-learning in practice.  Part of homework 2!",
+   "one": "<b>三讲都在动同一个梯度式子，而这一讲走到了终点：<span class='k'>干脆把策略梯度整个去掉</span>。</b><span class='w'>p6 的第二个学习目标写得很直白：<b>How to do RL without learning an explicit policy</b>。</span>",
+   "eq": "三讲的递进（p4 并排放了前两个）：\n\n  **L03 策略梯度**\n     ∇_θJ(θ) ≈ (1/N)ΣΣ ∇_θ log π_θ(a|s)·( Σ_{t'≥t} r − b )\n     直觉：Do more of the **above average** stuff, less of the below average stuff.\n\n  **L04 Actor-Critic**\n     ∇_θJ(θ) ≈ (1/N)ΣΣ ∇_θ log π_θ(a|s)·**A^π(s,a)**\n     直觉：**Estimate** what is good and bad, then do more of the good stuff.\n\n  **L06 本讲：Q-learning**\n     → 没有这个式子了。**连 π_θ 都不要了。**\n\n────────────────────────────────────────\np5 的回顾（L04 离策略那半讲的结论）：\n\n  贝尔曼方程（任意策略 π 都成立）：\n     **Q^{π_θ}(s,a) = r(s,a) + γ·𝔼_{s'∼p(·|s,a), ā'∼π_θ(·|s')}[ Q^{π_θ}(s', ā') ]**\n\n  做法：① 从缓冲区采 (s_i, a_i, s'_i)\n        ② **从当前策略采 ā'_i ∼ π_θ(·|s'_i)**   ← L04 p31 那条「动作要重采」\n\n  ⚠ p5 的小字提醒：**To be accurate, targets need sufficient action coverage**\n     —— 这一条到 p14 会变成「该怎么采数据」的核心。\n\n────────────────────────────────────────\n今天三个学习目标（p6）：\n  · How Q-functions **relate to policies**\n  · **How to do RL without learning an explicit policy**\n  · How to **stabilize** Q-learning in practice\n  → Part of homework 2!",
+   "pts": [
+    "<b>把三讲的直觉句并排读，能看到一条很清楚的升级线。</b><span class='k'>L03：do more of the <b>above average</b> stuff（和一批的平均比）</span> → <span class='k'>L04：<b>estimate</b> what is good and bad（学一个函数来评价）</span> → <b>L06：既然你已经能评价每个动作了，<span class='w'>为什么还要维护一个策略网络？</span></b>",
+    "<b>p6 的第二个学习目标是这一讲的全部新意：without learning an explicit policy。</b><span class='k'>前面三讲里，策略一直是一个独立的、要训练的神经网络</span>；<b>这一讲之后，策略变成了 Q 的一个<span class='w'>推论</span></b> —— <code>π(s) = argmax_a Q(s,a)</code>，不含任何需要学的参数。",
+    "<b>p5 那句小字「targets need sufficient action coverage」是本讲最该提前记住的一条。</b><span class='k'>目标值里有一个对动作的操作（L04 是采样，这一讲会变成 max）</span>，<b>而那个操作只在「这些动作你都见过」时才靠谱</b>。<span class='w'>这条约束到 p14 就变成了「必须专门设计一个探索策略」。</span>",
+    "<b>注意 p5 回顾的是 L04 最后修好的那个版本，而不是 p22 那个朴素的。</b><span class='k'>它已经包含了「动作要从当前策略重采」这个修补</span>（L04 p31）。<b>这一讲接下来要做的事，正是把那个「从当前策略采」换成「取 max」</b> —— <span class='w'>一字之差，但性质完全变了。</span>",
+    "<b>「Part of homework 2!」这个标注说明这一讲要动手写。</b><span class='k'>而 p18 会明说：你会在 HW2 里实现 DQN，连同一个 actor-critic 方法</span>。<b>所以这一讲的工程细节（目标网络、ε 调度）不是可跳过的装饰</b>，<span class='w'>它们是让算法真的能跑起来的必需品。</span>",
+    "<b>把 L01 p41 那张五族表翻出来对一遍，这一讲是它的第四格。</b><span class='k'>① 模仿学习（L02）· ② 策略梯度（L03）· ③ Actor-Critic（L04）· <b>④ 基于值（本讲）</b> · ⑤ 基于模型（L11）</span>。<b>L01 当时只给了一句话描述，现在每一格都能填上「它假设什么、代价是什么、什么时候用」</b> —— <span class='w'>而 p27 会把这件事直接做成一张选型表</span>。<b>读完这一讲，建议回头把那张表自己补完一遍，比记住任何单个算法都有用。</b>"
+   ],
+   "tbl": {
+    "cap": "四讲的递进：每一讲动那个梯度式子的哪个零件",
+    "head": [
+     "讲",
+     "权重是什么",
+     "策略从哪来",
+     "<b>一句话直觉</b>"
+    ],
+    "rows": [
+     [
+      "<b>L03 策略梯度</b>",
+      "Σ_{t'≥t} r − b（单次实现）",
+      "独立的 π_θ",
+      "do more of the <b>above average</b> stuff"
+     ],
+     [
+      "<b>L04 Actor-Critic</b>",
+      "<b>A^π(s,a)（学出来的估计）</b>",
+      "独立的 π_θ",
+      "<b>estimate</b> what is good and bad"
+     ],
+     [
+      "<b>L06 Q-learning</b>",
+      "<b>—（没有这个式子了）</b>",
+      "<b>π(s) = argmax_a Q(s,a)，不用学</b>",
+      "<b>forget policies, let's just do this!</b>"
+     ],
+     [
+      "共同要守的",
+      "<b>targets need sufficient action coverage</b>（p5）",
+      "—",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>这一讲在整门课里的位置，p29 用一句话标了出来：<span class='k'>Done with online RL methods!</span></b><br><br>也就是说 <b>L03 → L04 → L06 这三讲把在线 RL 的主干走完了</b>，而它们正好对应三种思路：<br><br>· <span class='k'>L03</span>：直接对目标求导（**策略梯度族**）<br>· <span class='k'>L04</span>：学当前策略的值来降方差（**Actor-Critic 族**）<br>· <span class='k'>L06</span>：学<b>最优</b>策略的值，跳过策略（**基于值的族**）<br><br><b>而这三条，正是 L01 p41 列的五族算法里的第 2、3、4 族。</b><span class='w'>第 1 族（模仿学习）是 L02，第 5 族（基于模型）是 L11。</span><br><br><b>所以读完这一讲，你手上就有了那张五族表里的四族。</b><span class='k'>回头看 L01 p41 那一页，它当时只是一个目录；现在每一条都能填上具体的算法、代价和适用场景了</span> —— <b>而 p27 会把这件事做成一张「什么时候用哪个」的表。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L01 p41（五族算法 —— 这一讲填上第 4 族「基于值」）",
+    "href": "L01-精读.html"
+   }
+  },
+  {
+   "r": [
+    7,
+    7
+   ],
+   "t": "思考题：按 Q 贪心一次，策略变好了，但没变最优",
+   "star": 5,
+   "quote": "A thought exercise — For some policy π, say you have an accurate estimate Q̂^π(s,a) for all s,a.  Define a new policy π_new(a_t|s_t) = 1 if a_t = arg max_a Q_φ(s_t,a), 0 otherwise.  2D navigation example: Initial state distribution p(s_1); Current policy π goes right in all states; takes 1 timestep, 2 timesteps to travel these distances; Reward is 1 at ★, 0 elsewhere.  Questions: Is the new policy better, worse, or the same as the original policy?  Is it the optimal policy?  Why or why not?",
+   "one": "<b>给你一个准确的 Q̂^π，然后按它贪心地定义一个新策略。</b><span class='k'>问：新策略更好吗？是最优吗？</span><b>答案是「更好，但不是最优」——而<span class='w'>不最优的原因</span>正是整个 Q-learning 要反复做下去的理由。</b>",
+   "eq": "设定（p7）：\n  2D 导航。起点在**左下的蓝框**里，目标是右上角的 **★**。\n  奖励：**★ 处为 1，别处为 0**。\n  当前策略 π：**在所有状态都向右**。\n  距离：向上走那一段要 **1 个时间步**，另一段要 **2 个时间步**。\n\n  新策略：  π_new(a_t|s_t) = 1  若 a_t = argmax_a Q_φ(s_t, a)\n                            0  否则\n\n────────────────────────────────────────\n答案（讲稿给的，幻灯只有问号）：\n\n  **★ 所在的那一行**：\n     在那一行里向上走就能到 ★ ⇒ 这些状态的 Q 值有差别\n     ⇒ 贪心策略会**向上**走 ⇒ 拿到奖励 1   ✔ **比原来好**\n\n  **起点所在的那一行（下面那行）**：\n     按**旧策略**（永远向右）从这里出发，永远到不了 ★\n     ⇒ **所有动作的 Q 值都是 0**（下一个状态的 Q 也全是 0）\n     ⇒ argmax 在全零里挑不出东西，**退回原来的行为：继续向右**\n\n  ⇒ **新策略比旧策略好，但不是最优**。\n     讲稿原话：if we're starting at this initial state,\n               we actually will just keep on going right.\n\n────────────────────────────────────────\n⚠ 讲稿里学生的另一个追问值得记：\n   问：「是不是越靠近星，Q 就越高？」\n   答：**我没有显式定义这一点，但只要折扣因子 γ < 1，越近确实越高。**\n   （γ = 1 时所有能到达 ★ 的状态 Q 都是 1，分不出远近）",
+   "pts": [
+    "<b>「贪心一次就变好」这件事本身是一个定理，叫<span class='k'>策略改进定理</span>，而且它无条件成立。</b><span class='w'>只要 Q̂^π 是准确的，对它贪心得到的 π_new 一定不差于 π</span>。<b>这是 p10「policy iteration」那一页的理论基础</b> —— <span class='k'>讲义没有正面证它，但整个算法建立在它上面。</span>",
+    "<b>而「不最优」的原因非常具体，值得想清楚：<span class='k'>在那片 Q 全是 0 的区域，贪心一步得不到任何信息</span>。</b><b>信息还没有从 ★ 传播过来</b>。<span class='w'>而再做一轮（用新策略重新估 Q、再贪心），信息就会往回传一格</span> —— <b>这正是为什么要<span class='k'>反复</span>做，也就是 p10 的 policy iteration。</b>",
+    "<b>学生那个追问（越近 Q 越高吗）和折扣因子的关系，是一个很实际的细节。</b><span class='k'>γ = 1 时，所有能到达 ★ 的状态 Q 都等于 1，<b>分不出远近</b></span>；<b>γ < 1 时 Q = γ^(剩余步数)，越近越大</b>。<span class='w'>所以折扣因子不只是「让无限和收敛」的数学装置，它还在给值函数提供「距离感」。</span>",
+    "<b>注意这个例子里奖励极其稀疏（只有一个格子有奖励），而这正是让「Q 全是 0」出现的原因。</b><span class='k'>稀疏奖励 ⇒ 大片区域的 Q 都是 0 ⇒ 贪心无从下手</span>。<b>这与 L03 p17 叠外套那个例子是同一个困难的不同形态</b>，<span class='w'>而 Q-learning 的解法是「反复迭代让信息往回渗」，不是「改奖励」。</span>",
+    "<b>这一页还隐含了一个前提，后面会变成大麻烦：它说「say you have an <span class='k'>accurate</span> estimate」。</b><span class='w'>假设 Q̂ 是准的</span>。<b>而 p21 会告诉你，真实的 Q̂ 带噪声，而且那个 max 会<span class='w'>系统性地把噪声放大成高估</span></b> —— <span class='k'>这一页的全部结论都建立在「准确」这个假设上。</span>",
+    "<b>这个例子还顺带说明了「稀疏奖励」在基于值的方法里长什么样。</b><span class='k'>只有一个格子有奖励 ⇒ 大片区域的 Q 全是 0 ⇒ 贪心在那片区域完全无从下手</span>。<b>这和 L03 p17 叠外套那个例子是同一个困难</b>（信号稀疏到分不出好坏），<span class='w'>但两边的解法完全不同</span>：<b>L04 用值函数给中间状态打分；而这一讲是靠<span class='k'>反复迭代让信息从奖励处一格一格往回渗</span></b>。<span class='w'>⇒ 所以 Q-learning 在稀疏奖励下学得慢，不是因为它笨，是因为信息传播本身需要那么多轮。</span>"
+   ],
+   "tbl": {
+    "cap": "两行的 Q 值与贪心结果（讲稿给的答案）",
+    "head": [
+     "区域",
+     "按旧策略能到 ★ 吗",
+     "<b>Q 值</b>",
+     "<b>贪心策略会怎么做</b>"
+    ],
+    "rows": [
+     [
+      "★ 所在那一行",
+      "<b>向上走就能到</b>",
+      "<b>有差别（向上的 Q 更高）</b>",
+      "<b>向上 ✔ 拿到奖励 1</b>"
+     ],
+     [
+      "起点那一行",
+      "<b>不能（永远向右）</b>",
+      "<b>全是 0</b>",
+      "<b>退回原行为：继续向右</b>"
+     ],
+     [
+      "<b>结论</b>",
+      "—",
+      "—",
+      "<b>比旧的好，但不是最优</b>"
+     ],
+     [
+      "为什么",
+      "<b>信息还没从 ★ 传播到起点那片区域</b>",
+      "—",
+      "<b>⇒ 必须反复做（p10 policy iteration）</b>"
+     ],
+     [
+      "⚠ 隐含前提",
+      "<b>say you have an accurate estimate</b>",
+      "—",
+      "<b>p21 会说明真实情况下它不准</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里学生先给出答案、讲者再补完，这一段完整听下来比看幻灯有用得多：</b><br><br>学生答完之后讲者总结：「<span class='k'>for everything in this row, it will be going up because it's going to be choosing the action that has the maximum value of Q pi. But then for this row, <b>all of the Q values are 0 because all of the Q values for the next one are also 0</b>. And so if you default to the previous behavior, it'll stay going to the right.</span>」<br><br>然后有学生直接问到了下一步：<br><br>「<span class='w'>…this will become the optimal policy, right?</span>」<br>讲者：「<span class='w'>And yes, <b>you're a couple slides ahead</b>, but we'll talk about doing this iteratively.</span>」<br><br><b>那个学生确实领先了两页 —— p10 的 policy iteration 就是在回答它。</b><br><br><span class='k'>这个例子的教学价值在于：它让你自己撞上「一次不够」这堵墙，然后你才会觉得「反复迭代」是必然的而不是任意的。</span><b>直接给出 policy iteration，你会以为那只是一个工程循环。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p7（打鼓例：同样是「即使策略烂，A/Q 仍能指出改进方向」）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「贪心一次就变好，但要反复做才最优」这个结构，和你的搜索循环是同一个形状，而且那个「Q 全是 0」的区域对你有具体对应。</b><br><br><span class='k'>你的代理模型在「从没评估过的那片配置」上给出的预测，本质上就是那片 Q = 0 的区域</span> —— <b>不是「预测它们不好」，而是「没有信息」</b>。<span class='w'>而贪心地按预测值选配置，会让搜索一直待在已知的好区域里，永远不去那片没信息的地方。</span><br><br><b>这正是 p14 要讲的探索问题，而这一页先把病因摆了出来</b>：<span class='k'>贪心 + 信息未传播 = 卡住</span>。<br><br><b>对你的两条具体后果</b>：<br>① <span class='w'>代理模型必须能区分「预测为低分」和「没有信息」</span> —— <b>一个只输出点估计的模型做不到这件事</b>（这又回到 L02 p10 那条「要输出分布」）；<br>② <span class='k'>剪枝判据必须用「置信上界」而不是「预测均值」</span> —— <b>否则没信息的区域会被当成低分区域剪掉</b>，<span class='w'>而那恰恰是最该去看的地方</span>。",
+    "ref": "本讲 p7 与讲稿里的答案；对照 CSE 541 L10 的乐观主义"
+   }
+  },
+  {
+   "r": [
+    8,
+    11
+   ],
+   "t": "forget policies：把「从当前策略采一个动作」换成「取最大值」",
+   "star": 5,
+   "quote": "Can we omit policy gradient completely?  forget policies, let's just do this!  Q^π(s_t,a_t): expected reward from taking a_t and subsequently following π.  arg max_{a_t} Q^π(s_t,a_t): best action from s_t, if we then follow π afterwards.  Run policy to collect batch of data → Fit model to estimate expected return (Estimate Q^π) → Improve policy (π ← π').  From actor-critic to critic only — Off-policy actor critic with replay buffer: where a'_i ∼ π.  Q-learning: y_i = r_i + γ max_{a'} Q̂_φ(s'_i, a').  4. define new policy π(a_t|s_t) = 1 if a_t = arg max_a Q̂_φ(s_t,a), 0 otherwise.  \"Policy iteration\" ← policy evaluation ← policy improvement.  Can we improve the policy in the Q-function update?  (Note: can do multiple gradient steps here)  Q-values for new policy!",
+   "one": "<b>四页走完一个很优雅的消元：p9 还有策略，p10 发现它只是在做「评估 + 改进」的循环，p11 干脆把改进<span class='k'>塞进了评估里</span>。</b><span class='w'>改动只有一处：<code>a'_i ∼ π</code> → <code>max_{a'}</code>。</b>",
+   "eq": "出发点（p9，就是 L04 修好的那个离策略 Actor-Critic）：\n\n  目标值：  y_i = r_i + γ·Q̂_φ(s'_i, **a'_i**),   其中 **a'_i ∼ π(·|s'_i)**\n  第 4 步： 定义新策略 π(a_t|s_t) = 1 若 a_t = argmax_a Q̂_φ(s_t,a)，否则 0\n\n────────────────────────────────────────\np10 的观察：这个循环其实有个名字\n\n   第 1–3 步（拟合 Q̂_φ）  ← **policy evaluation**（策略评估）\n   第 4 步（按 Q 贪心）     ← **policy improvement**（策略改进）\n\n   两步交替 = **Policy iteration**（策略迭代）\n   （小字：Note: can do multiple gradient steps here）\n\n   然后讲义问了一个很关键的问题：\n   **Can we improve the policy in the Q-function update?**\n   （能不能把「改进策略」这一步，直接塞进「更新 Q」里？）\n\n────────────────────────────────────────\np11 的答案 —— 能，而且改动只有一处：\n\n   原来：  a'_i ∼ **π**(·|s'_i)，而 π 是对 Q̂_φ 取 argmax 的那个\n   那么：  Q̂_φ(s'_i, argmax_{a'} Q̂_φ(s'_i,a'))  =  **max_{a'} Q̂_φ(s'_i, a')**\n\n   ⇒ **y_i  =  r_i  +  γ·max_{a'} Q̂_φ(s'_i, a')**\n\n   讲义的批注：**Q-values for new policy!**\n   —— 这个目标值估的已经不是旧策略的 Q，而是**改进后那个策略**的 Q。\n\n   ⇒ **第 4 步（显式定义新策略）就不需要了。**\n      策略不再是一个要学的东西，它只是 argmax 的一个推论。",
+   "pts": [
+    "<b>这个消元的关键一步非常朴素：<span class='k'>如果 π 就是对 Q 取 argmax 的那个策略，那「从 π 采一个动作再查它的 Q」就等于「直接取 Q 的最大值」</span>。</b><b>一行代数，但它把一整个网络消掉了</b> —— <span class='w'>策略从「要训练的参数」降级成了「Q 的一个函数」。</span>",
+    "<b>p10 那个提问 Can we improve the policy in the Q-function update? 是整讲的枢纽，值得单独注意它的形式。</b><span class='k'>它问的不是「能不能更快」，而是「能不能把两步合成一步」</span>。<b>把一个交替的循环压成一个更新，是算法设计里很常见也很有效的动作</b>（<span class='w'>EM 变成梯度法、交替优化变成联合优化，都是同一类</span>）。",
+    "<b>「Q-values for new policy!」这个批注要认真读，它说明目标的含义变了。</b><span class='k'>L04 的 y_i 估的是<b>当前</b>策略的 Q（policy evaluation）</span>；<b>这里的 y_i 估的是「按当前 Q 贪心之后那个<span class='w'>更好</span>的策略」的 Q</b>。<span class='w'>所以每更新一次 Q，隐含的策略就自动改进了一次 —— 评估与改进真的合并了。</span>",
+    "<b>注意 p8 那句 forget policies, let's just do this! 的语气，它标志着一个真正的分叉。</b><span class='k'>前三讲里策略都是主角、值函数是辅助；从这一页开始主客易位</span>。<b>而这带来一个硬约束</b>：<span class='w'>argmax 要能算出来 —— 离散动作可以枚举，连续动作就是另一个优化问题</span>。<b>p27 的选型建议里，DQN 那一行写的正是「discrete actions or low-dimensional continuous actions」。</b>",
+    "<b>p10 那条小字「can do multiple gradient steps here」顺带回答了一个 L04 的遗留问题。</b><span class='k'>Q-learning 天然是 off-policy 的（目标里不含任何对当前策略的采样）</span>，<b>所以在同一批数据上多走几步梯度，不需要 L03/L04 那套重要性权重与 KL 约束</b>。<span class='w'>这是它数据效率高的根本原因。</span>",
+    "<b>这次消元还有一个容易被忽略的副产品：<span class='k'>Q-learning 不需要 L03/L04 那套重要性权重</span>。</b><span class='w'>看那个目标值 <code>y_i = r_i + γ max_{a'} Q̂_φ(s'_i,a')</code> —— 里面没有任何对「当前策略」的采样</span>，<b>只有缓冲区里的 <code>(r_i, s'_i)</code> 和一个对所有动作的 max</b>。<span class='k'>而 L04 p31 那个修补之所以必要，正是因为它的目标里有一个 <code>a'_i ∼ π_θ</code></span>。<b>⇒ 换成 max 之后，那个「动作要重采」的要求自动消失了</b> —— <span class='w'>这就是为什么 Q-learning 可以在回放缓冲区上随便多走几步梯度，而不用管 KL 约束或裁剪</span>。<b>它天然就是彻底 off-policy 的。</b>"
+   ],
+   "tbl": {
+    "cap": "一处改动，三个后果",
+    "head": [
+     "",
+     "L04 离策略 Actor-Critic",
+     "<b>L06 Q-learning</b>"
+    ],
+    "rows": [
+     [
+      "目标值里的动作",
+      "<b>a'_i ∼ π(·|s'_i)（采样）</b>",
+      "<b>max_{a'}（取最大）</b>"
+     ],
+     [
+      "估的是谁的 Q",
+      "<b>当前策略的</b>",
+      "<b>贪心改进后那个策略的</b>"
+     ],
+     [
+      "还需要策略网络吗",
+      "<b>需要</b>",
+      "<b>不需要 —— π = argmax Q</b>"
+     ],
+     [
+      "评估与改进",
+      "<b>两步交替（policy iteration）</b>",
+      "<b>合并成一步</b>"
+     ],
+     [
+      "多走几步梯度要重要性权重吗",
+      "<b>要（L03/L04 那套）</b>",
+      "<b>不要 —— 天然 off-policy</b>"
+     ],
+     [
+      "新引入的硬约束",
+      "—",
+      "<b>argmax 要算得出来 ⇒ 动作离散或低维连续</b>"
+     ]
+    ]
+   },
+   "say": "<b>这四页的消元过程，值得和 L04 的三框图放在一起看 —— 因为它实际上<span class='k'>删掉了其中一个框</span>。</b><br><br>L04 p11 的循环是：<br><span class='w'>采数据 → <b>估计值函数</b> → <b>改进策略</b> → 采数据 → …</span><br><br>而这一讲之后：<br><span class='k'>采数据 → <b>估计 Q</b>（改进已经包含在里面了） → 采数据 → …</span><br><br><b>「改进策略」那个框不见了。</b><br><br><span class='w'>而策略本身也不再是循环里的一个对象，它只在「要采数据」和「最后要用」的时候，由 argmax 现场算出来。</span><br><br><b>这个简化的代价在 p13 立刻就来了</b>：<span class='k'>合并之后，收敛性保证没了</span>。<b>policy iteration 在表格情形下有干净的收敛证明；而合并成一步、再配上函数逼近，讲义的回答是「More generally, no. 😢」。</b><br><br><span class='w'>把两步合成一步常常很划算，但也常常是收敛性论证断掉的地方 —— 这是一个通用的经验。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p31（那个「a' 要从当前策略重采」的修补 —— 这一讲把它换成了 max）",
+    "href": "L04-精读.html"
+   }
+  },
+  {
+   "r": [
+    12,
+    13
+   ],
+   "t": "两个贝尔曼方程，和一句「一般情况下不收敛 😢」",
+   "star": 5,
+   "quote": "Why does y_i = r_i + γ max_{a'} Q̂_φ(s'_i,a') make sense?  Q^π(s,a) = r(s,a) + γ𝔼_{s'∼p(·|s,a), ā'∼π(·|s')}[Q^π(s',ā')] for all (s,a) → This holds for any policy π (including the optimal policy π*).  Recall: If π* is the optimal policy, we also get: Q^{π*}(s,a) = r(s,a) + γ𝔼_{s'∼p(·|s,a)}[max_{ā'} Q^{π*}(s',ā')] for all (s,a) — the action π* would take in state s'.  Terminology: Bellman equation / Bellman optimality equation.  When we optimize step 3, we are trying to make this equation hold!  Will this algorithm converge to optimal Q^{π*}?  Yes, if you maintain a table of Q-values for every state and action.  More generally, no. 😢  Can construct scenarios where it diverges, even with linear Q.  Note: Q-learning is off-policy.  But, it can be made to work well.",
+   "one": "<b>p12 给出理论依据：那个 max 不是凑的，它来自<span class='k'>贝尔曼最优方程</span>。</b><span class='w'>然后 p13 立刻泼一盆冷水：这个算法<b>一般情况下不保证收敛</b>，而且「即使用线性 Q 也能构造出发散的例子」。</b>",
+   "eq": "两个方程（p12 给了正式名字）：\n\n  **Bellman equation**（贝尔曼方程）—— 对**任意**策略 π 成立：\n\n     Q^π(s,a) = r(s,a) + γ·𝔼_{s'∼p(·|s,a), ā'∼**π**(·|s')} [ Q^π(s', ā') ]\n                                              └ 按 π 采一个动作 ┘\n\n  **Bellman optimality equation**（贝尔曼最优方程）—— 对**最优**策略 π* 成立：\n\n     Q^{π*}(s,a) = r(s,a) + γ·𝔼_{s'∼p(·|s,a)} [ **max_{ā'}** Q^{π*}(s', ā') ]\n                                                └ 取最大 ┘\n\n  为什么最优策略那里可以换成 max：\n     **最优策略在每个状态做的就是取 argmax** ⇒ 「按 π* 采的动作」= 「max 对应的动作」\n     （p12 的批注：the action π* would take in state s'）\n\n  ⇒ p11 那个目标值 y_i = r_i + γ max_{a'} Q̂_φ(s'_i,a')，\n     正是在让 **Q̂_φ 满足贝尔曼最优方程**。\n     p12 的点题：**When we optimize step 3, we are trying to make this equation hold!**\n\n────────────────────────────────────────\n那它收敛吗（p13）：\n\n  **Yes**, if you maintain a **table** of Q-values for every state and action.\n       （表格情形：每个 (s,a) 一个格子 —— 有干净的收敛证明）\n\n  **More generally, no. 😢**\n       **Can construct scenarios where it diverges, even with linear Q.**\n       （连**线性** Q 函数都能构造出发散的例子，更别说神经网络）\n\n  **But, it can be made to work well.**",
+   "pts": [
+    "<b>两个方程的差别只有一处：<span class='k'>「按 π 采一个动作」换成「取最大」</span>。</b><b>而这一处差别正好对应 p9 → p11 那次消元</b>。<span class='w'>所以那个看起来很取巧的代数化简，背后是有理论依据的 —— 它不是工程 hack，它是在求解另一个方程。</span>",
+    "<b>p13 那句「More generally, no. 😢」要认真对待，它不是谦虚。</b><span class='k'>讲稿说得更狠：「you can construct scenarios when it diverges even with this linear Q function, which is kind of sad」</span>。<b>注意是<span class='w'>线性</span> Q —— 最简单的函数逼近形式</b>。<span class='w'>这意味着问题不出在「神经网络太复杂」，而出在「自举 + 函数逼近 + 离策略」这个组合本身。</span>",
+    "<b>这三样东西合起来有一个专门的名字，知道它有好处：<span class='k'>deadly triad</span>（致命三角）。</b><b>自举（用自己的估计造标签）+ 函数逼近（不是表格）+ 离策略（数据不来自当前策略）</b> —— <span class='w'>三者任意两个都没事，三个凑齐就可能发散</span>。<b>⚠ 讲义没用这个词，是补的；但 Sutton &amp; Barto 第 11 章专门讲它。</b>",
+    "<b>而「表格情形下收敛」这个限定也值得想一下为什么。</b><span class='k'>表格里每个 (s,a) 是独立的格子，更新一个不会动到别的</span>；<b>函数逼近下，更新一个状态会<span class='w'>牵连</span>所有相似状态</b> —— <span class='k'>于是「修正一处」可能把另一处弄得更糟，循环下去就发散了。</span>",
+    "<b>但最后那句「But, it can be made to work well」才是这一讲后半存在的理由。</b><span class='k'>理论上没保证，实践中能跑好 —— 靠的是 p17 之后那一串工程手段</span>：<b>目标网络、双 Q、N 步回报</b>。<span class='w'>所以后半讲那些「技巧」不是锦上添花，它们是在为这一页的理论缺口打补丁。</span>"
+   ],
+   "tbl": {
+    "cap": "两个贝尔曼方程，以及它们各自对应的算法",
+    "head": [
+     "",
+     "Bellman equation",
+     "<b>Bellman optimality equation</b>"
+    ],
+    "rows": [
+     [
+      "下一步动作怎么处理",
+      "<b>按 π 采一个（𝔼_{ā'∼π}）</b>",
+      "<b>取最大（max_{ā'}）</b>"
+     ],
+     [
+      "对谁成立",
+      "<b>任意策略 π</b>",
+      "<b>只对最优策略 π*</b>"
+     ],
+     [
+      "对应的算法",
+      "<b>L04 的离策略 Actor-Critic</b>",
+      "<b>L06 Q-learning</b>"
+     ],
+     [
+      "估的是",
+      "当前策略的 Q",
+      "<b>最优策略的 Q</b>"
+     ],
+     [
+      "收敛吗（表格）",
+      "是",
+      "<b>是</b>"
+     ],
+     [
+      "收敛吗（函数逼近）",
+      "—",
+      "<b>More generally, no. 😢（线性 Q 也能发散）</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里关于收敛性那一段，比幻灯多了一个重要的澄清，值得完整看：</b><br><br>「<span class='k'>…this algorithm will converge. So that's the good news. The bad news is that basically <b>in any other scenario, it is not guaranteed to converge</b>. And you can construct scenarios when it diverges even with this linear Q function, which is kind of sad. I guess the flip side of that is that even though it can diverge in scenarios, <b>it can be made to work very well</b>.</span>」<br><br>然后有学生问「这句话到底是什么意思」，讲者承认措辞含糊：<br><br>「<span class='w'>the question is, what does this mean? What does this statement mean? And <b>it is a bit vague</b>. So specifically, it doesn't necessarily have to do with the accuracy of your Q valu[es]…</span>」<br><br><b>这个追问很好，因为「不收敛」确实有好几种含义</b>：<span class='k'>Q 值发散到无穷？Q 值有界但不停震荡？还是 Q 不准但策略照样好？</span><br><br><b>而最后一种情况在实践中很常见</b>：<span class='w'>Q 值的绝对数值可能一直是错的，但只要它对动作的<b>排序</b>是对的，argmax 出来的策略就是好的</span>。<b>这也是「理论不收敛但实践能用」的一个重要原因。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p18（自举 —— 致命三角里的第一样东西）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「Q 值不准但排序对就够了」这个观察，对你的课题是一条能省很多力气的判据。</b><br><br><span class='k'>你的代理模型预测配置分数，而你真正需要的往往不是准确的分数，是<b>正确的排序</b></span> —— <b>「哪个配置更好」而不是「它能得几分」</b>。<br><br><b>这个区别有实际后果</b>：<br>· <span class='w'>训练目标</span>：与其用平方误差拟合绝对分数，<b>不如直接用排序损失</b>（pairwise ranking）—— <span class='k'>它对「整体偏高/偏低」这类系统性误差免疫</span>；<br>· <span class='w'>评价代理模型</span>：报 RMSE 不如报 <b>Spearman 相关系数 / top-k 命中率</b> —— <span class='k'>一个 RMSE 很大但排序完美的模型，对你完全够用</span>；<br>· <span class='w'>所需数据量</span>：<b>排序比回归需要的数据少</b>，因为它是一个更弱的要求。<br><br>⚠ <b>但有一处排序不够、必须要绝对值</b>：<span class='w'>「cheapest-feasible」里的可行性门槛是一个<b>绝对</b>判据</b></span>（质量要达到 q₀），<b>排序对了但绝对值偏了，门槛就判错了</b>。<span class='k'>所以可能需要两个量：排序用于搜索，绝对值用于最终的可行性判定。</span>",
+    "ref": "本讲 p13 与讲稿里学生关于「不收敛是什么意思」的追问"
+   },
+   "tip": {
+    "t": "致命三角：为什么偏偏是这三样凑一起才出事",
+    "w": true,
+    "v": "<b>讲义说「连线性 Q 都能发散」，但没说为什么。这里补上那个标准解释（Sutton &amp; Barto 第 11 章的 <span class='k'>deadly triad</span>）。</b><br><br>三样东西，<b>任意两样都安全，三样凑齐就可能发散</b>：<br><br><b>① 自举</b>（用自己的估计造标签）<br><b>② 函数逼近</b>（不是一个状态一个格子）<br><b>③ 离策略</b>（数据不来自当前策略）<br><br><b>逐对检查一下就明白了</b>：<br>· <span class='w'>①+②，没有③</span> ⇒ 这是 L04 的 on-policy Actor-Critic，<b>实践中相当稳</b>；<br>· <span class='w'>①+③，没有②</span> ⇒ 表格型 Q-learning，<b>有干净的收敛证明</b>（p13 说的那个 Yes）；<br>· <span class='w'>②+③，没有①</span> ⇒ 蒙特卡洛 + 离策略，<b>方差大但不发散</b>（没有自举就没有自我强化）。<br><br><b>而 Q-learning 配神经网络，三样全占。</b><br><br><b>发散的机制</b>：<span class='k'>函数逼近让「修正状态 A」会连带改动状态 B 的估计</span>；<span class='k'>自举让 B 的错误又回流进 A 的标签</span>；<span class='k'>而离策略意味着没有任何机制保证你会去访问那些被改坏的状态、从而纠正它们</span>。<b>三者合起来形成一个没有阻尼的正反馈。</b><br><br>⚠ <b>这个词讲义没用，是补的</b>；但知道它有两个好处：<span class='w'>读文献时它是一个标准术语</span>，<b>而且它告诉你后半讲那些「技巧」各自在拆哪一条边</b> —— <span class='k'>目标网络拆的是①（让标签暂时不动），双 Q 拆的是①里的噪声放大</span>。"
+   }
+  },
+  {
+   "r": [
+    14,
+    15
+   ],
+   "t": "既然目标里有个 max，那就必须保证「每个动作你都见过」",
+   "star": 4,
+   "quote": "What kind of data should we collect?  Note: Q-learning is off-policy — from some exploration policy.  What are good choices for data collection?  want coverage for many actions a.  \"epsilon-greedy\": 1. With probability ϵ, take uniformly random action.  Often start with larger ϵ, decrease over training.  \"Boltzmann exploration\": 2. Take actions with probability proportional to their Q-value.  Putting it together — dataset of transitions (\"replay buffer\"), off-policy Q-learning, K = 1 is common, though larger K more efficient.  final policy π(a_t|s_t) = 1 if a_t = arg max_a Q_φ(s_t,a), 0 otherwise.  result: Q_φ",
+   "one": "<b>Q-learning 是彻底 off-policy 的 —— 数据可以来自<span class='k'>任何</span>探索策略。</b><span class='w'>但这个自由带来一个义务</span>：<b>目标值里那个 <code>max_{a'}</code> 要遍历所有动作，所以你的数据必须<span class='k'>覆盖得够宽</span>。</b>",
+   "eq": "为什么要专门设计采数据的方式（p5 那句小字在这里兑现）：\n\n   y_i = r_i + γ·**max_{a'}** Q̂_φ(s'_i, a')\n                  └ 要在**所有**动作上取最大 ┘\n\n   如果某个动作从来没被采到过，Q̂_φ 在它上面的值纯粹是外推\n   ⇒ 这个 max 可能挑中一个「没人试过、但模型瞎猜很高」的动作\n   ⇒ 讲义的要求：**want coverage for many actions a**\n\n────────────────────────────────────────\n两种常见做法（p14）：\n\n  **ε-贪心（epsilon-greedy）**\n     以概率 ε  取**均匀随机**动作\n     以概率 1−ε 照当前（贪心）策略走\n     · **Often start with larger ε, decrease over training**\n       —— 前期多探索，后期少探索\n     · 讲稿补充：随着 Q 估得越来越准，就可以把 ε 调小\n\n  **Boltzmann 探索**\n     按**正比于 Q 值**的概率取动作（Q 高的更常被选）\n     · 比 ε-贪心讲究：它不会把「明显很差的动作」和「次优动作」一视同仁\n     · 代价是多一个温度参数要调\n\n────────────────────────────────────────\n拼起来（p15）：\n\n   环境 ──采（用 ε-贪心等探索策略）──▶ **replay buffer**（转移的数据集）\n                                          │\n                                   采 minibatch\n                                          ▼\n                                   更新 Q_φ（K 步梯度）\n\n   **K = 1 is common, though larger K more efficient**\n   最终策略：π(a_t|s_t) = 1 若 a_t = argmax_a Q_φ(s_t,a)，否则 0\n   结果：**Q_φ**（整个算法的产物只有这一个网络）",
+   "pts": [
+    "<b>「Q-learning 是 off-policy 的」在这里有一个很具体的好处：<span class='k'>采数据的策略和最终要用的策略可以完全不同</span>。</b><b>你可以用一个故意乱试的策略去采，同时学出一个贪心的最优策略</b> —— <span class='w'>这是策略梯度那一族做不到的（L03 p20：必须用当前策略采）</span>。",
+    "<b>但这个自由不是免费的：它把「探索」这件事从算法内部推到了外面，变成你要设计的东西。</b><span class='k'>策略梯度里，随机策略天然带探索（L01 p39）</span>；<b>而 Q-learning 的最终策略是<span class='w'>确定性</span>的（argmax），一点探索都没有</b>。<span class='k'>所以必须外挂一个探索策略，这就是 p14 存在的理由。</span>",
+    "<b>ε-贪心的「均匀随机」有一个明显的粗糙之处，而 Boltzmann 正是在补它。</b><span class='w'>ε-贪心在探索时把「明显很糟的动作」和「可能更好的动作」一视同仁，各占 1/|A|</span>；<b>Boltzmann 按 Q 值加权，差的动作被试得少</b>。<span class='k'>代价是多一个温度超参，而且 Q 值不准时加权本身就不可靠。</span>",
+    "<b>「ε 随训练衰减」这个调度，本质上是一个探索-利用的时间表，而且它是手工指定的。</b><span class='k'>这和 CSE 541 那套「用置信区间自动决定该试谁」比起来相当原始</span> —— <b>ε-贪心不管某个动作你试过几次，一律以概率 ε 随机挑</b>。<span class='w'>而 UCB 会优先试「不确定性大」的那些。</span><b>两者的样本效率差距是数量级的。</b>",
+    "<b>p15 那句「K = 1 is common, though larger K more efficient」是一个实用的取舍提示。</b><span class='k'>K 是每采一批数据走几步梯度</span>。<b>K 大 ⇒ 数据用得更充分、但 Q 变化更快、目标移动得更厉害</b>（这正是 p17 要解决的问题）。<span class='w'>讲义说常用 K=1，说明实践中稳定性比数据效率更稀缺。</span>"
+   ],
+   "tbl": {
+    "cap": "两种探索方式，以及它们在课程谱系里的位置",
+    "head": [
+     "",
+     "ε-贪心",
+     "<b>Boltzmann 探索</b>",
+     "<b>CSE 541 那一套</b>"
+    ],
+    "rows": [
+     [
+      "怎么选动作",
+      "<b>以 ε 取均匀随机</b>",
+      "<b>按正比于 Q 的概率</b>",
+      "<b>按置信上界</b>"
+     ],
+     [
+      "区分动作好坏吗",
+      "<b>不区分（一视同仁）</b>",
+      "<b>区分（Q 高的多选）</b>",
+      "<b>区分</b>"
+     ],
+     [
+      "考虑「试过几次」吗",
+      "<b>不考虑</b>",
+      "<b>不考虑</b>",
+      "<b>考虑 —— 这是关键差别</b>"
+     ],
+     [
+      "超参",
+      "ε（通常随训练衰减）",
+      "温度",
+      "置信水平 δ"
+     ],
+     [
+      "样本效率",
+      "<b>最低</b>",
+      "中",
+      "<b>最高</b>"
+     ],
+     [
+      "本课在哪展开",
+      "本页",
+      "本页",
+      "<b>L14 探索 / CSE 541 全课</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿里关于 ε-贪心的那一段，把它的好处说得很朴素，也顺带点出了它的局限：</b><br><br>「<span class='k'>…take a random action with probability epsilon and follow your current policy with probability 1 minus epsilon. … this can be a good choice because it means that when you take an action uniform at random, <b>it means that you'll get very good coverage of the actions that you consider</b>.</span>」<br><br><b>注意它给出的理由是「覆盖」，不是「高效」。</b><br><br><span class='w'>ε-贪心保证的是「每个动作都有机会被试到」，它完全不关心「哪个动作更值得试」。</span><br><br><b>这就是它和你在 CSE 541 学的那一套最根本的差别</b>：<br>· <span class='k'>ε-贪心</span>：保证覆盖，<b>靠掷骰子</b>；<br>· <span class='k'>UCB / 逐次淘汰</span>：保证覆盖，<b>而且优先覆盖不确定性最大的那些</b>。<br><br><b>两者都能最终探索到所有动作，但所需的样本数差一个数量级。</b><span class='w'>深度 RL 这边之所以还在大量用 ε-贪心，很大程度上是因为在高维状态空间里，那套置信区间不好构造</span> —— <b>而你的配置空间是有限的、结构化的，那套工具恰好用得上。</b>",
+   "link": {
+    "t": "你学过的对应：CSE 541 L06 逐次淘汰（比 ε-贪心聪明得多的做法：用置信区间决定该试谁）",
+    "href": "../../bandits-cse541/精读/L06-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了你一个可以直接写进论文的对比点，而且是一个便宜的实验。</b><br><br><span class='k'>深度 RL 的标准探索手段（ε-贪心、Boltzmann）都<b>不考虑「这个动作已经试过几次」</b></span> —— <b>而这正是 bandit 那一套的核心</b>。<span class='w'>简报 §2 已核实 AFlow 用的是 Boltzmann 爬山，也就是说它停在这一页的第二档。</span><br><br><b>三档并排（p14 的两种 + CSE 541 的一种）</b>：<br>· <span class='w'>ε-贪心</span>：掷骰子，连 Q 值都不看<br>· <span class='w'>Boltzmann</span>：看 Q 值，<b>但不看不确定性</b><br>· <span class='k'>UCB / 逐次淘汰</span>：<b>看不确定性</b> —— 试得少的优先<br><br><b>而第三档恰好需要的东西，你都有</b>：<span class='k'>配置空间有限、有结构、每个配置试过几次你都记着</span>。<br><br><b>实验设计</b>：固定评估预算，三档各跑一遍，看「找到的最优配置质量」随预算的曲线。<span class='w'>不需要新理论，只换一个选择规则</span> —— <b>而且结果无论正负都有价值</b>（没差距本身就是一个值得解释的现象，可能说明你的问题噪声太大、置信区间收不紧）。",
+    "ref": "本讲 p14；科研简报 §2（AFlow 的 Boltzmann 爬山，已核）；CSE 541 L06"
+   },
+   "tip": {
+    "t": "把 ε-贪心和你在 CSE 541 学的那套并排算一遍",
+    "w": true,
+    "v": "<b>讲义给 ε-贪心的理由是「覆盖」，不是「高效」。这两者差多少，可以粗算一下。</b><br><br>设有 <code>n</code> 个动作，其中只有一个是好的，而你要以高概率确认它。<br><br><b>ε-贪心</b>：每一步以 <code>ε</code> 的概率随机探索，随机到某个特定动作的概率是 <code>ε/n</code>。<span class='w'>要把每个动作都试够 <code>m</code> 次，期望步数约 <code>n·m/ε</code></span> —— <b>而且它<span class='k'>一直</span>按这个频率去试那些早就被确认很差的动作</b>。<br><br><b>逐次淘汰（CSE 541 L06）</b>：每轮把每条臂拉够次数，<b>然后把明显差的<span class='k'>永久砍掉</span></b>。<span class='w'>差距大的臂很早就出局，后续预算全花在还分不清的那几条上</span>。<br><br><b>关键差别只有一句：ε-贪心不记得「这个动作我已经试过多少次、结果有多确定」。</b><br><br><b>那为什么深度 RL 还在大量用 ε-贪心？</b>因为在高维连续状态空间里，<span class='k'>「这个 (s,a) 我试过几次」根本数不出来</span> —— 每个状态都只出现一次。<b>置信区间需要可数的访问次数，而函数逼近把它抹掉了。</b><br><br><b>⇒ 而你的问题恰好不在这个困境里</b>：<span class='w'>配置空间有限、离散、结构化，每个配置评估过几次你都记着</span>。<b>CSE 541 那套工具在你这儿是能直接用的，在深度 RL 那儿才是用不上的。</b>"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "p6 的三个学习目标里，哪一个是这一讲真正的新意？",
+    "o": [
+     "How to do RL without learning an explicit policy —— 策略变成 Q 的一个推论，不含任何要学的参数",
+     "How Q-functions relate to policies",
+     "How to stabilize Q-learning in practice",
+     "三个都是旧内容"
+    ],
+    "a": 0,
+    "why": "前面三讲里策略一直是一个独立的、要训练的神经网络。这一讲之后 π(s) = argmax_a Q(s,a)。"
+   },
+   {
+    "q": "L03 → L04 → L06 这三讲的直觉句递进是？",
+    "o": [
+     "从简单到复杂",
+     "do more of the above average stuff → estimate what is good and bad → 既然能评价每个动作了，为什么还要策略网络",
+     "从离散到连续",
+     "从有模型到无模型"
+    ],
+    "a": 1,
+    "why": "它们正好是 L01 p41 五族算法里的第 2、3、4 族。p29 标注 Done with online RL methods —— 三讲把在线 RL 主干走完了。"
+   },
+   {
+    "q": "p5 那句小字「targets need sufficient action coverage」为什么要提前记住？",
+    "o": [
+     "因为它只影响理论分析",
+     "因为它要求数据量很大",
+     "目标值里有一个对动作的操作（这一讲会变成 max），而那个操作只在「这些动作你都见过」时才靠谱 —— 到 p14 就变成了「必须专门设计探索策略」",
+     "因为它要求动作空间连续"
+    ],
+    "a": 2,
+    "why": "这是 Q-learning 把探索从算法内部推到外面的根本原因。"
+   }
+  ],
+  "7": [
+   {
+    "q": "思考题里，按 Q 贪心得到的新策略在「起点那一行」会怎么做？",
+    "o": [
+     "向上走去找星",
+     "随机走",
+     "停在原地",
+     "继续向右 —— 因为那一行所有动作的 Q 值都是 0，argmax 在全零里挑不出东西，退回原行为"
+    ],
+    "a": 3,
+    "why": "按旧策略（永远向右）从起点出发永远到不了星，所以下一个状态的 Q 也全是 0。讲稿原话：we actually will just keep on going right。"
+   },
+   {
+    "q": "所以新策略是「更好」还是「最优」？",
+    "o": [
+     "更好，但不是最优 —— 信息还没从星传播到起点那片区域",
+     "既更好也最优",
+     "和旧策略一样",
+     "比旧策略差"
+    ],
+    "a": 0,
+    "why": "「贪心一次就变好」本身是一个定理（策略改进定理），无条件成立；而要变最优必须反复做 —— 这正是 p10 的 policy iteration。"
+   },
+   {
+    "q": "讲稿里学生问「越靠近星 Q 是不是越高」，答案是？",
+    "o": [
+     "是，总是如此",
+     "幻灯没显式定义；但只要折扣因子 γ < 1，越近确实越高（γ=1 时所有能到达星的状态 Q 都是 1，分不出远近）",
+     "否，Q 只和奖励有关",
+     "取决于动作空间"
+    ],
+    "a": 1,
+    "why": "所以折扣因子不只是「让无限和收敛」的数学装置，它还在给值函数提供「距离感」。"
+   },
+   {
+    "q": "这一页有一个隐含前提，到 p21 会被推翻，是什么？",
+    "o": [
+     "动作空间是离散的",
+     "奖励是稀疏的",
+     "say you have an **accurate** estimate —— 假设 Q̂ 是准的；而 p21 会说明真实的 Q̂ 带噪声，且 max 会系统性地把噪声放大成高估",
+     "折扣因子小于 1"
+    ],
+    "a": 2,
+    "why": "这一页的全部结论都建立在「准确」这个假设上。"
+   }
+  ],
+  "8": [
+   {
+    "q": "从 Actor-Critic 到 Q-learning，那个消元的关键一步是什么？",
+    "o": [
+     "如果 π 就是对 Q 取 argmax 的那个策略，那「从 π 采一个动作再查它的 Q」就等于「直接取 Q 的最大值」",
+     "用重要性权重替换采样",
+     "把 V 换成 Q",
+     "引入目标网络"
+    ],
+    "a": 0,
+    "why": "一行代数，但它把一整个策略网络消掉了 —— 策略从「要训练的参数」降级成「Q 的一个函数」。"
+   },
+   {
+    "q": "p10 那个提问「Can we improve the policy in the Q-function update?」问的是什么？",
+    "o": [
+     "能不能训练得更快",
+     "能不能把 policy evaluation 和 policy improvement 这两步合成一步",
+     "能不能用更大的网络",
+     "能不能减少超参"
+    ],
+    "a": 1,
+    "why": "把一个交替的循环压成一个更新，是算法设计里很常见也很有效的动作 —— 但也常常是收敛性论证断掉的地方（p13）。"
+   },
+   {
+    "q": "批注「Q-values for new policy!」说明了什么？",
+    "o": [
+     "目标值估的不再是当前策略的 Q，而是「按当前 Q 贪心之后那个更好的策略」的 Q —— 评估与改进真的合并了",
+     "需要重新初始化网络",
+     "新策略的 Q 更难估计",
+     "要用两个 Q 网络"
+    ],
+    "a": 0,
+    "why": "所以每更新一次 Q，隐含的策略就自动改进了一次。"
+   },
+   {
+    "q": "「forget policies」带来了什么硬约束？",
+    "o": [
+     "需要更多数据",
+     "必须用回放缓冲区",
+     "argmax 要能算得出来 —— 离散动作可以枚举，连续动作就是另一个优化问题",
+     "折扣因子必须小于 1"
+    ],
+    "a": 2,
+    "why": "p27 的选型建议里，DQN 那一行写的正是 discrete actions or low-dimensional continuous actions。"
+   }
+  ],
+  "12": [
+   {
+    "q": "贝尔曼方程与贝尔曼最优方程的差别是？",
+    "o": [
+     "一个有折扣一个没有",
+     "一个用 Q 一个用 V",
+     "一个是期望一个是最大值",
+     "下一步动作的处理：前者按 π 采一个（对任意 π 成立），后者取最大（只对最优策略成立）"
+    ],
+    "a": 3,
+    "why": "而这一处差别正好对应 p9 → p11 那次消元。所以那个代数化简不是工程 hack，它是在求解另一个方程。"
+   },
+   {
+    "q": "p13 对收敛性的回答是？",
+    "o": [
+     "表格情形下收敛；更一般地「no 😢」—— 连线性 Q 都能构造出发散的例子",
+     "总是收敛",
+     "只在折扣因子足够小时收敛",
+     "只在动作空间有限时收敛"
+    ],
+    "a": 0,
+    "why": "注意是线性 Q —— 最简单的函数逼近形式。问题不出在「神经网络太复杂」，而出在「自举 + 函数逼近 + 离策略」这个组合本身。"
+   },
+   {
+    "q": "这三样东西凑齐就可能发散，它们有个专门的名字（讲义没用，是补的）：",
+    "o": [
+     "exploration-exploitation",
+     "bias-variance tradeoff",
+     "deadly triad（致命三角）：自举 + 函数逼近 + 离策略 —— 任意两个都没事，三个凑齐就危险",
+     "credit assignment"
+    ],
+    "a": 2,
+    "why": "Sutton & Barto 第 11 章专门讲它。"
+   },
+   {
+    "q": "讲稿里学生追问「不收敛到底是什么意思」，讲者承认措辞含糊。实践中最常见的一种情况是？",
+    "o": [
+     "Q 值发散到无穷",
+     "Q 值的绝对数值一直是错的，但只要它对动作的排序是对的，argmax 出来的策略就是好的",
+     "训练直接崩溃",
+     "Q 值收敛到零"
+    ],
+    "a": 1,
+    "why": "这也是「理论不收敛但实践能用」的一个重要原因。"
+   }
+  ],
+  "14": [
+   {
+    "q": "Q-learning 的最终策略是确定性的（argmax），这带来什么后果？",
+    "o": [
+     "它一点探索都没有，所以必须外挂一个探索策略 —— 这就是 p14 存在的理由",
+     "它收敛更快",
+     "它不需要回放缓冲区",
+     "它只能用于离散动作"
+    ],
+    "a": 0,
+    "why": "策略梯度里随机策略天然带探索（L01 p39）；Q-learning 把探索从算法内部推到了外面，变成你要设计的东西。"
+   },
+   {
+    "q": "ε-贪心的「均匀随机」粗糙在哪？",
+    "o": [
+     "随机数不够好",
+     "ε 需要手动调",
+     "探索时把「明显很糟的动作」和「可能更好的动作」一视同仁，各占 1/|A|",
+     "它不是 off-policy 的"
+    ],
+    "a": 2,
+    "why": "Boltzmann 探索正是在补这一点：按 Q 值加权，差的动作被试得少。代价是多一个温度超参。"
+   },
+   {
+    "q": "ε-贪心与 CSE 541 那套（UCB/逐次淘汰）最根本的差别是？",
+    "o": [
+     "一个用于离散一个用于连续",
+     "ε-贪心不考虑「这个动作已经试过几次」，而 UCB 会优先试不确定性大的 —— 两者样本效率差一个数量级",
+     "一个有理论保证一个没有",
+     "一个是在线一个是离线"
+    ],
+    "a": 1,
+    "why": "讲稿给 ε-贪心的理由是「覆盖」，不是「高效」。深度 RL 还在大量用它，很大程度是因为高维状态空间里置信区间不好构造。"
+   },
+   {
+    "q": "p15 那句「K = 1 is common, though larger K more efficient」说明了什么？",
+    "o": [
+     "K 越大越好",
+     "K 是每采一批数据走几步梯度；K 大则数据用得更充分但目标移动更厉害，而常用 K=1 说明实践中稳定性比数据效率更稀缺",
+     "K 只影响计算速度",
+     "K 必须等于批量大小"
+    ],
+    "a": 1,
+    "why": "目标移动这个问题正是 p17 要解决的。"
+   }
+  ]
+ }
+}

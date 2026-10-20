@@ -1,0 +1,594 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "本片覆盖 p16–p29（怎么让 Q-learning 稳下来 + 选型建议）。p16/p28 是提纲页，p29 是课务与预告。",
+  "p17 的病因：目标里含 Q̂_φ 自己 ⇒ **this is a moving target** ⇒ **can lead to unstable optimization**；补法 💡**freeze parameters used for the target Q-values, update periodically**",
+  "目标网络（p18）：第 0 步 **save target network parameters: φ' ← φ**；于是 **labels don't change in inner loop** · **Inner loop is doing supervised learning**",
+  "p18 点名：**Corresponds to DQN algorithm (\"deep Q network\")** · Mnih et al. Playing Atari with Deep Reinforcement Learning. 2013 · **Along with an actor-critic method, you'll implement this algorithm in HW 2!**",
+  "p19：**As predicted Q increases, so does the return**（预测的 Q 涨，真实回报也涨）",
+  "p21 高估的论证：目标 y_j = r_j + γ·max_{a'_j} Q_{φ'}(s'_j, a'_j)，**this last term is the problem**；**Q_{φ'}(s',a') is not perfect – it looks \"noisy\"**；**hence max_{a'} Q_{φ'}(s',a') overestimates the next value!**",
+  "p21/p22 的关键恒等式：**max_{a'} Q_{φ'}(s',a') = Q_{φ'}(s', argmax_{a'} Q_{φ'}(s',a'))** —— **value also comes from Q_{φ'}** 而 **action selected according to Q_{φ'}**（同一个网络既选动作又评估价值）",
+  "双 Q（p22）：**if the noise in these is decorrelated, the problem goes away!** · **idea: don't use the same network to choose the action and evaluate value!** · 两个网络互相交叉：Q_{φA}(s,a) ← r + γQ_{φB}(s', argmax_{a'} Q_{φA}(s',a'))，Q_{φB}(s,a) ← r + γQ_{φA}(s', argmax_{a'} Q_{φB}(s',a')) · **if the two Q's are noisy in different ways, there is no problem**",
+  "N 步目标（p25）：+ **(far) less biased target values when Q-values are inaccurate** · + **typically faster learning, especially early on** · − **only actually correct when learning on-policy (not an issue when N=1!)**",
+  "p25 的三条补救：**Most commonly: ignore the problem & still use N > 1** · 动态选 N 只用跟随当前策略的数据（**if data mostly on-policy, action space is small**）· 用重要性采样",
+  "p26 两个战绩：**Q-learning learns to outperform people on most Atari games**（Mnih et al. 2015）· **Q-learning trains robot grasping system**（Kalashnikov et al. 2018）",
+  "p27「Chelsea's advice」三档：**PPO & variants** —— When you care about stability, ease-of-use / When you don't care about data efficiency；**DQN & variants** —— When you have discrete actions or low-dimensional continuous actions；**SAC & variants** —— When you care most about data efficiency / When you are okay with tuning hyperparameters, less stability",
+  "p29 预告：**Done with online RL methods!** 下周起 Offline RL · Reward learning · start of RL for LLMs"
+ ],
+ "notes": [
+  {
+   "r": [
+    16,
+    18
+   ],
+   "t": "目标网络：把标签冻住，内层循环就退回成普通的监督学习",
+   "star": 5,
+   "quote": "How to make Q-learning stable?  this is a moving target — can lead to unstable optimization.  Can we change the target Q-values more slowly?  💡Simple idea: freeze parameters used for the target Q-values, update periodically.  0. save target network parameters: φ' ← φ.  labels don't change in inner loop.  Inner loop is doing supervised learning.  frozen target network.  Corresponds to DQN algorithm (\"deep Q network\").  Mnih et al. Playing Atari with Deep Reinforcement Learning. 2013.  Along with an actor-critic method, you'll implement this algorithm in HW 2!",
+   "one": "<b>p13 说「一般情况下不收敛 😢」，这一页开始打补丁。</b><span class='k'>第一个病因很具体：目标值 <code>y = r + γ max Q̂_φ(s')</code> 里含有 <code>φ</code> 自己，而 φ 每步都在变</span> —— <b>你在追一个会跑的靶子。</b><span class='w'>补法朴素得可爱：把靶子钉住。</span>",
+   "eq": "病因（p17）：\n\n   y_i = r_i + γ·max_{a'} **Q̂_φ(s'_i, a')**\n                          └ 含有 φ 自己，而 φ 每步都在更新 ┘\n\n   **this is a moving target** ⇒ **can lead to unstable optimization**\n\n   提问：Can we change the target Q-values more slowly?\n\n────────────────────────────────────────\n补法（p17–18）：**目标网络**（target network）\n\n   💡 **freeze parameters used for the target Q-values, update periodically**\n\n   算法多了第 0 步：\n\n     **0. save target network parameters:  φ' ← φ**\n     （把当前参数复制一份，存成 φ'，之后一段时间不动它）\n\n     内层循环里，目标值改用**冻住的** φ'：\n\n         y_i = r_i + γ·max_{a'} **Q̂_{φ'}**(s'_i, a')\n                                  └ 冻住的那份 ┘\n\n     每隔若干步，再把 φ' ← φ 更新一次。\n\n   两句关键评语（p18）：\n     · **labels don't change in inner loop**（内层循环里标签不动了）\n     · **Inner loop is doing supervised learning**（于是内层就是普通的监督学习）\n\n────────────────────────────────────────\n这个算法有名字（p18）：\n\n   **Corresponds to DQN algorithm (\"deep Q network\")**\n   Mnih et al. **Playing Atari with Deep Reinforcement Learning. 2013.**\n\n   并且：**Along with an actor-critic method, you'll implement this algorithm in HW 2!**",
+   "pts": [
+    "<b>「Inner loop is doing supervised learning」这句话值得单独停一下，它说明了目标网络到底在买什么。</b><span class='k'>标签一旦冻住，内层循环的目标就是固定的，而「拟合一组固定标签」正是监督学习</span> —— <b>有一整套成熟的理论和工程经验可以直接套</b>。<span class='w'>而移动靶那个版本不属于任何已知的优化问题类别。</span>",
+    "<b>这正是在拆「致命三角」的第一条边。</b><span class='k'>自举的危险在于「标签依赖自己 ⇒ 错误自我强化」</span>；<b>冻住目标网络之后，内层循环里那条自我依赖的链被<span class='w'>暂时切断</span>了</b>。<span class='k'>它不是消除自举（每次 φ'←φ 之后链又接上），而是给这个正反馈加了阻尼。</span>",
+    "<b>注意这个补丁和 L04 p18 那个感叹号是同一件事的两面。</b><span class='w'>L04 说「update labels every gradient update!」—— 因为标签会变，所以不能算一次用很多步</span>；<b>这一页反过来说：那就干脆让它<span class='k'>别变</span>，于是就可以算一次用很多步了</b>。<span class='w'>两讲在同一个问题上给了相反的建议，而区别在于你愿不愿意接受「标签稍微旧一点」这个代价。</span>",
+    "<b>「更新周期」是一个真实的超参，而且取法有两派。</b><span class='k'>硬更新：每 N 步直接 φ' ← φ（DQN 原版）</span>；<span class='k'>软更新：每步做 φ' ← τφ + (1−τ)φ'，τ 很小（SAC 那一族常用）</span>。<b>⚠ 讲义只提了前者</b>；<span class='w'>后者让目标更平滑，但引入了另一个要调的 τ。</span>",
+    "<b>p18 点名 DQN 和 2013 年那篇 Atari 论文，这个时间点值得记一下。</b><span class='k'>Q-learning 本身是 1989 年的东西，而 DQN 的贡献正是「让它配神经网络之后还能跑」</span> —— <b>靠的就是这一页的目标网络 + 回放缓冲区</b>。<span class='w'>也就是说 DQN 的核心创新是两个稳定性补丁，而不是一个新的学习原理。</span>"
+   ],
+   "tbl": {
+    "cap": "移动靶 vs 冻住的靶",
+    "head": [
+     "",
+     "没有目标网络",
+     "<b>有目标网络</b>"
+    ],
+    "rows": [
+     [
+      "目标值用哪份参数",
+      "<b>Q̂_φ（当前的，每步在变）</b>",
+      "<b>Q̂_{φ'}（冻住的）</b>"
+     ],
+     [
+      "内层循环里标签",
+      "<b>每步都动</b>",
+      "<b>不动</b>"
+     ],
+     [
+      "内层循环是什么问题",
+      "<b>不属于任何已知类别</b>",
+      "<b>普通的监督学习</b>"
+     ],
+     [
+      "在拆致命三角哪条边",
+      "—",
+      "<b>自举（给正反馈加阻尼）</b>"
+     ],
+     [
+      "新引入的超参",
+      "—",
+      "<b>更新周期（硬更新 N 步 / 软更新 τ）</b>"
+     ],
+     [
+      "和 L04 p18 的关系",
+      "<b>L04：标签会变，所以别多走步</b>",
+      "<b>本页：那就让它别变</b>"
+     ]
+    ]
+   },
+   "say": "<b>把目标网络放进「致命三角」那张图里看，它的作用就很清楚了。</b><br><br>三角的三条边是 <span class='k'>自举 + 函数逼近 + 离策略</span>，而发散的机制是一个<b>没有阻尼的正反馈</b>：<br><br><span class='w'>修正状态 A → 函数逼近让 B 跟着动 → 自举让 B 的错误回流进 A 的标签 → 再修 A → …</span><br><br><b>目标网络做的事，是在这个环路里插一个「延迟」。</b><br><br><span class='k'>φ' 冻住期间，B 的错误<b>不会</b>立刻回流 —— 它要等到下一次 φ'←φ 才进来。</span><br><br><b>这不解决问题（环路还在），但它把反馈变慢了，于是系统有机会在每次回流之间先稳下来。</b><br><br><span class='w'>这是一个在控制和优化里很通用的手法：环路不稳定时，先给它加延迟或阻尼，而不是去改环路本身。</span><br><br><b>而下面几页的双 Q，走的是另一条路 —— 它不加延迟，而是去掉那个让噪声被系统性放大的机制。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p18（「update labels every gradient update!」—— 这一页给了相反的建议）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>「把目标冻住，让内层退回成监督学习」这个手法，在你的搜索循环里有一个直接的对应。</b><br><br><span class='k'>如果你每评估一个新配置就立刻更新代理模型、再立刻用新模型去决定下一个评估谁</span>，<b>那你的搜索也在追一个移动靶</b> —— <span class='w'>而且在小样本下，单个新数据点可能让模型预测大幅跳动</span>。<br><br><b>对应的补法同样朴素</b>：<span class='k'>攒够一批评估结果（比如 k 个）再更新一次代理模型</span>，<b>这一批之内用冻住的模型做决策</b>。<br><br><b>收益有两个</b>：① <span class='w'>决策不会因为一次偶然的好/坏结果而剧烈改变</span>；② <b>一批之内的若干次评估是在同一个判据下选的，可比性更好</b>（便于事后归因）。<br><br>⚠ <b>代价是响应变慢</b>：<span class='k'>一批之内即使发现了明显的好方向，也要等到下一轮才跟进</span>。<b>所以 k 又是一个旋钮</b> —— 和本讲那个「更新周期」是同一个取舍。",
+    "ref": "本讲 p17–18 的目标网络"
+   }
+  },
+  {
+   "r": [
+    19,
+    21
+   ],
+   "t": "高估：那个 max 会把噪声系统性地变成正偏差",
+   "star": 5,
+   "quote": "Are the Q-values accurate?  As predicted Q increases, so does the return.  Overestimation in Q-learning — target value y_j = r_j + γ max_{a'_j} Q_{φ'}(s'_j, a'_j) — this last term is the problem.  Q_{φ'}(s',a') is not perfect – it looks \"noisy\".  hence max_{a'} Q_{φ'}(s',a') overestimates the next value!  note that max_{a'} Q_{φ'}(s',a') = Q_{φ'}(s', arg max_{a'} Q_{φ'}(s',a')) — value also comes from Q_{φ'}; action selected according to Q_{φ'}.",
+   "one": "<b>第二个病因，而且它比移动靶更隐蔽：<span class='k'>那个 max 不是中性的</span>。</b><span class='w'>Q̂ 带噪声，而「取最大」会专门挑中那些<b>恰好被高估</b>的动作</span> —— <b>于是误差不会互相抵消，它会一边倒地累积成正偏差。</b>",
+   "eq": "问题出在目标值的最后一项（p21）：\n\n   y_j = r_j + γ·**max_{a'_j} Q_{φ'}(s'_j, a'_j)**\n                 └ **this last term is the problem** ┘\n\n────────────────────────────────────────\n论证只有两步：\n\n  **① Q_{φ'}(s',a') is not perfect – it looks \"noisy\"**\n\n     把它写成「真值 + 噪声」：Q_{φ'}(s',a) = Q*(s',a) + ε_a\n     而 ε_a 有正有负（估计误差）\n\n  **② hence max_{a'} Q_{φ'}(s',a') overestimates the next value!**\n\n     因为  𝔼[ max_a (Q* + ε_a) ]  ≥  max_a Q*(s',a)\n     ——「先取最大再求期望」不小于「先求期望再取最大」（Jensen）\n\n     直觉：max 会**专门挑中噪声恰好为正的那个动作**。\n           噪声越大、动作越多，这个高估越严重。\n\n────────────────────────────────────────\np21 把根源写成一个恒等式（这是理解双 Q 的钥匙）：\n\n   **max_{a'} Q_{φ'}(s',a')  =  Q_{φ'}( s',  argmax_{a'} Q_{φ'}(s',a') )**\n                                 └─ **value also comes from Q_{φ'}** ─┘\n                                        └─ **action selected according to Q_{φ'}** ─┘\n\n   ⇒ **同一个网络既负责<挑动作>，又负责<给这个动作打分>。**\n      它挑的是「自己觉得最好的」，然后又用「自己的估计」去评价它\n      —— 选择和评估用了同一份噪声，于是噪声被**自我确认**了。",
+   "pts": [
+    "<b>这个高估不是「有时候会偏高」，而是<span class='k'>系统性的、一边倒的</span>偏差，这是它危险的地方。</b><span class='w'>随机误差会在多次更新中互相抵消；而系统性偏差会累积</span>。<b>再加上自举（高估的值又被当成下一轮的标签），偏差会一轮一轮往上滚。</b>",
+    "<b>p21 那个恒等式是全页的核心，而且它把问题从「噪声」重新定位到了「同一个网络身兼二职」。</b><span class='k'>选动作用 Q_{φ'}，评估那个动作也用 Q_{φ'}</span>。<b>于是「我觉得这个动作好」和「这个动作确实好」用的是同一份可能错的估计</b> —— <span class='w'>一个自我确认的循环。</span>",
+    "<b>把它和统计里的「赢家诅咒」对上，就很好记了。</b><span class='k'>从 n 个带噪声的估计里挑最大的那个，挑中的往往是「运气最好」而不是「真的最好」</span>。<b>而且 n 越大，这个诅咒越重</b> —— <span class='w'>所以动作空间大的任务，Q-learning 的高估问题更严重。</span>",
+    "<b>p19 那句「As predicted Q increases, so does the return」是一个正面的结果，和 p21 并不矛盾，但要分清。</b><span class='k'>它说的是「预测 Q 和真实回报<b>同向</b>变化」—— 这说明 Q 学到了有用的东西</span>；<b>而 p21 说的是「Q 的<span class='w'>绝对数值</span>偏高」</b>。<span class='w'>同向但偏高 —— 这又回到 p13 那条「排序对就够用」。</span>",
+    "<b>注意高估问题在 Actor-Critic 那边要轻得多，原因就在那个 max。</b><span class='k'>L04 的目标用的是「从当前策略<b>采</b>一个动作」，不是「取最大」</span> —— <b>采样不会专挑噪声为正的那个</b>。<span class='w'>所以这是 Q-learning 为「把 policy improvement 合并进来」付的那笔账的一部分。</span>"
+   ],
+   "tbl": {
+    "cap": "两个病因，两种补法",
+    "head": [
+     "",
+     "病因一（p17）",
+     "<b>病因二（p21）</b>"
+    ],
+    "rows": [
+     [
+      "是什么",
+      "<b>目标在动（moving target）</b>",
+      "<b>max 把噪声变成系统性高估</b>"
+     ],
+     [
+      "根源",
+      "<b>目标值含 φ 自己</b>",
+      "<b>同一个网络既选动作又评估价值</b>"
+     ],
+     [
+      "偏差性质",
+      "不稳定（震荡/发散）",
+      "<b>一边倒的正偏差，且会被自举累积</b>"
+     ],
+     [
+      "补法",
+      "<b>目标网络（冻住 φ'）</b>",
+      "<b>双 Q（选择与评估用不同网络）</b>"
+     ],
+     [
+      "拆的是哪条边",
+      "自举（加阻尼）",
+      "<b>噪声的自我确认</b>"
+     ],
+     [
+      "Actor-Critic 有这个问题吗",
+      "有（L04 p18 同样的标签移动）",
+      "<b>轻得多 —— 它是采样不是取 max</b>"
+     ]
+    ]
+   },
+   "say": "<b>这个高估和你在 CSE 541 那边见过的一个东西是同一件事，认出来会让它好记很多。</b><br><br><span class='k'>CSE 541 L06 那一讲里，「不能直接取经验均值最大的那条臂」正是同一个道理</span> —— <b>从一堆带噪声的估计里取 argmax，挑中的往往是运气最好的那个</b>。<br><br><b>统计里管这叫<span class='w'>赢家诅咒</span>（winner's curse）；而 L03 的 Markowitz 那一页里，它叫 <span class='w'>error maximization</span>（优化器在优化噪声）。</b><br><br><b>三处出现，同一个机制：</b><br>· <span class='k'>Markowitz</span>：<code>min pᵀΣp</code> 专门去找 Σ 里「看起来方差特别小」的方向，而那些方向多半是估计误差造的<br>· <span class='k'>CSE 541</span>：取经验均值最大的臂，选中的常是采样运气好的那条<br>· <span class='k'>本页</span>：<code>max_a Q̂(s',a)</code> 专门挑中噪声为正的那个动作<br><br><b>而三处的解法也有共同的形状：不要直接信那个 argmax。</b><br>· <span class='w'>CSE 541 的解法</span>：用置信区间，只在「上界低于别人下界」时才淘汰；<br>· <span class='w'>本讲的解法</span>：用<b>另一个</b>网络去评估被选中的动作（下一页的双 Q）。<br><br><span class='k'>认出这个重复出现的模式，比记住任何单个修补都有用。</span>",
+   "link": {
+    "t": "你学过的对应：CSE 541 L06 逐次淘汰（同一个「不能直接信 argmax」的问题，以及用置信区间的解法）",
+    "href": "../../bandits-cse541/精读/L06-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页对你的课题几乎是逐字对应的，而且是一个你<span class='k'>一定会踩</span>的坑。</b><br><br><span class='w'>你的搜索最后要「挑出预测分数最高的那个配置」</span> —— <b>而如果你的代理模型带噪声，挑中的那个大概率是<span class='k'>被高估</span>的</b>。<span class='w'>报告它的预测分数，会系统性地高于它真实重跑的分数。</span><br><br><b>这有一个很具体的后果：你论文里那个「我们找到的最优配置」，如果只报代理模型的预测值，<span class='k'>审稿人重跑一遍会发现对不上</span>。</b><br><br><b>两个必须做的事</b>：<br>① <span class='k'>最终报告的分数必须是<b>重新真实评估</b>的</b>，不能用搜索过程中的预测值或那次评估的观测值（<span class='w'>后者同样有赢家诅咒：你挑的是那一次观测最高的</span>）；<br>② <span class='k'>用一个<b>独立</b>的评估去确认 top-k</b> —— <b>这正是双 Q「选择与评估分开」在你这儿的形态</b>：<span class='w'>用搜索过程的数据<b>选</b>候选，用新的、独立的评估去<b>定</b>排名</b>。<br><br><b>这是一个几乎零成本就能挡住的严谨性问题，而且不做会被直接抓住。</b>",
+    "ref": "本讲 p21；对照 CSE 541 L06 与 L03 p25 的 error maximization"
+   }
+  },
+  {
+   "r": [
+    22,
+    23
+   ],
+   "t": "双 Q：别让同一个网络既挑动作又给它打分",
+   "star": 5,
+   "quote": "Double Q-learning — note that max_{a'} Q_{φ'}(s',a') = Q_{φ'}(s', arg max_{a'} Q_{φ'}(s',a')): value also comes from Q_{φ'}; action selected according to Q_{φ'}.  if the noise in these is decorrelated, the problem goes away!  idea: don't use the same network to choose the action and evaluate value!  \"double\" Q-learning: use two networks: Q_{φ_A}(s,a) ← r + γQ_{φ_B}(s', arg max_{a'} Q_{φ_A}(s',a')); Q_{φ_B}(s,a) ← r + γQ_{φ_A}(s', arg max_{a'} Q_{φ_B}(s',a')).  if the two Q's are noisy in different ways, there is no problem.",
+   "one": "<b>补法直接从上一页那个恒等式里读出来：<span class='k'>既然问题是「选择和评估共用一份噪声」，那就让它们用<b>两份</b>。</span></b><span class='w'>讲义原话：don't use the same network to choose the action and evaluate value!</b>",
+   "eq": "出发点（p22，就是 p21 那个恒等式）：\n\n   max_{a'} Q_{φ'}(s',a')  =  Q_{φ'}( s', argmax_{a'} Q_{φ'}(s',a') )\n                              └ 评估用它 ┘   └ 选择也用它 ┘\n\n   **if the noise in these is decorrelated, the problem goes away!**\n   （如果这两处的噪声不相关，问题就消失了）\n\n────────────────────────────────────────\n做法（p22）：用**两个**网络，交叉着来\n\n   **Q_{φ_A}(s,a)  ←  r + γ·Q_{φ_B}( s', argmax_{a'} Q_{φ_A}(s',a') )**\n                          └ B 评估 ┘      └ A 选择 ┘\n\n   **Q_{φ_B}(s,a)  ←  r + γ·Q_{φ_A}( s', argmax_{a'} Q_{φ_B}(s',a') )**\n                          └ A 评估 ┘      └ B 选择 ┘\n\n   **if the two Q's are noisy in different ways, there is no problem**\n\n────────────────────────────────────────\n为什么这样就不高估了：\n\n   A 挑出的动作，是「**A 认为**最好的」\n   而给它打分的是 **B** —— B 在那个动作上的噪声与 A 无关\n   ⇒ 挑中「A 的噪声恰好为正」的动作时，**B 没有理由也给它打高分**\n   ⇒ 自我确认的循环被切断\n\n   ⚠ 前提是 **两个网络的噪声真的不相关**。\n      实践中它们看同一批数据、同样的架构，**不可能完全不相关** ——\n      所以双 Q **缓解**高估，不是**消除**它。",
+   "pts": [
+    "<b>这个修补的精巧之处在于它没有改变目标的<span class='k'>含义</span>，只改变了「谁来算哪一半」。</b><span class='w'>仍然是「选一个最好的动作，然后看它值多少」</span>；<b>只是选的人和评的人换成了两个</b>。<span class='k'>这是一个很干净的解耦 —— 不引入新的近似，只是拆开了一处耦合。</span>",
+    "<b>注意两条更新式是<span class='w'>交叉</span>的，不是各练各的。</b><span class='k'>A 的目标里用 B 评估，B 的目标里用 A 评估</span>。<b>如果写成「各自用自己」，那就是两个独立的 Q-learning，什么也没改善</b>。<span class='w'>交叉是关键，而这一点写代码时很容易搞反。</span>",
+    "<b>「if the two Q's are noisy in different ways」这个前提，在实践中只能部分成立，这一点要诚实。</b><span class='k'>两个网络看的是同一个回放缓冲区、用的是同样的架构，噪声必然有相关性</span>。<b>所以双 Q 是<span class='w'>缓解</span>而非消除</b> —— <span class='w'>讲义的措辞是 the problem goes away，但那是在「噪声完全去相关」这个理想前提下。</span>",
+    "<b>实践中有一个更省事的变体，值得知道：复用目标网络当第二个 Q。</b><span class='k'>既然已经有了一个冻住的 φ'，那就用 φ 来选动作、用 φ' 来评估</span> —— <b>不用真的训两个网络</b>。<span class='w'>这就是 Double DQN（van Hasselt et al. 2016）的做法</span>，<b>而 p16 的提纲里写的正是 Double DQN</b>。⚠ 这个变体讲义没展开，是补的。",
+    "<b>把两个补丁放在一起看，它们拆的是致命三角的不同部分，所以能叠加。</b><span class='k'>目标网络：给自举的正反馈加阻尼（延迟）</span>；<span class='k'>双 Q：切断噪声的自我确认（解耦）</span>。<b>两者互不冲突，DQN 的现代实现通常两个都用</b>。"
+   ],
+   "tbl": {
+    "cap": "双 Q：一处解耦，三个版本",
+    "head": [
+     "",
+     "朴素 Q-learning",
+     "<b>双 Q（p22）</b>",
+     "<b>Double DQN（补的变体）</b>"
+    ],
+    "rows": [
+     [
+      "谁选动作",
+      "<b>Q_{φ'}</b>",
+      "<b>Q_{φ_A}</b>",
+      "<b>Q_φ（当前网络）</b>"
+     ],
+     [
+      "谁评估价值",
+      "<b>Q_{φ'}（同一个）</b>",
+      "<b>Q_{φ_B}（另一个）</b>",
+      "<b>Q_{φ'}（目标网络）</b>"
+     ],
+     [
+      "要训几个网络",
+      "1",
+      "<b>2</b>",
+      "<b>1（复用目标网络）</b>"
+     ],
+     [
+      "噪声去相关程度",
+      "<b>零</b>",
+      "<b>较好（但不完全）</b>",
+      "<b>一般（φ' 是 φ 的旧版本）</b>"
+     ],
+     [
+      "额外成本",
+      "—",
+      "<b>两倍参数与计算</b>",
+      "<b>几乎为零</b>"
+     ],
+     [
+      "⚠ 关键实现点",
+      "—",
+      "<b>两条更新式必须<b>交叉</b></b>",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>「选择与评估分开」这个想法，在统计和机器学习里到处都是，认出这个模式比记住双 Q 本身更有价值。</b><br><br>· <span class='k'>交叉验证</span>：用一部分数据<b>选</b>模型，用另一部分<b>评</b>它。在同一份数据上既选又评，选出来的模型性能必然被高估。<br>· <span class='k'>训练集 / 验证集 / 测试集</span>：三分而不是二分，正是因为「用验证集调了超参之后，验证集分数本身就被高估了」。<br>· <span class='k'>本页的双 Q</span>：用 A <b>选</b>动作，用 B <b>评</b>它。<br><br><b>共同的病因是同一个：<span class='w'>在同一份带噪声的估计上做 argmax 再读数，读到的数必然偏高</span>。</b><br><br><b>共同的解法也是同一个：<span class='k'>让「选」和「评」用独立的信息源</span>。</b><br><br><span class='w'>⇒ 这条原则对你的实验设计直接适用</span>：<b>用搜索过程中的数据<b>选</b>出候选配置，然后用<b>新的、独立的</b>评估去<b>定</b>它们的排名和最终分数</b>。<span class='k'>这是一个几乎零成本、但不做就会被抓住的严谨性要求。</span>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>「选择与评估分开」在你的课题里，最该落地的地方是<span class='k'>最终结果的报告方式</span>。</b><br><br><b>错误做法（会被抓）</b>：<span class='w'>搜索跑完，取过程中观测分数最高的配置，报那个分数</span>。<b>这个分数同时被两重赢家诅咒污染</b>：<span class='k'>① 代理模型的预测误差；② 那一次评估本身的采样噪声</span>。<br><br><b>正确做法（成本很低）</b>：<br>① <span class='w'>用搜索过程<b>选</b>出 top-k 候选</b>（k 取 5–10）；<br>② <span class='w'>对这 k 个做<b>新的、独立的</b>评估</b>（固定种子、同一批测试样本，用上 L03 p16 那条配对比较）；<br>③ <b>报第 ② 步的结果</b>，并且<span class='k'>同时报出第 ① 步的预测值与第 ② 步实测值的差距</b>。<br><br><b>第 ③ 条尤其值得做</b>：<span class='w'>那个差距本身就是对「赢家诅咒有多严重」的直接测量</span> —— <b>而这正好是一个可以写进论文的、别人没做的分析</b>。<br><br>⚠ 额外成本只有 k 次评估，相对整个搜索预算可以忽略。",
+    "ref": "本讲 p21–22；对照 CSE 541 L06 与 L03 p16"
+   }
+  },
+  {
+   "r": [
+    24,
+    25
+   ],
+   "t": "N 步回报搬到 Q-learning 上：好用，但严格说只在 on-policy 时才对",
+   "star": 4,
+   "quote": "N-step returns? — Recall: fitting value functions with rewards + bootstrapped V.  Bootstrapped: using r+V → less variance than MC.  Monte Carlo: using Σ_t^T r → lower bias than 1-step bootstrap.  Can we construct these multi-step targets for Q-learning?  N-step target: these are the rewards for policy that collected the data.  + (far) less biased target values when Q-values are inaccurate.  + typically faster learning, especially early on.  - only actually correct when learning on-policy (not an issue when N=1!).  Ways to fix?  Most commonly: ignore the problem & still use N > 1.  Can also: dynamically choose N to only use data that follows current policy (if data mostly on-policy, action space is small); use importance sampling.",
+   "one": "<b>L04 p20 那个 n 旋钮，这一页搬到了 Q-learning 上。</b><span class='k'>收益一样（偏差小、学得快）</span>，<b>但多了一条 Actor-Critic 那边没有的毛病：<span class='w'>N > 1 时严格说只在 on-policy 下才正确</span>。</b>而讲义给的最常见对策是——<b>无视它。</b>",
+   "eq": "回顾（p24，就是 L04 p20 那个旋钮）：\n\n   自举（1 步）：  r + V        → **less variance than MC**\n   蒙特卡洛：      Σ_t^T r      → **lower bias than 1-step bootstrap**\n   N 步：          Σ_t^{t+n−1} r + V_{t+n}   ← 中间那档\n\n   提问：**Can we construct these multi-step targets for Q-learning?**\n\n────────────────────────────────────────\n搬到 Q-learning 上，收益与代价（p25）：\n\n  **+ (far) less biased target values when Q-values are inaccurate**\n     —— 多用几步真实奖励，少依赖那个（可能很烂的）Q̂\n  **+ typically faster learning, especially early on**\n     —— 训练初期 Q̂ 最不准，这时 N 步的收益最大\n\n  **− only actually correct when learning on-policy (not an issue when N=1!)**\n\n  ⚠ 为什么 N=1 时没问题：\n     1 步目标 r + γ·max_{a'} Q̂(s',a') 里，**中间不经过任何动作选择**\n     —— 只有一个 r，而它由缓冲区里那个 (s,a) 决定，与策略无关。\n\n     而 N > 1 时，中间那 n−1 步的奖励是\n     **these are the rewards for policy that collected the data**\n     —— 它们是**采数据那个策略**走出来的，不是当前策略会走的。\n\n────────────────────────────────────────\n三条对策（p25）：\n\n  · **Most commonly: ignore the problem &amp; still use N > 1**（最常见：无视它）\n  · 动态选 N，只用「跟随当前策略」的那段数据\n       —— 前提：**if data mostly on-policy, action space is small**\n  · 用**重要性采样**（L03 p21–23 那一套）",
+   "pts": [
+    "<b>看清 N=1 为什么免疫：<span class='k'>1 步目标里中间不经过任何动作选择</span>。</b><code>r + γ max_{a'} Q̂(s',a')</code> 里只有一个 <code>r</code>（由缓冲区那个 (s,a) 决定，与策略无关），<b>而那个 max 是对<span class='w'>当前</span> Q 取的、不依赖采数据的策略</b>。<span class='k'>这正是 Q-learning 能彻底 off-policy 的根本原因。</span>",
+    "<b>而 N > 1 就破了这个性质：中间那 n−1 步的奖励，是「采数据那个策略」走出来的。</b><span class='w'>当前策略在那些中间状态可能会走别的动作、拿到别的奖励</span>。<b>所以 N 步目标估的其实是「行为策略的 n 步回报 + 当前策略之后的价值」—— 一个混合物</b>，<span class='k'>严格说不是任何一个策略的 Q。</span>",
+    "<b>「Most commonly: ignore the problem」这句话讲义写得毫不掩饰，而且它反映的是真实做法。</b><span class='k'>理论上不对，但实践中 N=3~5 通常明显好于 N=1</span>。<b>原因是：早期 Q̂ 烂得离谱时，「多信几步真实奖励」带来的收益远大于「混合策略」带来的偏差</b>。<span class='w'>这是一个典型的「两害相权」。</span>",
+    "<b>第二条对策那个前提值得注意：<span class='k'>if data mostly on-policy, action space is small</span>。</b><b>「动态选 N」的做法是：检查缓冲区里那段轨迹的动作，是不是当前策略也会选</b>；<span class='w'>动作空间小时这个检查可行，大了就几乎永远对不上</span>。<b>所以这条在实践中用得不多。</b>",
+    "<b>第三条（重要性采样）在这里会特别难用，原因 L03 p22 已经讲过。</b><span class='k'>n 步的重要性权重是 n 个比值的连乘</span>，<b>而 L03 p22 那个「T=200、单步偏 1% 就是 7.3 倍」的爆炸问题照样适用</b>。<span class='w'>n 小时还能忍，n 一大就没法用</span> —— <b>这也解释了为什么大家宁可选第一条。</b>"
+   ],
+   "tbl": {
+    "cap": "N 步在 Actor-Critic 与 Q-learning 上的差别",
+    "head": [
+     "",
+     "L04 的 N 步（Actor-Critic）",
+     "<b>本讲的 N 步（Q-learning）</b>"
+    ],
+    "rows": [
+     [
+      "收益",
+      "偏差小、学得快",
+      "<b>同左，且 Q̂ 不准时收益更大</b>"
+     ],
+     [
+      "N=1 时",
+      "<b>有偏（靠 V̂）</b>",
+      "<b>完全正确（off-policy 免疫）</b>"
+     ],
+     [
+      "N>1 时的额外毛病",
+      "<b>没有（本来就 on-policy）</b>",
+      "<b>只在 on-policy 下才正确</b>"
+     ],
+     [
+      "为什么",
+      "—",
+      "<b>中间 n−1 步的奖励是采数据那个策略走出来的</b>"
+     ],
+     [
+      "最常见的对策",
+      "—",
+      "<b>ignore the problem &amp; still use N > 1</b>"
+     ],
+     [
+      "为什么能无视",
+      "—",
+      "<b>早期 Q̂ 烂时，少依赖它的收益 > 混合策略的偏差</b>"
+     ]
+    ]
+   },
+   "say": "<b>「Most commonly: ignore the problem」这种写法在教材里很少见，但它诚实，而且值得学一个判断方法。</b><br><br><span class='k'>一个理论上不正确的做法，什么时候可以用？</span><br><br><b>判据是：你要知道它<span class='w'>错在哪个方向、错多少</span>，并且确认在你关心的区间里这个错误小于它带来的收益。</b><br><br>这一页正好给了一个完整的例子：<br>· <span class='w'>错在哪</span>：中间 n−1 步的奖励来自行为策略，不是当前策略；<br>· <span class='w'>什么时候错得少</span>：行为策略与当前策略接近时（而 Q-learning 的 ε-贪心数据确实大体跟随当前策略）；<br>· <span class='w'>收益有多大</span>：Q̂ 不准时「少依赖它」的好处非常大，尤其训练早期。<br><br><b>⇒ 所以在「训练早期 + 行为策略接近当前策略 + n 不太大」这个区间里，无视它是划算的。</b><br><br><span class='k'>这和「假装不知道有问题」是两件完全不同的事</span> —— <b>后者是疏忽，前者是一个有依据的工程决定</b>。<span class='w'>讲义把三条对策都列出来再说「最常见的是无视」，正是在做这个区分。</span>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p19–20（同一个 n 旋钮；那边没有这个 on-policy 的毛病）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页给了一个可以直接用的写作范式：<span class='k'>怎么诚实地使用一个理论上不严格的做法</span>。</b><br><br>你的论文里几乎一定会有这样的地方 —— <b>例如用剪枝过的日志做离线比较（L03 主线卡标出的那个 q=0 问题）</b>。<br><br><span class='w'>两种写法，差别很大</span>：<br>· <b>不提</b> ⇒ 审稿人发现了就是「方法有漏洞」；<br>· <span class='k'>按这一页的格式写</span> ⇒ 变成「作者清楚边界在哪」。<br><br><b>这一页的格式是三段</b>：<br>① <span class='w'>明确说出它错在哪</span>（不是含糊的「可能有偏差」，是「中间 n−1 步的奖励来自行为策略」）；<br>② <span class='w'>说明什么条件下错得少</span>；<br>③ <span class='w'>说明为什么在你的区间里收益大于代价</span>，并列出你考虑过的替代方案及其各自的代价。<br><br><b>讲义把三条对策都列出来再说「最常见的是无视」，就是在做第 ③ 步</b> —— <span class='k'>它证明了「无视」是一个经过比较的选择，而不是没想到</span>。<b>这个差别在审稿人眼里是决定性的。</b>",
+    "ref": "本讲 p25 的三条对策；对照 L03 主线卡的 q=0 限制"
+   },
+   "tip": {
+    "t": "三个补丁，各拆致命三角的哪一条边",
+    "w": true,
+    "v": "<b>p13 说「一般情况下不收敛 😢」，而 p17–p25 给了三个补丁。把它们和致命三角（自举 + 函数逼近 + 离策略）对上，就能看出各自在干什么：</b><br><br><b>① 目标网络（p17–18）→ 拆<span class='k'>自举</span></b><br><span class='w'>冻住 φ' 之后，内层循环里「标签依赖自己」这条链被暂时切断</span>。<b>不是消除自举（每次 φ'←φ 又接上），而是给那个正反馈<span class='k'>加阻尼</span></b>。<br><br><b>② 双 Q（p22）→ 拆<span class='k'>噪声的自我确认</span></b><br><span class='w'>这条边不在经典三角的描述里，但它是 max 带来的额外问题</span>。<b>让「选」和「评」用不同的噪声源，于是高估不再被自我强化。</b><br><br><b>③ N 步回报（p24–25）→ 拆<span class='k'>自举</span>（另一个方向）</b><br><span class='w'>多用几步<b>真实</b>奖励，少依赖那个可能很烂的 Q̂</span> —— <b>直接减少对自举的依赖程度</b>。<span class='k'>N=T 时自举完全消失（退化成蒙特卡洛）。</span><br><br><b>⇒ 注意三个补丁没有一个去碰<span class='w'>函数逼近</span>或<span class='w'>离策略</span>。</b><br>因为那两条正是你<b>想要</b>的东西：<span class='k'>函数逼近是为了处理大状态空间，离策略是为了数据效率</span>。<b>所以所有补丁都只能在「自举」这条边上做文章</b> —— <span class='w'>这也解释了为什么它们全是「缓解」而不是「解决」。</span>"
+   }
+  },
+  {
+   "r": [
+    26,
+    29
+   ],
+   "t": "收尾：两个战绩，和一张「什么时候用哪个」的表",
+   "star": 4,
+   "quote": "Q-learning in practice? — Q-learning learns to outperform people on most Atari games (Mnih et al. 2015).  Q-learning trains robot grasping system (Kalashnikov et al. 2018).  When to use one online RL algorithm vs. another? — Chelsea's advice.  PPO & variants: When you care about stability, ease-of-use; When you don't care about data efficiency.  DQN & variants: When you have discrete actions or low-dimensional continuous actions.  SAC & variants: When you care most about data efficiency; When you are okay with tuning hyperparameters, less stability.  Next time — Done with online RL methods!  Next week: Offline RL (can we learn behavior from existing datasets?); Reward learning + start of RL for LLMs.",
+   "one": "<b>p27 是整门课前七讲的收口：一张「什么时候用哪个」的表，而且标着「<span class='k'>Chelsea's advice</span>」。</b><span class='w'>三个算法族，三条判据，没有一条是「哪个最好」。</span>",
+   "eq": "两个战绩（p26）：\n\n  · **Q-learning learns to outperform people on most Atari games**\n    Mnih et al. 2015（就是 DQN 那篇的 Nature 版）\n  · **Q-learning trains robot grasping system**\n    Kalashnikov et al. 2018（QT-Opt）\n\n────────────────────────────────────────\n选型建议（p27，标题下面写着 **Chelsea's advice**）：\n\n  **PPO &amp; variants**\n      · When you care about **stability, ease-of-use**\n      · When you **don't** care about data efficiency\n\n  **DQN &amp; variants**\n      · When you have **discrete actions or low-dimensional continuous actions**\n\n  **SAC &amp; variants**\n      · When you care most about **data efficiency**\n      · When you are okay with **tuning hyperparameters, less stability**\n\n  ⚠ 注意三条判据的性质不同：\n     PPO / SAC 那两条是**取舍**（稳定性 ↔ 数据效率）；\n     DQN 那一条是**硬约束**（argmax 算不算得出来）。\n\n────────────────────────────────────────\np29：**Done with online RL methods!**\n   下周起：Offline RL（can we learn behavior from existing datasets?）\n           Reward learning + **start of RL for LLMs**",
+   "pts": [
+    "<b>这张表最该注意的是：<span class='k'>DQN 那一行的判据和另外两行性质不同</span>。</b><span class='w'>PPO 与 SAC 之间是一个连续的取舍（稳定性 ↔ 数据效率），你可以按自己的偏好选</span>；<b>而 DQN 那一行是一道<span class='k'>硬门槛</span>：动作空间不满足就根本用不了</b>（argmax 算不出来）。<span class='w'>所以实际选型是「先过 DQN 那道门，再在 PPO/SAC 之间权衡」。</span>",
+    "<b>把这张表和 L04 p35 那条谱对上，它们说的是同一件事。</b><span class='k'>L04 p35：less off-policy（PPO）↔ more off-policy（SAC），数据效率与稳定性互换</span>。<b>这一页只是加上了 DQN 这一支，并把判据写成了可操作的问句。</b>",
+    "<b>p26 那两个战绩的时间跨度值得注意：2015 年 Atari，2018 年真实机器人抓取。</b><span class='k'>从「在仿真游戏里超过人类」到「训出一个真机抓取系统」用了三年</span>，<b>而中间的差距几乎全在数据效率和稳定性上</b> —— <span class='w'>Atari 可以跑几千万帧，真机不行</span>。<b>这正好印证了 p27 那张表为什么把这两条当成主要判据。</b>",
+    "<b>p29 的「Done with online RL methods!」标志着课程的一个大转折，值得回头看一眼走过的路。</b><span class='k'>L03 策略梯度 → L04 Actor-Critic → L06 Q-learning</span>，<b>三讲把 L01 p41 五族表里的第 2、3、4 族走完了</b>。<span class='w'>之后课程换轴：L07 离线（去掉「采数据」那个框）、L08 奖励从哪来、L09/L10 用在 LLM 上。</span>",
+    "<b>注意下周的两个主题正好对应了这三讲暴露出的两个最大限制。</b><span class='k'>「采样太贵」→ 离线 RL（不再采）</span>；<span class='k'>「奖励函数要自己定义」→ 奖励学习</span>。<b>课程的推进一直是「上一讲暴露什么，下一讲补什么」</b> —— <span class='w'>这个结构本身就值得学。</span>"
+   ],
+   "tbl": {
+    "cap": "Chelsea's advice（p27）—— 注意三条判据的性质不同",
+    "head": [
+     "算法族",
+     "什么时候用",
+     "<b>判据性质</b>",
+     "本课哪一讲"
+    ],
+    "rows": [
+     [
+      "<b>PPO &amp; variants</b>",
+      "<b>要稳定、要好用；不在乎数据效率</b>",
+      "<b>取舍</b>",
+      "L05"
+     ],
+     [
+      "<b>DQN &amp; variants</b>",
+      "<b>动作离散，或低维连续</b>",
+      "<b>硬约束（argmax 要算得出来）</b>",
+      "<b>本讲</b>"
+     ],
+     [
+      "<b>SAC &amp; variants</b>",
+      "<b>最在乎数据效率；能接受调参与不稳</b>",
+      "<b>取舍</b>",
+      "L04 p34"
+     ],
+     [
+      "<b>实际选型顺序</b>",
+      "<b>先过 DQN 那道门，再在 PPO/SAC 之间权衡</b>",
+      "—",
+      "—"
+     ],
+     [
+      "与 L04 p35 的关系",
+      "<b>同一条谱，加上 DQN 这一支</b>",
+      "—",
+      "—"
+     ]
+    ]
+   },
+   "say": "<b>把这张表代到你自己的问题上，答案其实是明确的 —— 而且三条判据都指向同一个方向。</b><br><br>· <span class='k'>动作空间</span>：你的配置是<b>离散、组合</b>的 ⇒ DQN 那道门<span class='w'>形式上过得去</span>（离散），<b>但「巨大」是另一个问题</b> —— argmax 要在指数级的组合空间上做，<span class='k'>而这正是你要剪枝的理由</span>。<br>· <span class='k'>数据效率</span>：你的评估<b>极贵</b> ⇒ 强烈偏向 SAC 那一侧的判据。<br>· <span class='k'>调参成本</span>：你的调参相对便宜（本地跑搜索逻辑不用调 LLM）⇒ <b>可以接受「难调」这个代价</b>。<br><br><b>⇒ 按这张表，你该站在「数据效率优先、能接受调参」那一档。</b><br><br><span class='w'>但更重要的是：这三讲的算法你其实一个都不该直接用</b> —— <b>因为它们解决的是「有状态转移的序贯决策」，而你的问题（L01 主线卡已经核过）主要是 T=1 的纯探索</b>。<br><br><span class='k'>这张表对你的价值不在于选一个算法，而在于它示范了「怎么按判据选」这件事本身</span> —— <b>而你论文里的 related work 正该是这个形状：不是逐篇罗列，是按判据对照。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p35（less/more off-policy 那条谱 —— 这一页加上 DQN 这一支）",
+    "href": "L04-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>p27 这张表最该借鉴的不是它的内容，是它的<span class='k'>形式</span>：三行、每行一条可操作的判据、没有一个「最好」。</b><br><br><b>你的 related work 该长成这个样子。</b>与其逐篇介绍「AFlow 做了什么、某某做了什么」，<span class='w'>不如画一张表：每一行一个方法，每一列一条判据，最后一行是你的方法</span>。<br><br><b>对你的课题，判据列大概是</b>：<br>· <span class='w'>比较类</span>（和全部配置比，还是和搜过的比）<br>· <span class='w'>评估预算的依赖</span>（√T 还是 log T）<br>· <span class='w'>配置数的依赖</span>（n 还是 log n）<br>· <span class='w'>探索机制</span>（掷骰子 / 看分数 / <b>看不确定性</b>）<br>· <span class='k'>是否处理可行性约束（nogood）</span><br><br><b>最后那一列很可能就是你的空位</b> —— <span class='k'>上面那些方法大多假设可行域是给定的，没有一个处理「可行性要边搜边发现」</span>。<br><br><b>把它放进表里当一列，你的贡献位置就自己浮出来了</b>，<span class='w'>而且审稿人一眼能看懂</span>。⚠ 前提是你真的核过那几篇确实不处理这一列，别凭印象填表。",
+    "ref": "本讲 p27 的形式；对照 L04 主线卡里同一条建议"
+   }
+  }
+ ],
+ "quiz": {
+  "16": [
+   {
+    "q": "目标网络解决的是哪个病因？",
+    "o": [
+     "目标值 y = r + γ max Q̂_φ(s') 里含有 φ 自己，而 φ 每步都在变 —— 你在追一个会跑的靶子",
+     "max 会放大噪声",
+     "动作空间太大",
+     "奖励太稀疏"
+    ],
+    "a": 0,
+    "why": "补法是把靶子钉住：第 0 步 φ' ← φ，之后一段时间不动它。"
+   },
+   {
+    "q": "「Inner loop is doing supervised learning」这句话说明目标网络买到了什么？",
+    "o": [
+     "更快的收敛速度",
+     "标签一旦冻住，内层循环就变成「拟合一组固定标签」—— 有一整套成熟理论和工程经验可以直接套",
+     "更小的内存占用",
+     "不需要回放缓冲区"
+    ],
+    "a": 1,
+    "why": "而移动靶那个版本不属于任何已知的优化问题类别。"
+   },
+   {
+    "q": "这个补丁和 L04 p18 那个「update labels every gradient update!」是什么关系？",
+    "o": [
+     "互相矛盾，其中一个是错的",
+     "同一件事的两面：L04 说「标签会变所以不能多走步」，这一页说「那就让它别变」—— 区别在于你愿不愿接受标签稍微旧一点",
+     "两者无关",
+     "L04 那条已经被推翻"
+    ],
+    "a": 1,
+    "why": "两讲在同一个问题上给了相反的建议，而代价是明确的。"
+   },
+   {
+    "q": "DQN 的核心创新是什么？",
+    "o": [
+     "一个新的学习原理",
+     "更深的网络",
+     "两个稳定性补丁（目标网络 + 回放缓冲区）—— Q-learning 本身是 1989 年的东西，DQN 让它配神经网络之后还能跑",
+     "更好的探索策略"
+    ],
+    "a": 2,
+    "why": "Mnih et al. 2013 那篇 Atari 论文。p18 还说你会在 HW2 里实现它。"
+   }
+  ],
+  "19": [
+   {
+    "q": "为什么 max_{a'} Q_{φ'}(s',a') 会系统性地高估？",
+    "o": [
+     "因为 Q 初始化太大",
+     "因为折扣因子不对",
+     "因为网络容量不够",
+     "因为 Q̂ 带噪声，而「取最大」会专门挑中那些恰好被高估的动作 —— 误差不会互相抵消，而是一边倒地累积"
+    ],
+    "a": 3,
+    "why": "E[max_a(Q*+ε_a)] ≥ max_a Q*(s',a)。动作越多、噪声越大，高估越严重。"
+   },
+   {
+    "q": "p21 那个恒等式把问题重新定位到了什么？",
+    "o": [
+     "同一个网络既负责挑动作、又负责给这个动作打分 —— 选择和评估用了同一份噪声，于是噪声被自我确认",
+     "折扣因子的选择",
+     "回放缓冲区太旧",
+     "学习率太大"
+    ],
+    "a": 0,
+    "why": "max_{a'} Q_{φ'}(s',a') = Q_{φ'}(s', argmax_{a'} Q_{φ'}(s',a'))。这是理解双 Q 的钥匙。"
+   },
+   {
+    "q": "p19 说「预测 Q 涨，真实回报也涨」，这和 p21 的高估矛盾吗？",
+    "o": [
+     "矛盾，其中一个是错的",
+     "不矛盾：p19 说的是「同向变化」（Q 学到了有用的东西），p21 说的是「绝对数值偏高」—— 同向但偏高",
+     "p19 的实验有问题",
+     "两者讨论的是不同算法"
+    ],
+    "a": 1,
+    "why": "这又回到 p13 那条「排序对就够用」。"
+   },
+   {
+    "q": "为什么 Actor-Critic 的高估问题轻得多？",
+    "o": [
+     "因为它用了基线",
+     "因为它是 on-policy 的",
+     "因为它的目标用的是「从当前策略采一个动作」而不是「取最大」—— 采样不会专挑噪声为正的那个",
+     "因为它有两个网络"
+    ],
+    "a": 2,
+    "why": "所以这是 Q-learning 为「把 policy improvement 合并进来」付的那笔账的一部分。"
+   }
+  ],
+  "22": [
+   {
+    "q": "双 Q 的两条更新式必须是交叉的，如果写成「各自用自己」会怎样？",
+    "o": [
+     "那就是两个独立的 Q-learning，什么也没改善",
+     "会发散",
+     "效果一样",
+     "会收敛更快"
+    ],
+    "a": 0,
+    "why": "A 的目标里用 B 评估、B 的目标里用 A 评估 —— 交叉是关键，而写代码时很容易搞反。"
+   },
+   {
+    "q": "「if the two Q's are noisy in different ways」这个前提在实践中成立吗？",
+    "o": [
+     "完全成立",
+     "只能部分成立 —— 两个网络看同一个回放缓冲区、用同样的架构，噪声必然有相关性。所以双 Q 是缓解而非消除",
+     "完全不成立，双 Q 没用",
+     "取决于网络大小"
+    ],
+    "a": 1,
+    "why": "讲义措辞是 the problem goes away，但那是在「噪声完全去相关」这个理想前提下。"
+   },
+   {
+    "q": "Double DQN 这个更省事的变体（讲义没展开）是怎么做的？",
+    "o": [
+     "训练两个完全独立的网络",
+     "用集成模型",
+     "复用已有的目标网络：用 φ（当前网络）选动作、用 φ'（目标网络）评估 —— 不用真的训两个网络",
+     "随机选一个网络"
+    ],
+    "a": 2,
+    "why": "额外成本几乎为零，代价是 φ' 只是 φ 的旧版本，去相关程度不如真正的两个网络。"
+   },
+   {
+    "q": "「选择与评估分开」这个原则，在机器学习里还有哪些常见形态？",
+    "o": [
+     "交叉验证（用一部分数据选模型、另一部分评它）、训练/验证/测试三分 —— 共同病因都是「在同一份带噪估计上做 argmax 再读数，读到的数必然偏高」",
+     "只在强化学习里出现",
+     "只在统计学里出现",
+     "与批量归一化有关"
+    ],
+    "a": 0,
+    "why": "认出这个模式比记住双 Q 本身更有价值 —— 它对实验设计直接适用。"
+   }
+  ],
+  "24": [
+   {
+    "q": "为什么 N=1 的 Q-learning 目标对 off-policy 免疫，而 N>1 不是？",
+    "o": [
+     "因为 N=1 时方差更小",
+     "1 步目标里中间不经过任何动作选择（只有一个 r，由缓冲区那个 (s,a) 决定）；而 N>1 时中间 n−1 步的奖励是采数据那个策略走出来的",
+     "因为 N=1 时不用自举",
+     "因为 N=1 时折扣因子不起作用"
+    ],
+    "a": 1,
+    "why": "这正是 Q-learning 能彻底 off-policy 的根本原因，而 N 步破坏了它。"
+   },
+   {
+    "q": "讲义给的最常见对策是什么？",
+    "o": [
+     "用重要性采样",
+     "动态选 N",
+     "Most commonly: ignore the problem & still use N > 1",
+     "只用 N=1"
+    ],
+    "a": 2,
+    "why": "理论上不对，但早期 Q̂ 烂得离谱时，「多信几步真实奖励」的收益远大于「混合策略」的偏差。"
+   },
+   {
+    "q": "第三条对策（重要性采样）为什么在这里特别难用？",
+    "o": [
+     "因为无法计算比值",
+     "因为需要知道动力学",
+     "n 步的重要性权重是 n 个比值的连乘 —— L03 p22 那个爆炸问题照样适用",
+     "因为 Q-learning 不支持它"
+    ],
+    "a": 2,
+    "why": "n 小时还能忍，n 一大就没法用 —— 这也解释了为什么大家宁可选第一条。"
+   },
+   {
+    "q": "「一个理论上不正确的做法什么时候可以用」，这一页示范的判据是？",
+    "o": [
+     "只要实验效果好就行",
+     "只要大家都这么做就行",
+     "要知道它错在哪个方向、错多少，并确认在你关心的区间里这个错误小于它带来的收益",
+     "永远不可以用"
+    ],
+    "a": 2,
+    "why": "讲义把三条对策都列出来再说「最常见的是无视」，正是在证明这是一个经过比较的选择，而不是没想到。"
+   }
+  ],
+  "26": [
+   {
+    "q": "p27 那张表里，DQN 那一行的判据和另外两行性质有什么不同？",
+    "o": [
+     "PPO/SAC 之间是连续的取舍（稳定性↔数据效率），而 DQN 那一行是硬门槛（argmax 算不算得出来）",
+     "三行性质相同",
+     "DQN 那行是推荐，另两行是警告",
+     "DQN 那行更重要"
+    ],
+    "a": 0,
+    "why": "所以实际选型是「先过 DQN 那道门，再在 PPO/SAC 之间权衡」。"
+   },
+   {
+    "q": "p26 两个战绩从 2015 Atari 到 2018 真机抓取，中间的差距主要在哪？",
+    "o": [
+     "网络架构",
+     "数据效率和稳定性 —— Atari 可以跑几千万帧，真机不行",
+     "奖励函数设计",
+     "动作空间维度"
+    ],
+    "a": 1,
+    "why": "这正好印证了 p27 那张表为什么把这两条当成主要判据。"
+   },
+   {
+    "q": "p29「Done with online RL methods!」之后，下周的两个主题对应了这三讲暴露的哪两个限制？",
+    "o": [
+     "「采样太贵」→ 离线 RL（不再采）；「奖励函数要自己定义」→ 奖励学习",
+     "「网络太大」和「训练太慢」",
+     "「动作空间受限」和「状态空间太大」",
+     "「理论不收敛」和「超参太多」"
+    ],
+    "a": 0,
+    "why": "课程的推进一直是「上一讲暴露什么，下一讲补什么」—— 这个结构本身就值得学。"
+   }
+  ]
+ }
+}
