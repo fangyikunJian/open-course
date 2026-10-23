@@ -450,8 +450,19 @@ var TH = {"title": "L15 就是你这个课题的技术底座 —— 也是它被
     if(p===cur) return;
     cur=p; pnum.value=p;
     // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
-    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
-    frame.src=SRC+"?p="+p+"#page="+(p+POFF)+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**。
+    // 本地：加个查询参数就够，服务器会忽略它。
+    // ⚠ 远端不能这么干：Wayback 把查询串当成**被存档 URL 的一部分**，
+    //   …RLbook2020.pdf?p=1 直接 **404**（2026-10-23 实测）。
+    //   所以远端改成「换掉 iframe 元素」—— 同样是一次新导航，但 URL 不变。
+    var HASH="#page="+(p+POFF)+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    if(USE_REMOTE){
+      var nf=frame.cloneNode(false); nf.removeAttribute("src");
+      frame.parentNode.replaceChild(nf,frame); frame=nf;
+      frame.src=SRC+HASH;
+    } else {
+      frame.src=SRC+"?p="+p+HASH;
+    }
     render(p);
     paintStrip();
     right.scrollTop=0;
