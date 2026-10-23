@@ -246,6 +246,8 @@ html{color-scheme:light dark}
   <button class="btn" id="next">下一页 →</button>
   <div class="sp"></div>
   <button class="btn" id="threadBtn" hidden>科研主线</button>
+  <a class="btn" id="openpdf" hidden target="_blank" rel="noopener"
+     title="在新标签页打开原课件 —— 跨域 PDF 能不能内嵌取决于浏览器">原课件 ↗</a>
   <button class="btn" id="themeBtn" title="切换主题">☾</button>
   <button class="btn" id="help">打不开？</button>
 </div>
@@ -413,6 +415,8 @@ var TH = {"title": "L02 接上课题的哪一段：把你的问题填进那张�
      PAGEOFF：切章 PDF 的第 1 页在整本里是第 1+PAGEOFF 页（S&B 用）。 */
   var PDF_REMOTE="", PAGEOFF=0;
   var USE_REMOTE = !!PDF_REMOTE && /(^|\.)github\.io$/i.test(location.hostname);
+  var openLink = document.getElementById("openpdf");
+  if (openLink && USE_REMOTE) openLink.hidden = false;
   var SRC = USE_REMOTE ? PDF_REMOTE : PDF, POFF = USE_REMOTE ? PAGEOFF : 0;
   var frame=document.getElementById("pdf"), card=document.getElementById("card"),
       pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
@@ -511,12 +515,16 @@ var TH = {"title": "L02 接上课题的哪一段：把你的问题填进那张�
     //   所以远端改成「换掉 iframe 元素」—— 同样是一次新导航，但 URL 不变。
     var HASH="#page="+(p+POFF)+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
     if(USE_REMOTE){
-      var nf=frame.cloneNode(false); nf.removeAttribute("src");
-      frame.parentNode.replaceChild(nf,frame); frame=nf;
-      frame.src=SRC+HASH;
+      // ⚠ 不能换掉 iframe 元素：error/load 两个监听器是初始化时挂上去的，
+      //   换元素会把它们孤儿化，「打不开？」面板就再也不会弹，
+      //   读者只剩一个空白框、毫无线索（2026-10-23 我就是这么写错的）。
+      //   先 about:blank、下一个 tick 再设真地址 —— 同样是新导航，元素不动。
+      frame.src="about:blank";
+      setTimeout(function(){ frame.src=SRC+HASH; }, 0);
     } else {
       frame.src=SRC+"?p="+p+HASH;
     }
+    if(openLink) openLink.href=SRC+HASH;
     render(p);
     paintStrip();
     right.scrollTop=0;
