@@ -1,0 +1,106 @@
+{
+ "title": "L07 接上课题的哪一段：当你不能再采样时，argmin 就变成了敌人",
+ "arc": "这一讲是整门课里离你的课题<b>最近</b>的一讲，近到可以几乎逐句翻译。<br><br>它的设定是：<span class='k'>给定一批别人采的数据，不能再采，而你要输出一个比数据里的策略更好的策略</span>。<br>你的设定是：<span class='k'>给定一批历史评估记录（或一个很紧的评估预算），而你要输出一个最便宜的可行配置</span>。<br><br>两边共享同一个核心困难，而讲义在 p11 把它说得比任何 bandit 教材都直白：<br><br><b>① 你的估计量在「没有数据的那片区域」上是<u>任意的</u></b>（<span class='w'>Q-function will be unreliable on OOD actions</span>）；<br><b>② 而你的目标函数是一个 argmax/argmin，它会<u>主动去搜索</u>那片区域里最乐观的角落</b>（<span class='w'>policy will seek out actions where Q-function is over-optimistic</span>，讲稿用的动词是 <b>exploit</b>）；<br><b>③ 在线设定下这个环会被下一轮真实数据切断；离线设定下<u>它没有出口</u></b>（<span class='k'>it'll never actually know what the proper Q-value for that action is</span>）。<br><br>⭐ <b>第 ③ 条是这一讲相对 L06 的全部新意，也是它对你最有价值的地方。</b><span class='w'>L06 的赢家诅咒是「偏高一点，下一轮纠正回来」；这一讲的是「偏高很多，而且永远不会被纠正」。</span><br><br>而两族解法给了你两个<b>形状完全不同</b>的工具：<br><br>· <span class='k'>第一族（隐式约束）</span>：<b>只在「有数据」的地方做监督</b>，于是你的选择规则结构上没机会跑到没数据的地方去。<span class='w'>代价是上限被数据锁住。</span><br>· <span class='k'>第二族（保守）</span>：<b>允许去，但把「没数据处的乐观」压平</b>。<span class='w'>代价是一个要调的 α。</span><br><br>⭐ 而真正值得你带走的那一条，不是任何算法，是 <b>p25 → p26 的那次「保证降级」</b>：<br><span class='k'>把「我的估计在每一点上都不偏高」换成「我对<u>自己输出的那个东西</u>的估计不偏高」</span>。<br>前者强、好听、但代价是算法不可用；后者弱、但正好覆盖唯一的使用场景。<br><b>这是一条可以直接写进你论文定理陈述方式里的方法论。</b><br><br>⚠ <b>另外必须说明：p24–p29（保守方法这一整族）课堂上跳过了</b>，<br>讲稿里 conservative / CQL / push down / logsumexp 出现次数<b>全部为 0</b>，<br>老师自己在 p31 处说 <span class='w'>This example application is for the algorithm we didn't cover</span>。<br>所以这一族的内容在精读里是<b>按幻灯公式自己推的</b>，已逐处标明。",
+ "pitfalls": [
+  {
+   "v": "<b>把这一讲的高估当成 L06 那个高估的同一件事，于是以为双 Q 也能治它。</b><span class='k'>病灶不同</span>：<b>L06 的 max 作用在<u>支撑内</u>，根源是有限样本噪声 + 同一网络既选又评 ⇒ 双 Q 对症</b>；<span class='w'>这一讲的 argmax 跑到了<u>支撑外</u>，那里压根没有标签，值是网络初始化的任意形状</span> ⇒ <b>双 Q 帮不上多少 —— 两个网络在同一片空地上都在瞎编，取较小的那个仍然是瞎编</b>。<br><br><b>翻译到你的课题</b>：<span class='k'>对代理模型做集成（ensemble）并取悲观分位，能治「评估噪声导致的赢家诅咒」，但治不了「这片配置从没被评估过」</span>。<span class='w'>后者需要的是一个对<b>认知不确定性</b>敏感的量（GP 的后验方差、集成成员之间的分歧度），而不是对<b>观测噪声</b>敏感的量。</span><b>两者在实现上很像，在诊断上必须分开 —— 否则你会用对的工具去治错的病，然后以为工具没用。</b>",
+   "tag": "推断",
+   "ref": "本讲 p11 与 L06 p21 的对照（见 L07.a 第三条讲解里的那张表）"
+  },
+  {
+   "v": "<b>以为「把没见过的配置排除掉」是一个可实现的方案。</b>这一讲最深的一处是讲稿里那段问答：<span class='k'>we don't actually know what's in distribution and out of distribution. So we have just samples of states and actions.</span><br><br><b>老师举的例子极小但致命</b>：<span class='w'>状态 s₁ 的数据里只有动作 a1，一个与 s₁ 很相似但不相同的 s₂ 的数据里只有 a2 —— 那 (s₁, a2) 算分布内还是分布外？</span><span class='k'>逐字匹配说不在，泛化说在，而你手上没有那个真正的支撑集。</span><br><br><b>⇒ 对你的课题，这件事的形态更微妙而不是更简单</b>：<span class='w'>你的配置空间是<b>离散</b>的，所以「这个配置评估过没有」是可以精确查表的</span>；<b>但你真正需要的判断不是「这一个配置评估过没有」，而是「这片<u>子空间</u>我了解得够不够，能不能据此剪掉它」</b>。<span class='k'>而后者和连续状态空间的情形一样不可枚举 —— 组合空间的大小正是你用剪枝的理由，也正是你无法逐点检查覆盖的原因。</span><br><br><b>⇒ 实践含义：别去写一个「判断是否在支撑内」的子模块</b>（<span class='w'>这一讲的两族方法都刻意不写它</span>），<b>改为把这个判断<u>吸收进判据本身</u></b> —— <span class='k'>用「相对已实测的落差」或「置信区间的宽度」这类量，它们在没数据处自动变得保守，不需要一个显式的内/外二分</b>。",
+   "tag": "推断",
+   "ref": "本讲 p11 的课堂问答（只在讲稿里，幻灯上一个字都没有）"
+  },
+  {
+   "v": "<b>把 p25 那个版本（只压不抬）当成 CQL，于是在实现里只加一个「整体安全边际」。</b><span class='k'>p25 的惩罚是 Q 的<u>绝对高度</u>，α 一大就把支撑内的 Q 一起拖垮，排序信息随之丢失</span> —— <b>保证（Q̂ ≤ Q^π 逐点成立）是真的，但算法不可用</b>。<span class='w'>p26 加上「抬高数据里的 (s,a)」之后，两项合成一个<b>差</b>：给 Q 整体加常数惩罚不变，于是只压平「数据外比数据内高出的那部分」。</span><br><br><b>⇒ 对你的课题，这正是「整体加安全边际」与「罚落差」的区别</b>：<br>· <span class='w'>整体加边际 ⇒ 所有配置一起变贵 ⇒ 相对排序不变 ⇒ argmin 选出来的还是同一个（<b>白做</b>）</span>；<br>· <span class='k'>罚落差（「比任何已实测配置都便宜多少」）⇒ 只打击「看起来好得可疑」的那些 ⇒ 排序被<u>有针对性地</u>改写</span>。<br><br>⚠ <b>注意这两者的失效方式相反</b>：<span class='w'>前者毫无作用，后者如果系数过大会把所有「真正的新发现」也一起压死 —— 而那恰恰是你方法的卖点</span>。<b>所以这个系数必须在实验里扫，而且要把扫出来的曲线报出来</b>（<span class='k'>「压多狠 vs 最终真实成本」的曲线，本身就是一个有价值的消融实验</span>）。",
+   "tag": "推断",
+   "ref": "本讲 p25 与 p26 的对照；原始出处 Kumar et al. Conservative Q-Learning (2020)，⚠ 课堂跳过，讲稿无对应"
+  },
+  {
+   "v": "<b>追求「我的代理模型在整个配置空间上都准」这个目标。</b>这一讲 p26 那次保证降级正是在否掉这个思路：<span class='k'>No longer guaranteed that Q̂^π ≤ Q^π for all (s,a). <b>BUT</b>, guaranteed that 𝔼_{π(a|s)}[Q̂^π] ≤ 𝔼_{π(a|s)}[Q^π] for all s ∈ D.</span><br><br><b>论证只有一句：你拿这个估计量做的唯一一件事，是比较若干候选并挑一个</b>。<span class='w'>所以唯一会伤到你的错误是「我以为它值 100，其实只值 30」</span>，<b>而逐点的正确性比这强得多，强出来的部分是白付的代价</b>。<br><br><b>⇒ 对你写论文的直接影响</b>：<span class='k'>主定理应当写成「输出保证」而不是「估计保证」</span> —— <b>「以概率 1−δ，输出的配置可行且成本在最优的 (1+ε) 内」</b>，<span class='w'>而不是「代理模型在所有配置上的误差 ≤ ε」</span>。<b>后者更难证、更容易被反例打掉，而且审稿人会直接问「你要它干什么」。</b><br><br>⚠ <b>而且要把误差方向的不对称<u>明写进定理</u></b>：<span class='k'>把不可行误判成可行（被骗）在你的设定里不可恢复；把可行误判成不可行（漏掉）只损失一点最优性</b>。<span class='w'>p26 的保证就是单向的 —— 这个先例值得引为设计依据。</span>",
+   "tag": "推断",
+   "ref": "本讲 p26 的 BUT 那一行；⚠ 该页课堂跳过，保证的原始条件需回 Kumar et al. (2020) 核对"
+  },
+  {
+   "v": "<b>把「拼接」当成理所当然的，于是默认你的支配剪枝总是安全的。</b>讲义 p14 的拼接（s1→s3 取自一条轨迹、s7→s9 取自另一条，合成一条数据里不存在的 s1→s9）和你那套支配剪枝背后的假设是<span class='k'>同一个结构</span>：<b>好前缀 + 好后缀 = 好整体</b>。<br><br><b>⚠ 而讲稿里那个关于「交叉状态」的问答恰好给出了失效条件</b>：<span class='w'>拼接不要求 s3 与 s7 严格相同，但 the degree to this how well this works will depend on <b>how close those states are</b> and how large the data set is</span>。<br><br><b>⇒ 翻译到你那里</b>：<span class='k'>支配剪枝要求「选了 A 之后剩下的子问题」与「选了 B 之后剩下的子问题」足够相似</span>；<b>一旦存在交互约束或资源耦合，剩余问题就不同，于是「A 不如 B」在某些后缀下可能翻转，剪枝就不安全了</b>。<br><br><b>⇒ 两条该落到方法章里的东西</b>：<br>① <span class='w'>把「剩余问题的相似性」<b>显式写成</b>支配判据的前提条件，而不是隐含假设它</span>；<br>② <span class='k'>组合 nogood 的价值正在于它刻画了「哪些组合会让这个前提失效」</span> —— <b>这个定位可以直接写进 contribution 的表述里</b>。",
+   "tag": "推断",
+   "ref": "本讲 p14 与讲稿里关于「S7 与 S3 不必相同」的问答"
+  },
+  {
+   "v": "<b>照抄 IQL 的 λ 数值而不看误差的符号方向。</b><span class='k'>本课幻灯的写法是「λ 小 ⇒ 高分位」</span>（p23：<b>using small λ < 0.5</b>，而损失里的误差是 <b>V − Q̂</b>）；<span class='w'>IQL 原论文用 τ，并且「τ 大 ⇒ 高分位」（它的误差定义是 Q − V，符号相反）</span>。<b>两者不矛盾，但数值不能互换。</b><br><br><b>⇒ 一般规则：看到任何不对称损失的超参数值，第一件事是看清它定义里的误差是哪个方向</b>，<span class='k'>而不是直接拿数字去比或者去抄</span>。<br><br><b>⇒ 对你的课题，这一条在实现「保守的约束预测器」时会立刻用到</b>：<span class='w'>你要的是「预测值偏<b>高</b>」（偏严地判可行），而这对应哪个 λ/τ，完全取决于你把误差写成 ŷ − y 还是 y − ŷ</span>。<b>⚠ 建议在代码里写一行断言去验证它</b>（<span class='k'>造一组已知分布的合成数据，检查拟合出来的值确实落在期望的那一侧</span>）—— <b>这个方向弄反了不会报错，只会让你的「保守」悄悄变成「乐观」</b>。",
+   "tag": "推断",
+   "ref": "本讲 p22 的 ℓ^λ_2 定义与 p23 的 small λ < 0.5；对照 Kostrikov, Nair, Levine. Implicit Q-Learning. ICLR '22"
+  }
+ ],
+ "ammo": [
+  {
+   "q": "你用历史评估记录（或别人跑出来的 benchmark）来训代理模型、调剪枝判据，凭什么相信在它上面调出来的东西？",
+   "a": "<b>这是 p10–p11 那个失效模式在你课题里的精确形态，而且它有一个<span class='k'>这一讲独有</span>的加重情节。</b><br><br><b>先把三步病理翻译过来</b>：<br>① <span class='w'>代理模型在「从没评估过的那片配置」上不可靠</span>（= Q-function unreliable on OOD actions）；<br>② <span class='k'>而你的目标是 <b>argmin 成本</b> —— 它会主动去找预测误差最负的地方</span>（= policy will seek out over-optimistic actions，讲稿的动词是 <b>exploit</b>）；<br>③ <b>你报出来的「最优配置成本」于是系统性偏低</b>。<br><br>⭐ <b>加重情节：你的问题还有可行性约束。</b><span class='w'>如果可行性也靠代理模型判，那同一个 argmin 会<b>同时</b>低估成本<b>并</b>高估可行概率</b></span> —— <b>它会优先挑「看起来又便宜又安全」的配置，而「看起来」恰恰因为没数据</b>。<span class='k'>这是赢家诅咒在约束优化下的版本，而它有两个方向可以诅咒你。</span><br><br><b>⇒ 三条可以直接说出口的处理（按说服力排序）</b>：<br><b>① 两段式验证（最硬，几乎零成本）</b>：<span class='w'>用历史记录<b>选</b>出 top-k 候选，再对这 k 个做<b>新的、独立的</b>真实评估，<u>只报第二步的结果</u></span>。<b>同时报出「第一步预测」与「第二步实测」的差距 —— 那个差距本身就是对这个病有多严重的直接测量</b>（<span class='k'>而这正是一个别人通常不做的分析</span>）。<br><b>② 悲观而非点估计</b>：<span class='w'>成本用置信上界、可行性用置信下界</span>（= 第二族的思想）。<b>⚠ 但要说清你没有一刀切</b>：<span class='k'>α 过大会把所有未评估区域压死，搜索退化成「只在已知区域里挑」，那就彻底放弃了组合结构带来的外推能力</b>。<br><b>③ 承认设定的限制</b>：<span class='w'>如果你的历史记录来自网格搜索，那它对应的 π_β 是<b>确定性</b>的 —— 正撞上 p18 那个退化情形（优势全为 0，算法退回模仿）</span>。<b>主动说出这一条，比被问出来好得多。</b>",
+   "tag": "推断",
+   "ref": "本讲 p10–p11 三条后果与讲稿里那个开车例子；p18 的确定性 π_β 思考题"
+  },
+  {
+   "q": "你的理论保证为什么只管「输出的那个配置」，不管代理模型整体的精度？这不是在偷懒吗？",
+   "a": "<b>不是偷懒，而是 p25 → p26 那一步的标准做法 —— 而且那一步在离线 RL 里被当成<u>进步</u>而不是退让。</b><br><br><b>可以这样答</b>：<br><br>① <span class='k'>先承认强保证是可写的</span>：<b>「代理模型在全部配置上误差 ≤ ε」确实是一个更强的陈述</b>（<span class='w'>对应 CQL 的 p25 版本：for large enough α, Q̂^π ≤ Q^π <b>逐点</b>成立</span>）。<br>② <span class='k'>然后指出它的代价</span>：<b>要让它成立，保守程度必须调到足以覆盖最差的那片区域，而那个程度会把<u>有信息区域</u>的区分度一起压平</b>（<span class='w'>p25 那一项不区分支撑内外，α 一大整个 Q 被拖垮，排序信息随之丢失</span>）。<b>⇒ 保证成立，算法不可用。</b><br>③ <span class='k'>再给出使用场景的论证</span>：<b>这个估计量只用来做一件事 —— 比较候选并输出一个</b>。<span class='w'>唯一会伤人的错误是「我以为它好，其实不好」</span>，<b>而「对输出的那个对象不乐观」这条保证恰好、且仅仅排除了这件事</b>。<br>④ <span class='k'>最后给出先例</span>：<b>这正是 CQL 的 p26 所做的降级</b>（<span class='w'>𝔼_{π(a|s)}[Q̂^π] ≤ 𝔼_{π(a|s)}[Q^π]，s ∈ D</span>），<b>而约束最优臂识别的标准结论本来就是输出保证形式</b>（<span class='k'>「以概率 1−δ 输出 ε-最优且可行的臂」</span>）。<br><br><b>⇒ 一句话收口：<span class='w'>保证的强度应当配得上用途；追求「处处都准」常常要付出「哪儿都不准」的代价。</span></b><br><br>⚠ <b>标为推断</b>：<span class='w'>p26 那条保证的原始条件我没有核对（该页课堂跳过、讲稿无对应，幻灯只写了 Can show that…）</span>。<b>要在论文里把 CQL 当先例引用，必须读 Kumar et al. (2020) 的定理陈述与假设。</b>",
+   "tag": "推断",
+   "ref": "本讲 p25 与 p26 的保证对照；⚠ 原始条件需回 Kumar et al. (2020) 核对"
+  },
+  {
+   "q": "你的方法在「不确定」时会怎么做？会不会在没把握的地方乱猜？",
+   "a": "<b>这一讲给了两个<span class='k'>形状完全不同</span>的答法，而「我选了哪一个、为什么」正是审稿人想听的。</b><br><br><b>【答法一：结构上不给机会（第一族）】</b><br><span class='w'>把你的选择规则设计成「只在已有信息支撑的子空间里输出」</span>。<b>好处是安全性是<u>结构性</u>的、不需要调参、不会炸</b>（<span class='k'>IQL 那条 Never need to query OOD actions! 就是这个意思</span>）。<span class='w'>代价是上限被数据锁住 —— 你不会提出一个「数据没覆盖但其实很好」的配置</span>。<b>⚠ 而这个代价对你可能很重：你方法的卖点之一正是「能组合出未评估过的配置」。</b><br><br><b>【答法二：去了也没好处（第二族）】</b><br><span class='k'>允许搜索进入未知区域，但在那里的估值上加一个与不确定性成正比的惩罚</span>。<b>好处是上限更高、保留了外推能力</b>；<span class='w'>代价是一个要调的系数，而且失效是双向的（太小则被骗，太大则压平）</span>。<br><br><b>⭐ 最有力的回答是「两个都用，而且分工明确」</b>：<br>· <span class='k'>可行性约束用答法一的态度（宁可漏掉，不可被骗）</span> —— <b>因为误判可行是不可恢复的</b>；<br>· <span class='k'>成本目标用答法二的态度（带惩罚地探索）</span> —— <b>因为成本上保守一点只是少赚，而外推能力是你的贡献所在</b>。<br><br><b>⇒ 这个分工本身就是一个可以写出来的设计决定</b>，<span class='w'>而且它比「我用了某个算法」更能说明你理解了问题的结构</span>。<b>依据就在这一讲：两族方法不是竞争关系，它们的失败模式互补（一个单向、一个双向）。</b>",
+   "tag": "推断",
+   "ref": "本讲 p19/p23 的 + 号（第一族）与 p25–26（第二族）；失败模式对照见 L07.c 第二条讲解里那张表"
+  },
+  {
+   "q": "你怎么判断一个基线对手是「打赢了有意义」的？",
+   "a": "<b>p15 给了一个值得照搬的基线设计原则，而它的要点是「<span class='k'>基线要难被实现细节左右</span>」。</b><br><br><b>讲义对 Filtered BC 的定位</b>：<span class='w'>A very primitive approach to using reward information. <b>Therefore, a good baseline to test against!</b></span> <span class='k'>讲稿更直白：it's good to try this first […] try to make sure that your offline RL method is doing better than this</span>。<br><br><b>⇒ 为什么这种「原始」的基线反而最有价值？三条</b>：<br>① <span class='w'>它几乎没有超参 ⇒ 你赢它不可能被归因为「你调参调得更久」</span>；<br>② <span class='k'>它不会崩 ⇒ 你赢它不可能被归因为「基线没跑好」</span>；<br>③ <b>它的失效模式是<u>可说明的</u></b>（<span class='w'>Filtered BC 不能拼接，因为筛选的粒度是整条轨迹</span>）⇒ <b>于是「我赢在哪」有一个结构性的解释，而不只是一个数字</b>。<br><br><b>⇒ 你的对应基线</b>：<span class='k'>按历史记录里的得分排序、取前 k%、在里面挑最便宜的可行配置</span>。<b>几乎没有超参（只有 k）、不会崩、而且它的失效模式正好与你的卖点互补</b> —— <span class='w'>它只能挑出已评估过的配置，不能组合出新配置</span>。<br><br>⭐ <b>而最有说服力的做法是：<span class='k'>把这个基线的失效模式<u>构造成一个实验</u></b></b>。<span class='w'>设计一组「最优配置必须由多个部分组合而成、且该组合从未被完整评估过」的实例</span>，<b>在上面基线必然失败而你的方法成功</b>。<span class='k'>这比在标准 benchmark 上赢几个百分点有力得多，因为它把「为什么赢」变成了可验证的</b>。<b>（p14 那张 s1→s9 的图正是这类构造的最小例子。）</b>",
+   "tag": "推断",
+   "ref": "本讲 p15 的基线定位与讲稿里那段建议；p14 的拼接构造"
+  },
+  {
+   "q": "你的成本/约束预测器为什么不是普通的回归？",
+   "a": "<b>p21–p23 给了一个一页就能说清、而且实现代价极低的理由：<span class='k'>普通回归（ℓ2）给你的是条件<u>均值</u>，而均值几乎从来不是你要的那个统计量</span>。</b><br><br><b>先把这件事的归属搞清楚</b>：<span class='w'>「ℓ2 的解是均值」是关于<b>损失函数</b>的事实，不是关于你的问题的事实</span>。<span class='k'>换损失就换统计量：ℓ2 → 均值 · ℓ1 → 中位数 · 分位损失 → 分位数 · 期望分位损失 → expectile</span>。<b>⇒ 所以「我用了 MSE 所以拿到均值」是一个<u>默认后果</u>，不是一个设计选择 —— 而 IQL 的贡献很大一部分就是意识到这个默认后果恰好不是想要的。</b><br><br><b>⇒ 对你的两处具体后果</b>：<br><b>① 约束侧</b>：<span class='w'>实际要求通常是「95% 的情况下延迟不超过 100ms」，而不是「平均延迟不超过 100ms」</span>。<b>用均值判可行，会系统性地把「其实常常超时」的配置判成可行。</b><br><b>② 成本侧</b>：<span class='k'>argmin 会主动利用乐观误差（见第一条弹药）</span>，<b>所以成本预测也应当偏高而不是居中</b>。<br><b>⇒ 两条方向一致：都往「不利于这个配置」的方向偏，于是 argmin 选出来的是经得起检验的那些。</b><br><br>⭐ <b>而最有说服力的那一点是<u>代价</u></b>：<span class='w'>期望分位损失 |λ − 𝟙[x<0]|·x² 就是一个「两边系数不同的 MSE」—— 处处可微、梯度与误差成正比</span>。<b>⇒ 换它基本是改一个损失函数的事，训练流程、学习率、早停策略全部沿用</b>（<span class='k'>对比分位回归：在 0 处不可微、梯度大小与误差无关，训练行为会变</span>）。<b>⇒ 这让「把均值换成保守分位」从一个研究决定降级成一个实现细节，<span class='w'>所以它值得当默认做法，而不是当一个 contribution</span>。</b><br><br>⚠ <b>两处要自己验</b>：<span class='k'>① λ/τ 的方向（见那条坑）· ② 你的数据里同一输入附近是否有多个样本</span> —— <b>若每个配置只评估过一次，你拿到的可能不是「高分位」而是「噪声」</b>。",
+   "tag": "推断",
+   "ref": "本讲 p21 的「ℓ2 给均值」与 p22 的期望分位损失；⚠ 搬到约束预测是推断，讲义未讨论此用途"
+  },
+  {
+   "q": "你为什么把问题写成「最便宜的可行配置」（约束形式），而不是把成本和质量加权成一个目标？",
+   "a": "<b>p31 那个 LinkedIn 例子正好走了另一条路（Multi-Objective：把 WAU / Volume / CTR 组合成一个标量），所以这两条路的取舍是有现成对照的。</b><br><br><b>两条路各自的代价</b>：<br>· <span class='k'>约束形式（你的）</span>：<b>「可行」有明确语义、结果容易向人解释、而且<u>不需要在不同量纲之间定权重</u></b>；<span class='w'>代价是约束边界必须说得出来（延迟 ≤ 100ms 这个 100 从哪来？），而且边界附近的解对那个数字很敏感</b>。<br>· <span class='k'>标量化（LinkedIn 的）</span>：<b>单目标优化的工具都能直接用</b>；<span class='w'>代价是那组权重必须自己定，而权重会悄悄决定答案，而且它通常<u>无法从数据里学出来</u></b>。<br><br>⭐ <b>最有力的论证是「约束来自外部，不由我决定」</b>：<span class='w'>SLA 规定的延迟上限、硬件给定的内存上限、批下来的预算额度</span>。<b>这时候约束形式不只是方便，它是对问题的<u>忠实</u>表述</b> —— <span class='k'>而标量化反而是在偷偷替决策者定权重</span>。<br><br><b>⇒ 这也顺带回答了「可行性为什么值得单独建模」：它不是成本的一部分，它是一道由别人划的线。</b><br><br><b>⚠ 而 p33 那个预告（How do we get rewards??）提醒了一件该主动声明的事</b>：<span class='k'>你的「成本」是从哪来的？</span><span class='w'>如果是直接测出来的（运行时间、金额），你比 RL 幸运得多 —— 目标是客观的，<b>应当在问题设定那一节明确说出来，这会免掉一整类质疑</b></span>。<b>而如果成本里混了「主观质量」，那你就撞上了和 L08/L09 同一个问题：那个标量得由人的偏好构造出来，构造方式本身会成为方法的一部分。</b>",
+   "tag": "推断",
+   "ref": "本讲 p31 的三个互相拉扯的指标与 p33 的预告；⚠ 取舍论证为推断，讲义未讨论"
+  }
+ ],
+ "papers": [
+  {
+   "t": "Peng, Kumar, Zhang, Levine. Advantage-Weighted Regression: Simple and Scalable Off-Policy Reinforcement Learning",
+   "id": "2019（p18、p19 均明引）",
+   "why": "<b>第一族方法里最朴素的那一版，而「朴素」正是它的价值。</b><span class='k'>两步都是监督学习</span>：<b>先回归到实际回报拟合 V^{π_β}，再做带权（exp(Â/α)）的最大似然</b>。<span class='w'>没有自举、没有目标网络、没有 KL 项、没有重要性权重 —— L06 那个 deadly triad 一条边都不沾。</span><b>⇒ 读它的用途不是「要用它」，而是「用它当尺子」</b>：<span class='k'>任何更复杂的离线 RL 方法都应当先说清自己比 AWR 多拿到了什么</span>。<b>它还是 IQL 的一个零件（p23 的策略提取那一步就是它）。</b>"
+  },
+  {
+   "t": "Kostrikov, Nair, Levine. Offline Reinforcement Learning with Implicit Q-Learning",
+   "id": "ICLR 2022（p21、p22、p23 三页都明引）",
+   "why": "<b>这一讲的技术重心，也是作业 3 要实现的那个。</b><span class='k'>它的全部新意是一页（p22）那个期望分位损失</span>：<b>用 ℓ^λ_2 代替 ℓ2 去拟合 V，于是 V 落在 Q 分布的一个高分位上而不是均值上</b>。<span class='w'>这样做的效果是「在数据支撑内做了一次策略改进」，而那个被改进出来的策略从头到尾没有被写出来过 —— 名字里的 Implicit 指的就是这件事（p23 批注 policy improvement is implicit）。</span><br><br>⚠ <b>读它时要注意记号：原论文用 τ 且「τ 大 ⇒ 高分位」，与本课幻灯的 λ 方向相反</b>（<span class='k'>因为误差定义一个是 Q−V、一个是 V−Q</span>）。<b>照抄数值前先看清这一点。</b>"
+  },
+  {
+   "t": "Kumar, Zhou, Tucker, Levine. Conservative Q-Learning for Offline Reinforcement Learning",
+   "id": "2020（⚠ 幻灯只标 Slide adapted from Sergey Levine，未给引用；本条由 p25–28 的公式与算法名反查）",
+   "why": "<b>第二族的代表，p28 明写作业 3 要实现它 —— 而<span class='k'>课堂上这一族完全跳过了</span>（讲稿里 conservative / CQL / push down / logsumexp 出现次数全部为 0）。</b><span class='w'>⇒ 这是本讲唯一一篇「必须自己读论文才能补上」的。</span><br><br><b>要读的两处</b>：<br>① <span class='k'>两条保证的精确条件</span> —— <b>幻灯只写了 Can show that…，而 p25 的逐点下界与 p26 的期望下界各自需要什么假设，决定了你能不能把它当先例引用</b>；<br>② <span class='k'>连续动作下 logsumexp 的采样近似</span> —— <b>幻灯用 Σ_a 这个记号绕过了它，而这一处直接影响 p32 那句「Just one hyperparameter」在连续动作下还算不算成立</b>。<br><br>⚠ <b>本条的引用信息是我按算法名与公式反查的，幻灯没给</b> —— <span class='w'>引用前自行核对作者与年份</span>。"
+  },
+  {
+   "t": "Peters et al. (REPS) · Rawlik et al. (\"psi-learning\")",
+   "id": "p16 的 Aside 里明引（未给年份与完整标题）",
+   "why": "<b>p16 那条小字的出处：<span class='k'>Can show that advantage-weighted objective <u>approximates</u> KL-constrained objective</span>。</b><span class='w'>也就是说 exp(A/α) 这个权重不是随手拍的，它是「在 KL 球 D_KL(π‖π_β) < ε 内最大化 Q」这个约束问题解的形状。</span><br><br>⚠ <b>要紧的是那个词是 approximates 而不是 equals，而近似的条件讲义没说、课堂也没展开</b>（<span class='k'>老师明确说 we won't go through the derivation</span>）。<b>⇒ 如果你要在论文里用「优势加权 ⇒ 隐式 KL 约束」这个论点，必须回这两篇核对条件</b>，<span class='w'>不能引课程幻灯</span>。"
+  },
+  {
+   "t": "Prabhakar, Yuan, Yang, Sun, Muralidharan. Multi-Objective Optimization of Notifications Using Offline RL",
+   "id": "2022（p31 明引）",
+   "why": "<b>唯一的落地案例：LinkedIn 的通知发送策略。</b><span class='k'>三个互相拉扯的指标 —— WAU（周活跃）· Volume（通知总量）· CTR（点击率）</span>。<span class='w'>多发 ⇒ Volume 上去、CTR 下降、长期还可能把用户逼走。</span><br><br><b>对你最有用的不是算法，是它<u>怎么把问题摆成一个离线 RL 问题</u></b>：<span class='k'>三条判据同时成立 —— ① 历史日志海量且免费 ② 在线试错的代价是真实用户体验且不可逆 ③ 反馈有长期成分（WAU 是周级）</span>。<b>这三条可以当成一张检查表反过来用。</b><br><br>⚠ <b>讲稿原话：This example application is for the algorithm we didn't cover.</b> —— <span class='w'>它用的算法本课没讲。</span>"
+  },
+  {
+   "t": "Hansen-Estruch et al. IDQL: Implicit Q-Learning as an Actor-Critic Method with Diffusion Policies",
+   "id": "2023（p32 的 See also 里明引）",
+   "why": "<b>IQL 的后续，老师专门推荐了一句</b>（<span class='w'>if you're interested in diving more into IQL-like algorithms, I would encourage you to check out IDQL</span>）。<br><br>⚠ <b>而紧跟着那句补充值得留意：<span class='k'>beyond using diffusion, it also is a bit different in terms of how this update is done</span></b> —— <span class='w'>差别不只是把策略类换成扩散模型</span>。<b>从标题也能看出端倪：它把 IQL <u>重新解释</u>成了一个 Actor-Critic 方法，也就是把那个「隐式的策略」显式化了。</b><br><br><b>⇒ 具体差在哪，老师没说、幻灯没写。标为待核 —— 要知道只能读论文。</b>"
+  }
+ ]
+}

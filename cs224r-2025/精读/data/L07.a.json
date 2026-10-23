@@ -1,0 +1,580 @@
+{
+ "_目标": {
+  "密度": 600,
+  "quote覆盖": 0.8,
+  "表格每N页": 4
+ },
+ "_守住的数字": [
+  "讲义共 33 页。本片覆盖 p1–13（从三种拟合值函数的方式回顾，到「核心目标就是治高估」）。p1 标题、p2 课务。",
+  "p4 的三种方式按讲义编号：**1. Estimate V^π with Monte Carlo · 2. Estimate V^π with bootstrapped / TD updates · 3. Estimate Q^π with bootstrapped / TD updates**",
+  "⚠ 讲稿里对第 3 种的那句限定是整讲的种子：**we need this Q-function to be trained on actions that actually would resemble the actions that we're going to be evaluating it on** · **So it needs good coverage over action**",
+  "⚠ 课堂有人问 p5 是不是 Q-learning，老师明确否认：**This is actually two lectures ago. This is soft actor-critic.** —— Q-learning 还差最后一处改动（把采样换成 max），而且它学的是**最优策略**的 Q",
+  "p7 三条理由原文：**leverage datasets collected by people, existing systems** · **online policy collection may be risky, unsafe** · **reuse previously collected data rather than recollecting**；并注明 **A blend of offline then online RL is also possible!**",
+  "⚠ 课堂问「离线 RL 是不是在线离策略 RL 的特例」，老师给的是**部分肯定 + 一处精确否认**：**that's a correct way to view it** 但 **you have no ability to collect more data. And in that sense, it's not really a special case of online RL.**",
+  "p8 形式化：s ∼ p_{π_β}(·)，a ∼ π_β(·|s)，s' ∼ p(·|s,a)，r = r(s,a)；π_β 叫 **behavior policy**，括号注 **may be a mixture of policies**。目标 max_θ 𝔼_{p_θ(τ)}[Σ_t r(s_t,a_t)]，箭头标 **expectation under the learned policy π_θ** ⇒ **distribution shift**",
+  "⚠ 讲稿补的一处限定：**the dynamics of the environment are going to be constant between the data and the learned policy. So the distribution shift is only for these trajectories. It's only caused by the shift in the policy.**",
+  "⚠ 课堂问「数据集够全的话两个分布会不会相同」，答：**Generally, that's extremely rare. Generally, that doesn't happen.**",
+  "p11 三条后果原文：**Q-function will be unreliable on OOD actions** · **policy will seek out actions where Q-function is over-optimistic** · **After policy update, Q-values will become substantially overestimated.**；另一视角：**learned policy deviates too much from behavior policy**",
+  "⚠ 讲稿里的那个具体例子用的是开车：数据里有 a1/a2/a3，数据外有 **a4（go on an adventure）· a5（make a U-turn）· a6（go backwards）**；**It never saw a car that, for example, makes a U-turn on the highway.**",
+  "⚠ 课堂问「能不能干脆把分布外动作排除掉」，答案的要害是：**we don't actually know what's in distribution and out of distribution** —— 举的例子是两个相似但不相同的状态各自只见过 a1 与 a2",
+  "p12 整页只有一句话：**How to mitigate overestimation in offline RL?** / **This is the core goal of offline RL methods!**"
+ ],
+ "notes": [
+  {
+   "r": [
+    1,
+    6
+   ],
+   "t": "开场：今天要用的三个旧零件 —— 三种拟合值函数的方式",
+   "star": 3,
+   "quote": "CS 224R Offline Reinforcement Learning.  Course reminders — Homework 2 due next Friday. (start early!!)  Project - CA mentors assigned - Fill out AWS form for GPU quota - Proposal due Friday graded fairly lightly - it's for your benefit!  Recap: Methods — Online RL with policy gradients: baseline, reward to go, policy log likelihood, samples from policy.  Do more of the above average stuff, less of the below average stuff.  Online RL with actor-critic: Estimate what is good and bad, then do more of the good stuff.  1. Estimate V^π with Monte Carlo.  2. Estimate V^π with bootstrapped / TD updates.  3. Estimate Q^π with bootstrapped / TD updates.  Recap: Full Off-Policy Actor-Critic Method, where a'_i ∼ π_θ(·|s'_i).  The plan for today — Offline RL: 1. Why offline RL? Can we just run off-policy methods? 2. Implicit policy constraint methods 3. Conservative methods.  Key learning goals: - the key challenges arising in offline reinforcement learning - two approaches for offline RL (& why they work!) - how offline RL can improve over imitation learning.  Part of homework 3!",
+   "one": "<b>这六页的回顾看起来是客套，其实<span class='k'>是在摆零件</span>：p4 那三种拟合值函数的方式，待会儿会<b>一个一个</b>被今天的三个算法挑走用。</b><span class='w'>讲稿把这件事说得很明白 —— it's actually going to play a pretty important role in today's lecture。</span>",
+   "eq": "p4 把前几讲拟合值函数的方式排成了三条，**编号就是讲义自己的编号**：\n\n────────────────────────────────────────\n**① 蒙特卡洛**（Estimate V^π with Monte Carlo）\n\n   min_φ  Σ_{s_t∼D}  ‖ V̂^{π_θ}_φ(s_t)  −  Σ_{t'=t}^{T} r(s_{t'}, a_{t'}) ‖²\n                        └──估计──┘       └──────标签：实际走出来的回报──────┘\n\n   标签完全来自数据，**不含任何自己的估计** ⇒ 无偏，但方差大。\n\n────────────────────────────────────────\n**② 自举 / TD（对 V）**（Estimate V^π with bootstrapped / TD updates）\n\n   min_φ  Σ_{(s,a,s')∼D}  ‖ V̂^{π_θ}_φ(s)  −  ( r(s,a)  +  γ·V̂^{π_θ}_φ(s') ) ‖²\n                                              └──标签里用了**自己**的估计──┘\n\n   方差小了，但标签里有自己 ⇒ **自举**。\n\n────────────────────────────────────────\n**③ 自举 / TD（对 Q）**（Estimate Q^π with bootstrapped / TD updates）\n\n   min_φ  Σ_{(s,a,s')∼D}  ‖ Q̂^{π_θ}_φ(s,a)  −  ( r(s,a) + γ·𝔼_{a'∼π_θ(·|s')}[ Q̂^{π_θ}_φ(s',a') ] ) ‖²\n                                                                  └── a' 从**当前策略**采 ──┘\n\n   ⇒ **只有第 ③ 种能用旧策略的数据**：(s, a, s') 来自数据集，\n     而 a' 是现场从 π_θ 采的 —— 这正是 L04 p31 那处修补。\n\n────────────────────────────────────────\np5 把 ③ 装进完整循环（就是 SAC 的骨架）：\n\n   采数据 → 存进缓冲区 → 从缓冲区采一批 → 用上面 ③ 更新 Q̂\n          → 更新策略，让它在 Q 高的动作上提高概率 → 回到第一步",
+   "pts": [
+    "<b>先注意 p3 那两句直觉句的顺序，它是前四讲的缩写。</b><span class='k'>策略梯度：Do more of the above average stuff, less of the below average stuff</span>（L03）；<span class='k'>Actor-Critic：Estimate what is good and bad, then do more of the good stuff</span>（L04）。<b>两句的区别只在「above average」这个判断是<span class='w'>从采样里现算</span>还是<span class='w'>从学到的值函数里读</span></b>。<b>而今天要做的事，是把这两句里的「采数据」那一步<span class='k'>彻底拿掉</span>。</b>",
+    "<b>p4 的三条要按「标签从哪来」读，而不是按「公式长什么样」读。</b><span class='k'>① 标签全来自数据（实际回报）· ② 标签里混进了自己对下一状态的估计 · ③ 同 ② 但估的是 Q、而且下一动作是现场采的</span>。<b>这三条的差别决定了它们各自能容忍什么样的数据</b>：<span class='w'>① 和 ② 要求数据是**当前策略**采的（on-policy），因为它们估的是「这个策略的值」</span>；<b>③ 是唯一一条能吃旧策略数据的</b>。",
+    "<b>讲稿里对 ③ 加的那句限定，是整讲的种子，值得整句背下来</b>：<span class='k'>we need this Q-function to be trained on actions that actually would resemble the actions that we're going to be evaluating it on</span>。<b>为什么会有这个要求？因为 ③ 是自举的</b> —— <span class='w'>标签 r + γQ̂(s', a') 里的 Q̂(s', a') 是**自己算的**，不是数据给的</span>。<b>如果 a' 落在训练时从没见过的地方，这个标签就是凭空编的</b>，<span class='k'>而后面整个回归都在拿这个编出来的数当真</span>。讲稿紧接着一句总结：<b>So it needs good coverage over action.</b>",
+    "<b>这句「要有好的动作覆盖」在 L04/L06 里是一条<span class='w'>温和的建议</span>，在今天会变成<span class='k'>硬墙</span>。</b><span class='w'>原因只有一个：在线设定下，策略一旦偏到奇怪的动作上，<b>下一轮就会真的去试它、拿回真实的回报、把估计纠正过来</b></span>。<b>而离线设定下，数据集是定死的</b> —— <span class='k'>偏出去的那块永远不会有数据回来纠正它</span>。<b>同一个毛病，在线是自愈的，离线是自我强化的。</b>",
+    "<b>p5 那个 <code>a'_i ∼ π_θ(·|s'_i)</code> 的下标写法要盯一眼</b>：<span class='k'>s'_i 带下标 i，说明它是数据集里第 i 条样本的下一状态</span>；<span class='k'>a'_i 也带下标 i，但它不是数据里的</span> —— <b>它是对第 i 条样本的 s'_i，现场从策略里采出来的一个动作</b>。<span class='w'>这个区别在纸上只差一个采样符号，在离线设定下却是全部问题的入口</span>：<b>数据集管不着这个 a'_i 取什么值</b>。",
+    "<b>课堂上有人问 p5 是不是 Q-learning，老师明确否认并补了那处差别，这段值得单独记。</b><span class='k'>This is actually two lectures ago. This is soft actor-critic.</span> <b>Q-learning 还差最后一处改动</b>：<span class='w'>不是从「要学的策略」采一个 a'，而是对所有 a' 取 max</span>。<b>而且目的也不同</b> —— <span class='k'>SAC 学的是「当前策略」的 Q，Q-learning 学的是「最优策略」的 Q</span>。<b>讲稿原话：our goal here was to try to learn the Q-function for the optimal policy.</b> ⇒ <span class='w'>今天两族方法里，第一族（AWR/AWAC/IQL）从 SAC 这一侧长出来，第二族（CQL）从 Q-learning 那一侧长出来</span>。",
+    "<b>p6 的三个学习目标里，第三个最容易被当成客套话，其实它是本讲的立论前提。</b><span class='k'>how offline RL can improve over imitation learning</span> —— <b>因为离线数据集的最朴素用法就是模仿学习（L02），而模仿学习<span class='w'>完全没有高估问题</span></b>（它只在数据里的动作上做监督）。<span class='w'>所以每提出一个离线 RL 方法，都得回答「你凭什么比直接模仿好」</span>。<b>p14–15 会正面回答这件事，答案是两个词：奖励信息 与 拼接。</b>"
+   ],
+   "tbl": {
+    "cap": "p4 三种拟合方式：差别只在「标签从哪来」",
+    "head": [
+     "",
+     "① MC（V）",
+     "② TD（V）",
+     "<b>③ TD（Q）</b>"
+    ],
+    "rows": [
+     [
+      "标签",
+      "<b>Σ_{t'≥t} r（实际回报）</b>",
+      "<b>r + γV̂(s')</b>",
+      "<b>r + γQ̂(s', a')，a'∼π_θ</b>"
+     ],
+     [
+      "标签里有自己的估计吗",
+      "<b>没有</b>",
+      "<b>有（自举）</b>",
+      "<b>有（自举）</b>"
+     ],
+     [
+      "方差",
+      "<b>大</b>",
+      "<b>小</b>",
+      "<b>小</b>"
+     ],
+     [
+      "能吃旧策略的数据吗",
+      "<b>不能</b>",
+      "<b>不能</b>",
+      "<b>能 —— 只有这一条</b>"
+     ],
+     [
+      "要求数据覆盖什么",
+      "<b>状态</b>",
+      "<b>状态</b>",
+      "<b>状态 + 动作（good coverage over action）</b>"
+     ],
+     [
+      "今天被谁用",
+      "<b>AWR（p18–19）</b>",
+      "<b>IQL 的 V 那一支（p23）</b>",
+      "<b>AWAC（p20）· CQL（p25）</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿在走到 p4 之前先交代了为什么要重放这一段，这句交代本身就是提示</b>：<br><br><span class='k'>I want to quickly go through these different ways, again, because it's actually going to play a pretty important role in today's lecture.</span><br><br><b>也就是说：这不是复习，是点兵。</b><span class='w'>三条路会在后半讲被三次挑走 —— AWR 用 ①、AWAC 用 ③、IQL 把 ② 的位置换成一个不对称的损失。</span><br><br><b>然后讲稿对 ③ 加了一句限定，这句话是整讲的种子</b>：<br><br><span class='k'>one really important aspect of this last one is that because we're bootstrapping and using our own estimate of the value function at a given state as the label, we need this Q-function to be trained on actions that actually would resemble the actions that we're going to be evaluating it on. And so if our policy is very different from our set of old policies, this label will not be accurate. And then we won't be able to learn an accurate Q-function. So it needs good coverage over action.</span><br><br><b>把这段话和 p11 并排放，会发现 p11 只是把它的后果画成了一张图。</b><br><br><br><b>另外这页上有一段课堂问答，值得记下来</b> —— 有人问 p5 那张图是不是 Q-learning：<br><br><span class='w'>The question is, is this Q-learning? This is actually two lectures ago. This is soft actor-critic. In Q-learning, there is one last change to this. So in this case, we're trying to learn Q-function for the policy that we're learning. The difference that we saw in Q-learning was we were actually trying to learn the Q-function for the optimal policy. […] instead of sampling from the policy that we're trying to learn a value function for, we tried to pick an action that was the best action according to that Q-function. […] our goal here was to try to learn the Q-function for the optimal policy. And this was also something that can be done off policy, without data from the optimal policy, <b>as long as your estimates have good coverage</b>.</span><br><br><b>最后那半句又回到了「覆盖」。</b><span class='k'>讲稿在这一讲里把「good coverage」这个要求说了三次，三次都是在同一件事的不同位置上</span>。",
+   "link": {
+    "t": "你学过的对应：CS224R L04 精读 p31（a' 要从当前策略重采的那处修补 —— p5 的 a'_i ∼ π_θ 就是它）",
+    "href": "L04-精读.html"
+   }
+  },
+  {
+   "r": [
+    7,
+    9
+   ],
+   "t": "为什么要离线 RL：三条理由，和一处被精确纠正的误解",
+   "star": 4,
+   "quote": "Why offline RL?  Online RL process (on-policy or off-policy): Collect data → Update policy on latest data or data so far.  Offline RL process - Given static dataset - Train policy on provided dataset.  Why, or when, might offline RL be more useful? - leverage datasets collected by people, existing systems - online policy collection may be risky, unsafe - reuse previously collected data rather than recollecting (e.g. previous experiments, projects, robots, institutions).  Note: A blend of offline then online RL is also possible!  More formally: sampled from some unknown policy π_β.  s ∼ p_{π_β}(·), a ∼ π_β(·|s), s' ∼ p(·|s,a), r = r(s,a).  \"behavior policy\" π_β (Note: may be a mixture of policies).  Offline dataset.  Objective: max_θ E_{p_θ(τ)}[Σ_t r(s_t,a_t)] ← expectation under the learned policy π_θ.  distribution shift.  Where does the data come from? - human collected data - data from a hand-designed system / controller - data from previous RL run(s) - a mixture of sources.",
+   "one": "<b>离线 RL 的定义只改了一个字：<span class='k'>数据集是给定的</span>。</b><span class='w'>但这一个字把目标函数变成了一个「在你采不到样的分布下求期望」的问题 —— 讲义在 p8 右下角用两个词点名：<b>distribution shift</b>。</span>",
+   "eq": "p7 把两个流程并排画了出来，差别只有一处：\n\n────────────────────────────────────────\n**在线 RL**（on-policy 或 off-policy 都算）\n\n   采数据  ──→  用最新数据（或至今全部数据）更新策略\n     ↑                                    │\n     └────────────────────────────────────┘\n                  **这个环路存在**\n\n**离线 RL**\n\n   给定静态数据集 D  ──→  在 D 上训练策略  ──→  完\n\n                  **没有回路**\n\n────────────────────────────────────────\np8 把它写成形式化（注意每一行各自来自哪里）：\n\n   s   ∼  p_{π_β}(·)      ← 状态分布，由那个**未知**的行为策略诱导\n   a   ∼  π_β(·|s)        ← 动作来自 **behavior policy** π_β（可以是多个策略的混合）\n   s'  ∼  p(·|s, a)       ← 环境动力学\n   r   =  r(s, a)         ← 奖励函数\n\n   而要最大化的目标是：\n\n      max_θ  𝔼_{p_θ(τ)} [ Σ_t r(s_t, a_t) ]\n                 ↑\n              **expectation under the learned policy π_θ**\n\n   ⇒ **期望下的那个分布（π_θ 走出来的轨迹）与手上数据的分布（π_β 走出来的）不是一回事。**\n     讲义在这里写了两个词：**distribution shift**。\n\n────────────────────────────────────────\n⚠ 讲稿补了一处限定，它把这个偏移的**来源**钉死了：\n\n   动力学 p(·|s,a) 与奖励 r(s,a) 在数据与部署之间是**一样的**，\n   ⇒ 偏移**只**来自策略不同，不来自环境变了。\n\n   讲稿原话：the dynamics of the environment are going to be constant\n            between the data and the learned policy. So the distribution\n            shift is only for these trajectories. It's only caused by the\n            shift in the policy.",
+   "pts": [
+    "<b>p7 三条理由不是并列的三条，它们的强度递增，而且第三条最容易被低估。</b><span class='k'>① 已经有数据了（人采的、现成系统采的）</span> —— <b>这是「不用白不用」</b>；<span class='k'>② 在线采可能有风险、不安全</span> —— <b>这是「不能采」</b>（讲稿举的是自动驾驶与癫痫预防的医疗决策）；<span class='k'>③ 重用以前的数据，而不是每次重采</span> —— <b>这是「采了也亏」</b>。<span class='w'>第三条的理由在讲稿里说得最具体：你第一次跑算法的版本大概不是最终版本，而每改一次算法都要让机器人重新抓一万次，这个成本是白付的</b>。<b>讲稿的结论句：generally, online data is more expensive than offline data for that reason, because offline data, you can reuse many times.</b>",
+    "<b>p7 底下那条小字 A blend of offline then online RL is also possible! 不是补充说明，它是本讲最后一页（p32）选型表的一半。</b><span class='k'>先用离线数据预训练、再用在线数据微调</span>，<b>这个组合在实务里比纯离线常见得多</b>（<span class='w'>讲稿举的还是开车：先学人类驾驶数据，策略够好了再带安全员上路采真实数据</span>）。<b>而 p32 会告诉你：如果你要做的是这种组合，选型答案和纯离线不一样</b>。",
+    "<b>课堂上那个「离线 RL 是不是在线离策略 RL 的特例」的问题，老师的回答方式值得学 —— 他先肯定了一半，然后只否认一处。</b><span class='k'>肯定的那一半：that's definitely one that's very—that's a correct way to view it</span>（从算法形状上看确实像）；<span class='k'>否认的那一处：One thing that is a very strict requirement in offline RL, in pure offline RL, is that you have no ability to collect more data. And in that sense, it's not really a special case of online RL.</span> <b>要害在于：在线离策略 RL <span class='w'>可以</span>再采数据，而纯离线<span class='w'>不可以</span></b>。<b>这个「不可以」不是程度差别，是能力差别</b> —— <span class='k'>它意味着一切「错了可以再试一次」的论证在这里全部失效</span>。",
+    "<b>p8 把 π_β 叫做 behavior policy，并在括号里注明它可以是多个策略的混合，这个括号比看起来重要。</b><span class='w'>真实数据集几乎总是混合的</span>（<b>讲稿：if this was collected by people […] it was collected by multiple people, then it's multiple policies</b>）。<b>但讲稿紧接着给出一句很干净的话，说明为什么不必为此多写一套记号</b>：<span class='k'>you can define that mixture as some average or weighted sum over some constituent policies. So we don't lose any generality by saying that it's collected by a single policy.</span> ⇒ <b>混合策略的加权和本身也是一个策略，所以「单一 π_β」这个记法不损失一般性。</b>",
+    "<b>讲稿里还有一处限定，它把「分布偏移」这个词的含义收窄到了一个精确位置，不收窄就会和另一类问题混掉。</b><span class='k'>动力学 p(·|s,a) 与奖励 r(s,a) 在数据和部署之间是相同的</span> —— <b>偏的只有轨迹分布，而轨迹分布之所以偏，<span class='w'>只因为策略不同</span></b>。<b>这意味着离线 RL 不是在处理「环境变了」这类问题</b>（<span class='w'>那是 sim-to-real 或者非平稳环境</span>）；<b>它处理的是「同一个环境，但我只见过另一个策略在里面走过的样子」</b>。<span class='k'>这个限定也解释了为什么方法都围着 π_β 转</span>：病根在策略差距上，那药也只能下在策略差距上。",
+    "<b>课堂上有人问「如果数据集足够全面，学到的策略分布会不会和行为策略分布相同」，老师的回答是两句都值得记的否定。</b><span class='k'>Generally, that's extremely rare. Generally, that doesn't happen.</span> <b>理由有两重</b>：<span class='w'>① 你本来就想比数据里的平均驾驶员好，那你就必然会收窄到一个更好的子分布上</span>；<span class='k'>② 就算数据里的策略已经很好、你退化成在做模仿学习，你仍然会漂移（L02 的复合误差）</span>。<b>⇒ 分布偏移不是「数据不够多」造成的，它是「你想变好」这件事的<span class='w'>直接后果</span></b>。",
+    "<b>p9 那四行「数据从哪来」看着像凑页数，但它决定了 π_β 长什么样，而 π_β 的形状决定了方法的上限。</b><span class='k'>人采的 ⇒ π_β 大概不错但不最优，而且是多人混合（动作分布宽）</span>；<span class='k'>手工控制器采的 ⇒ π_β 常常是确定性的（动作分布极窄）</span>；<span class='k'>以前的 RL 跑出来的 ⇒ π_β 有好有坏，覆盖可能反而更宽</span>。<b>⚠ 第二种是最危险的一种，而 p18 的思考题正好就在问它</b>：<span class='w'>如果 π_β 是确定性的，优势估计会全是 0，整个算法退化成普通模仿学习</span>。<b>那一页会把它算清楚。</b>"
+   ],
+   "tbl": {
+    "cap": "在线 RL（含离策略） vs 离线 RL：差别不在算法，在那个回路",
+    "head": [
+     "",
+     "在线 on-policy",
+     "在线 off-policy（SAC）",
+     "<b>离线 RL</b>"
+    ],
+    "rows": [
+     [
+      "数据来自",
+      "<b>当前策略</b>",
+      "<b>自己过去的策略（缓冲区）</b>",
+      "<b>未知的 π_β，给定不变</b>"
+     ],
+     [
+      "能再采数据吗",
+      "<b>能</b>",
+      "<b>能</b>",
+      "<b>不能 —— 这是硬约束</b>"
+     ],
+     [
+      "估计偏了会怎样",
+      "<b>下一轮采样把它纠正回来</b>",
+      "<b>下一轮采样把它纠正回来</b>",
+      "<b>永远没有数据来纠正</b>"
+     ],
+     [
+      "数据覆盖由谁保证",
+      "<b>探索策略（ε-贪心等）</b>",
+      "<b>探索策略 + 缓冲区的历史多样性</b>",
+      "<b>只能由数据集的来源保证 —— 你无法干预</b>"
+     ],
+     [
+      "分布偏移的来源",
+      "<b>几乎没有</b>",
+      "<b>π_θ 与缓冲区里的旧策略之间（有限）</b>",
+      "<b>π_θ 与 π_β 之间（无界，且会被优化主动放大）</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿在 p7 上花了不少时间讲三条理由的具体场景，这些场景比幻灯上的短语有用得多，因为它们解释了为什么「不能采数据」有时是真的不能</b>：<br><br><span class='k'>if you're trying to learn a policy for controlling a car to drive on roads, you might have a lot of data of people driving, that could be very useful for learning a good policy for driving. And it might be unsafe to actually try to deploy your policy, especially a policy that is not very good at driving.</span><br><br><span class='w'>In other circumstances, people have looked at using reinforcement learning for figuring out good ways to treat people in medical scenarios. So, for example, there was a really cool project on a seizure prevention use case […] This is a scenario where if you have an offline method of some existing system, then you could use that to learn a policy, without having to collect data from a policy that is not good in the first place.</span><br><br><b>第三条理由讲稿标明它更微妙，而且给的理由是关于<span class='k'>算法开发流程</span>的，不是关于任务的</b>：<br><br><span class='k'>if you have a pure online RL method, it means that every single time you need to run your algorithm, you need to recollect data from your policy. And that can be pretty inefficient, because probably, the first time you run the algorithm isn't—you still room for iteration on the algorithm itself. And generally, online data is more expensive than offline data for that reason, because offline data, you can reuse many times.</span><br><br><b>这一条对做研究的人尤其贴</b>：<span class='w'>你调一个超参要重跑一次实验，如果每次重跑都要重新采数据，那你的迭代速度就被采样速度锁死了</span>。<br><br><br><b>然后是那段关于「是不是特例」的问答，老师回答得很克制</b>：<br><br><span class='k'>So the question is, can you view offline RL as a special case of online, but off-policy RL, but where you don't know the data. And that's definitely one that's very—that's a correct way to view it. One thing that is a very strict requirement in offline RL, in pure offline RL, is that you have no ability to collect more data. And in that sense, it's not really a special case of online RL. Because in online off-policy RL, you can collect more data. That said, we'll see that some of the techniques will draw upon some of these off policy techniques from an algorithm standpoint.</span><br><br><b>最后那句「技巧会借用离策略那一套」在后半讲会反复兑现</b>：<span class='w'>AWAC 就是把 SAC 的 critic 更新改了一个采样源，IQL 就是把它的 L2 损失换成不对称的</span>。<b>算法形状确实是借来的，但借来之后每一处改动都是为了「不能再采数据」这一条。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L02 精读（模仿学习 —— 离线数据集最朴素的用法，也是本讲必须超过的基线）",
+    "href": "L02-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>p7 那三条理由，对你的课题是逐条成立的，而且第三条正是你现在的处境。</b><br><br><span class='k'>你的问题是「在组合结构的配置空间上找最便宜的可行配置」，而每评估一个配置要花真金白银（跑一次完整实验 / 一次编译 + 基准测试）</span>。<b>于是</b>：<br>① <span class='w'>你大概已经有一批历史评估记录</span>（以前的实验、别人的 benchmark 表、自动调参工具留下的日志）—— <b>这就是 p7 的第一条</b>；<br>② <span class='k'>某些配置评估起来可能真的代价不可接受</span>（跑崩、超时、占满机器）—— <b>这是第二条的组合优化版本</b>；<br>③ <span class='w'>你每改一次剪枝判据就要重跑一遍搜索</span>，<b>如果每次重跑都要重新评估配置，你的算法迭代速度会被评估预算锁死</b> —— <span class='k'>这正是讲稿说的 you still room for iteration on the algorithm itself</span>。<br><br><b>⇒ 一个具体的做法建议</b>：<span class='k'>把你的搜索实验设计成「离线评估 + 在线少量验证」的两段式</span> —— <b>先在历史记录上把剪枝判据与 MCTS 的超参调好（可以跑几百次，成本为零），只把最后几个候选拿去真评估</b>。<span class='w'>而这样做之后，p10–p11 那个病就会原封不动地出现在你的流程里</span>：<b>在历史记录上调出来的判据，会在历史记录没覆盖的那片配置上过度乐观</b>。<br><br>⚠ <b>标为推断</b>：讲义讲的是 MDP 上的策略学习，不是你的最优化问题；上面的对应是结构类比，<span class='w'>「历史评估日志能不能当离线数据集用」还取决于它的采集方式是否可建模成某个 π_β</span>（如果日志来自网格搜索，那 π_β 是确定性的 —— 正好撞上 p18 的那个退化情形）。",
+    "ref": "本讲 p7 三条理由与 p9 数据来源；p18 的确定性 π_β 思考题"
+   }
+  },
+  {
+   "r": [
+    10,
+    11
+   ],
+   "t": "⭐ 直接套 SAC 会怎样：分布外动作上的高估，而且没有新数据来纠正它",
+   "star": 5,
+   "quote": "Can we just use off-policy algorithms?  What happens if you optimize this using a static dataset? (e.g. say data collected by a mediocre policy)  Recall: Off-policy actor & critic updates (e.g. SAC): Q-function update: min_φ Σ_{(s,a,s')∼D} ‖Q̂^{π_θ}_φ(s,a) − (r(s,a) + γE_{a'∼π_θ(·|s')}[Q̂^{π_θ}_φ(s',a')])‖².  Subsequent policy update.  What happens when evaluating on actions not in the dataset?  Randomly init. Q-function for state s', action a'.  Q(s', a').  data support.  - Q-function will be unreliable on OOD actions - policy will seek out actions where Q-function is over-optimistic - After policy update, Q-values will become substantially overestimated.  Another perspective: learned policy deviates too much from behavior policy.",
+   "one": "<b>一句话病理：<span class='k'>随机初始化的 Q 在没数据的动作上是乱的，而策略更新<span class='w'>专门去找</span>乱得最高的那一个</span>，然后 Q 回归又把这个乱值当真。</b><b>在线设定下这个环会被真实数据切断；离线设定下它没有出口。</b>",
+   "eq": "出发点就是 L04/p5 那个离策略 critic 更新，**一个字没改**：\n\n   min_φ  Σ_{(s,a,s')∼D}  ‖ Q̂_φ(s,a)  −  ( r(s,a)  +  γ·𝔼_{a'∼π_θ(·|s')}[ Q̂_φ(s', a') ] ) ‖²\n                                                        └──── 问题在这里 ────┘\n\n   **(s, a, s') 来自 D；a' 来自 π_θ。而 D 管不着 π_θ 会采出什么 a'。**\n\n────────────────────────────────────────\n讲稿把它在一个具体例子上走了一遍（开车）：\n\n   数据里有的动作：  a1（保持车道）· a2 · a3        ←── data support\n   数据里没有的动作：a4（go on an adventure）\n                   a5（make a U-turn）\n                   a6（go backwards）\n\n   训练一开始，Q̂_φ 是**随机初始化**的：\n\n     Q(s', a')\n        ↑\n        │        ╱╲            ← 支撑外：**纯粹是网络初始化的形状**\n        │   ╱╲  ╱  ╲   ╱╲\n        │  ╱  ╲╱    ╲ ╱  ╲\n        │ ╱           ╲     ╲\n        └──┬──┬──┬──┬──┬──┬──→ a'\n           a1 a2 a3 │ a4 a5 a6\n           └─data support─┘\n\n   ⇒ 支撑内有标签管着它；**支撑外的高低完全是任意的**。\n\n────────────────────────────────────────\n然后那个正反馈启动（p11 的三条就是这三步）：\n\n   ① **Q-function will be unreliable on OOD actions**\n        —— 支撑外的值是编的。\n   ② **policy will seek out actions where Q-function is over-optimistic**\n        —— 策略更新的目标就是 argmax Q，它**主动**去找编得最高的地方。\n   ③ **After policy update, Q-values will become substantially overestimated**\n        —— 策略挪过去之后，a' ∼ π_θ 就落在那片编出来的高处；\n           下一轮 critic 回归把这个编出来的高值当成标签 ⇒ **它被写进了 Q 里**。\n\n   ① → ② → ③ → ① ……\n\n────────────────────────────────────────\n**在线与离线的分水岭就在这个环的出口上：**\n\n   在线：策略挪到 a5（高速掉头）之后，**下一轮真的会去开**，\n         拿回真实奖励（撞车，r 很负）⇒ Q(s,a5) 被打回去。**环被切断。**\n\n   离线：策略挪到 a5 之后，**什么也不会发生**。\n         数据集里永远不会出现一次高速掉头。\n         ⇒ **Q(s,a5) 高得毫无根据，而且会一直高下去。**",
+   "pts": [
+    "<b>先看清这一步里「谁在逼谁」—— 这不是估计误差偶然偏高，而是优化目标<span class='k'>主动去搜索</span>估计误差最大的地方。</b><span class='w'>策略更新那一步做的事就是 argmax_a Q̂(s,a)</span>；<b>而 Q̂ 的误差在支撑外最大、在支撑内最小</b>。<span class='k'>于是 argmax 几乎必然落在支撑外</span> —— <b>不是因为支撑外真的好，而是因为那里的数自由度最高、能随机地冒出最高的值</b>。<span class='w'>这跟「随手挑一个动作、它恰好被高估」是完全不同量级的事</span>。",
+    "<b>把它和 L06 p21 的高估并排放，会看到一个重要的区别：病灶不同，药也不同。</b><span class='k'>L06 的高估：max 作用在<b>支撑内</b>的动作上，根源是「同一个网络既选动作又打分」，噪声为正的那个被系统性挑中</span> —— <b>那是赢家诅咒，药是「别让同一个网络既挑又评」（双 Q）</b>。<span class='k'>L07 的高估：max/argmax 作用到了<b>支撑外</b>，根源是那里压根没有标签</b> —— <b>双 Q 在这里帮不上多少忙</b>，<span class='w'>因为两个网络在同一片没数据的区域上都是在瞎编，<b>取较小的那个仍然是瞎编</b></span>。<b>⇒ 药只能是「别去支撑外」或者「把支撑外压低」，这正是后面两族方法。</b>",
+    "<b>p11 右下角那句 Another perspective 是整讲的第二条主线，它把问题从「Q 不准」翻译成了「策略跑太远」。</b><span class='k'>learned policy deviates too much from behavior policy</span>。<b>这个翻译很有价值，因为它把一个<span class='w'>难以直接控制的量</span>（Q 的误差）换成了一个<span class='w'>可以直接约束的量</span>（π_θ 与 π_β 的距离）</b>。<b>⇒ 第一族方法（p16–23）走的就是这条路</b>：<span class='k'>不去修 Q，而是约束策略别离 π_β 太远</span>。<span class='w'>讲稿：if we stayed closer to the behavior policy, then we wouldn't have this issue</span>。",
+    "<b>课堂上有人问「离散动作空间会不会没这个问题」，答案里那个条件句值得注意。</b><span class='k'>如果数据集在<b>每一个</b>状态上都覆盖了<b>全部</b>动作，那确实没问题 —— 一切都在分布内</b>。<b>但老师马上说这在实践中不成立</b>：<span class='w'>in practice, usually, there will be states, where you don't have full coverage of all actions. And you can still see overestimation in those states.</span> <b>⇒ 离散动作并不是豁免，它只是把「覆盖」这个要求变得可以检查</b>（<span class='k'>可以数一数每个状态见过几个动作</span>）。<b>而连续动作连检查都做不到。</b>",
+    "<b>⭐ 另一个课堂问题是全讲最深的一处：「那把分布外动作排除掉不就行了？」—— 答案是一个关于<span class='k'>可实现性</span>的否定。</b><span class='w'>老师先承认这个方向有人做（and there are approaches for doing that）</span>，<b>然后指出那个致命的实现障碍</b>：<span class='k'>we don't actually know what's in distribution and out of distribution. So we have just samples of states and actions.</span> <b>他举的例子很小但很致命</b>：<span class='w'>状态 s₁ 的数据里只有动作 a1，一个与 s₁ 很相似但不相同的状态 s₂ 的数据里只有 a2</span>。<b>那么 (s₁, a2) 算分布内还是分布外？</b><span class='k'>技术上 a2 在 s₁ 上没见过，但 s₂ 几乎就是 s₁，所以它大概是安全的</b>。<b>⇒ 「支撑」在连续状态空间里<span class='w'>不是一个你能枚举出来的集合</span>，它只能被隐式地近似。这一句话决定了后半讲所有方法的形态：它们都不去显式判断分布内外，而是用某种<b>间接</b>手段避开它。</b>",
+    "<b>把这个「不知道支撑在哪」和前一条「策略跑太远」接起来，就能看懂为什么这一讲的方法都显得「绕」。</b><span class='k'>最直接的三个想法都不可行</span>：<br>① <b>显式检测并排除 OOD 动作</b> ⇒ <span class='w'>做不到，不知道支撑在哪</span>；<br>② <b>显式建模 π_β 再约束 KL(π_θ‖π_β)</b> ⇒ <span class='w'>要先学一个 π_β 的密度模型，而密度估计本身就难、而且误差会直接传进约束里</span>（<b>p25 特意标了 without explicitly modeling the behavior policy，就是在避开这条</b>）；<br>③ <b>只在数据里的动作上评估 Q</b> ⇒ <span class='k'>这条可行！而且它就是第一族方法的全部内容</b>（<span class='w'>AWAC 把 a' 改成从 D 采，IQL 干脆连 Q 的输入都只用数据里的 (s,a)</span>）。<b>⇒ 「绕」不是作者不想直接，是直接的路被前面那两句话堵死了。</b>",
+    "<b>最后提醒一个容易看漏的前提：p10 标题里那个 (e.g. say data collected by a mediocre policy) 不是随口举的例子。</b><span class='k'>如果 π_β 已经是最优策略，那你根本不需要离线 RL，直接模仿它就行（L02）</span>；<b>如果 π_β 很糟，那数据里也没有好行为可供拼接</b>。<span class='w'>离线 RL 的用武之地恰恰是「mediocre」这个中间带</span>：<b>数据里有好片段也有坏片段，而你想要的是只学好的那部分、并且把好片段<span class='k'>接起来</span></b>。<b>p14 那张 s1→s9 的图就是在画这件事。</b>"
+   ],
+   "tbl": {
+    "cap": "同一个「高估」，L06 与 L07 的病灶与药完全不同",
+    "head": [
+     "",
+     "L06 p21（在线 Q-learning）",
+     "<b>L07 p11（离线）</b>"
+    ],
+    "rows": [
+     [
+      "max/argmax 作用在哪",
+      "<b>支撑<u>内</u>的动作上</b>",
+      "<b>支撑<u>外</u>的动作上</b>"
+     ],
+     [
+      "误差从哪来",
+      "<b>有限样本的噪声</b>",
+      "<b>压根没有标签 —— 网络初始化的任意形状</b>"
+     ],
+     [
+      "机制",
+      "<b>赢家诅咒（同一网络既选又评）</b>",
+      "<b>优化主动搜索「编得最高」的地方</b>"
+     ],
+     [
+      "会被纠正吗",
+      "<b>会 —— 下一轮真去试，拿回真实回报</b>",
+      "<b>不会 —— 永远不会有那条数据</b>"
+     ],
+     [
+      "双 Q 有用吗",
+      "<b>有 —— 正是为它设计的</b>",
+      "<b>帮不上多少 —— 两个网络在同一片空地上都在编</b>"
+     ],
+     [
+      "对的药",
+      "<b>别让同一网络既挑又评</b>",
+      "<b>① 别去支撑外（隐式约束） ② 把支撑外压低（保守）</b>"
+     ]
+    ]
+   },
+   "tip": {
+    "t": "为什么「把分布外动作排除掉」不是一个可实现的方案",
+    "w": true,
+    "v": "<b>这是本讲最重要的一处「做不到」，而它只出现在讲稿的一段问答里，幻灯上一个字都没有。</b><br><br><b>问题</b>：<span class='k'>既然病根是「在支撑外的动作上评估 Q」，那更新 Q 的时候把分布外动作排除掉不就完了？</b><br><br><b>老师先承认方向对</b>：<span class='w'>Yeah, and there are approaches for doing that.</span> <b>然后给出障碍</b>：<br><br><span class='k'>Now, the unfortunate thing is we don't actually know what's in distribution and out of distribution. So we have just samples of states and actions. And for a given state, you might have one state that then chooses a1. Then you might have another state that's not exactly the same, but very similar. And that takes a2. And so in that case, a2 might technically not be seen for the first state. But you don't necessarily know—you don't know for a given state, what's in distribution and what's out of distribution.</span><br><br><b>把这段话摆成一张小表就很清楚了</b>：<br><br>· 数据里有 <b>(s₁, a1)</b> 和 <b>(s₂, a2)</b>，其中 <span class='w'>s₂ ≈ s₁ 但不相等</span>；<br>· 问：<b>(s₁, a2)</b> 在分布内吗？<br>· <span class='k'>按「逐字匹配」判 ⇒ 不在</span>（s₁ 上从没见过 a2）；<br>· <span class='k'>按「泛化」判 ⇒ 在</span>（s₂ 几乎就是 s₁，而 a2 在那里是安全的）；<br>· <b>而你手上只有样本，没有那个真正的支撑集。</b><br><br><b>⇒ 三个后果，决定了后半讲所有方法的形态：</b><br><br><b>① 没有方法会去显式判断「这个动作分布内吗」。</b><span class='w'>第一族（AWR/AWAC/IQL）的做法是<b>只用数据里成对出现的 (s,a)</b> —— 这样就根本不需要判断，因为凡是喂进去的都来自数据</span>。<b>IQL 的那句 Never need to query OOD actions! 说的就是这件事。</b><br><br><b>② 第二族（CQL）更彻底地绕开它</b>：<span class='k'>不判断哪些是 OOD，而是<b>一律</b>压低「Q 值大的地方」、同时抬高「数据里的 (s,a)」</span>。<span class='w'>净效果是支撑外被压下去 —— 但不需要知道支撑在哪</span>。<b>p25 那句 without explicitly modeling the behavior policy 正是在强调这一点。</b><br><br><b>③ 这也解释了为什么没有方法去显式学一个 π_β 的密度模型再算 KL。</b><span class='k'>那等于要求你先把支撑估出来</span>，<b>而密度估计的误差会原封不动地变成约束的误差</b>。<span class='w'>p16 那条小字说「优势加权目标<b>近似</b>一个 KL 约束目标」—— 注意是近似，而且是<b>不用显式建模 π_β</b> 地近似。这是整个第一族方法最漂亮的地方。</b>"
+   },
+   "say": "<b>讲稿在这两页上先抛了一个提问，让学生自己说出病理，然后沿着学生的答案走了一遍。先看那个提问</b>：<br><br><span class='k'>Does anyone have thoughts on what will happen if you use an off policy algorithm, like soft actor critic on an offline data set?</span><br><br><b>学生的回答已经把因果链说完整了，老师只是替他整理了一遍</b>：<br><br><span class='w'>we're evaluating our Q-estimate on actions sampled from our policy, and our policy is also trying to increase likelihood on Q-values on […] actions that have high Q-values. And if we have an offline data set, and we're learning a policy that's different from the policy that collected the data, then this Q-estimate that we're supervising […] may not be accurate. Because it didn't actually necessarily see actions in the data that come from the policy we're learning.</span><br><br><b>然后是那个开车例子，它比幻灯上那张示意图具体得多</b>：<br><br><span class='k'>Here are a few of the actions in the data. Maybe this is a1. This is a2. This is a3. And there's other actions that the car could take that's not in the data set. So for example, maybe the car could go on an adventure over here. Maybe that's a4. The car could also make a U-turn. That's a5. The car could also go backwards. Maybe that's a6.</span><br><br><span class='w'>And at the beginning of training, we're going to be randomly initializing our Q-function. […] Then only some of these actions are present in the data. […] And then outside of that, your Q-function is somewhat arbitrary. And you don't actually see any data for outside that.</span><br><br><b>⭐ 下面这句是整个环路的要害</b>：<br><br><span class='k'>And then if that's outside your data, then it will still continue to think that that's a good action because it'll never actually know what the proper Q-value for that action is.</span><br><br><b>「it'll never actually know」—— 这个 never 就是在线与离线的全部区别。</b><br><br><b>老师还补了一句，把 U 形掉头那个例子说到了底</b>：<span class='w'>It never saw a car that, for example, makes a U-turn on the highway. And so the Q-value is randomly initialized for that. Some of those actions that are out of distribution will arbitrarily have higher key values. Some will have lower because it's randomly initialized, and then your policy will exploit those inaccuracies on the out of distribution actions.</span><br><br><b>注意他用的动词是 exploit。</b><span class='k'>策略不是被动地受累于估计误差，它在<b>利用</b>估计误差</b> —— <span class='w'>优化器会非常高效地找到模型最乐观的那个角落，这在任何「用学出来的模型当目标去优化」的场合都会发生</span>。<br><br><br><b>最后，关于「离散动作空间是不是就没事了」那个问答</b>：<br><br><span class='w'>So basically, everything will be the same. It's possible that your data set, if in all the states in your data set, it has full coverage of the actions, then you won't have this problem because everything will be in distribution. But in practice, usually, there will be states, where you don't have full coverage of all actions. And you can still see overestimation in those states.</span><br><br><b>⇒ 离散不是豁免，只是把「覆盖够不够」这件事变成了一个可以数出来的量。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L06 精读 p21（在线 Q-learning 的高估 —— 同一个词，不同的病灶，所以药也不同）",
+    "href": "L06-精读.html"
+   },
+   "res": {
+    "tag": "推断",
+    "v": "<b>这两页描述的失效模式，在你的课题里会以一个更锋利的形式出现，因为你的目标函数是 <span class='k'>argmin 成本</span>，而 argmin 对「乐观的错」毫无抵抗力。</b><br><br><b>把 p11 的三句话逐句翻译到你的设定</b>：<br>① <span class='w'>Q 在 OOD 动作上不可靠</span> ⇒ <b>你的成本代理模型在「从没评估过的那片配置」上不可靠</b>；<br>② <span class='k'>策略会去找 Q 过度乐观的动作</span> ⇒ <b>你的搜索会去找<span class='w'>代理模型预测最便宜</span>的配置，而那很可能只是预测误差最负的地方</b>；<br>③ <span class='w'>更新之后 Q 被系统性高估</span> ⇒ <b>你报告出来的「最优配置成本」会系统性偏低，而真去跑一遍就现形</b>。<br><br><b>⚠ 比 RL 更糟的一点</b>：<span class='k'>你的问题还有可行性约束</span>。<b>如果可行性也是用代理模型判断的，那同一个 argmin 会同时<span class='w'>低估成本</span>并<span class='w'>高估可行概率</span></b> —— <b>它会优先挑那些「看起来又便宜又安全」的配置，而「看起来」恰恰是因为没数据</b>。<span class='w'>这是 L06 的赢家诅咒在约束优化下的版本，而且它有两个方向可以诅咒你</span>。<br><br><b>⇒ 两条可以直接落到设计里的结论</b>：<br><b>① 剪枝与选择必须用悲观估计，不能用点估计。</b><span class='k'>成本用置信上界、可行性用置信下界</span> —— <b>这正是第二族（保守方法，p25–28）的思想</b>：<span class='w'>不去判断哪些配置「在支撑外」，而是一律对「看起来特别好」的那些打一个与不确定性成正比的折</span>。<br><b>② 但悲观不能一刀切。</b><span class='w'>p25 那个 α 要是取得太大，所有没评估过的配置都被压死，搜索就退化成「只在已知区域里挑」</span> —— <b>那你就彻底放弃了组合结构带来的外推能力</b>。<span class='k'>这个取舍在 p26 会被形式化成一个很干净的东西：逐点的保证换成期望意义下的保证</span>。<b>那一页值得你仔细读。</b><br><br>⚠ <b>标为推断</b>：这里把「策略」类比成「搜索/选择规则」、把「Q 函数」类比成「成本代理模型」，<span class='w'>讲义没做这个类比</span>；而且你的设定里没有自举（没有 Bellman 回路），所以<b>①→②→③ 的那个正反馈在你这里弱一些</b> —— <span class='k'>你的误差不会被写回模型再放大，除非你把搜索选出来的配置再喂回训练集（主动学习循环），那时它就完全成立了</span>。",
+    "ref": "本讲 p11 三条；对照 CS224R L06 p21 的赢家诅咒与 CSE 541 L06 的经验均值 argmax"
+   }
+  },
+  {
+   "r": [
+    12,
+    13
+   ],
+   "t": "一整页只有一句话：整个离线 RL 就是在治这一个病",
+   "star": 4,
+   "quote": "How to mitigate overestimation in offline RL?  This is the core goal of offline RL methods!  The plan for today — Offline RL: 1. Why offline RL? Can we just run off-policy methods? 2. Implicit policy constraint methods 3. Conservative methods.  Part of homework 3!",
+   "one": "<b>p12 整页只有两行字，而它是本讲的中轴：<span class='k'>离线 RL 的全部内容就是在治 p11 那一个病</span>。</b><span class='w'>后面 20 页的两族方法，是对同一个问题的两种下手位置 —— 一种管住策略，一种管住 Q。</span>",
+   "eq": "p12 全页内容（就这么多）：\n\n   **How to mitigate overestimation in offline RL?**\n\n   **This is the core goal of offline RL methods!**\n\n────────────────────────────────────────\n接下来两族方法的下手位置（p13 的 2 与 3）：\n\n   病：  π_θ 跑到支撑外 ──→ 在那里查 Q ──→ Q 是编的 ──→ 写回 Q ──→ 跑得更远\n            ↑                   ↑\n            │                   │\n     **第一族在这里下手**    **第二族在这里下手**\n     Implicit policy        Conservative\n     constraint methods     methods\n     （p14–23）             （p24–28）\n\n   **第一族**：让 π_θ 只在数据里的动作上被监督\n            ⇒ 它根本没机会跑到支撑外去\n            ⇒ 「约束」是**隐式**的 —— 不写出任何 KL 项，\n              却达到了「别离 π_β 太远」的效果\n\n   **第二族**：承认 π_θ 会去查支撑外，但让那里的 Q **一律偏低**\n            ⇒ 查过去也没有吸引力\n            ⇒ 代价是要调一个「压多狠」的系数 α",
+   "pts": [
+    "<b>p12 这种「一整页一句话」的幻灯在这门课里出现过几次，每次都是在标一个中轴，值得当书签用。</b><span class='k'>它把前 11 页和后 20 页接起来：前面是病理，后面全是药</span>。<b>而且它用的词很克制 —— mitigate，不是 solve</b>。<span class='w'>后面会看到两族方法都没有把问题消掉：第一族放弃了「可能比数据好很多」的上限，第二族引入了一个要调的超参</span>。<b>这不是作者谦虚，这是这个问题的现状</b>（<span class='k'>p32 最后一行写着 Still an active area of research!</span>）。",
+    "<b>两族方法的名字各自标明了下手位置，读名字就能记住它们的区别。</b><span class='k'>Implicit policy constraint —— 约束<b>策略</b>，而且是<b>隐式</b>地约束</span>：<b>不写出 KL(π_θ‖π_β) < ε 这样的显式约束</b>（<span class='w'>因为那要先学一个 π_β，而 p11 的问答已经说明那条路难走</span>），<b>而是通过「只在数据里的动作上做监督」自动达到同样的效果</b>。<span class='k'>Conservative —— 改<b>Q</b></span>：<b>在 critic 的目标里直接加一项，把 Q 值大的地方往下压</b>。",
+    "<b>「隐式」这个词要抠一下，因为它正是第一族方法的卖点所在。</b><span class='w'>显式约束的做法是：先估一个 π̂_β，再解 max_π 𝔼_π[Q] s.t. KL(π‖π̂_β) < ε</span>。<b>这条路有两处代价</b>：<span class='k'>① 要做密度估计（难，而且误差会传进约束）· ② 要在每一步解一个带约束的优化</span>。<b>而 p16 会给出一个只有一行的目标</b>：<span class='w'>θ ← argmax 𝔼_{s,a∼D}[log π_θ(a|s)·exp(A(s,a))]</span> —— <b>它看起来只是「带权的模仿学习」，但可以证明它近似上面那个带约束的问题</b>。<span class='k'>没有 π̂_β，没有约束求解器，而约束的效果在那儿</span>。<b>这是全讲最漂亮的一处。</b>",
+    "<b>两族方法的代价各不相同，而 p32 的选型建议正是按这两种代价给的，所以现在先把它们记下来。</b><span class='k'>第一族的代价：上限被数据锁住</span> —— <b>它只在数据里的动作上监督策略，所以永远不会提出一个数据里没有的动作</b>（<span class='w'>p19 与 p23 的 + 号里都写着 Avoids querying or training on any OOD actions</span>，<b>这是优点也是天花板</b>）。<span class='k'>第二族的代价：那个 α</span> —— <b>压太轻没效果，压太狠把一切都压平</b>（<span class='w'>p32 说 CQL 的卖点正是 Just one hyperparameter，可见这一个超参是它的主要负担</span>）。",
+    "<b>还有一个在 p13 上看不见、但对读后半讲很有用的提醒：这两族不是互斥的。</b><span class='w'>IQL（第一族的终点）里既有「只用数据里的动作」这个隐式约束，<b>也有</b>一个不对称损失在做「往某个方向少罚一点」的事</span>；<b>而那个不对称本质上是一种<span class='k'>有方向的保守</span></b>（<span class='w'>只不过它的方向是<b>乐观</b>的 —— 故意高估 π_β，因为目标是估一个比 π_β 更好的策略</span>）。<span class='k'>所以两族的分法是为了讲清楚，不是一条硬边界</span>。",
+    "<b>最后，p13 右边那个 Part of homework 3! 的花括号正好括住了 2 与 3 两项，这个括号是有信息量的。</b><span class='k'>作业 3 要实现的是 IQL 和 CQL</span> —— <b>各族一个代表</b>（<span class='w'>p23：You will implement IQL in homework 3!；p28：You will implement CQL in homework 3!</span>）。<b>⇒ 如果你要按作业的重要性分配精读的注意力，p20–23 与 p25–28 是两个重心</b>，<span class='w'>而 p14–19 是通往第一个重心的必经之路（AWR 是 IQL 的策略提取那一步）</span>。"
+   ],
+   "tbl": {
+    "cap": "两族方法预览：同一个病，两个下手位置",
+    "head": [
+     "",
+     "第一族：隐式策略约束（p14–23）",
+     "第二族：保守方法（p24–28）"
+    ],
+    "rows": [
+     [
+      "改什么",
+      "<b>改策略的目标（带权模仿）</b>",
+      "<b>改 critic 的目标（加惩罚项）</b>"
+     ],
+     [
+      "怎么避开支撑外",
+      "<b>只喂数据里的 (s,a) ⇒ 没机会查支撑外</b>",
+      "<b>允许查，但把 Q 大的地方一律压低</b>"
+     ],
+     [
+      "要不要显式建模 π_β",
+      "<b>不要 —— 约束是隐式的</b>",
+      "<b>不要（p25 特意标明）</b>"
+     ],
+     [
+      "代表算法",
+      "<b>Filtered BC → AWR → AWAC → <u>IQL</u></b>",
+      "<b><u>CQL</u></b>"
+     ],
+     [
+      "主要代价",
+      "<b>上限被数据锁住（不会提出数据外的动作）</b>",
+      "<b>一个要调的 α（压太狠就全压平）</b>"
+     ],
+     [
+      "作业 3 要实现的",
+      "<b>IQL（p23）</b>",
+      "<b>CQL（p28）</b>"
+     ]
+    ]
+   },
+   "say": "<b>讲稿在这里只说了一句过渡，但这句话里的 really 值得注意</b>：<br><br><span class='k'>OK, so let's talk about mitigating overestimation. This is really the core goal behind offline RL methods.</span><br><br><b>然后他没有直接进第一族，而是先插了一段关于<span class='w'>模仿学习</span>的话 —— 这段话在幻灯上对应的是 p14，但它其实是对 p12 的直接回应</b>：<br><br><span class='w'>So the one approach to offline RL is basically to do imitation learning. And the reason why imitation learning works is that you're only supervising with actions that are seen in the data. And so any approach that uses imitation learning is going to be avoiding out-of-distribution actions, somewhat implicitly because you're only going to be supervising with actions that are in the data.</span><br><br><b>⭐ 这段话是第一族方法的全部动机，而且它解释了「implicit」这个词的来历</b>：<br><br><span class='k'>模仿学习<b>天然</b>不碰分布外动作 —— 不是因为它检测了什么，而是因为它的监督信号里只有数据里的动作。</span><br><br><b>所以第一族方法的思路可以一句话概括：<span class='w'>保留模仿学习这个「天然安全」的骨架，再想办法把奖励信息塞进去</span></b>。<br><br><span class='w'>Now, we don't necessarily want to use vanilla imitation learning because the offline data may not be optimal. […] offline RL methods should provide a way to be better than the policy that underlies the data by leveraging reward information</span><br><br><b>⇒ 于是后面六页的进展路线就定下来了，每一步都在同一个骨架上多塞一点奖励信息</b>：<br><br>· <b>p15</b> <span class='k'>按轨迹回报筛一遍再模仿</span>（最粗的用法）<br>· <b>p16–17</b> <span class='k'>按每个 transition 的优势加权模仿</span>（细到单步）<br>· <b>p18–19</b> <span class='k'>优势用蒙特卡洛估（AWR）</span><br>· <b>p20–21</b> <span class='k'>优势用自举估，a' 从数据采（AWAC）</span><br>· <b>p22–23</b> <span class='k'>再把 L2 换成不对称损失，估一个比 π_β 更好的策略的值（IQL）</span><br><br><b>五步，骨架一步没动 —— 动的一直是「优势怎么估」。</b>",
+   "link": {
+    "t": "你学过的对应：CS224R L02 精读（模仿学习 —— 它「天然不碰分布外动作」这一点，是第一族方法的出发点）",
+    "href": "L02-精读.html"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "p4 的三种拟合值函数方式里，为什么只有第 ③ 种（对 Q 做 TD）能用旧策略的数据？",
+    "o": [
+     "因为 Q 函数的方差更小",
+     "因为它的标签 r + γQ̂(s',a') 里，(s,a,s') 来自数据而 a' 是现场从 π_θ 采的 —— 对当前策略的依赖被收进了一个可以重采的位置",
+     "因为它不需要自举",
+     "因为 Q 比 V 多一个输入，表达力更强"
+    ],
+    "a": 1,
+    "why": "① 和 ② 的标签里含有「这个策略实际走出来的后续」，所以数据必须是当前策略采的。③ 把这个依赖换成了「给定 s'，从当前策略现场采一个 a'」—— 这个动作可以随时重采，所以 (s,a,s') 用旧数据无妨。这正是 L04 p31 那处修补。"
+   },
+   {
+    "q": "讲稿对第 ③ 种方式加了一句限定：we need this Q-function to be trained on actions that actually would resemble the actions that we're going to be evaluating it on。这个要求的根源是什么？",
+    "o": [
+     "神经网络的泛化能力有限",
+     "奖励函数可能有噪声",
+     "它是自举的 —— 标签 r + γQ̂(s',a') 里的 Q̂(s',a') 是自己算的，a' 落在没见过的地方时这个标签就是凭空编的",
+     "数据集通常不够大"
+    ],
+    "a": 2,
+    "why": "讲稿把因果链说全了：because we're bootstrapping and using our own estimate of the value function at a given state as the label […] if our policy is very different from our set of old policies, this label will not be accurate。自举意味着标签的质量取决于估计在那个点上准不准。"
+   },
+   {
+    "q": "课堂上有人问 p5 那张图是不是 Q-learning。老师否认后补的那处差别是？",
+    "o": [
+     "Q-learning 必须是 on-policy 的",
+     "Q-learning 用的是 V 而不是 Q",
+     "Q-learning 的目标里不是从要学的策略采一个 a'，而是对所有 a' 取 max；而且它学的是最优策略的 Q，不是当前策略的 Q",
+     "Q-learning 不需要回放缓冲区"
+    ],
+    "a": 2,
+    "why": "讲稿原话：instead of sampling from the policy that we're trying to learn a value function for, we tried to pick an action that was the best action according to that Q-function […] our goal here was to try to learn the Q-function for the optimal policy。p5 是 SAC。"
+   },
+   {
+    "q": "p3 的两句直觉句（策略梯度 vs Actor-Critic）之间的真正区别是？",
+    "o": [
+     "「高于平均」这个判断是从采样里现算，还是从学到的值函数里读出来",
+     "一个有基线，一个没有",
+     "一个是离散动作，一个是连续动作",
+     "一个是 on-policy，一个是 off-policy"
+    ],
+    "a": 0,
+    "why": "两句话的结构完全一样（多做好的、少做坏的），差别在于「好不好」这个判断的来源：策略梯度用 reward-to-go 减基线，Actor-Critic 用学出来的 Q 或 A。今天要做的事是把两句里的「采数据」那一步拿掉。"
+   },
+   {
+    "q": "p6 的三个学习目标里，how offline RL can improve over imitation learning 为什么是本讲的立论前提而不是客套话？",
+    "o": [
+     "因为离线数据集最朴素的用法就是模仿学习，而模仿学习完全没有高估问题 —— 所以任何离线 RL 方法都必须回答「你凭什么比直接模仿好」",
+     "因为模仿学习更简单，所以要先讲它",
+     "因为模仿学习不需要奖励标签",
+     "因为作业 3 要实现模仿学习"
+    ],
+    "a": 0,
+    "why": "模仿学习只在数据里的动作上做监督，天然不碰分布外动作。它是免费的安全基线，所以离线 RL 必须给出超过它的理由。p14–15 正面回答：奖励信息 + 拼接。"
+   }
+  ],
+  "7": [
+   {
+    "q": "p7 的三条理由里，第三条（reuse previously collected data rather than recollecting）在讲稿里的理由是关于什么的？",
+    "o": [
+     "关于环境的非平稳性",
+     "关于算法开发流程：你每改一次算法就要重跑一次，如果每次重跑都要重采数据，迭代速度就被采样速度锁死了",
+     "关于数据隐私",
+     "关于奖励函数的可得性"
+    ],
+    "a": 1,
+    "why": "讲稿：probably, the first time you run the algorithm isn't—you still room for iteration on the algorithm itself. And generally, online data is more expensive than offline data for that reason, because offline data, you can reuse many times。这一条对做研究的人最贴。"
+   },
+   {
+    "q": "「离线 RL 是在线离策略 RL 的一个特例」—— 老师的回答是？",
+    "o": [
+     "完全错误，两者的目标函数不同",
+     "完全正确，离线 RL 就是缓冲区不更新的 SAC",
+     "从算法形状上看是对的，但有一处不是特例：纯离线设定下你没有能力再采数据，而在线离策略可以",
+     "取决于数据集是否来自单一策略"
+    ],
+    "a": 2,
+    "why": "讲稿先肯定（that's a correct way to view it），再只否认一处（you have no ability to collect more data. And in that sense, it's not really a special case of online RL）。这个「不能」不是程度差别而是能力差别，它让一切「错了可以再试」的论证失效。"
+   },
+   {
+    "q": "p8 在括号里注明 π_β may be a mixture of policies。讲稿给出的「不必为此多写一套记号」的理由是？",
+    "o": [
+     "混合策略在实践中很少见",
+     "数据集会标注每条轨迹来自哪个策略",
+     "混合策略的加权和本身也是一个策略，所以写成单一 π_β 不损失一般性",
+     "可以假设各个策略足够相似"
+    ],
+    "a": 2,
+    "why": "讲稿：you can define that mixture as some average or weighted sum over some constituent policies. So we don't lose any generality by saying that it's collected by a single policy。"
+   },
+   {
+    "q": "讲稿补的那句「动力学在数据与部署之间是相同的」有什么作用？",
+    "o": [
+     "说明可以用模型学习的方法",
+     "说明奖励函数可以忽略",
+     "把「分布偏移」的来源钉死在策略差距上 —— 偏的只有轨迹分布，而它之所以偏只因为策略不同，不是因为环境变了",
+     "说明环境必须是确定性的"
+    ],
+    "a": 2,
+    "why": "原话：the distribution shift is only for these trajectories. It's only caused by the shift in the policy。这把离线 RL 和 sim-to-real、非平稳环境这些问题区分开了，也解释了为什么所有方法都围着 π_β 转：病根在策略差距上，药就只能下在那里。"
+   },
+   {
+    "q": "「如果数据集足够全面，学到的策略分布会和行为策略分布相同吗？」",
+    "o": [
+     "会，只要数据集覆盖了全部状态-动作对",
+     "取决于折扣因子",
+     "会，只要用足够大的神经网络",
+     "一般极少发生：你本来就想比数据里的平均水平好，那就必然收窄到一个更好的子分布；就算 π_β 已经很好、你退化成在做模仿，也仍会漂移"
+    ],
+    "a": 3,
+    "why": "讲稿：Generally, that's extremely rare. Generally, that doesn't happen。两重理由：想变好 ⇒ 必然偏；不想变好 ⇒ L02 的复合误差仍会让你漂移。分布偏移是「想变好」的直接后果，不是数据不够多造成的。"
+   },
+   {
+    "q": "p9 的四种数据来源里，哪一种最可能让后面 AWR 那类方法退化成普通模仿学习？",
+    "o": [
+     "手工设计的控制器采的数据 —— 它常常是确定性的，动作分布极窄",
+     "以前的 RL 跑出来的数据",
+     "多种来源的混合",
+     "人采的数据（多人混合）"
+    ],
+    "a": 0,
+    "why": "p18 的思考题正是问这个：若 π_β 确定，则从每个状态只见过一个动作，经验回报就等于值函数，优势全为 0，exp(0)=1，带权模仿退化成普通模仿。手工控制器正是这种情形的典型。"
+   }
+  ],
+  "10": [
+   {
+    "q": "p11 的那个正反馈环里，「策略更新」这一步扮演的角色是？",
+    "o": [
+     "它偶然会挑到被高估的动作",
+     "它会主动去搜索估计误差最乐观的那个角落 —— 因为它的目标就是 argmax Q̂，而 Q̂ 的误差在支撑外最大",
+     "它会把 Q 的误差平均掉",
+     "它只影响探索，不影响 critic"
+    ],
+    "a": 1,
+    "why": "讲稿用的动词是 exploit：your policy will exploit those inaccuracies on the out of distribution actions。这不是运气不好，是优化器在高效地找模型最乐观的地方 —— 任何「拿学出来的模型当目标去优化」的场合都会这样。"
+   },
+   {
+    "q": "L06 p21 的高估和 L07 p11 的高估，病灶的区别在哪？",
+    "o": [
+     "两者其实是同一回事",
+     "L06 是连续动作，L07 是离散动作",
+     "L06 的 max 作用在支撑内（根源是有限样本噪声 + 同一网络既选又评），L07 的 argmax 跑到了支撑外（根源是那里压根没有标签）",
+     "L06 用了目标网络，L07 没有"
+    ],
+    "a": 2,
+    "why": "因此药也不同：双 Q 是为 L06 那种情形设计的，但在 L07 里帮不上多少 —— 两个网络在同一片没数据的区域上都在瞎编，取较小的那个仍然是瞎编。L07 的药只能是「别去支撑外」或「把支撑外压低」。"
+   },
+   {
+    "q": "⭐ 课堂上有人问「能不能干脆把分布外动作排除掉」。这个方案的致命障碍是？",
+    "o": [
+     "计算量太大",
+     "这会让 Q 函数不可微",
+     "需要知道奖励函数",
+     "我们并不知道什么是分布内、什么是分布外 —— 手上只有样本，而在连续状态空间里「支撑」不是一个能枚举出来的集合"
+    ],
+    "a": 3,
+    "why": "老师举的例子：状态 s₁ 只见过 a1，很相似但不相同的 s₂ 只见过 a2，那 (s₁,a2) 算分布内还是分布外？逐字匹配说不在，泛化说在，而你没有那个真正的支撑集。这句话决定了后半讲所有方法都不去显式判断分布内外。"
+   },
+   {
+    "q": "p11 右下角的 Another perspective: learned policy deviates too much from behavior policy，这个「换一个视角」的价值在哪？",
+    "o": [
+     "它说明应该用更大的网络",
+     "它说明问题其实不严重",
+     "它说明应该增加探索",
+     "它把一个难以直接控制的量（Q 的误差）换成了一个可以直接约束的量（π_θ 与 π_β 的距离）"
+    ],
+    "a": 3,
+    "why": "第一族方法走的就是这条路：不去修 Q，而是约束策略别离 π_β 太远。讲稿：if we stayed closer to the behavior policy, then we wouldn't have this issue。"
+   },
+   {
+    "q": "「离散动作空间是不是就没有这个问题？」",
+    "o": [
+     "原则上若每个状态都覆盖了全部动作就没问题，但实践中总有状态没覆盖全 —— 所以离散不是豁免，只是把「覆盖够不够」变成了可以数出来的量",
+     "取决于动作数是否超过状态数",
+     "不是，离散动作下问题更严重",
+     "是，离散动作下一切都在分布内"
+    ],
+    "a": 0,
+    "why": "讲稿：in practice, usually, there will be states, where you don't have full coverage of all actions. And you can still see overestimation in those states。连续动作连「数一数」都做不到。"
+   },
+   {
+    "q": "为什么不走「显式学一个 π̂_β 的密度模型，再约束 KL(π_θ‖π̂_β) < ε」这条最直接的路？",
+    "o": [
+     "那等于要求先把支撑估出来，而密度估计本身就难、其误差会原封不动变成约束的误差；而且每步要解一个带约束的优化",
+     "KL 散度不可微",
+     "π_β 是未知的，所以无法定义 KL",
+     "因为 KL 约束只适用于 on-policy 方法"
+    ],
+    "a": 0,
+    "why": "p25 特意标明 without explicitly modeling the behavior policy。而 p16 的小字说优势加权目标「近似」一个 KL 约束目标 —— 注意是不用显式建模 π_β 地近似，这是第一族方法最漂亮的地方。"
+   },
+   {
+    "q": "p10 标题里的 (e.g. say data collected by a mediocre policy) 为什么不是随口举的例子？",
+    "o": [
+     "因为这是作业 3 的数据集设定",
+     "因为 mediocre 策略的 Q 函数最好估",
+     "因为 mediocre 的数据噪声最大",
+     "因为 π_β 若已最优就该直接模仿、若太糟则数据里也没有好行为可拼接 —— 离线 RL 的用武之地恰恰是这个中间带"
+    ],
+    "a": 3,
+    "why": "数据里有好片段也有坏片段，而你想要的是只学好的那部分并把好片段接起来。p14 那张 s1→s9 的图画的就是这件事。"
+   }
+  ],
+  "12": [
+   {
+    "q": "p12 整页只有一句话 This is the core goal of offline RL methods!。它用的动词是 mitigate 而不是 solve，这个用词准确吗？",
+    "o": [
+     "不准确，IQL 的 Never need to query OOD actions! 说明问题已解决",
+     "准确 —— 两族方法都留下了代价：第一族的上限被数据锁住，第二族引入了一个要调的 α；p32 最后一行写着 Still an active area of research!",
+     "不准确，CQL 已经彻底解决了高估问题",
+     "准确，因为高估问题在理论上不可解"
+    ],
+    "a": 1,
+    "why": "没有一族把问题消掉。第一族只在数据里的动作上监督策略，所以永远不会提出数据外的动作（优点也是天花板）；第二族压太轻没效果、压太狠把一切压平。"
+   },
+   {
+    "q": "「Implicit policy constraint」这个名字里的 implicit 具体指什么？",
+    "o": [
+     "约束只在训练初期生效",
+     "不写出任何 KL 约束项、也不学 π_β 的密度模型，而是通过「只在数据里的动作上做监督」自动达到「别离 π_β 太远」的效果",
+     "约束由神经网络自己学出来",
+     "约束是近似的，所以不保证满足"
+    ],
+    "a": 1,
+    "why": "p16 给出的目标只有一行带权模仿，没有 π̂_β、没有约束求解器，而约束的效果在那儿。小字说明它可以被证明近似一个 KL 约束目标。"
+   },
+   {
+    "q": "讲稿在走进第一族之前先说了一段关于模仿学习的话，它为什么是第一族的全部动机？",
+    "o": [
+     "因为模仿学习不需要折扣因子",
+     "因为模仿学习只用数据里的动作做监督，所以天然不碰分布外动作 —— 不是因为它检测了什么，而是因为它的监督信号里只有数据里的动作",
+     "因为模仿学习的收敛性有保证",
+     "因为模仿学习更容易实现"
+    ],
+    "a": 1,
+    "why": "原话：any approach that uses imitation learning is going to be avoiding out-of-distribution actions, somewhat implicitly because you're only going to be supervising with actions that are in the data。第一族的思路就是保留这个天然安全的骨架、再把奖励信息塞进去。"
+   },
+   {
+    "q": "p14–p23 这六页的进展路线，一直在改的是哪一样东西？",
+    "o": [
+     "回放缓冲区的大小",
+     "策略网络的结构",
+     "折扣因子的取值",
+     "优势怎么估 —— 骨架（带权模仿）一步没动：筛轨迹 → 按优势加权 → MC 估（AWR）→ 自举估且 a' 从数据采（AWAC）→ 不对称损失（IQL）"
+    ],
+    "a": 3,
+    "why": "五步改的都是「怎么估那个权重」。这也是为什么 p18–19 的 AWR 值得仔细读：IQL 的策略提取那一步用的正是 AWR。"
+   },
+   {
+    "q": "p13 右边那个 Part of homework 3! 的花括号括住了第 2 与第 3 项，这暗示了什么？",
+    "o": [
+     "作业 3 要实现两族各一个代表：IQL（p23）与 CQL（p28）",
+     "作业 3 要实现 Filtered BC 与 AWR",
+     "作业 3 只要求理解不要求实现",
+     "作业 3 要实现全部五个算法"
+    ],
+    "a": 0,
+    "why": "p23 写着 You will implement IQL in homework 3!，p28 写着 You will implement CQL in homework 3!。所以按作业的重要性分配注意力，p20–23 与 p25–28 是两个重心。"
+   },
+   {
+    "q": "「两族方法是互斥的」这个说法对吗？",
+    "o": [
+     "不对 —— IQL 里既有「只用数据里的动作」这个隐式约束，也有一个不对称损失在做有方向的偏移；分法是为了讲清楚，不是硬边界",
+     "对，一个改策略目标、一个改 critic 目标，不能同时用",
+     "不对，因为 CQL 其实也是一种带权模仿",
+     "对，因为它们的理论保证不兼容"
+    ],
+    "a": 0,
+    "why": "IQL 那个不对称本质上是一种有方向的偏移，只不过方向是乐观的 —— 它故意高估 π_β，因为目标是估一个比 π_β 更好的策略的值。"
+   }
+  ]
+ }
+}
