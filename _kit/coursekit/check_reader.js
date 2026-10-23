@@ -60,11 +60,32 @@ const ok = (name, cond, got) => {
   else { fail++; console.log("  [FAIL] " + name + "   实测: " + JSON.stringify(got)); }
 };
 
+const PROFILE = path.join(os.tmpdir(),
+  "cdp-reader-" + process.pid + "-" + Date.now().toString(36));
+
+function dropProfile() {
+  // 本次这个多半删不掉 —— Windows 上 Chrome 刚被 kill，文件句柄还没释放。
+  // 所以顺手把**上几次**留下的也扫掉（那时它们的 Chrome 早已退出）。
+  try { fs.rmSync(PROFILE, { recursive: true, force: true }); } catch (e) { /* 留给下次 */ }
+  try {
+    const dir = os.tmpdir();
+    for (const n of fs.readdirSync(dir)) {
+      if (n === "cdp-reader" || (n.startsWith("cdp-reader-") && path.join(dir, n) !== PROFILE)) {
+        try { fs.rmSync(path.join(dir, n), { recursive: true, force: true }); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+}
+
 async function connect(port) {
   const child = spawn(CHROME, ["--headless=new", "--disable-gpu", "--no-first-run",
     "--no-default-browser-check", "--disable-background-timer-throttling",
     "--allow-file-access-from-files", `--remote-debugging-port=${port}`,
-    `--user-data-dir=${path.join(os.tmpdir(), "cdp-reader")}`,
+    // ⚠ 每次用**全新** profile。原来固定在 cdp-reader，于是结果取决于历史 ——
+    //   2026-10-23 实测：同一份逐字节未变的页面，先前 27/0，后来稳定 24/3，
+    //   主题那三条全反（存的是 light，量出来是深色）。删掉 profile 立刻恢复 27/0。
+    //   省下的启动时间不值得让闸门变成一个看运气的东西。
+    `--user-data-dir=${PROFILE}`,
     "about:blank"], { stdio: "ignore" });
   let tgt;
   for (let i = 0; i < 60 && !tgt; i++) {
@@ -390,5 +411,6 @@ async function run(cdp, file, tag) {
   console.log("\n" + "═".repeat(54));
   console.log(`通过 ${pass} · 失败 ${fail}   （${targets.length} 讲）`);
   cdp.ws.close(); cdp.child.kill();
+  dropProfile();
   process.exit(fail ? 1 : 0);
-})().catch((e) => { console.error("崩了: " + e.message); process.exit(2); });
+})().catch((e) => { console.error("崩了: " + e.message); dropProfile(); process.exit(2); });

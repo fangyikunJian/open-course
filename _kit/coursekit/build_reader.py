@@ -353,6 +353,22 @@ def check(co, L, d):
     return not bad
 
 
+def _remote_pdf(co, L):
+    """这一讲的 canonical PDF URL；没配就返回空串。
+
+    单讲的 `pdf_remote` 覆盖课程级的。模板里可用 {pdf} {tag} {ts}：
+    {ts} 是单讲的 Wayback 时间戳（CS224R 每份讲义的快照时间不同）。
+    """
+    tpl = L.get("pdf_remote") or co.c.get("pdf_remote") or ""
+    if not tpl:
+        return ""
+    for k in ("pdf", "tag", "ts"):
+        tpl = tpl.replace("{%s}" % k, str(L.get(k) or ""))
+    if "{" in tpl:
+        raise SystemExit("%s：pdf_remote 里还有没填的占位符 —— %s" % (L["tag"], tpl))
+    return tpl
+
+
 def render(co, L, d, th=None):
     s = io.open(TPL, encoding="utf-8").read()
     notes = ",\n".join(json.dumps(n, ensure_ascii=False) for n in d["notes"])
@@ -374,6 +390,11 @@ def render(co, L, d, th=None):
         ("{{PAGES}}", str(L["pages"])),
         ("{{PDFPATH}}", "%s/%s" % (rel, L["pdf"])),
         ("{{PDF}}", L["pdf"]),
+        # 线上（GitHub Pages）没有讲义 PDF —— 它被 .gitignore 挡在库外，
+        # 于是左栏的相对路径一律 404。课程或单讲可声明 canonical 源，
+        # 模板按 hostname 切换；没声明就留空，行为与从前一致。
+        ("{{PDFREMOTE}}", _remote_pdf(co, L)),
+        ("{{PAGEOFFSET}}", str(int(L.get("page_offset") or 0))),
         ("{{TAG}}", L["tag"]),
         ("{{KEY}}", "%s-%s" % (co.c.get("id") or "course", L["tag"].lower())),
         # 早期版本用的是不带课程前缀的键；模板里有一段一次性迁移会去找它

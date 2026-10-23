@@ -266,6 +266,8 @@ html{color-scheme:light dark}
     <div id="miss">
       <p><b>左边没显示原课件？</b></p>
       <p>本页直接引用你本地的原件：<code>../corpus/slides/lecture_3.pdf</code>。</p>
+      <p id="remotehint" hidden>线上这一份改指课程官网 / Internet Archive 的原件：
+      <code id="remoteurl"></code>。若它打不开，多半是对方站临时不可达。</p>
       <p>确认文件在即可。若浏览器拦本地 iframe 读 PDF，在 <code>bandits-cse541</code> 目录下执行
       <code>python -m http.server 8080</code>，再访问
       <code>http://127.0.0.1:8080/精读/L03-精读.html</code>。</p>
@@ -344,6 +346,13 @@ var TH = {"title": "L03 接上课题的哪一段：一节凸性地基，长出�
 
 (function(){
   var PDF="../corpus/slides/lecture_3.pdf", MAX=33;
+  /* 线上（GitHub Pages）库里没有讲义 PDF（被 .gitignore 挡着），左栏会 404。
+     声明了 canonical 源就改指它；本地 file:// 与 localhost 仍走相对路径，
+     这样离线可用、也不依赖 archive.org。
+     PAGEOFF：切章 PDF 的第 1 页在整本里是第 1+PAGEOFF 页（S&B 用）。 */
+  var PDF_REMOTE="https://courses.cs.washington.edu/courses/cse541/25sp/resources/lecture_3.pdf", PAGEOFF=0;
+  var USE_REMOTE = !!PDF_REMOTE && /(^|\.)github\.io$/i.test(location.hostname);
+  var SRC = USE_REMOTE ? PDF_REMOTE : PDF, POFF = USE_REMOTE ? PAGEOFF : 0;
   var frame=document.getElementById("pdf"), card=document.getElementById("card"),
       pnum=document.getElementById("pnum"), strip=document.getElementById("strip"),
       right=document.getElementById("right");
@@ -425,13 +434,17 @@ var TH = {"title": "L03 接上课题的哪一段：一节凸性地基，长出�
     bindQuiz();
     bindBadge();
   }
+  if(USE_REMOTE){
+    var rh=document.getElementById("remotehint"), ru=document.getElementById("remoteurl");
+    if(rh&&ru){ ru.textContent=PDF_REMOTE; rh.hidden=false; }
+  }
   function go(p){
     p=Math.max(1,Math.min(MAX,parseInt(p,10)||1));
     if(p===cur) return;
     cur=p; pnum.value=p;
     // 只改 #hash 不会让 Chrome 内置 PDF 阅读器翻页 —— 实测 src 已是 #page=49
     // 而工具栏仍停在 1/78。必须让它认为这是一次**新的导航**，所以加查询参数。
-    frame.src=PDF+"?p="+p+"#page="+p+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+    frame.src=SRC+"?p="+p+"#page="+(p+POFF)+"&toolbar=0&navpanes=0&scrollbar=0&view=FitH";
     render(p);
     paintStrip();
     right.scrollTop=0;
