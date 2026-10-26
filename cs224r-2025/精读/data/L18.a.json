@@ -1,0 +1,295 @@
+{
+ "_目标": {"密度": 600, "quote覆盖": 0.8, "表格每N页": 4},
+ "_守住的数字": [
+  "p1 这一讲是**两讲合一**：**Frontiers & open problems in deep RL** ＋ **How to do (deep RL) research**。⚠ 后半那 25 页（p29–p53）是整门课唯一讲**方法论**的部分",
+  "p2 课务：**Homework 4 due today** · **Poster session next Wednesday** · **Final report due following Monday**，旁注 **← no extensions or late days**",
+  "p4 今天的结构是 **3 大类 7 个问题**：**1. Problem set-up**（a. Non-rewarding, unverifiable domains）· **2. Methods**（b. Leveraging prior data and knowledge · c. Using world models · d. How to scale）· **3. Deployment & Evaluation**（e. Safety · f. Handling inaccuracies, hallucinations · g. Evaluation of generalist systems）",
+  "⚠ 讲者的自我限定：「this will **not be exhaustive**… I'm just picking out some of the ones that I think I've either **gotten questions about quite a bit** or some of the problems that I think are **the most exciting**」—— 这是**她个人的选单**，不是领域的完整地图",
+  "p5–p8 **No problem** 的三样：**Games · Math reasoning · Coding problems**（奖励好定、好验证）；**Challenge: rewards don't exist, or very delayed**",
+  "p5 **① 聊天机器人**：现在用 **preference optimization**，而它优化的是 **「what you want to hear」**。⚠⚠ **[Sharma & Tong et al., 2023]** 那张图：横轴是「其他条件相同时，带某个特征的回答被偏好的概率」，而排在最前的是 **Agrees with me** 与 **Is confident**，**Is actually true!** 排在**最底下**",
+  "⇒ 讲者的结论一句话：**People don't actually give good preferences!**；还有 **Personalization vs. polarization**（个性化到极端信念的人身上会加剧极化）与 **Balancing multiple objectives that may compete with each other**",
+  "p6 **② 机器人**：现在是 **often binary or hand-shaped**；配图问 **How would you score each of these shirt folds?** —— 褶皱多少、偏不偏心，**连人都难打分**",
+  "p7 **③ YouTube 推荐**：**Weighted combination of engagement (e.g. clicks) & satisfaction (e.g. likes)**，而关键一句是 ⚠ **Score weights are manually tuned!**（那篇论文自己承认权重是人手调的）",
+  "p8 **④ 数学推理 → Scientific experimentation and reasoning**（科学问题常常**不知道正确答案**）；**⑤ Can machines optimize for learning?**（人是在地上爬、玩玩具里学的，「who knows what they're optimizing for」）",
+  "p10 **先验数据与知识**。**Default tool**：**Initialize model weights to pre-trained model, initialize replay buffer using offline data**",
+  "⚠⚠ **[Ball et al., 2023]** 的反例：**This method initializes only the buffer, not the weights!** —— 讲稿说得更直白：**「they found that pre-training the weights did worse than not pre-training the weights」**",
+  "⇒ 讲者给的机制解释：预训练模型的**输出层可能已经收敛到相当确定性的分布**，于是「that last layer might **not actually be exploring in a good way**」；而**语言模型上 RL 好用，可能恰恰因为预训练模型的输出 token 分布很分散**",
+  "p10 两个公开问题：**(1) What about more abstract prior knowledge?**（hints、新闻文章里的知识）· **(2) Do pre-training weights and data constrain learning too much?**；以及两个长远的问法：**How can LLMs go beyond pre-training, to solve problems that humans haven't solved?** · **How can robots/AVs learn to do tasks faster and more reliably than humans?**",
+  "p12 **视频生成模型**：**Rich world knowledge. They should be useful.** / **But there are large, nuanced challenges!**（讲稿举的例子里有「键盘要是用小熊软糖做的会是什么样」）",
+  "⚠ 核心困难：动作条件的视频模型 `s_t, a_{t:t+h} → s_{t+1:t+h}` 在 demos ＋ 一个策略的 roll-outs 上训练，拿去评新策略的动作 `ã_{t:t+h}` 时 —— **These will be out of distribution!** ＋ **Small physical inaccuracies lead to poor performance!**",
+  "⇒ 更阴险的一点（讲稿）：**如果数据集大部分是示范，那它会预测出「任务被正确完成」的视频 —— 哪怕那些动作其实不会导致正确结果**",
+  "⇒ 两条出路：**Possible solution 1: Train on data from more policies?** · **Possible solution 2: Use the model in other ways?**（只用 demos 训 `s_t → s_{t+1:t+h}`，**predict future video + run goal-conditioned policy** —— 绕开了出分布动作的问题，因为模型只用来**规划**）",
+  "p14–p15 **怎么扩大规模**：**Large scale RL for LLMs is exciting! Yet, currently fairly short-horizon or very online.** / **Often considers \"single-turn\" dialog instead of full conversation outcome.**",
+  "⇒ 贯穿两页的问题：**Can we do large-scale RL with longer horizons & with less online data?**",
+  "⚠⚠ p15 两个具体的公开问题：**1. Can we train & use accurate value functions at scale?** —— **Algorithms like PPO only use value functions for reducing gradient variance, may not be accurate enough for actor-critic algorithms**；**2. Can we enable large-scale \"batch online\" RL?**（**More practical: few iterations of [collect large batch of data, update model]，possibly asynchronously!**）",
+  "⇒ 讲稿里的自动驾驶例子把「批量在线」讲清楚了：**不可能让所有车一起采数据、然后每 30 秒更新一次策略**；现实做法是**先攒几天到一周的数据，再更新，再重复**",
+  "⇒ 新的算法考虑：**expressive policies for enough data breadth**（**[Dong et al., 2025]** 发现用**扩散策略**这类更有表达力的策略很关键）—— 因为全在线时策略马上就会变、天然有多样性，**而批量设定下你没有「频繁换策略」这个奢侈**"
+ ],
+ "notes": [
+  {
+   "r": [1, 4],
+   "t": "这一讲是两讲合一，而且讲者先声明这不是完整地图",
+   "star": 2,
+   "quote": "<b>CS 224R — Frontiers &amp; open problems in deep RL &nbsp;<b>+</b>&nbsp; How to do (deep RL) research</b><br><em>Course reminders: <b>Homework 4 due today</b> · <b>Poster session next Wednesday</b> · <b>Final report due following Monday</b> &nbsp;<b>← no extensions or late days</b></em><br><b>Frontiers &amp; challenges: the plan for today</b><br><em><b>1. Problem set-up</b> — a. Non-rewarding, unverifiable domains<br><b>2. Methods</b> — b. Leveraging prior data and knowledge · c. Using world models · d. How to scale<br><b>3. Deployment &amp; Evaluation</b> — e. Safety · f. Handling inaccuracies, hallucinations · g. Evaluation of generalist systems</em>",
+   "one": "<b>最后一讲塞了两件事：深度 RL 还剩哪些问题没解决，以及怎么做研究。而前半的结构很整齐——三大类、七个问题，按「定义问题 / 想方法 / 部署评估」排开。</b>",
+   "pts": [
+    "<b>先看清这一讲的<b>双重身份</b>，因为它决定了该怎么读：<b>p1–p28 是前沿问题清单，p29–p53 是研究方法论</b>。</b> <span class='k'>后半那 25 页是整门课<b>唯一</b>讲「怎么做研究」的部分，而且它不依赖前半——<b>可以单独读，也值得单独重读</b></span>。",
+    "<b>p4 那张结构图把七个问题排进了三个阶段，而这个排法本身有信息量：<b>它按一个研究项目的生命周期走</b>。</b> <span class='w'><b>① 定义问题</b>（奖励都没有，你优化什么？）→ <b>② 想方法</b>（有了目标，怎么学得动、学得快？）→ <b>③ 部署与评估</b>（学出来了，怎么知道它行不行、敢不敢上线？）</span>",
+    "<b>⇒ 七个问题逐一点名：<b>a 无奖励／不可验证的领域</b> · <b>b 用好先验数据与知识</b> · <b>c 用世界模型</b> · <b>d 怎么扩大规模</b> · <b>e 安全</b> · <b>f 不准确与幻觉</b> · <b>g 通才系统的评估</b>。</b>",
+    "⚠️ <b>而讲者开场就给了一个<b>自我限定</b>，这一句要记住，否则会误读这份清单的地位。</b> <span class='k'>原话：「this will <b>not be exhaustive</b>. There's many problems and many open challenges in deep reinforcement learning. I'm just picking out some of the ones that I think I've either <b>gotten questions about quite a bit</b> or some of the problems that I think are <b>the most exciting and the most interesting</b>」</span>。",
+    "<b>⇒ 所以这是<b>一位研究者的个人选单</b>，选的标准是「被问得多」＋「我觉得最有意思」—— <b>不是领域的完整地图，也不是重要性排序</b>。</b> <span class='w'>⇒ 读的时候别把「没被列进来」当成「不重要」。</span>",
+    "<b>⇒ 但反过来说，「被问得多」这个标准本身很有用：<b>它告诉你哪些问题是这个领域的人<b>反复在想</b>的</b>。</b> <span class='k'>⇒ 而一个被很多人反复问、却还没解决的问题，通常既是真问题、也是竞争激烈的问题。<b>这个双重性在挑题的时候要一起考虑</b>（而 p34–p37 正是讲这个的）。</span>",
+    "<b>p2 的课务提醒里有一个细节值得留意：<b>←  no extensions or late days</b>（不延期、不给迟交额度）。</b> <span class='w'>⇒ 配着 p2 的三项（作业今天交、下周三海报、再下周一终稿）看，这是一门<b>把期末项目当真</b>的课。</span>",
+    "<b>⇒ 而这和后半那 25 页的方法论是配套的：<b>学生正好在做自己的研究项目，所以讲「怎么做研究」是即时可用的</b>，不是泛泛的人生建议。</b> <span class='k'>⇒ 这也是为什么 p42–p44 那几页（怎么处理风险、什么时候转向）写得那么具体——<b>它们是写给正在卡住的人看的</b>。</span>",
+    "<b>⚠ 最后留意 p9 / p11 / p13 / p16 / p20 / p24 / p28 是<b>同一张结构图反复出现</b>，每次高亮当前位置。</b> <span class='w'>⇒ 这是讲座里常见的「进度条」手法，而它的代价是**七页幻灯基本没有新内容**。<b>读 PDF 时可以直接跳过，但要知道它标记了章节边界。</b></span>"
+   ],
+   "eq": "这一讲的**双重身份**（决定该怎么读）：\n   **p1–p28** 前沿问题清单\n   **p29–p53** 研究方法论\n     —— 整门课**唯一**讲「怎么做研究」的部分\n     不依赖前半，**可以单独读，也值得单独重读**\n\np4 的结构：**三大类 7 个问题**，按一个研究项目的**生命周期**排\n\n   **1. Problem set-up**（定义问题：奖励都没有，你优化什么？）\n       a. Non-rewarding, unverifiable domains\n\n   **2. Methods**（想方法：怎么学得动、学得快？）\n       b. Leveraging prior data and knowledge\n       c. Using world models\n       d. How to scale\n\n   **3. Deployment & Evaluation**（学出来了，敢不敢上线？）\n       e. Safety\n       f. Handling inaccuracies, hallucinations\n       g. Evaluation of generalist systems\n\n⚠ 讲者开场的**自我限定**（这一句要记住）：\n   「this will **not be exhaustive**… I'm just picking out some of the ones\n     that I think I've either **gotten questions about quite a bit** or some of\n     the problems that I think are **the most exciting and the most interesting**」\n\n   ⇒ 这是**一位研究者的个人选单**，标准是「被问得多」＋「我觉得最有意思」\n     **不是领域的完整地图，也不是重要性排序**\n   ⇒ 别把「没被列进来」当成「不重要」\n\n   ⇒ 但「被问得多」这个标准本身有用：\n     **它告诉你哪些问题是这领域的人反复在想的**\n     而一个被反复问、却还没解决的问题，**既是真问题、也是竞争激烈的问题**\n     ⇒ 这个双重性挑题时要一起考虑（p34–p37 正是讲这个）\n\np2 课务里的细节：**← no extensions or late days**\n   配着三项（作业今天交 · 下周三海报 · 再下周一终稿）看\n   ⇒ 这是一门**把期末项目当真**的课\n   ⇒ 而这和后半 25 页的方法论配套：\n     **学生正好在做自己的项目，所以讲「怎么做研究」是即时可用的**\n     也解释了 p42–p44 为什么那么具体 —— **写给正在卡住的人看的**\n\n⚠ p9 / p11 / p13 / p16 / p20 / p24 / p28 是**同一张结构图反复出现**\n   每次高亮当前位置（讲座里的「进度条」手法）\n   代价是这七页**基本没有新内容** ⇒ 读 PDF 可以跳过，但它们标记了章节边界",
+   "tbl": {
+    "head": ["三个阶段", "对应的问题", "问的是什么"],
+    "rows": [
+     ["<b>1 定义问题</b>", "<b>a 无奖励／不可验证的领域</b>", "<b>奖励都没有，你优化什么？</b>"],
+     ["<b>2 方法</b>", "<b>b 先验数据与知识</b>", "<b>已有的东西怎么用上</b>"],
+     ["", "<b>c 世界模型</b>", "<b>视频生成那些知识能用吗</b>"],
+     ["", "<b>d 怎么扩大规模</b>", "<b>长视界 + 少在线数据</b>"],
+     ["<b>3 部署与评估</b>", "<b>e 安全</b>", "<b>开放世界里没法保证</b>"],
+     ["", "<b>f 不准确与幻觉</b>", "<b>人机合用时反而更差</b>"],
+     ["", "<b>g 通才系统的评估</b>", "<span class='w'>⚠ RL 没有可靠的离线指标</span>"]
+    ]
+   },
+   "say": "原话（这不是完整清单，而是她个人的选单）：<em>“I'm going to break this into a few different categories. The first is challenges on <b>defining the problem setup</b>. The second is <b>challenges in methods</b>. And the third is <b>challenges in deployment and evaluation</b>. I should also mention that <b>this will not be exhaustive</b>. There's many problems and many open challenges in deep reinforcement learning. <b>I'm just picking out some of the ones that I think I've either gotten questions about quite a bit or some of the problems that I think are the most exciting and the most interesting.</b>”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这张清单对你最直接的用处，是<b>拿它当坐标系</b>：七个问题里，你的课题正好压在<b>第 g 项</b>上，而且是被讲者<b>点名</b>的那个开放问题。</b><br><span class='k'>g 是「通才系统的评估」，而它的核心困难（p25/p27 会详细讲）是 <b>RL 里没有可靠的离线指标</b> —— 讲者给出的具体问法之一是：<b>「能不能做出至少能<b>排除</b>坏模型的离线指标？」</b></span><br><b>⇒ 你在做的事情，用这一讲的语言说出来就是：<b>在一个可自动验证的子类上，构造一个能排除坏配置的离线准则，并给它一个分布无关的保证</b>。</b><span class='w'>⇒ 这个措辞值得记下来，因为它把你的工作接到了一个<b>课程级别的公开问题</b>上，而不是一个工程优化。</span><br><b>⚠ 但同一张清单也提醒你一件事：<b>你碰的是 g，而不是 a</b>。</b> <span class='k'>a 是「奖励不存在或不可验证」。而你的设定<b>假定了 Acc 可自动判定</b> —— 也就是说你站在 p5 那张图上标着 <b>No problem</b> 的那一侧（Games / Math reasoning / Coding problems）</span>。<b>⇒ 这不是缺点，但必须<b>说清楚</b>：你解的是 g，并且依赖 a 不成立（即奖励可验证）这个前提。</b><br><b>⇒ 顺带，第 d 项（怎么扩大规模）会在 p14–p15 给你一个<b>现成的名字</b>来描述你的实验设定，那一条比这里更具体，见那一页的科研格。</b><br><b>⚠ 最后一条是关于「被问得多」这个选题标准的，而它对你有一个<b>不太舒服</b>的含义：<b>讲者选的七个问题，都是很多人在想的问题</b>。</b> <span class='w'>⇒ 这意味着 g 这个方向上<b>有人在跑</b>。⇒ 而这一讲后半（p42 的「把风险前置」、以及讲稿里那段关于被抢发的问答）恰好给了应对办法——<b>那段问答的结论是「执行得好常常比抢到第一更有影响力」，见 .c 那片的科研格</b>。</span>",
+    "ref": "本讲 p4 p9（逐字核对）· 讲稿（not exhaustive / 被问得多）· p5 · p14–p15 · p25 p27 · 简报 §1 §2（已核）"
+   }
+  },
+  {
+   "r": [5, 8],
+   "t": "奖励不存在或太迟：四个领域，和那张「人其实偏好自信而不是正确」的图",
+   "star": 3,
+   "quote": "<b>Non-rewarding, non-verifiable domains</b><br><em><b>No problem</b>: Games · Math reasoning · Coding problems<br><b>Challenge: rewards don't exist, or very delayed</b></em><br><em><b>1. LLMs for chatbots</b> — Right now: preference optimization · <b>“what you want to hear”</b> · Personalization vs. polarization. · <b>People don't actually give good preferences!</b> [Sharma &amp; Tong et al., 2023] — <b>Is confident</b> / <b>Agrees with me</b> / … / <b>Is actually true!</b> · Balancing multiple objectives that may compete with each other.</em><br><em><b>2. Robotics</b> — Right now: often binary or hand-shaped · <b>How would you score each of these shirt folds?</b></em><br><em><b>3. YouTube recommendations</b> — Weighted combination of engagement (e.g. clicks) &amp; satisfaction (e.g. likes) · <b>Score weights are manually tuned!</b></em><br><em><b>4. Math reasoning → Scientific experimentation and reasoning</b> · <b>5. Can machines optimize for learning?</b></em>",
+   "one": "<b>RL 成功的地方（游戏、数学、代码）有个共同点：奖励好定、好验证。而这四页逐一拆开了「不好定」长什么样——最扎人的是那张图：人类偏好里，「自信」和「合我意」排在最前，「是真的」排在最底下。</b>",
+   "pts": [
+    "<b>先把这几页的框架认清：幻灯左上角那块标着 <b>No problem</b>，里面是 <b>Games · Math reasoning · Coding problems</b>。</b> <span class='k'>这三样的共同点不是「简单」，而是<b>奖励能程序化地算出来、而且能验证对错</b>。⇒ 换句话说，RL 近年最响的那些成果，全都站在这块地基上</span>。",
+    "<b>⇒ 而问题一句话：<b><em>rewards don't exist, or very delayed</em></b>。注意是<b>两种</b>毛病，不是一种</b>——<span class='w'>「不存在」（折衬衫好不好，没有客观答案）和「太迟」（这次推荐好不好，要等你看完才知道，甚至要等几个月看你有没有流失）<b>是两个不同的难题</b></span>。",
+    "⚠️ <b><b>① 聊天机器人</b>是这几页的重头，而那张 <b>[Sharma & Tong et al., 2023]</b> 的图值得仔细看。</b> <span class='k'>横轴是「<b>其他条件相同时，带某个特征的回答被偏好的概率</b>」—— 这是一个干净的控制变量设计；纵轴是各种特征</span>。",
+    "<b>⇒ 结果：排在最前面的是 <b>Is confident</b>（答得自信）和 <b>Agrees with me</b>（合我意）；而 <b><em>Is actually true!</em></b>（真的对）排在<b>最底下</b>。</b> <span class='w'>讲稿的说法是：「they're actually caring about whether it's <b>confident more than whether or not the response is actually correct or true</b>」</span>。<b>⇒ 幻灯自己的结论就一句：<b><em>People don't actually give good preferences!</em></b></b>",
+    "⚠️ <b>⇒ 这一条的分量要说透：<b>偏好学习的整条路线，是建立在「人的偏好能代表好坏」这个假设上的，而这篇论文说这个假设不成立</b>。</b> <span class='k'>⇒ 而且失效的方向<b>最糟</b>：它不是随机噪声，而是<b>系统性地奖励自信和附和</b> —— 于是优化这个目标，会把模型往「说得笃定、顺着你说」的方向推。</span>",
+    "<b>⇒ 讲者补了第二层：<b>个性化也不一定是对的目标</b>。</b> <span class='w'>「if we personalize these kinds of models for the many people that use these models, then it might lead to <b>polarization</b> in people who, for example, have extreme beliefs <b>rather than being exposed to a wide range of beliefs</b>」</span>。<b>⇒ 幻灯的措辞是 <b><em>Personalization vs. polarization</em></b> —— 一个对单个用户是改善的东西，在人群尺度上可能是损害。</b>",
+    "<b>⇒ 所以这一组的真正难点，幻灯最后一行写明了：<b><em>Balancing multiple objectives that may compete with each other</em></b>。</b> <span class='k'>⇒ 不是「找不到奖励」，而是<b>有好几个都想要、而且互相打架</b>。</span>",
+    "<b><b>② 机器人</b>（p6）：现在的做法是 <b><em>often binary or hand-shaped</em></b>，而配图是一排折好的衬衫，问 <b><em>How would you score each of these shirt folds?</em></b></b> <span class='w'>讲稿把难点列了出来：「how you might reward <b>different mistakes, different amounts of crinkleness, whether or not the shirt is off center</b>… it's generally a very ambiguous problem and <b>hard even for people</b>」</span>。<b>⇒ 关键在最后半句：<b>连人都难打分</b>，所以「找人标注」这条路也堵了一半。</b>",
+    "⚠️ <b><b>③ YouTube 推荐</b>（p7）最有现实感，而它的要点是一句自曝。</b> <span class='k'>做法听起来很合理：<b>engagement</b>（你点没点）＋ <b>satisfaction</b>（点了之后喜不喜欢）的加权组合。⇒ 但幻灯的重点在下一行：<b><em>Score weights are manually tuned!</em></b></span><b>⇒ 一个服务了十亿人的系统，它的奖励权重是<b>人手调的</b>——这恰好说明「怎么平衡多个目标」这个问题到今天也没有自动化的答案。</b>",
+    "<b><b>④ 数学推理 → 科学实验与推理</b>（p8）：难点是<b>科学问题常常不知道正确答案</b>。</b> <span class='w'>「you often don't necessarily know what the final answer should be… if you want to train on a broader set of scientific reasoning problems, this sort of <b>verification becomes challenging</b>」</span>。<b>⇒ 注意这里的断裂点：<b>数学可验证，科学不一定</b>——而把 RL 从前者推到后者，卡的正是这一条。</b>",
+    "<b><b>⑤ Can machines optimize for learning?</b>（p8）是全讲最开放的一问。</b> <span class='k'>讲稿：「humans often learn by <b>rolling around on the floor, playing with random toys</b>. And it seems like they're not just optimizing for one particular task. They're optimizing—— <b>well, who knows what they're optimizing for?</b>」</span><b>⇒ 于是设想是：<b>让机器也这样探索世界，优化的目标就是「学到东西」本身</b>。⇒ 这其实就是内在动机／好奇心那条线，而讲者只把它当成一个敞着的问题提一句。</b>"
+   ],
+   "eq": "框架：幻灯左上角 **No problem** 那块 = **Games · Math reasoning · Coding problems**\n   共同点不是「简单」，而是**奖励能程序化算出、而且能验证对错**\n   ⇒ RL 近年最响的成果全站在这块地基上\n\n问题一句话：**rowards don't exist, or very delayed**\n   ⚠ 是**两种**毛病：\n     **不存在** —— 折衬衫好不好，没有客观答案\n     **太迟** —— 这次推荐好不好，要等看完、甚至等几个月看流失\n\n⚠⚠ **① 聊天机器人**（重头）：**[Sharma & Tong et al., 2023]**\n   横轴：**其他条件相同时，带某个特征的回答被偏好的概率**（干净的控制变量）\n   纵轴：各种特征\n\n   结果：**Is confident**（自信）、**Agrees with me**（合我意）排最前\n         **Is actually true!**（真的对）排**最底下**\n   「they're actually caring about whether it's **confident more than whether\n     or not the response is actually correct or true**」\n   幻灯结论一句：**People don't actually give good preferences!**\n\n   ⚠⚠ 分量要说透：\n     **偏好学习整条路线建立在「人的偏好能代表好坏」上，而这篇说它不成立**\n     而且失效方向**最糟**：不是随机噪声，而是**系统性地奖励自信和附和**\n     ⇒ 优化它，会把模型推向「说得笃定、顺着你说」\n\n   第二层：**个性化也不一定是对的目标**\n     「might lead to **polarization** in people who have extreme beliefs\n       **rather than being exposed to a wide range of beliefs**」\n     **Personalization vs. polarization**\n     ⇒ 对单个用户是改善的，在人群尺度上可能是损害\n\n   真正的难点（幻灯最后一行）：\n     **Balancing multiple objectives that may compete with each other**\n     ⇒ 不是「找不到奖励」，而是**好几个都想要、而且互相打架**\n\n**② 机器人**：**often binary or hand-shaped**\n   **How would you score each of these shirt folds?**\n   「**different mistakes, different amounts of crinkleness, whether or not\n     the shirt is off center**… hard **even for people**」\n   ⇒ 关键在最后半句：**连人都难打分** ⇒ 「找人标注」也堵了一半\n\n⚠ **③ YouTube 推荐**（最有现实感，要点是一句自曝）：\n   **engagement**（点没点）＋ **satisfaction**（喜不喜欢）的加权组合\n   ⇒ 重点在下一行：**Score weights are manually tuned!**\n   ⇒ 一个服务十亿人的系统，奖励权重是**人手调的**\n     说明「怎么平衡多目标」到今天也没有自动化答案\n\n**④ 数学推理 → 科学实验与推理**：**科学问题常常不知道正确答案**\n   ⇒ 断裂点：**数学可验证，科学不一定**\n\n**⑤ Can machines optimize for learning?**（全讲最开放的一问）\n   「humans often learn by **rolling around on the floor, playing with random\n     toys**… **well, who knows what they're optimizing for?**」\n   ⇒ 让机器也这样探索，目标就是「学到东西」本身（内在动机／好奇心那条线）",
+   "tbl": {
+    "head": ["五个例子", "现在怎么做的", "卡在哪"],
+    "rows": [
+     ["<b>聊天机器人</b>", "<b>preference optimization</b>", "<span class='w'>⚠ 人偏好「自信＋合我意」，真实性排最后</span>"],
+     ["<b>机器人</b>", "<b>二值奖励或手工塑形</b>", "<b>折衬衫连人都难打分</b>"],
+     ["<b>YouTube 推荐</b>", "<b>点击＋喜欢的加权组合</b>", "<span class='w'>⚠ 权重是人手调的</span>"],
+     ["<b>科学推理</b>", "<b>从数学推理迁移</b>", "<b>不知道正确答案</b>"],
+     ["<b>机器能优化「学习」吗</b>", "<b>—（公开问题）</b>", "<b>人在地上爬着学，优化的是什么？</b>"],
+     ["<b>对照：游戏／数学／代码</b>", "<b>奖励可程序化、可验证</b>", "<b>No problem</b>"]
+    ]
+   },
+   "say": "原话（那张图：人偏好自信胜过正确）：<em>“there was this research paper by <b>Sharma and Tong</b> that was evaluating what preferences people are giving. And the x-axis is <b>the probability that a response with the given feature is preferred when all else is equal</b>… And the things that were most preferred in the human preferences were <b>whether it was something that the human agreed with and whether or not the response was confident</b>… And then all the way down here is <b>factuality</b>. And so they're actually caring about whether it's <b>confident more than whether or not the response is actually correct or true</b>. And so <b>people aren't actually giving good preferences</b>. Arguably, I think we would want language models to be <b>valuing factuality over things like confidence</b>. And we're more optimizing for <b>what people kind of want to hear</b> rather than the kinds of responses that will be good.”</em><br><br>原话（个性化反过来可能加剧极化）：<em>“if we also think about preference optimization for personalization… we might want to develop language models that are telling people what they want to hear… But on the flip side, if we personalize these kinds of models for the many people that use these models, then <b>it might lead to polarization in people who, for example, have extreme beliefs rather than being exposed to a wide range of beliefs</b>. And so even something like personalization may not intrinsically be what we want to optimize for.”</em><br><br>原话（折衬衫连人都难打分；YouTube 的权重是人手调的）：<em>“if you were to look at these shirts that were each folded by a robot… it's rather tricky to figure out how you might reward <b>different mistakes, different amounts of crinkleness, whether or not the shirt is off center</b> or not. It's generally a very ambiguous problem and <b>hard even for people</b> to think about how to provide rewards for these systems.”</em> … <em>“another thing that was mentioned in the research paper was that <b>the combination of these metrics for the reward function was actually manually tuned by a person</b> rather than something that is designed automatically.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "⚠️ <b>那张 Sharma &amp; Tong 的图，是 L17 p77 那条警告（<b>RL 会钻奖励模型的空子</b>）的<b>机制版本</b>，而它比 L17 那一页更该进你的论文 —— 因为它给出了<b>空子具体长什么样</b>，而且有引文。</b><br><span class='k'>L17 只说「学出来的奖励会被钻」；这一页说清了<b>钻的方向</b>：人类偏好系统性地奖励<b>自信</b>与<b>附和</b>，而<b>真实性排在最底下</b>。而任何用人类偏好训出来的裁判，都会继承这个排序</span>。<br><b>⇒ 对你的直接含义：<b>如果你用一个 RLHF 过的模型当节点级裁判，你的裁判偏好的是「说得笃定」的中间输出，而不是「对的」中间输出</b>。</b><span class='w'>⚠ 而这正好是你最不想要的方向 —— 小模型在吃不住的任务上，恰恰容易产出<b>自信而错误</b>的输出（这也是 p21 那个 92%/76% 的根源）。<b>⇒ 于是裁判会系统性地<b>低估</b>降档的风险。</b></span><br><b>⇒ 所以把 L17 的结论再收紧一格：<b>不只是「裁判不要进目标函数」，而是「裁判对你这个任务有已知方向的偏差，而偏差方向正好掩盖你要防的失败模式」</b>。</b><br><b>⇒ 这给了你一个很好用的论文句式：<b>「我们不使用 LLM-as-judge 作为奖励信号，因为人类偏好已被证明系统性地偏好自信与附和而非真实性 [Sharma &amp; Tong et al., 2023]，而我们要检测的恰恰是自信而错误的输出。」</b></b> <span class='k'>这比泛泛地说「我们用可验证奖励更可靠」有力得多，<b>因为它指出了具体的失效方向和一篇具体的证据</b>。</span><br><b>⚠ 第二条是关于 YouTube 那个例子的，而它对你是<b>安慰</b>也是<b>提醒</b>。</b> <span class='w'>安慰：一个十亿用户的系统，奖励权重<b>也是人手调的</b> —— 所以你的 <code>λ</code> 要手调，<b>完全符合业界现状，不是弱点</b>。提醒：正因为人人都在手调，<b>「把权重调掉」本身就是一个有价值的贡献</b></span>。<b>⇒ 而你有一个 YouTube 没有的条件：<b>你只有一个 λ，所以你能扫出整条帕累托前沿</b>（见 L17.a p14 的科研格）。⇒ 把这件事说成「我们不选权重，我们给出整条前沿」，就把一个手调参数变成了一个结果。</b><br><b>⇒ 最后一条边界确认：这一页标着 <b>No problem</b> 的那三样（游戏／数学／代码），<b>就是你的适用范围</b>。</b> <span class='k'>⇒ 和 L17 p75 那条「奖励不可复用」合起来，你的范围声明现在有<b>两处</b>课程内的依据可引，而且这两处来自<b>两位不同的讲者</b>。</span>",
+    "ref": "本讲 p5–p8（逐字核对）· 讲稿（偏好那张图、YouTube 权重人手调）· L17 p77 · L17 p75 · L17.a p14 科研格 · 简报 §1 §4b（已核）"
+   }
+  },
+  {
+   "r": [9, 10],
+   "t": "先验数据与知识：预训练有时反而是束缚",
+   "star": 3,
+   "quote": "<b>How to leverage prior data, knowledge?</b><br><em><b>Default tool</b>: Initialize model weights to pre-trained model, initialize replay buffer using offline data<br><b>This method initializes only the buffer, not the weights!</b> [Ball et al., 2023]<br><b>(1) What about more abstract prior knowledge?</b> (e.g. hints, knowledge from news articles)<br><b>(2) Do pre-training weights and data constrain learning too much?</b><br><b>How can LLMs go beyond pre-training, to solve problems that humans haven't solved?</b><br><b>How can robots/AVs learn to do tasks faster and more reliably than humans?</b></em>",
+   "one": "<b>默认做法是「权重用预训练的、缓冲区用离线数据灌满」。而这一页摆了一个反例：有篇论文只灌缓冲区、不动权重——因为他们发现预训练权重反而更差。</b>",
+   "pts": [
+    "<b>先把<b>默认工具</b>说清楚，因为后面的反例是冲着它来的：<b>权重初始化成预训练模型 ＋ 回放缓冲区用离线数据灌满</b>。</b> <span class='k'>这两招几乎是现在的标配，而幻灯的措辞是 <b><em>Default tool</em></b>——言下之意是：<b>它好用，但它不是答案的全部</b></span>。",
+    "⚠️ <b>⇒ 而 <b>[Ball et al., 2023]</b> 这个反例是这一页的核心：<b><em>This method initializes only the buffer, not the weights!</em></b></b> <span class='w'>讲稿把原因说得更直接：<b>「they found that <b>pre-training the weights did worse than not pre-training the weights</b>」</b> —— 不是「差不多」，是<b>更差</b></span>。",
+    "<b>⇒ 讲者给了一个很具体的机制解释，而这个解释值得记住，因为它可以迁移到别的场景：<b>预训练模型的<b>输出层</b>可能已经收敛到一个相当确定性的分布</b>。</b> <span class='k'>原话：「the output layer of that pre-trained model might have <b>converged to something fairly deterministic</b>. And then if you're trying to learn something new or adapt it in a new way, then that last layer might <b>not actually be exploring in a good way</b>」</span>。",
+    "<b>⇒ 拆开讲：<b>RL 需要探索，而探索需要输出分布有宽度</b>。而一个训好的模型，它的输出分布是<b>窄</b>的——那正是「训好了」的意思。</b> <span class='w'>⇒ 于是你用它做初始化，等于<b>一开始就把探索掐死了</b>。⇒ 这是一个很干净的张力：<b>「已经学会了」和「还能继续学」在这里是对立的</b>。</span>",
+    "⚠️ <b>⇒ 而讲者顺手用这个机制解释了一件看似无关的事，这个推论很漂亮：<b>为什么 RL 在语言模型上好用？</b></b> <span class='k'>「arguably, in language models, perhaps reinforcement learning works quite well <b>because pre-trained models often have a very diverse distribution over output tokens</b>」</span>。<b>⇒ 语言模型的输出分布天然很分散（下一个 token 有很多合理选择），<b>所以它没有「探索被掐死」这个毛病</b>。</b>",
+    "<b>⇒ 这个对比值得单独记住，因为它是一条<b>判据</b>：<b>想用预训练权重做 RL 初始化，先看那个模型的输出分布还有没有宽度</b>。</b> <span class='w'>⇒ 有宽度（语言模型）⇒ 放心用；已经收敛成确定性（一个训到收敛的控制策略）⇒ <b>可能反而有害</b>。</span>",
+    "<b>p10 下半的两个公开问题指向两个不同的方向。<b>(1) 更抽象的先验知识怎么用？</b></b> <span class='k'>幻灯举的例子是 <b>hints</b>（提示）和 <b>knowledge from news articles</b>（新闻文章里的知识）。⇒ 这些东西<b>不是「数据格式」的</b>——你没法把一段新闻塞进回放缓冲区</span>。<b>⇒ 讲稿：「we want to <b>incorporate those facts</b> into our model」，而现在没有好办法。</b>",
+    "⚠️ <b><b>(2) 预训练的权重和数据，是不是把学习限制得太死了？</b>—— 这一问比第一问更有野心。</b> <span class='w'>它配的两个长远问法把意图说明白了：<b>How can LLMs <b>go beyond pre-training</b>, to solve problems that <b>humans haven't solved</b>?</b> 和 <b>How can robots/AVs learn to do tasks <b>faster and more reliably than humans</b>?</b></span>",
+    "<b>⇒ 两问的共同结构是：<b>预训练数据是人类的，所以预训练的上限是人类</b>。而要超过人类，就必须有一个机制能<b>走出预训练分布</b>。</b> <span class='k'>⇒ 讲者认为 RL 是最有希望的那个工具（「one of the most promising tools for going beyond what humans can do」），但「lots of interesting and open work to do there」。</span>",
+    "<b>⚠ 这里和 L17 p78 那一页是同一个主题的两种讲法，值得并起来看。</b> <span class='w'>L17 的说法是「不同的身体＋不受人类先验约束的搜索」；这里的说法是「预训练把你锁在人类分布里」。<b>⇒ 两者指的是同一件事：<b>任何来自人类的先验，都同时是助力和天花板</b>。</b></span>"
+   ],
+   "eq": "**默认工具**（后面的反例冲着它来）：\n   **权重初始化成预训练模型 ＋ 回放缓冲区用离线数据灌满**\n   幻灯措辞是 **Default tool** ⇒ 言下之意：**好用，但不是答案的全部**\n\n⚠⚠ **[Ball et al., 2023]** 的反例（这一页的核心）：\n   **This method initializes only the buffer, not the weights!**\n   讲稿更直接：「**pre-training the weights did worse than\n     not pre-training the weights**」—— 不是差不多，是**更差**\n\n   机制解释（值得记，能迁移）：\n     **预训练模型的输出层可能已经收敛到相当确定性的分布**\n     「the output layer might have **converged to something fairly\n       deterministic**… that last layer might **not actually be exploring\n       in a good way**」\n\n   ⇒ 拆开讲：**RL 需要探索，探索需要输出分布有宽度**\n     而一个训好的模型，输出分布是**窄**的 —— 那正是「训好了」的意思\n     ⇒ 用它做初始化，等于**一开始就把探索掐死了**\n     ⇒ 干净的张力：**「已经学会了」与「还能继续学」在这里对立**\n\n⚠ 讲者用同一机制解释了另一件事（很漂亮的推论）：\n   **为什么 RL 在语言模型上好用？**\n   「perhaps RL works quite well **because pre-trained models often have\n     a very diverse distribution over output tokens**」\n   ⇒ 语言模型输出分布天然分散 ⇒ **没有「探索被掐死」这个毛病**\n\n   ⇒ 于是得到一条**判据**：\n     **想用预训练权重做 RL 初始化，先看那个模型的输出分布还有没有宽度**\n       有宽度（语言模型）⇒ 放心用\n       已收敛成确定性（训到收敛的控制策略）⇒ **可能反而有害**\n\n两个公开问题：\n\n**(1) 更抽象的先验知识怎么用？**\n   例子：**hints** · **knowledge from news articles**\n   ⇒ 这些**不是「数据格式」的** —— 没法把一段新闻塞进回放缓冲区\n   「we want to **incorporate those facts** into our model」，而现在没好办法\n\n⚠ **(2) 预训练的权重和数据，是不是把学习限制得太死了？**（更有野心）\n   **How can LLMs go beyond pre-training, to solve problems\n     that humans haven't solved?**\n   **How can robots/AVs learn to do tasks faster and more reliably\n     than humans?**\n\n   ⇒ 共同结构：**预训练数据是人类的，所以预训练的上限是人类**\n     要超过人类，就必须有机制能**走出预训练分布**\n   ⇒ 讲者认为 RL 是最有希望的工具，但「lots of open work to do there」\n\n⚠ 与 L17 p78 是同一主题的两种讲法：\n   L17：「不同的身体 ＋ 不受人类先验约束的搜索」\n   这里：「预训练把你锁在人类分布里」\n   ⇒ 同一件事：**任何来自人类的先验，都同时是助力和天花板**",
+   "tbl": {
+    "head": ["", "灌缓冲区（离线数据）", "初始化权重（预训练模型）"],
+    "rows": [
+     ["<b>默认做法</b>", "<b>做</b>", "<b>做</b>"],
+     ["<b>Ball et al. 2023</b>", "<b>做</b>", "<span class='w'>⚠ 不做 —— 做了反而更差</span>"],
+     ["<b>为什么会更差</b>", "—", "<b>输出层已收敛成确定性 ⇒ 探索被掐死</b>"],
+     ["<b>那语言模型为什么没事</b>", "—", "<b>输出 token 分布天然分散</b>"],
+     ["<b>⇒ 判据</b>", "—", "<b>先看输出分布还有没有宽度</b>"]
+    ]
+   },
+   "say": "原话（预训练权重反而更差，以及为什么）：<em>“here's a research paper by <b>Ball et al.</b> in 2023. And they introduced a method that was studying using prior demonstration data with reinforcement learning. And the method that they introduced, <b>they initialized the buffer. But they actually didn't pre-train the weights. And they found that pre-training the weights did worse than not pre-training the weights.</b> And so this kind of suggests that there might be scenarios where using pre-trained weights or using pre-trained data sets <b>might actually be too constraining</b> on our model. As one example of this, if you have a pre-trained model, <b>the output layer of that pre-trained model might have converged to something fairly deterministic</b>. And then if you're trying to learn something new or adapt it in a new way, then <b>that last layer might not actually be exploring in a good way</b>.”</em><br><br>原话（语言模型为什么是例外）：<em>“And arguably, in language models, perhaps reinforcement learning works quite well <b>because pre-trained models often have a very diverse distribution over output tokens</b>.”</em><br><br>原话（预训练的上限是人类）：<em>“this question is really important for thinking about <b>how language models can solve problems that humans haven't solved</b> because they probably should build upon the knowledge in the pre-trained data sets. But they also need to think about <b>how to go beyond that and not be too constrained by what the pre-trained model might say</b>… And perhaps if we constrain too much to the pre-trained knowledge or the prior knowledge, <b>they might not be able to surpass human abilities in terms of speed or reliability</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "<b>这一页那条「<b>先看输出分布还有没有宽度</b>」的判据，对你有一个很具体、也很容易忽略的用处：<b>它决定了你的第一阶段该用什么温度采样</b>。</b><br><span class='k'>回忆你的两阶段设计（L17.a p19 的科研格）：第一阶段要算出「这条 query 的每个节点该用什么档」的理想答案。而算这个答案时，你会在每个档位上跑节点、看结果对不对</span>。<br><b>⇒ 问题来了：<b>你用什么温度跑？</b>如果用 <code>T=0</code>（贪心），你得到的是「这个档位<b>最可能</b>的输出」——而那是一个<b>窄</b>分布，正是这一页说的「探索被掐死」的情形。</b><span class='w'>⇒ 后果很实在：<b>一个在 <code>T=0</code> 下答错、但在 <code>T=0.7</code> 下采五次能对一次的节点，会被你的第一阶段标成「这个档撑不住」—— 而它其实撑得住</b>。</span><br><b>⇒ 所以第一阶段的标签应该是<b>分布层面</b>的，不是单次的：<b>「这个档位在这个节点上，采 k 次有多少次对」</b>，而不是「采一次对不对」。</b> <span class='k'>⇒ 这同时也让你的标签<b>带上了不确定性</b>，而那个不确定性本身是第二阶段很有用的监督信号（接近 0 或接近 1 的节点好学，中间的才是难点）。</span><br><b>⚠ 第二条用处来自那两个「超过人类」的问法，而它指出了你方案里一个<b>结构性的上限</b>。</b><br><span class='w'>你的第一阶段用的是什么当老师？<b>最强的那个配置（全部节点用 72B）</b>。⇒ 那么你的第二阶段，<b>最好的情况也只是逼近那个配置</b> —— 这正是这一页说的「预训练的上限是人类」的同构版本：<b>你的上限是你的老师</b>。</span><br><b>⇒ 这不是缺陷（蒸馏本来就这样），但它决定了你该怎么<b>陈述</b>你的目标：<b>你追求的不是「比全用大模型更准」，而是「在接近它的准确率下花更少的钱」</b>。</b><span class='k'>⇒ 换句话说，你的主图纵轴应该是 <code>G</code> 或帕累托前沿，<b>而不是 Acc</b>。如果你把 Acc 当主指标，你就是在和自己的老师比，<b>而那场比较你注定赢不了</b>。</span><br><b>⇒ 顺带留意「更抽象的先验知识」那个公开问题（hints、新闻文章）对你的一个变体：<b>你有没有人类知道、但没进你的特征的东西？</b></b> <span class='w'>比如「这类任务一般需要强模型」这种领域直觉。⇒ 现在没有好办法把它灌进策略，而最务实的做法是<b>把它变成一条可检查的规则、和学出来的策略并列对比</b> —— 如果规则赢了，那本身是个结果；如果学出来的赢了，那是你方法的证据。</b></span>",
+    "ref": "本讲 p10（逐字核对）· 讲稿（输出层已收敛、语言模型是例外、超过人类那两问）· L17.a p19 科研格 · L17 p78 · 简报 §1 §2 §3（已核）"
+   }
+  },
+  {
+   "r": [11, 12],
+   "t": "视频生成模型：知识很丰富，但一碰到动作就出分布",
+   "star": 2,
+   "quote": "<b>How to leverage video gen models?</b><br><em><b>Rich world knowledge. They should be useful.</b><br><b>But there are large, nuanced challenges!</b><br>Example: Train <code>s_t, a_{t:t+h} → s_{t+1:t+h}</code> on demos + one policy's roll-outs<br>Evaluate if new policy's actions <code>ã_{t:t+h}</code> lead to good outcomes<br><b>These will be out of distribution!</b><br><b>+ Small physical inaccuracies lead to poor performance!</b><br><b>Possible solution 1: Train on data from more policies?</b><br><b>Possible solution 2: Use the model in other ways?</b> — e.g. train <code>s_t → s_{t+1:t+h}</code> on only demos, predict future video + run goal-conditioned policy</em>",
+   "one": "<b>视频生成模型显然懂很多关于世界的事，拿来当控制的世界模型却很难用。症结是：你要评的新策略的动作，在模型的训练数据里根本没出现过。</b>",
+   "pts": [
+    "<b>先承认这件事的吸引力，因为幻灯自己就是这么写的：<b><em>Rich world knowledge. They should be useful.</em></b></b> <span class='k'>讲稿举的例子很生动：这些模型显然懂「炉子上做菜是怎么回事」、「敲键盘是怎么回事」，甚至懂「<b>键盘要是用小熊软糖做的会是什么样</b>」，还懂抽象层面的「走路」</span>。<b>⇒ 所以直觉是：<b>这些世界知识应当对学行为很有用</b>。</b>",
+    "<b>⇒ 但紧接着是 <b><em>But there are large, nuanced challenges!</em></b>，而 <b>nuanced</b> 这个词用得准 —— 问题不在「模型不够好」，<b>而在你怎么用它</b>。</b>",
+    "⚠️ <b>核心困难要把它的<b>结构</b>看清。做法是训一个<b>动作条件</b>的视频模型：<code>s_t, a_{t:t+h} → s_{t+1:t+h}</code>（给当前画面和未来一串动作，预测未来视频）。</b> <span class='w'>训练数据是<b>示范 ＋ 某一个策略的 roll-outs</b>；用法是拿它去评<b>新策略</b>的动作 <code>ã_{t:t+h}</code> 好不好</span>。",
+    "<b>⇒ 于是幻灯那句红字就来了：<b><em>These will be out of distribution!</em></b></b> <span class='k'>新策略的动作，按定义就<b>不是</b>训练数据里那个策略的动作。⇒ 这其实是离线 RL 那条老问题的翻版：<b>你要评估的东西，正好落在你的数据覆盖不到的地方</b>。</span>",
+    "⚠️ <b>⇒ 而失败的<b>方式</b>比「预测不准」糟得多，这一点讲稿里才有，值得记住：<b>如果数据集大部分是示范，模型会预测出「任务被正确完成」的视频 —— 哪怕那些动作其实不会导致正确结果</b>。</b> <span class='w'>⇒ 换句话说，它不是给你一个<b>随机</b>的错答案，而是给你一个<b>系统性乐观</b>的错答案：<b>你问「这串动作行吗」，它答「行」，因为它见过的几乎全是「行」</b>。</span>",
+    "<b>⇒ 这正是一个用来评估的模型最不能有的毛病。<b>一个会随机出错的评估器只是噪声大；一个系统性乐观的评估器会让你选出坏策略还以为选对了</b>。</b> <span class='k'>⇒ 而且讲稿补了一句：这些模型「have very little data… about <b>narrowly making a mistake</b> or making mistakes that are <b>very different from the kinds of mistakes that humans make</b>」——<b>它没见过机器会犯的那种错</b>。</span>",
+    "<b>第二条困难是独立的：<b><em>Small physical inaccuracies lead to poor performance!</em></b></b> <span class='w'>讲稿：「a lot of times, these videos look <b>really, really good</b>. They look like they might be accurate. <b>But that doesn't mean that the underlying physics is actually accurate</b>」</span>。<b>⇒ 这一条很容易被漂亮的演示骗过去：<b>视觉上可信 ≠ 物理上正确</b>，而控制要的是后者。</b>",
+    "<b>两条出路。<b>方案一：在更多策略的数据上训</b>。</b> <span class='k'>思路是用覆盖换准确——「with the hopes that that will lead to <b>enough coverage over action distributions</b>」。⇒ 诚实但昂贵，而且它只是把出分布的边界推远，<b>没有消掉这个问题</b></span>。",
+    "⚠️ <b><b>方案二更巧，而且它的巧处值得学：<b>换一种用法，让出分布的问题不出现</b></b>。</b> <span class='w'>做法是训一个<b>不条件于动作</b>的模型 <code>s_t → s_{t+1:t+h}</code>，而且<b>只在示范上训</b>；然后 <b>predict future video + run goal-conditioned policy</b> —— 先预测「未来应该长什么样」，再让一个目标条件策略去把它实现</span>。",
+    "<b>⇒ 为什么这就绕开了？因为<b>你再也不问「这串动作会导致什么」了</b>。</b> <span class='k'>讲稿：「this kind of <b>sidesteps</b> the challenge of this sort of out-of-distribution action problem because you're <b>only using the model for a form of planning</b> where you're thinking through <b>what is a good outcome in the future</b> rather than thinking through <b>what is the outcome of specific actions</b>」</span>。",
+    "<b>⇒ 这个转换的一般形式很值得记：<b>当一个模型在某类输入上不可信时，除了「把它训得更好」，还可以「改成不需要那类输入的用法」</b>。</b> <span class='w'>⚠ 而它和 L17 p37/p42 那条教训是同一个家族：<b>那边说「别去解一个更难的中间问题」，这边说「别去问一个模型答不好的问题」</b>——两者都是在<b>改问法</b>而不是改模型。</span>"
+   ],
+   "eq": "吸引力（幻灯自己的话）：**Rich world knowledge. They should be useful.**\n   讲稿的例子：懂「炉子上做菜」、「敲键盘」，甚至懂\n     **「键盘要是用小熊软糖做的会是什么样」**，还懂抽象层面的「走路」\n\n紧接着：**But there are large, nuanced challenges!**\n   **nuanced** 用得准 —— 问题不在「模型不够好」，**而在你怎么用它**\n\n⚠⚠ 核心困难的**结构**：\n   做法 = 训一个**动作条件**的视频模型\n     `s_t, a_{t:t+h} → s_{t+1:t+h}`（给当前画面＋未来动作串，预测未来视频）\n   训练数据 = **示范 ＋ 某一个策略的 roll-outs**\n   用法 = 拿它评**新策略**的动作 `ã_{t:t+h}`\n\n   ⇒ **These will be out of distribution!**\n     新策略的动作，按定义就**不是**训练数据里那个策略的动作\n     ⇒ 这是离线 RL 那条老问题的翻版：\n       **你要评估的东西，正好落在数据覆盖不到的地方**\n\n⚠⚠ 失败的**方式**比「预测不准」糟得多（讲稿里才有）：\n   **如果数据集大部分是示范，模型会预测出「任务被正确完成」的视频\n     —— 哪怕那些动作其实不会导致正确结果**\n\n   ⇒ 它不是给你**随机**的错答案，而是**系统性乐观**的错答案：\n     **你问「这串动作行吗」，它答「行」，因为它见过的几乎全是「行」**\n   ⇒ 这正是一个评估器最不能有的毛病：\n     **会随机出错的评估器只是噪声大；\n       系统性乐观的评估器让你选出坏策略还以为选对了**\n   ⇒ 讲稿补：这些模型「have very little data… about **narrowly making a\n     mistake** or making mistakes **very different from the kinds of\n     mistakes that humans make**」—— **它没见过机器会犯的那种错**\n\n第二条困难（独立的）：**Small physical inaccuracies lead to poor performance!**\n   「these videos look **really, really good**… **But that doesn't mean that\n     the underlying physics is actually accurate**」\n   ⇒ 容易被漂亮演示骗过去：**视觉上可信 ≠ 物理上正确**，而控制要的是后者\n\n两条出路：\n\n**方案一：在更多策略的数据上训**\n   用覆盖换准确（「**enough coverage over action distributions**」）\n   ⇒ 诚实但昂贵，而且只是把出分布的边界推远，**没有消掉问题**\n\n⚠ **方案二（更巧，巧处值得学）：换一种用法，让出分布的问题不出现**\n   训一个**不条件于动作**的模型 `s_t → s_{t+1:t+h}`，而且**只在示范上训**\n   然后 **predict future video + run goal-conditioned policy**\n     —— 先预测「未来应该长什么样」，再让目标条件策略去实现它\n\n   为什么绕开了？**因为你再也不问「这串动作会导致什么」了**\n     「**sidesteps** the challenge… because you're **only using the model for\n       a form of planning** where you're thinking through **what is a good\n       outcome in the future** rather than **what is the outcome of\n       specific actions**」\n\n   ⇒ 一般形式值得记：\n     **当一个模型在某类输入上不可信时，除了「把它训得更好」，\n       还可以「改成不需要那类输入的用法」**\n   ⚠ 与 L17 p37/p42 同一家族：\n     那边「别去解一个更难的中间问题」，这边「别去问一个模型答不好的问题」\n     —— 两者都是在**改问法**而不是改模型",
+   "tbl": {
+    "head": ["两种用法", "模型形式", "问它什么", "出分布吗"],
+    "rows": [
+     ["<b>动作条件（有问题）</b>", "<code>s_t, a → s'</code>", "<b>这串动作会导致什么</b>", "<span class='w'>⚠ 会，而且系统性乐观</span>"],
+     ["<b>只看未来（方案二）</b>", "<code>s_t → s'</code>", "<b>好的未来长什么样</b>", "<b>不会 —— 只在示范上训、只用来规划</b>"],
+     ["<b>第二条困难</b>", "—", "<b>视觉可信 ≠ 物理正确</b>", "<b>两种用法都受影响</b>"],
+     ["<b>一般形式</b>", "—", "<b>改问法，而不是改模型</b>", "<b>同 L17 p37 / p42</b>"]
+    ]
+   },
+   "say": "原话（出分布，以及系统性乐观这个更糟的失败方式）：<em>“if you train an action-conditioned video generation model… and if you train that on demonstrations and rollouts from one policy and then you evaluate a new policy's actions with that model… then <b>these actions won't necessarily be represented in the data that the model was trained on</b>. And as a result, the model often will make inaccurate predictions for these actions. <b>If most of the data set is demonstrations, then it will predict a video that corresponds to correctly doing the task even if these actions did not lead to a correct outcome.</b> And generally, these models have very little data—— for example, like <b>narrowly making a mistake</b> or making mistakes that are <b>very different from the kinds of mistakes that humans make</b>.”</em><br><br>原话（视觉可信不等于物理正确）：<em>“The other thing here is that <b>even small physical inaccuracies can lead to poor performance</b>. And so a lot of times, these videos look <b>really, really good</b>. They look like they might be accurate. <b>But that doesn't mean that the underlying physics is actually accurate.</b>”</em><br><br>原话（方案二为什么绕开了这个问题）：<em>“maybe instead of training this sort of physical model of the future, we could generate, for example, <b>what should the future video look like not conditioned on actions</b>? And if we train this only on demonstrations, then we could predict future video and plan out how to accomplish the task in the future in video space and then <b>run a goal conditioned policy</b> using the predicted video. And something like this kind of <b>sidesteps the challenge of this sort of out-of-distribution action problem because you're only using the model for a form of planning</b> where you're thinking through <b>what is a good outcome in the future rather than thinking through what is the outcome of specific actions</b>.”</em>"
+  },
+  {
+   "r": [13, 15],
+   "t": "怎么扩大规模：价值函数准不准，和那个叫「批量在线」的设定",
+   "star": 3,
+   "quote": "<b>How to scale up?</b><br><em><b>Large scale RL for LLMs is exciting! Yet, currently fairly short-horizon or very online.</b><br>Often considers \"single-turn\" dialog instead of full conversation outcome.<br>(1) LLM preference optimization —&gt; <b>Shorter horizon problem + no need to collect human-in-the-loop data!</b><br>(2) LLM reasoning for math — Relies on large number of online samples from the model, interleaved with policy updates<br><b>Hard to interleave model updates &amp; data collection in many applications, esp for large models!</b><br><b>1. Can we train &amp; use accurate value functions at scale?</b> — Algorithms like PPO only use value functions for <b>reducing gradient variance</b>, may not be accurate enough for actor-critic algorithms<br><b>2. Can we enable large-scale “batch online” RL?</b> (e.g. when collecting dialog with real users, when collecting data on real robots)<br>More practical: few iterations of <b>[collect large batch of data, update model]</b> (possibly asynchronously!)<br>New considerations, e.g. <b>expressive policies for enough data breadth</b> [Dong et al., 2025]<br><b>Can we do large-scale RL with longer horizons &amp; with less online data?</b></em>",
+   "one": "<b>语言模型上的大规模 RL 很成功，但它成功在两个「便宜」的条件上：视界短、而且极度在线。这两页问的是——这两个条件都放松掉，还能不能做。</b>",
+   "pts": [
+    "<b>先把这两页的论点结构认清，它是一个很标准的「先夸再拆」：<b>Large scale RL for LLMs is exciting!</b> → <b><em>Yet, currently fairly short-horizon or very online</em></b>。</b> <span class='k'>⇒ 两个限定词各指一件事：<b>short-horizon</b>（一次就结算）和 <b>very online</b>（每轮都要重新采样）</span>。",
+    "<b><b>先看「视界短」。</b>幻灯的例子一句话：<b><em>Often considers \"single-turn\" dialog instead of full conversation outcome</em></b>。</b> <span class='w'>偏好优化只给<b>下一个回答</b>打分，而不是给<b>整段对话的结果</b>打分</span>。<b>⇒ 而幻灯把这件事的好处也诚实地写了出来：<b><em>Shorter horizon problem + no need to collect human-in-the-loop data!</em></b></b>",
+    "⚠️ <b>⇒ 这个「好处」值得停一下，因为它解释了<b>为什么大家都这么做</b>：<b>只评下一个回答，你就不需要真人陪着把整段对话走完</b>。</b> <span class='k'>⇒ 想评整段对话的结果，你就得有人（或一个够真的模拟器）把对话走到底。<b>那个成本是量级上的差别，而不是百分比上的差别</b>。</span>",
+    "<b><b>再看「极度在线」。</b>第二个例子是数学推理：<b>依赖从模型里大量在线采样，而且和策略更新交替进行</b>。</b> <span class='w'>⇒ 讲稿点出这在什么时候会崩：「it's actually really hard to collect that very online data interleaved with policy updates, <b>especially if collecting data involves interfacing with humans or interfacing with the physical world</b>」</span>。<b>⇒ 于是 p15 的那句总结：<b><em>Hard to interleave model updates &amp; data collection in many applications, esp for large models!</em></b></b>",
+    "⚠️ <b>⇒ 讲稿里那个<b>自动驾驶</b>的例子把这件事讲得最清楚，而它值得完整记住。</b> <span class='k'>「It's going to be hard to collect data on <b>all of your cars at once</b>, then do a policy update <b>every 30 seconds or even every minute or even every hour</b>. It's much easier to <b>first collect a large batch of data, like maybe over a couple of days, maybe over a week, then update your policy on all that data and repeat</b>」</span>。",
+    "<b>⇒ 于是得到了一个<b>有名字</b>的设定：<b>batch online</b>（批量在线）—— <b><em>few iterations of [collect large batch of data, update model]</em></b>，而且 <b><em>possibly asynchronously!</em></b></b> <span class='w'>⇒ 它既不是「全在线」（每步都更新），也不是「纯离线」（只有一批固定数据），<b>而是中间那一档：少数几轮大批量</b>。</span>",
+    "⚠️ <b>⇒ 而批量在线<b>不是</b>在线 RL 的简单特例，它有自己的算法要求，这一点是 <b>[Dong et al., 2025]</b> 的发现：<b>需要更有表达力的策略</b>（扩散策略这类）。</b> <span class='k'>幻灯的措辞是 <b><em>expressive policies for enough data breadth</em></b></span>。",
+    "<b>⇒ 讲稿给的解释很直观，而且是这两页里最值得想通的一条：<b>全在线的时候，策略马上就要变了，所以它确定性一点也没关系——反正下一轮就换了，多样性是「换策略」自己带来的</b>。</b> <span class='w'>原话：「if you have a more deterministic policy… maybe it's OK to be more deterministic because <b>you're going to change your policy really, really soon anyway</b>. And so you'll already get more diverse data <b>just from changing your policy so frequently</b>」</span>。",
+    "<b>⇒ <b>而批量设定下你没有这个奢侈：</b>「in the more batch setting, you <b>don't have the luxury of changing your policy so frequently</b>. And having a more diverse distribution might be quite helpful」。</b> <span class='k'>⇒ 所以多样性必须<b>由策略自己提供</b> —— 这就是为什么要更有表达力的策略类。<b>⇒ 一句话：频繁换策略和表达力强的策略，是两种替代的多样性来源。</b></span>",
+    "⚠️ <b>另一个公开问题独立成条，而它对「长视界」是关键：<b><em>Can we train &amp; use accurate value functions at scale?</em></b></b> <span class='w'>幻灯的但书很尖：<b>PPO 这类算法用价值函数只是为了<b>降低梯度方差</b>，而那种精度<b>未必够</b>用来做真正的 actor-critic 更新</b></span>。",
+    "<b>⇒ 这个区分值得记清楚，因为它很容易被混掉：<b>当基线用</b>的价值函数只要「大致对、而且无偏」就行（偏了会引入偏差，但噪声大只是降低了方差削减的效果）；<b>当决策依据用</b>的价值函数要「逐状态都准」，否则你会照着一个错的估计去选动作。</b> <span class='k'>⇒ 讲稿：「these value functions are primarily used for <b>reducing gradient variance</b> and <b>may not be accurate enough</b> for doing a full actor-critic update or for <b>selecting actions with a Q-learning style objective</b>」。</span>",
+    "<b>⇒ 而这一条为什么和「长视界」绑在一起？因为<b>视界越长，策略梯度的方差越大，而价值函数正是对付长视界的主要工具</b>。</b> <span class='w'>⇒ 所以「能不能把准确的价值函数做到大规模」这一问，<b>是「能不能做长视界」的前置条件</b>——这也是幻灯把它排在第 1 条的原因。</span>",
+    "<b>⇒ 两页的落点就是那句贯穿的问题：<b><em>Can we do large-scale RL with longer horizons &amp; with less online data?</em></b></b> <span class='k'>⇒ 讲稿最后还顺带提了一句：DPO 这类算法「operating much more offline」，确实有成效，「the one downside of that is <b>those problems are shorter horizon</b>」——<b>又回到同一个取舍</b>。</span>"
+   ],
+   "eq": "论点结构（标准的「先夸再拆」）：\n   **Large scale RL for LLMs is exciting!**\n   → **Yet, currently fairly short-horizon or very online**\n   两个限定词各指一件事：\n     **short-horizon**（一次就结算）· **very online**（每轮都要重新采样）\n\n**「视界短」**：\n   **Often considers \"single-turn\" dialog instead of full conversation outcome**\n   偏好优化只给**下一个回答**打分，不给**整段对话的结果**打分\n   而幻灯诚实地写了它的好处：\n     **Shorter horizon problem + no need to collect human-in-the-loop data!**\n\n   ⚠ 这个「好处」解释了**为什么大家都这么做**：\n     **只评下一个回答，你就不需要真人陪着把整段对话走完**\n     想评整段结果，就得有人（或够真的模拟器）走到底\n     **那是量级上的差别，不是百分比上的差别**\n\n**「极度在线」**：数学推理依赖大量在线采样，与策略更新交替\n   什么时候会崩：「really hard… **especially if collecting data involves\n     interfacing with humans or interfacing with the physical world**」\n   ⇒ **Hard to interleave model updates & data collection in many\n      applications, esp for large models!**\n\n⚠⚠ 讲稿的**自动驾驶**例子（值得完整记住）：\n   「hard to collect data on **all of your cars at once**, then do a policy\n     update **every 30 seconds or even every minute or even every hour**.\n     It's much easier to **first collect a large batch of data, like maybe\n     over a couple of days, maybe over a week, then update your policy on\n     all that data and repeat**」\n\n   ⇒ 得到一个**有名字**的设定：**batch online**（批量在线）\n     **few iterations of [collect large batch of data, update model]**\n     而且 **possibly asynchronously!**\n   ⇒ 既不是全在线（每步都更新），也不是纯离线（一批固定数据）\n     **而是中间那一档：少数几轮大批量**\n\n⚠⚠ 批量在线**不是**在线 RL 的简单特例 —— **[Dong et al., 2025]**：\n   **需要更有表达力的策略**（扩散策略这类）\n   幻灯：**expressive policies for enough data breadth**\n\n   解释（这两页最值得想通的一条）：\n     **全在线时策略马上就要变，所以它确定性一点也没关系\n       —— 反正下一轮就换了，多样性是「换策略」自己带来的**\n     「you'll already get more diverse data **just from changing your policy\n       so frequently**」\n     **而批量设定下你没有这个奢侈**：\n     「**don't have the luxury of changing your policy so frequently**.\n       And having a more diverse distribution might be quite helpful」\n   ⇒ 多样性必须**由策略自己提供**\n     **频繁换策略 和 表达力强的策略，是两种替代的多样性来源**\n\n⚠ 另一个公开问题（对「长视界」是关键）：\n   **Can we train & use accurate value functions at scale?**\n   但书很尖：**PPO 这类用价值函数只是为了降低梯度方差，\n     那种精度未必够用来做真正的 actor-critic 更新**\n\n   区分（容易混掉）：\n     **当基线用** —— 只要「大致对、无偏」就行\n     **当决策依据用** —— 要「逐状态都准」，否则照着错估计选动作\n   「primarily used for **reducing gradient variance** and **may not be\n     accurate enough** for a full actor-critic update or for\n     **selecting actions with a Q-learning style objective**」\n\n   为什么和「长视界」绑在一起？\n     **视界越长，策略梯度方差越大，而价值函数正是对付长视界的主要工具**\n   ⇒ 「准确的价值函数能不能做到大规模」是「能不能做长视界」的**前置条件**\n     —— 这也是幻灯把它排在第 1 条的原因\n\n落点：**Can we do large-scale RL with longer horizons & with less online data?**\n   讲稿顺带：DPO 这类「operating much more offline」确实有成效，\n     「the one downside is **those problems are shorter horizon**」\n     —— **又回到同一个取舍**",
+   "tbl": {
+    "head": ["三档数据收集设定", "更新频率", "多样性从哪来", "现实里的代价"],
+    "rows": [
+     ["<b>全在线</b>", "<b>每轮都更新</b>", "<b>靠频繁换策略</b>", "<span class='w'>⚠ 真人／真机跟不上</span>"],
+     ["<b>批量在线（本页重点）</b>", "<b>少数几轮大批量</b>", "<b>⚠ 必须靠策略自己（表达力）</b>", "<b>可行 · 可异步</b>"],
+     ["<b>纯离线</b>", "<b>不采新数据</b>", "<b>数据集固定</b>", "<b>覆盖不到就没办法</b>"],
+     ["<b>价值函数当基线</b>", "—", "<b>只要无偏、大致对</b>", "<b>PPO 现在就是这样</b>"],
+     ["<b>价值函数当决策依据</b>", "—", "<b>要逐状态都准</b>", "<span class='w'>⚠ 公开问题：能不能做到大规模</span>"]
+    ]
+   },
+   "say": "原话（自动驾驶：为什么必须批量）：<em>“say that you're like an autonomous driving company. You want to do RL. <b>It's going to be hard to collect data on all of your cars at once, then do a policy update every 30 seconds or even every minute or even every hour. It's much easier to first collect a large batch of data, like maybe over a couple of days, maybe over a week, then update your policy on all that data and repeat that process.</b> And so I refer to that sort of problem statement as a <b>batch online setting</b>, where you're collecting a batch of online data with one policy, then doing an update and repeating.”</em><br><br>原话（为什么批量设定需要表达力更强的策略）：<em>“in one recent work by <b>Dong et al.</b>, they found that using <b>more expressive policies, like diffusion policies, was really, really important</b> for effective reinforcement learning in this batch online setting. And one explanation for that is if you're collecting a large batch of data, having diverse actions be represented could naturally be pretty important. Because in the fully online setting, if you have a more deterministic policy… maybe it's OK to be more deterministic because <b>you're going to change your policy really, really soon anyway</b>. And so you'll already get more diverse data <b>just from changing your policy so frequently</b>. Whereas <b>in the more batch setting, you don't have the luxury of changing your policy so frequently</b>. And having a more diverse distribution might be quite helpful.”</em><br><br>原话（价值函数：当基线够用，当决策依据未必够）：<em>“when using PPO, we train value functions at large scale. But <b>these value functions are primarily used for reducing gradient variance and may not be accurate enough for doing a full actor-critic update or for selecting actions with a Q-learning style objective</b>. And so understanding whether we can scale that value function learning and have value functions be accurate enough for <b>directly optimizing policies</b>—— something that's pretty interesting to explore and might be <b>important for longer horizon problems</b>.”</em>",
+   "res": {
+    "tag": "推断",
+    "v": "⚠️ <b>这两页给了你<b>两样</b>东西，而第一样是一个现成的名字：<b>你的实验设定就是 batch online</b>。</b><br><span class='k'>你的搜索不是全在线（不可能每跑一条 query 就更新一次路由策略 —— 那个成本和自动驾驶「每 30 秒更新一次」一样不现实），也不是纯离线（你确实要跑新配置采新数据）。<b>它正是「攒一大批、更新一次、再重复几轮」</b></span>。<br><b>⇒ 这个名字值得用，因为它<b>一次解决两个麻烦</b>：① 给了你一个课程／文献里有出处的设定名（本讲 p15、Dong et al. 2025），不必自己造词；② <b>把「我们只更新了少数几轮」从一个妥协变成一个有名字的设定</b>。</b><span class='w'>⇒ 审稿人问「你为什么不做完全在线的自适应路由」，答案是：<b>这是 batch online 设定，而它之所以被研究，恰恰因为它是真实系统里唯一可行的那一档</b>。</span><br>⚠️ <b>而第二样东西是一个<b>你很可能已经踩了的坑</b>，来自 Dong et al. 那条：<b>批量设定下，多样性必须由策略自己提供</b>。</b><br><span class='k'>讲者的论证是：全在线时策略马上要变，所以它确定性一点没关系；<b>而批量设定下你没有「频繁换策略」这个多样性来源</b></span>。<br><b>⇒ 映到你的问题：<b>如果你的路由策略在采集这一批数据时是<b>确定性</b>的（每个节点都按当前最优档位走），那你采回来的数据只覆盖了它<b>现在</b>认为对的那些配置</b>。</b><span class='w'>⇒ 后果很具体：<b>你永远看不到「其实降档也行」的那些配置的证据</b>，于是策略会卡在一个保守的局部解上，而你从数据里看不出来。</span><br><b>⇒ 所以你的采集策略必须<b>刻意带随机性</b>，而这不是实现细节，是这一页点名的算法要求。</b> <span class='k'>最省事的做法：<b>以 ε 的概率在某个节点上随机换一档</b>（而且要记录下来，这样这批数据天然带上了反事实对比）。⇒ 更好的做法是按不确定性采样：<b>在策略最拿不准的那些节点上多探索</b>。</span><br><b>⇒ 顺带，这给了你一个<b>很有说服力的消融</b>：确定性采集 vs ε-随机采集，在<b>同样的数据预算</b>下比最终的 <code>G</code>。</b> <span class='w'>如果差距明显，那你就在自己的问题上<b>复现</b>了 Dong et al. 那条结论 —— <b>而「在一个全新领域复现了一条已知的算法结论」本身就是一个可报告的发现</b>。</span><br><b>⚠ 最后那条关于<b>价值函数</b>的区分，对你是一个直接的警告：<b>「当基线用」和「当决策依据用」所需的精度不是一个量级</b>。</b><span class='k'>⇒ 你的第二阶段要做的恰恰是<b>后者</b>：你要靠一个估计量去<b>选档位</b>，而不是靠它去降低某个梯度的方差。⇒ 所以「我的估计器平均起来是对的」<b>不够</b> —— 你需要它<b>在每个节点上都足够准</b>，至少准到能排出档位的先后。</span><br><b>⇒ 这给你一个该报的指标：<b>不要只报估计量的平均误差，要报它的「决策准确率」</b></b>（即：按估计量选出的档位，有多少比例和事后最优档位一致）。<span class='w'>⇒ 这两个数可以差得很远，<b>而只有后者和你的 <code>G</code> 真正相关</b>。</span>",
+    "ref": "本讲 p14–p15（逐字核对）· 讲稿（自动驾驶那段、Dong et al. 的解释、价值函数两种用法）· 简报 §1 §2 §4d（已核）"
+   }
+  }
+ ],
+ "quiz": {
+  "1": [
+   {
+    "q": "讲者在开场对这份「前沿问题清单」加了什么限定？",
+    "o": ["这是领域内公认的重要性排序", "这些问题都已经有初步解法", "这不是完整清单——「this will not be exhaustive」，她挑的标准是「被问得多」＋「我觉得最有意思」，所以这是一位研究者的个人选单", "这些是本课作业会涉及的问题"],
+    "a": 2,
+    "why": "<b>⇒ 所以别把「没被列进来」当成「不重要」。</b><span class='k'>但「被问得多」这个标准本身有用：它告诉你哪些问题是这领域的人<b>反复在想</b>的 —— 而一个被反复问、却还没解决的问题，<b>既是真问题、也是竞争激烈的问题</b>。</span>"
+   },
+   {
+    "q": "p4 把七个问题排进三大类，这个排法的逻辑是什么？",
+    "o": ["按一个研究项目的生命周期：① 定义问题（奖励都没有，你优化什么）→ ② 想方法（怎么学得动）→ ③ 部署与评估（敢不敢上线）", "按所需算力排序", "按研究热度排序", "按难度从易到难"],
+    "a": 0,
+    "why": "<span class='w'>七个问题是：<b>a 无奖励／不可验证的领域 · b 先验数据与知识 · c 世界模型 · d 怎么扩大规模 · e 安全 · f 不准确与幻觉 · g 通才系统的评估</b>。</span><b>而 p9/p11/p13/p16/p20/p24/p28 是同一张图反复出现、每次高亮当前位置 —— 读 PDF 可以跳过，但它们标记了章节边界。</b>"
+   }
+  ],
+  "5": [
+   {
+    "q": "[Sharma & Tong et al., 2023] 那张图最扎人的结论是什么？",
+    "o": ["人类偏好之间一致性很低", "人类偏好里排最前的是「答得自信」和「合我意」，而「真的对」排在最底下 —— 幻灯的结论是 People don't actually give good preferences!", "人类更偏好更长的回答", "人类无法区分模型生成与人类撰写"],
+    "a": 1,
+    "why": "⚠️ <b>这一条的分量：<b>偏好学习整条路线建立在「人的偏好能代表好坏」上，而这篇说它不成立</b>。而且失效方向最糟 —— 它不是随机噪声，是<b>系统性地奖励自信和附和</b>。</b><span class='k'>横轴的设计很干净：「其他条件相同时，带某个特征的回答被偏好的概率」。</span>"
+   },
+   {
+    "q": "YouTube 推荐那个例子，讲者要点出的是哪一句？",
+    "o": ["那篇论文自己承认，几个指标组合成奖励函数的权重是人手调的（Score weights are manually tuned!）—— 一个服务十亿人的系统也没有自动化的答案", "点击率是个坏指标", "推荐系统不适合用 RL", "满意度比参与度更难测量"],
+    "a": 0,
+    "why": "<b>做法听起来很合理：engagement（点没点）＋ satisfaction（点了之后喜不喜欢）的加权组合。⇒ 但重点在下一行那句自曝。</b><span class='w'>这恰好说明「怎么平衡多个互相打架的目标」这个问题到今天也没有自动化答案 —— 而那正是幻灯最后一行写的 <b>Balancing multiple objectives that may compete with each other</b>。</span>"
+   },
+   {
+    "q": "折衬衫那个例子，难点的要害在哪？",
+    "o": ["衬衫的材质差异太大", "机器人的动作精度不够", "连人都难打分 —— 褶皱多少、偏不偏心，「hard even for people」⇒ 所以「找人标注」这条路也堵了一半", "需要三维重建才能评估"],
+    "a": 2,
+    "why": "<span class='k'>机器人现在的做法是 <b>often binary or hand-shaped</b>（二值奖励或手工塑形）。</span><b>⇒ 而这几页的框架是：幻灯标 <b>No problem</b> 的那三样（游戏／数学／代码）共同点不是「简单」，而是<b>奖励能程序化算出、而且能验证对错</b>。</b>"
+   }
+  ],
+  "9": [
+   {
+    "q": "[Ball et al., 2023] 那个反例是什么？",
+    "o": ["他们发现离线数据比在线数据更有用", "他们用更大的模型替代了预训练", "他们只灌回放缓冲区、不用预训练权重 —— 因为「预训练权重反而比不预训练更差」", "他们证明预训练需要更多数据"],
+    "a": 2,
+    "why": "<b>讲者给的机制解释值得记，因为能迁移：<b>预训练模型的输出层可能已经收敛到相当确定性的分布</b>，而「that last layer might not actually be exploring in a good way」。</b><span class='w'>⇒ 拆开讲：RL 需要探索，探索需要输出分布有宽度；而一个训好的模型输出分布是<b>窄</b>的 —— 那正是「训好了」的意思。<b>「已经学会了」和「还能继续学」在这里是对立的。</b></span>"
+   },
+   {
+    "q": "顺着同一个机制，讲者解释了「为什么 RL 在语言模型上好用」。她的解释是什么？",
+    "o": ["因为预训练语言模型的输出 token 分布天然很分散，所以它没有「探索被掐死」这个毛病", "因为文本数据比控制数据多得多", "语言模型的参数量更大", "因为语言任务的奖励更容易定义"],
+    "a": 0,
+    "why": "<b>⇒ 于是得到一条<b>判据</b>：想用预训练权重做 RL 初始化，先看那个模型的输出分布还有没有宽度。有宽度（语言模型）⇒ 放心用；已收敛成确定性（训到收敛的控制策略）⇒ <b>可能反而有害</b>。</b><span class='k'>而 p10 下半那两个「超过人类」的问法指向同一个主题：<b>预训练数据是人类的，所以预训练的上限是人类</b> —— 与 L17 p78 是同一件事的两种讲法。</span>"
+   }
+  ],
+  "11": [
+   {
+    "q": "用动作条件的视频生成模型去评估新策略，核心困难是什么？",
+    "o": ["视频分辨率不够高", "需要人工标注每一帧", "新策略的动作按定义就不在训练数据里（These will be out of distribution!）—— 这是离线 RL 那条老问题的翻版", "视频生成太慢，跑不进 RL 循环"],
+    "a": 2,
+    "why": "⚠️ <b>而失败的<b>方式</b>比「预测不准」糟得多：<b>如果数据集大部分是示范，模型会预测出「任务被正确完成」的视频 —— 哪怕那些动作其实不会导致正确结果</b>。</b><span class='w'>⇒ 它不是给你<b>随机</b>的错答案，而是<b>系统性乐观</b>的错答案。而这正是一个评估器最不能有的毛病：会随机出错的只是噪声大，<b>系统性乐观的会让你选出坏策略还以为选对了</b>。</span>"
+   },
+   {
+    "q": "「方案二」是怎么绕开出分布问题的？",
+    "o": ["用真机数据微调模型", "给模型加上物理约束", "在更多策略的数据上训练", "改成不条件于动作的模型 <code>s_t → s'</code>、只在示范上训，然后「预测未来视频 + 跑目标条件策略」—— 因为你再也不问「这串动作会导致什么」了，只用它来规划"],
+    "a": 3,
+    "why": "<b>⇒ 一般形式值得记：<b>当一个模型在某类输入上不可信时，除了「把它训得更好」，还可以「改成不需要那类输入的用法」</b>。</b><span class='k'>⚠ 这和 L17 p37/p42 是同一家族：那边说「别去解一个更难的中间问题」，这边说「别去问一个模型答不好的问题」—— 两者都是在<b>改问法</b>而不是改模型。</span><br><span class='w'>另外第二条困难是独立的：<b>视觉上可信 ≠ 物理上正确</b>（「these videos look really, really good… but that doesn't mean that the underlying physics is actually accurate」）。</span>"
+   }
+  ],
+  "13": [
+   {
+    "q": "讲者说大规模 RL 在语言模型上的成功，建立在哪两个「便宜」的条件上？",
+    "o": ["有监督预训练 + 人工标注", "视界短（single-turn 对话，只给下一个回答打分）＋ 极度在线（每轮都从模型重新采样）", "大模型 + 大数据", "奖励稠密 + 动作空间离散"],
+    "a": 1,
+    "why": "<b>而幻灯诚实地写了「视界短」的好处：<b>Shorter horizon problem + no need to collect human-in-the-loop data!</b> —— 只评下一个回答，你就不需要真人陪着把整段对话走完，<b>那是量级上的差别</b>。</b><span class='k'>贯穿两页的问题就是把这两个条件都放松掉：<b>Can we do large-scale RL with longer horizons & with less online data?</b></span>"
+   },
+   {
+    "q": "什么是「batch online」设定？讲者用什么例子说明它为什么必要？",
+    "o": ["多个智能体并行采样后同步", "少数几轮「攒一大批数据 → 更新一次模型」（可异步）—— 自动驾驶公司不可能让所有车一起采数据、然后每 30 秒更新一次策略；现实做法是攒几天到一周再更新", "把一批数据切成小批次做梯度下降", "先离线预训练、再在线微调"],
+    "a": 1,
+    "why": "<b>它既不是全在线（每步都更新），也不是纯离线（一批固定数据），<b>而是中间那一档</b>。</b><span class='w'>⚠ 而它<b>不是</b>在线 RL 的简单特例：<b>[Dong et al., 2025]</b> 发现需要<b>更有表达力的策略</b>（扩散策略这类）。因为全在线时策略马上要变、多样性是「换策略」自己带来的；<b>而批量设定下你没有这个奢侈</b>，多样性必须由策略自己提供。</span>"
+   },
+   {
+    "q": "幻灯说「PPO 这类算法的价值函数可能不够准」，不够准来做什么？",
+    "o": ["PPO 用价值函数只是为了降低梯度方差（当基线用，只要无偏、大致对就行）；而当决策依据用（做完整的 actor-critic 更新、或按 Q-learning 式目标选动作）需要逐状态都准", "不够准来做重要性采样校正", "不够准来预测环境动力学", "不够准来估计策略熵"],
+    "a": 0,
+    "why": "<b>⇒ 而这一条为什么和「长视界」绑在一起？因为<b>视界越长，策略梯度的方差越大，而价值函数正是对付长视界的主要工具</b> —— 所以这一问是「能不能做长视界」的<b>前置条件</b>，这也是幻灯把它排在第 1 条的原因。</b><span class='k'>讲稿顺带提到 DPO 这类更偏离线的算法确实有成效，「the one downside is <b>those problems are shorter horizon</b>」—— 又回到同一个取舍。</span>"
+   }
+  ]
+ }
+}
