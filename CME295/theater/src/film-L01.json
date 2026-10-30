@@ -1,0 +1,27 @@
+{
+ "file": "L01-Transformer.html",
+ "html_title": "CME295 L01 · Transformer · 放映厅",
+ "title": "CME295 · Lecture 1 · 瓶颈不在记性，在「必须逐级传递」",
+ "subtitle": "%d 个知识点 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "https://www.youtube.com/watch?v=Ub3GoFaUcds&t=",
+ "prelude_js": "// 本片的内容权威：讲稿 corpus/transcripts/L1.txt（101 分 33 秒）\n//   + 官方 VIP cheatsheet corpus/slides/cheatsheet-en.pdf 第 1 页（MIT 许可）\n// ⚠ 这门课**没有公开讲义**（材料在 Canvas 内），所以与 CS234 的做法不同：\n//   每一镜指回的是**讲稿时间码**，不是页码。点标题栏的时间可跳到视频该处。\n//\n// 逐条核过的原话（都在 L1.txt 里可搜到）：\n//   [59:09] 「the meaning of the sentence is basically solely encapsulated into this hidden state」\n//   [59:39] LSTM 「aims at improving that piece, but I guess it was not perfect either」\n//   [60:45] 「vanishing gradient」：沿时间反传「ends up being a product of a bunch of quantities」\n//   [65:00] 「people have tried having more direct connections」\n//   [67:xx] 2017《Attention is All You Need》：「move away from this sequential way of processing\n//           the text, and instead let the model just have direct connections with all parts at once」\n//   [70:23] 「going to take the query teddy bear, and compare that query with all the other keys\n//           to see which element is most similar, and then weight the more similar ones\n//           and take their associated value」\n//   [70:55] Q/K/V：「when you want to express something in terms of something else」\n//   [92:09] √d_k：「as the dimension of key and queries grows, it [the dot product] will tend to\n//           grow as well. So you want to normalize these dot products.」\n//   [91:39] 多头：「doing this computation in different ways to just allow the model to learn\n//           different representations or different projections」；h 个结果按列拼接，\n//           再用 W^O 投回原嵌入维度\n//   [93:xx] 为什么 h 个头不会学成一样：「it's the magic of gradient descent」\n//\n// ⚠ 本片**没有**讲：编码器/解码器整体架构、交叉注意力、分词器三类、位置编码。\n//   讲稿里有（80–101 分），但那是另一集的量，不塞进来。",
+ "kp_names": {
+  "1": "1 · 把一句话压进<b>一个</b>向量，远处的词就记不住了",
+  "2": "2 · 直连：<b>用别的词</b>来表达这个词",
+  "3": "3 · 那个 <b>√d_k</b> 和「多头」到底在干什么"
+ },
+ "kp_base": {
+  "1": 3549,
+  "2": 4020,
+  "3": 5499
+ },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"CME295 · Lecture 1\",\"Transformer\",\n  \"Afshine &amp; Shervine Amidi · Autumn 2025 · 本片只取第 59–93 分钟那条主线\");",
+  "narration": "这一讲有 101 分钟，前面一大半是课程介绍、监督学习回顾和词嵌入。\n\n本片只取<b>第 59 到 93 分钟</b>那条主线——它是一条很干净的因果链：\n\n<b>RNN 把整句话的意思压进一个隐状态 ⇒ 远处的词记不住 ⇒ 有人加了个记忆槽（LSTM）⇒ 还是不行 ⇒ 于是干脆不逐级传了，直接连。</b>\n\n⚠ 这门课<b>没有公开讲义</b>（材料在 Canvas 里），所以本片和 CS234 那些不一样：每一镜指回的是<b>讲稿的时间码</b>，不是页码。顶栏的时间可以点，直接跳到视频那一处。\n\n另外三件本片<b>不</b>讲：编码器/解码器的整体架构、交叉注意力、分词器。讲稿 80 分钟之后有，但那是另一集的量。"
+ },
+ "closing": {
+  "t": 5700,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"CME295 · Lecture 1\",\"这条链讲完了\",\n  \"下一步是编码器/解码器与交叉注意力 —— 讲稿 93 分钟之后\");",
+  "narration": "回看这三集，Transformer 的来路是<b>被逼出来</b>的，不是设计出来的：\n\n想处理长句 ⇒ RNN 把意思压进一个向量 ⇒ 远处记不住 ⇒ <b>加记忆槽（LSTM）不够</b>，因为病根是「必须逐级传递」⇒ 那就<b>不传了，直接连</b> ⇒ 直连要有个「谁跟谁有多相关」的度量 ⇒ <b>Q 比 K 得权重，权重取 V</b> ⇒ 点积随维度变大 ⇒ <b>除以 √d_k</b> ⇒ 一组 Q/K/V 只看得到一种关系 ⇒ <b>多头</b>。\n\n⚠ 有一处讲者自己留了白：<b>h 个头为什么不会学成一样？</b>他的回答是「it's the magic of gradient descent」——目标函数给了自由度，网络有动机让它们分工。<b>这是一个解释，不是一个保证</b>；实践里确实观察到有的头退化成近乎重复。\n\n下一步该看的是讲稿 93 分钟之后：编码器把输入编成富表示，解码器用<b>交叉注意力</b>去取它——那里有个很好的问题「解码器送出去的那支箭，是 Q、K 还是 V？」"
+ }
+}

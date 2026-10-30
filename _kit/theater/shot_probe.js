@@ -214,7 +214,10 @@ const DUMP = String.raw`
   });
 
   var overlay = {};
-  ["capWrap","eqBox","narr","sum","quiz","titleL","cap"].forEach(function(id){
+  // 2026-10-30 补上 "big"：setBig 那一拍（每部片子的「错误答案」几乎都用它）
+  // 原来不在这张表里，于是那些镜在转储里表现为「0 图元 + 无活跃覆盖层」，
+  // 看上去像空镜，实际画面是满的 —— 整整一类镜处在探针的盲区。
+  ["capWrap","eqBox","narr","sum","quiz","titleL","cap","big"].forEach(function(id){
     var el = document.getElementById(id);
     if (!el) return;
     var r = el.getBoundingClientRect();
