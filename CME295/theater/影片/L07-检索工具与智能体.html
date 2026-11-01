@@ -1,0 +1,1751 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME295 L07 · 检索、工具与智能体 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"CME295 · Lecture 7 · 别把所有东西塞进提示词，去把需要的那一点取回来",
+  subtitle:"10 个知识点 · 讲义 p11–150 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=h-7S6HNq0Vg&t="
+};
+
+
+// 内容权威：讲稿 corpus/transcripts/L7.txt（109 分 11 秒）
+//   + 官方讲义 fall25-cme295-lecture7.pdf（151 页）
+// https://cme295.stanford.edu/slides/fall25-cme295-lecture7.pdf
+// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。
+//
+// 时间码用 scratchpad 的定位器从 L7_timed.txt 的 190 个锚点插值得到。
+// 逐条核过的要点：
+//   [6:10]  为什么不能「把所有资料塞进提示词」：① 知识截止（第四讲）② 上下文有限
+//           ③ ⚠ **就算上下文无限也不行** —— 提示词一长，模型就找不准信息，
+//           而且**事实落在前半段时尤其糟**（lost in the middle）
+//           ④ 按 token 收费，GPT-5 量级约 **1 美元 / 百万 token**
+//   [15:19] **RAG** = Retrieve · Augment · Generate。讲者强调「**relevant**」是重点，
+//           整讲几乎都在讲怎么把「相关」这件事做好 —— 也就是**检索**。
+//   [20:10] 知识库三个超参数：**嵌入维度**（约千量级，如 1500）·
+//           **分块大小**（约数百 token，常见 500）· **块间重叠**（低百量级）。
+//           块太小会脱离上下文，太大则嵌入表达不了里面的内容。
+//   [24:54] 检索分两阶段（借自**搜索/推荐**系统）：
+//           ① **候选召回**：从海量块里粗筛出约上百个，目标是**最大化召回**
+//           ② **排序**（有时可选）：用更重的模型把真正相关的顶上来
+//   [28:30] 候选召回用**余弦相似度**；架构叫 **bi-encoder**（查询与文档分别过编码器）；
+//           规模大时用 **ANN**（近似最近邻）避免线性扫描。
+//           讲者推荐读 **Sentence-BERT**：它的损失就是「相关的余弦高、不相关的低」。
+//   [34:46] **BM25**：基于词重叠的**启发式**打分。讲者的例子 —— 两只熊叫 Cuddly 和 Huggy，
+//           查「Cuddly 在哪」时，纯语义检索**不保证**结果里真的含 Cuddly
+//           （Huggy 与 Cuddly 语义相近）。所以很多人用**混合检索**。
+//   [38:xx] **HyDE**：查询与文档「性质不同」（一个是短问句、一个是长文档），
+//           所以先让 LLM 生成一篇**假文档**，再拿它去检索。讲者说 it may or may not work。
+//   [41:11] **上下文化分块**：用 LLM 给每个块生成一小段「它在整篇里是什么」的说明，
+//           prepend 上去。代价是大量 LLM 调用 ⇒ 用**提示词缓存**：
+//           相同前缀的激活只算一次，缓存过的输入**约为原价的十分之一**。
+//   [51:xx] **排序/重排**用 **cross-encoder**：查询与块**一起**送进编码器，
+//           能建模两者之间的注意力交互；而 bi-encoder 两边是分开编码的，没有这种交互。
+//   [55:05] 四个指标：**NDCG**（看相关文档排得多靠前；normalized 是除以理想排序的 DCG，
+//           让满分为 1）· **MRR**（第一个相关文档排名的倒数，只看第一个）·
+//           **precision@k** · **recall@k**。基准可用 **MTEB**。
+//   [60:43] 数据有结构时就不是 RAG 而是**函数调用**。三步：
+//           ① LLM 根据提问**填出函数参数**（它**只看得到 API 与文档字符串，看不到实现**）
+//           ② 真正执行函数（这一步与 LLM 无关）
+//           ③ 把结构化结果喂回 LLM，生成自然语言回答。
+//           训练要**两组 SFT 对**：查询→参数，以及（**完整对话历史**+工具结果）→最终回答。
+//   [66:xx] 也可以**不训练**：现在的模型代码能力强，把 API 与说明放进上下文即可。
+//           ⚠ 讲者对纯 few-shot 的保留：它**泛化不好**（样例是有限的几个点）。
+//   [73:31] 工具一多就要**工具选择**（目标是同时降延迟、提性能）。
+//   [89:20] **MCP** = Model Context Protocol：避免每个人重复实现同一个工具的接口。
+//   [93:49] **ReAct** = Reason + Act。循环：**观察 → 计划 → 行动 → 回到观察**，
+//           直到目标达成才退出。讲者强调**各家论文的叫法不同**（think/observe/act 等），
+//           重要的是那个循环结构。
+//           ⚠ **智能体与工具的差别**：有没有那个**递归/多轮推理**的回路。
+//   [102:20] 安全：**数据外泄**的例子 —— 若工具能往外写，一条提示词就可能把密码发出去。
+//            两类防线：**训练期**（harmlessness 数据，见第六讲）与**推理期安全分类器**。
+//            讲者提到**就在前一天** Anthropic 披露了首个大规模 AI 编排的网络攻击。
+//   [105:xx] 收尾三条：① **幻觉仍是大问题**；② **推理能力是瓶颈** —— 多步循环里
+//            任一步偏了就全错，这是大规模智能体还没铺开的原因；
+//            ③ 实务建议：**start small, start smart** —— 先用最强的模型探能力上界，
+//            再去优化延迟成本。最后一句：生成代码很便宜，**判断代码对不对才是难的**。
+//
+// ⚠ 本片**没有**讲：A2A 协议的细节、MCP 的 host/server 架构细节、
+//   各检索指标的完整公式、AgentSafetyBench。
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("CME295 · Lecture 7","Agentic LLMs",
+      "讲义 151 页 · 讲稿 109 分 11 秒 · 本片取 10 条主线");
+    },"前六讲一直在改<b>模型本身</b>：架构、训练、对齐、推理。这一讲换一个方向——<b>模型不动，改它能接触到什么。</b>  起点是第四讲那条留下的死结：<b>知识截止之后的事，模型自己无从知道，而往权重里注入新知识「没有干净的办法」。</b>  <b>这一讲的回答是：那就别改权重，在推理时把需要的东西喂进去。</b>  十集分三段： · <i>取文本</i>（6 集）：<b>RAG</b>。⚠ 这一段几乎全在讲<b>检索</b>——因为「生成」那一步没什么可讲的，难的是<em>怎么找到真正相关的那一点</em>。 · <i>调函数</i>（2 集）：数据有结构时，比起找文档，不如<b>直接调一个函数</b>。 · <i>自己转起来</i>（2 集）：<b>ReAct</b> 的循环，以及随之而来的安全问题。  ⚠ 最后一集有一条讲者的坦白值得先知道：<b>智能体现在还没有大规模铺开，瓶颈是推理能力——多步循环里任何一步偏了，整条就废了。</b>");
+});
+
+KP("1 · 为什么不能<b>全塞进提示词</b>　<small>讲义 p11–19</small>",function(){
+  /* 钩子 */
+  S(370,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"知识截止日期之后的事，模型自己不知道","r");
+      note("第四讲：往权重里注入新知识，<b>没有干净的办法</b>",640,215,"r");
+      note("「there is not a clean way to change the weights",640,278,"r");
+      note("in a way that does not penalize some parts」",640,322,"r");
+      boxNode(390,350,500,46,"那就别改权重 —— 改输入","g");
+      setCap("这一讲的全部出发点。");
+    },"第四讲留下了一个死结：  <b>模型的知识停在预训练语料截止的那一天。而事后往权重里注入新知识，讲者的原话是——there's not a clean way to change the weights in a way that does not penalize some parts。</b>  <b>这一讲的回答很干脆：那就别改权重。</b>  模型的输入里本来就有一块是你能完全控制的——<b>提示词</b>。需要它知道什么，<em>在提问时一起给它</em>。  这个思路简单到近乎平凡，<b>但接下来四镜你会看到，朴素版本行不通</b>——而行不通的原因，决定了这一讲剩下的全部内容。");
+  /* 错误答案 */
+  S(382,function(){
+      clearScene();setEq(null);
+      setBig("把整个知识库都贴进提示词","反正现在上下文窗口很大了");
+      setCap("讲者花了好几分钟逐条拆这个想法 —— <b>四条理由</b>。");
+    },"既然可以把信息放进提示词，<b>那把全部资料都贴进去不就行了？</b>  现在的模型动辄十几万、上百万 token 的上下文窗口，<em>听起来真的可行</em>。  讲者花了好几分钟逐条拆这个想法，给了<b>四条理由</b>：  ① <b>上下文窗口仍然有限</b>——再大也有上限，而知识库可以无限大。 ② ⚠ <b>就算上下文无限，也还是不行</b>——这条最有意思，下一镜专讲。 ③ <b>按 token 收费</b>——提示词越长越贵。 ④ <em>（隐含的第四条）</em>每次提问都重新塞一遍，<b>延迟也受不了</b>。  <b>第二条是真正把这条路堵死的那一条。</b>");
+  /* 铺陈 */
+  S(394,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,200],[340,300],[500,340],[660,345],[820,310],[1000,215]],"fit");
+      note("纵轴：能不能找到那条事实（越高越好）",640,120,"b");
+      note("横轴：事实埋在提示词的哪个位置",640,392,"b");
+      note("开头",200,250,"g");
+      note("中间 —— <b>这里最糟</b>",600,250,"r");
+      note("结尾",1030,250,"g");
+      setCap("讲者：提示词超过一定长度后，模型<b>找不准</b>里面的信息。");
+    },"这是四条理由里最重要的一条，因为它说明<b>「窗口变大」解决不了问题</b>。  讲者描述了一个实验：把一条事实埋在提示词的不同位置，看模型能不能把它找出来。  结果：<b>提示词超过一定长度之后，模型就开始找不准了</b>；而且 it had trouble doing so when the fact was somewhere <b>in the first half of the prompt</b>。  <b>画出来是一条 U 形曲线</b>：开头和结尾记得住，<em>中间最糟</em>。这个现象通常叫 <b>lost in the middle</b>。  ⚠ <b>请体会这件事的分量：它说明「能放进去」和「能用上」是两回事。</b>  讲者的结论很直接：<b>even if our context length was unlimited, we would still have a problem by just going through that naive approach.</b>  <em>所以必须筛选，而不是全塞。这不是省钱的权宜之计，是必须的。</em>");
+  /* 主体 */
+  S(406,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"GPT-5 量级：约 1 美元 / 百万 token","y");
+      note("单看不贵",640,210,"g");
+      note("但<b>每一次提问</b>都要重贴一遍整个知识库",640,268,"r");
+      note("讲者：it can <b>add up</b>, if you do that for all your prompts",640,352,"r");
+      setCap("「把全部资料贴进去」的成本，是乘以请求数的。");
+    },"第三条理由很实在，而且容易被低估。  <b>LLM 调用是按 token 收费的，输入也算。</b>讲者给了量级：GPT-5 大约 <b>1 美元 / 百万 token</b>。  单看这个数字不算贵。但关键在<b>乘法</b>：  <b>如果每一次提问都要把整个知识库重贴一遍，那这笔钱要乘以你的请求数。</b>讲者：it's not that expensive, but <b>it can add up, if you do that for all your prompts</b>。  ⚠ 对照第六讲那条「推理 token 要收费」——<b>这门课反复在提醒同一件事：LLM 的成本是按量计的，所以任何「每次请求都要付」的开销，都要乘以流量再看。</b>  <em>（第五集会看到一个专门对付这个问题的机制：提示词缓存。）</em>");
+  /* 主体 */
+  S(418,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,54,"提问","b");
+      arrow(364,132,436,132,"sm",0);
+      boxNode(440,105,300,54,"① 检索 Retrieve","g");
+      arrow(744,132,816,132,"sm",0);
+      boxNode(820,105,340,54,"② 增广 Augment","y");
+      arrow(640,159,640,215,"sm",0);
+      boxNode(440,219,400,54,"③ 生成 Generate","b");
+      note("RAG = 这三个词的首字母",640,310,"y");
+      note("讲者把 <b>relevant</b> 这个词加粗了 —— 整讲的重点全在这",640,368,"r");
+      setCap("<b>R</b>etrieval <b>A</b>ugmented <b>G</b>eneration。");
+    },"既然不能全塞，就只取需要的那一点。这就是 <b>RAG</b>——<b>R</b>etrieval <b>A</b>ugmented <b>G</b>eneration。  三步： ① <b>Retrieve（检索）</b>：从知识库里<em>找出与这个提问相关的片段</em>。 ② <b>Augment（增广）</b>：把找到的内容<em>拼进提示词里</em>。 ③ <b>Generate（生成）</b>：把增广后的提示词喂给 LLM。  讲者举的例子很直白：问「这次选举谁赢了」，先检索到相关资料，<b>然后提示词变成「这次选举谁赢了？顺便说一下，这次选举是……获胜者是……」</b>——<em>in other words, we're giving the answer in the prompt</em>。  ⚠ <b>注意讲者在幻灯片上把 relevant 这个词加粗了。</b>第②③步其实没什么技术含量——<em>拼字符串、调模型</em>。  <b>全部的难度都在第①步：怎么找到真正相关的那一点。所以这一讲接下来五集，讲的全是检索。</b>");
+  /* 反驳 */
+  S(430,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"检索对了","g");
+      note("模型几乎是在「抄答案」，很可靠",340,195,"g");
+      boxNode(730,105,440,58,"检索错了","r");
+      note("模型拿着错资料，<b>自信地给出错答案</b>",950,195,"r");
+      note("而且它看起来有「依据」，更难被发现",950,243,"r");
+      note("⚠ RAG <b>缓解</b>幻觉，但也可能<b>让幻觉更可信</b>",640,352,"r");
+      setCap("学生当场就问到了这一点，讲者说：<b>这正是检索这么重要的原因</b>。");
+    },"课堂上有学生立刻问到了要害：<b>万一检索这一步做得不好呢？</b>  讲者的回答：<b>yes. So this is why the retrieval stage is so important.</b>  <b>把这个风险说准，因为它常被忽略：</b>  · <b>检索对了</b>：模型几乎是在「照着资料抄」，<em>可靠性大幅提高</em>。 · <b>检索错了</b>：模型拿着一份<em>不相关或错误</em>的资料，<b>依然会自信地组织出一个回答</b>。  ⚠ <b>而且第二种情况比纯粹的幻觉更危险</b>：因为回答里<em>带着「依据」</em>——引用了某份文档、某个段落。<b>它看起来更可信，所以更难被发现是错的。</b>  <b>RAG 不是幻觉的解药。它把问题从「模型瞎编」转移成了「检索系统找错」</b>——<em>后者更可控、可测量（第六集会讲怎么量），但它没有消失。</em>  讲者在最后一集的收尾里也明确说了：<b>hallucination is a (big) problem。</b>");
+  SUM(370,1,{h:"RAG：别全塞进提示词，只取需要的那一点",
+    k:"<b>R</b>etrieve · <b>A</b>ugment · <b>G</b>enerate。起点是第四讲那个死结 —— <b>改权重注入知识没有干净的办法</b>，那就改输入。",
+    m:"⚠ 不能全塞的四条理由里，最关键的是：<b>就算上下文无限也不行</b> —— 提示词一长模型就找不准信息，而且<b>事实落在前半段时尤其糟</b>（lost in the middle）。<b>「能放进去」和「能用上」是两回事。</b>",
+    w:"<s>误解</s>：「上下文窗口够大就能全贴进去」。除上面那条外，还有<b>按 token 收费</b>（约 1 美元/百万 token），而这笔钱要<b>乘以请求数</b>。",
+    e:"讲者把 <b>relevant</b> 加粗了：增广与生成没什么技术含量，<b>全部难度在检索</b>，所以后面五集都在讲它。⚠ <b>RAG 不是幻觉的解药</b> —— 检索错了，模型会带着「依据」自信地答错，<b>反而更难被发现</b>。"});
+  QUIZ(370,1,{t:"为什么即使上下文窗口无限大，也不能把整个知识库贴进提示词？",
+    o:["因为注意力的 O(n²) 复杂度会让推理无法完成","因为知识库中的文档格式与提示词模板不兼容","因为超长提示词会触发模型的安全过滤","因为提示词过长时模型会找不准其中的信息，事实落在前半段时尤其糟"],
+    a:3,
+    w:"讲者描述的实验：把一条事实埋在提示词的不同位置，<b>超过一定长度后模型就开始找不准</b>，而且 <b>it had trouble when the fact was in the first half of the prompt</b>（lost in the middle）。所以 <b>even if context length was unlimited, we would still have a problem</b>——<em>「能放进去」和「能用上」是两回事</em>。<s>「O(n²)」</s>题目已假设窗口无限、不考虑算力。<s>「格式不兼容」</s>纯粹的工程细节，不是原理性障碍。<s>「安全过滤」</s>没有这种机制。"});
+});
+
+KP("2 · 知识库：<b>切块</b>与那三个超参数　<small>讲义 p30–33</small>",function(){
+  /* 钩子 */
+  S(919,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,160,"一整篇文档","b");
+      arrow(364,185,436,185,"sm",0);
+      boxNode(440,105,220,46,"块 1","g");
+      boxNode(440,160,220,46,"块 2","g");
+      boxNode(440,215,220,46,"块 3","g");
+      arrow(664,185,736,185,"sm",0);
+      boxNode(740,105,200,46,"嵌入 1","y");
+      boxNode(740,160,200,46,"嵌入 2","y");
+      boxNode(740,215,200,46,"嵌入 3","y");
+      note("讲者：whenever you hear retrieval,",1060,160,"y");
+      note("you should think about <b>embeddings</b>",1060,205,"y");
+      note("这就是<b>知识库</b>的建立过程",640,330,"g");
+      setCap("取回整篇文档没有意义 —— 粒度必须比「一篇」细。");
+    },"要能「只取需要的那一点」，先得把资料准备好。这一步的产物叫<b>知识库</b>。  三个动作： ① <b>收集</b>可能有用的文档。 ② <b>切块</b>（chunking）——把每篇文档切成若干小段，<em>长度以 token 计</em>。 ③ <b>算嵌入</b>——给每一块算一个向量。  <b>为什么必须切块？</b>因为取回一整篇文档没有意义——<em>一篇几万字的手册里，你要的可能只是一段</em>。而且第一集说过，塞太多反而找不着。  讲者给了一句很好记的口诀：<b>whenever you hear retrieval, you should think about embeddings.</b>  <b>整个检索的基础就是：把「意思相近」变成「向量相近」。</b>  接下来三镜讲三个超参数，<b>它们每一个都是两头受限的权衡</b>。");
+  /* 错误答案 */
+  S(931,function(){
+      clearScene();setEq(null);
+      setBig("块越小，取回来的东西越精准","反正只要那一句话");
+      setCap("<s>小了会脱离上下文</s> —— 一句话单独拎出来，可能完全看不懂。");
+    },"直觉：既然要「只取需要的那一点」，<b>块切得越小越精准</b>。  <b>不对，而且错得很具体。</b>  讲者：you don't want them to be too small, <b>because otherwise the text may be out of context</b>。  想想一个实际的例子：手册里有一句「<em>这个值不能超过 80</em>」。单独拎出来，<b>你完全不知道「这个值」指什么、80 是什么单位、在什么条件下</b>。  它的嵌入向量也同样是无意义的——<b>因为句子本身就没有意义</b>。  ⚠ <b>但反过来也不行。</b>讲者：you don't want it to be too large, <b>because maybe the embedding will not represent, in a meaningful way, what is inside</b>。  <b>一个几千字的块，要被压成一个向量——里面的细节全被平均掉了。</b>  <em>所以这是一个两头受限的权衡。</em>讲者给的典型值：<b>500 token 左右</b>。");
+  /* 铺陈 */
+  S(943,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"维度大","g");
+      note("能表达更细、更有层次的差别",340,195,"g");
+      note("但更占空间、检索时更慢",340,243,"r");
+      boxNode(730,105,440,58,"维度小","y");
+      note("省空间、快",950,195,"g");
+      note("但表达不了复杂文档的细微差别",950,243,"r");
+      note("讲者给的典型量级：<b>千级</b>，比如 1500",640,352,"y");
+      setCap("又一个两头受限的权衡。");
+    },"第二个超参数：<b>嵌入的维度</b>。  权衡的形状和上一镜一样：  · <b>维度大</b>：能表达更细致的语义差别。讲者说如果你的文档 <em>more nuanced, more complex</em>，就需要更大的维度。代价是<b>更占空间，而且检索时算得更慢</b>（每次相似度计算都要过更多维）。 · <b>维度小</b>：省空间、快，但<em>表达不了细微差别</em>——两段意思不同的话可能被映射到很近的地方。  讲者给的典型量级：<b>千级，比如 1500</b>。  ⚠ 课堂上有人问：<b>这个嵌入模型要自己训吗？</b>讲者的回答是两个选择都有——<b>用现成的预训练嵌入模型（大多数人这么做），或者自己训一个</b>。第三集会看到这类模型是怎么训的。");
+  /* 主体 */
+  S(955,function(){
+      clearScene();setEq(null);setBig(null);
+      note("朴素切法：块与块之间<b>完全不重叠</b>",640,112,"r");
+      boxNode(130,150,300,50,"块 1","b");
+      boxNode(450,150,300,50,"块 2","b");
+      boxNode(770,150,300,50,"块 3","b");
+      note("一句话正好被切在边界上 → 两边都看不懂",640,228,"r");
+      note("带重叠的切法",640,282,"g");
+      boxNode(130,310,340,50,"块 1","g");
+      boxNode(400,310,340,50,"块 2","g");
+      boxNode(670,310,340,50,"块 3","g");
+      setCap("重叠量典型值：<b>低百量级</b>的 token。");
+    },"第三个超参数：<b>块之间的重叠</b>（overlap）。  朴素的切法是把文档均匀切开，<b>块与块之间完全不重叠</b>。问题很直接：<b>一个完整的意思可能正好横跨边界</b>，于是被劈成两半，<em>哪一半单独看都不完整</em>。  讲者：typically, you have some part that is from the previous chunk that is <b>relevant to understand the current chunk</b>。  做法：<b>让每一块把前一块的末尾也包含进来一点。</b>典型重叠量是<b>低百量级的 token</b>。  <b>代价是冗余</b>——同一段文字会出现在多个块里，<em>存储和计算都变多</em>。但这个代价通常值得付。  ⚠ 课堂上还有个很好的提问：<b>按 token 数机械切，不管内容结构，合理吗？</b>讲者承认这是个好问题，并指出<b>文档类型是有讲究的</b>——<em>JSON、Markdown 这类有结构的文件，切的时候应该顺着结构走</em>。他说这一层 we will not go into details，但特意点了出来。  <b>而「切出来的块脱离上下文」这个更根本的问题，第五集有专门的办法。</b>");
+  /* 主体 */
+  S(967,function(){
+      clearScene();setEq(null);setBig(null);
+      matrix({rows:4,cols:3,cw:320,ch:56,x:160,y:110,
+      cell:function(i,j){
+      var t=[["超参数","典型量级","调大的代价"],
+      ["嵌入维度","千级（约 1500）","占空间、检索慢"],
+      ["块大小","数百 token（约 500）","嵌入表达不了细节"],
+      ["块间重叠","低百 token","冗余变多"]];
+      return t[i][j];},
+      hl:function(i,j){return i===0?"y":"";}});
+      note("三个都是<b>两头受限</b>，没有「越大越好」的方向",640,375,"r");
+      setCap("⚠ 这三个数是<b>每个知识库自己的事</b>，不存在通用最优值。");
+    },"把三个超参数并排列出来：  · <b>嵌入维度</b>：千级（约 1500）。调大 → 占空间、检索慢。 · <b>块大小</b>：数百 token（约 500）。调大 → 嵌入表达不了里面的细节。 · <b>块间重叠</b>：低百 token。调大 → 冗余变多。  ⚠ <b>注意一个共同点：三个都是两头受限的，没有一个存在「越大越好」的方向。</b>  <b>而且这三个数必须针对你自己的语料来调</b>——法律合同、代码库、聊天记录，<em>它们合适的块大小完全不同</em>。  ⚠ 更要紧的是：<b>这三个数一旦定了、知识库建好了，改动的代价很大</b>——<em>改块大小意味着整个知识库要重新切、重新算嵌入</em>。  <b>所以这是一组「建库之前就得想清楚」的决定，不是可以边跑边调的旋钮。</b>");
+  /* 反驳 */
+  S(979,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"嵌入模型的作用","g");
+      note("把「意思相近」变成「向量相近」",340,195,"g");
+      boxNode(730,105,440,58,"⚠ 它要是做不到","r");
+      note("后面所有的检索技巧都在<b>错的空间里</b>折腾",950,195,"r");
+      note("第三集：Sentence-BERT 的损失就是为这件事设计的",640,310,"y");
+      note("「相关的余弦高，不相关的余弦低」",640,362,"g");
+      setCap("整条链里最底层的那一环。");
+    },"最后点明这一集真正的要害。  <b>整个 RAG 的检索，建立在一个假设上：意思相近的东西，向量也相近。</b>  <b>而这个假设成不成立，完全取决于嵌入模型。</b>  ⚠ 如果嵌入模型把「怎么退货」和「怎么下单」映射到了很近的地方，那么<em>后面所有的技巧——混合检索、重排、上下文化——都是在一个错的空间里折腾</em>。  <b>这就是为什么讲者在下一集会专门推荐 Sentence-BERT 那篇论文。</b>他点明了它的关键：<b>它的损失函数就是在「让相关的东西余弦相似度高、不相关的低」</b>。  <em>也就是说——通用的 BERT 嵌入并不天然适合做相似度检索，必须用这个目标专门训过。</em>  ⚠ 而讲者说大多数人用<b>现成的</b>嵌入模型。<b>于是一个很实际的风险是：现成模型是在通用语料上训的，而你的领域（医学、法律、内部文档）里，「相关」的含义可能和通用语料里完全不同。</b>");
+  SUM(919,2,{h:"知识库：切块、算嵌入，三个两头受限的旋钮",
+    k:"收集文档 → <b>切块</b>（因为取回整篇没有意义）→ <b>算嵌入</b>。讲者的口诀：<b>whenever you hear retrieval, think about embeddings</b>。",
+    m:"三个超参数及典型量级：<b>嵌入维度</b>千级（约 1500）· <b>块大小</b>数百 token（约 500）· <b>块间重叠</b>低百 token。<b>三个都是两头受限</b>，没有「越大越好」的方向，而且必须针对自己的语料调。",
+    w:"<s>误解</s>：「块切小一点更精准」。<b>太小会脱离上下文</b>（「这个值不能超过 80」单独拎出来毫无意义），<b>太大则嵌入表达不了里面的细节</b>。",
+    e:"⚠ 这三个数<b>建库前就得定</b> —— 改块大小意味着整库重切重算。⚠ 更底层的一条：<b>嵌入模型决定了整条链的上限</b>。通用 BERT 嵌入并不天然适合相似度检索，<b>Sentence-BERT 的损失就是为此设计的</b>（相关的余弦高、不相关的低）。"});
+  QUIZ(919,2,{t:"RAG 的块大小（chunk size）为什么不能一味调小？",
+    o:["块太小会超出嵌入模型的最短输入长度限制","块太小会让知识库的块数增加，检索无法完成","块太小会让文本脱离上下文，单独看就失去了意义","块太小会导致块之间无法设置重叠"],
+    a:2,
+    w:"讲者：you don't want them to be too small, <b>because otherwise the text may be out of context</b>。一句「这个值不能超过 80」单独拎出来，你不知道「这个值」指什么、80 是什么单位——<b>句子没意义，它的嵌入也没意义</b>。反过来太大则「嵌入表达不了里面的内容」，所以是两头受限。<s>「最短输入限制」</s>嵌入模型没有这种限制。<s>「检索无法完成」</s>块多只是更慢，ANN 正是为此存在的。<s>「无法设置重叠」</s>重叠与块大小是独立的超参数。"});
+});
+
+KP("3 · 两阶段检索的第一步：<b>粗筛</b>　<small>讲义 p36–47</small>",function(){
+  /* 钩子 */
+  S(1494,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,58,"知识库：百万级块","b");
+      arrow(414,134,500,134,"sm",0);
+      boxNode(540,105,300,58,"① 候选召回","g");
+      note("粗筛到约<b>上百个</b>",690,195,"g");
+      note("目标：<b>最大化召回</b>（别漏）",690,243,"g");
+      arrow(844,134,930,134,"sm",0);
+      boxNode(950,105,210,58,"② 排序","y");
+      note("精排出前几个",1055,195,"y");
+      note("⚠ 这套两阶段，是从<b>搜索与推荐</b>系统搬来的",640,352,"r");
+      setCap("讲者当场问：有做推荐或搜索背景的吗？—— 有。");
+    },"知识库可能有上百万个块，而最终只能往提示词里放几个。<b>怎么找？</b>  讲者在这里点了一件很重要的事，而且是主动点的：<b>这套方法不是 LLM 社区发明的。</b>  他问全场有没有<b>推荐系统或搜索</b>背景的人，然后说：<b>the methods we're seeing here are very similar to that space. People in the LLM community have borrowed ideas and leveraged techniques that we have over there.</b>  <b>做法是两阶段：</b> · <b>① 候选召回</b>：从百万级粗筛到<em>约上百个</em>。目标是<b>最大化召回</b>——<em>宁可多带几个无关的，也别把相关的漏掉</em>。用很便宜的方法。 · <b>② 排序</b>（有时可选）：在这上百个里<em>精挑细选</em>。候选少了，<b>就可以用更贵的方法</b>。  ⚠ <b>这个「先粗后精」的结构值得单独记住：便宜的方法处理大规模，昂贵的方法处理小规模。</b>这一集讲第一阶段。");
+  /* 错误答案 */
+  S(1506,function(){
+      clearScene();setEq(null);
+      setBig("算一下查询和每个块的相似度，取最高的几个","一百万次计算而已");
+      setCap("方向对，但<b>每次提问</b>都扫一百万次，撑不住。");
+    },"第一阶段的思路很直接：<b>把查询也变成一个向量，然后和知识库里每个块的向量比相似度，取最高的几个。</b>  <b>方向完全正确</b>，这正是在做的事。问题只在规模：  <b>每一次用户提问，都要做一百万次向量比较。</b>而这还只是第一步，<em>后面还要排序、还要调 LLM 生成</em>。  讲者指出了这个复杂度，并给了解法的名字：<b>approximate nearest neighbor</b>（ANN，近似最近邻）。  思路是：<b>建知识库的时候就把嵌入「分好区」</b>（partition），查询时<em>只在少数几个区里找</em>，而不是线性扫全部。  ⚠ 名字里的 <b>approximate</b> 是诚实的——<b>它可能漏掉真正的最近邻</b>。但在这个阶段可以接受，因为<em>第一阶段本来就只是粗筛，后面还有排序兜底</em>。  讲者说这块 we're not going to go into details，<b>但你要知道「向量检索库」这类工具解决的就是这件事</b>。");
+  /* 铺陈 */
+  S(1518,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\mathrm{cossim}(q,d)=\\frac{q\\cdot d}{\|q\|\,\|d\|}$$","top");
+      note("第一讲讲过：嵌入世界里「像不像」就是点积",640,330,"y");
+      note("除以模长，于是只看<b>方向</b>，不看长度",640,382,"g");
+      setCap("讲者：其他距离也有人用，但<b>大体都是余弦</b>。");
+    },"用什么来比？<b>余弦相似度</b>——<em>这是第一讲第二集就见过的东西</em>。  它就是点积除以两个向量的模长，于是<b>只看方向、不看长度</b>。  课堂上有人问有没有别的选择。讲者的回答很实在：<b>你会看到有人用别的距离（比如 L2），但如果所有向量都归一化成模长为 1，很多东西就会化简到一起</b>——<em>所以它们大体都是余弦相似度的变体</em>。  ⚠ 他还顺手留了个思考题：<b>I would encourage you to think about how they relate to one another.</b>（模长为 1 时，L2 距离的平方 = 2 − 2×余弦，<em>所以按 L2 排序和按余弦排序结果完全一样</em>。）  <b>下一镜看一件更重要的事：这些嵌入是怎么算出来的，以及那个架构叫什么。</b>");
+  /* 主体 */
+  S(1530,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,280,54,"查询","b");
+      arrow(250,159,250,209,"sm",0);
+      boxNode(110,213,280,54,"编码器","y");
+      arrow(250,267,250,313,"sm",0);
+      boxNode(110,317,280,50,"向量","g");
+      boxNode(870,105,280,54,"文档块","b");
+      arrow(1010,159,1010,209,"sm",0);
+      boxNode(870,213,280,54,"编码器","y");
+      arrow(1010,267,1010,313,"sm",0);
+      boxNode(870,317,280,50,"向量","g");
+      note("两边<b>互不相见</b>",640,200,"r");
+      note("所以文档的向量可以<b>预先算好</b>",640,262,"g");
+      note("—— 这正是它能扛住百万级规模的原因",640,352,"g");
+      setCap("架构名字叫 <b>bi-encoder</b>（双编码器）。");
+    },"嵌入是怎么算的？<b>把文本送进一个编码器</b>——讲者说<em>通常是 encoder-only 的模型，比如 BERT 那一类</em>（第二讲讲过）。  关键在于<b>查询和文档是分开编码的</b>：查询过一遍编码器得到一个向量，文档块过一遍得到另一个向量，<em>两边在编码时互不相见</em>，最后只比向量。  <b>这个架构叫 bi-encoder（双编码器）。</b>  ⚠ <b>「互不相见」听起来像个缺点，但它恰恰是这一阶段能工作的全部原因：</b>  <b>既然文档的编码不依赖查询，那它就可以在建库时预先算好、存起来。</b>查询时只需要<em>编码一次查询</em>，剩下的全是向量比较。  <b>如果两边必须一起编码，那每来一个查询就要把一百万个块重新过一遍模型——完全不可能。</b>  <em>（第六集会看到：排序阶段正是放弃了这个性质，换取更好的效果。）</em>");
+  /* 主体 */
+  S(1542,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"Sentence-BERT：为相似度检索而训的 BERT","g");
+      note("损失直接写的就是这件事：",640,200,"y");
+      note("<b>相关的一对 → 余弦相似度高</b>",640,255,"g");
+      note("<b>不相关的一对 → 余弦相似度低</b>",640,303,"r");
+      note("讲者：你们现在懂 BERT 了，这篇<b>读起来很容易</b>",640,375,"y");
+      setCap("通用 BERT 的嵌入，<b>不天然适合</b>做相似度比较。");
+    },"讲者在这里专门推荐了一篇论文，而且理由很好：  <b>Sentence-BERT</b>——顾名思义，是 BERT 的一个扩展，<b>专门用来给句子/文档算一个「适合做相似度检索」的嵌入</b>。  它的关键在损失函数，讲者说得很直接：<b>the idea is to have a loss function that will incentivize having a high cosine similarity for relevant entities and low cosine similarity for entities that are not relevant.</b>  ⚠ <b>这暗示了一件重要的事：通用 BERT 的嵌入，并不天然适合做相似度比较。</b>  <em>BERT 原本是为掩码预测和分类训的（第二讲），它的表示里什么信息都有，但「余弦相似度大 = 语义相关」这件事从来没被当作训练目标。</em>  <b>所以要专门训。</b>  讲者还加了一句很贴心的话：<b>既然你们现在已经懂 BERT 了，这篇读起来很容易。</b>——<em>第二讲那一集在这里派上了用场。</em>");
+  /* 反驳 */
+  S(1554,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"语义检索的定义：找「意思相近」的","g");
+      note("⚠ 它<b>完全不保证</b>结果里含有你查询中的词",640,205,"r");
+      note("讲者：it can very well be that the matched documents",640,265,"r");
+      note("<b>do not have any word in common</b>, but they mean the same",640,312,"r");
+      note("有时这是优点，有时这是<b>致命伤</b>",640,382,"y");
+      setCap("下一集：那个「致命伤」长什么样。");
+    },"最后把语义检索的性质说准，<b>因为它既是优点也是缺陷</b>。  讲者给了语义相似的定义，而且点明了它的代价：  <b>it means finding documents that have the same meaning. But in the way we compute these embeddings, we're not enforcing any kind of keyword match. It can very well be that the documents that are matched, they do not have any word in common, but they mean the same.</b>  <b>「没有一个词相同，但意思一样」——这正是语义检索的卖点。</b>用户问「怎么把钱拿回来」，能检索到标题是「退款政策」的文档，<em>而关键词匹配做不到</em>。  ⚠ <b>但反过来也成立，而且这是个真问题：它不保证结果里含有你查询中的任何一个词。</b>  <em>当你查的是一个具体的名字、型号、编号时，「意思相近」恰恰是你不想要的。</em>  <b>下一集用一个非常具体的例子说明这件事，并给出补救办法。</b>");
+  SUM(1494,3,{h:"两阶段检索的第一步：便宜地粗筛",
+    k:"<b>① 候选召回</b>：百万级 → 约上百个，目标是<b>最大化召回</b>（别漏），用便宜的方法；<b>② 排序</b>：候选少了，<b>就可以用更贵的方法</b>。⚠ 这套两阶段是从<b>搜索与推荐</b>系统借来的。",
+    m:"召回用<b>余弦相似度</b>比向量，架构叫 <b>bi-encoder</b> —— 查询与文档<b>分开编码</b>。「互不相见」看似缺点，<b>恰恰是它能扛住百万级的原因</b>：文档向量可以预先算好。规模大时再用 <b>ANN</b> 分区，避免线性扫描。",
+    w:"<s>误解</s>：「每次提问扫一遍全库就行」。每次一百万次比较撑不住，所以要 ANN —— 名字里的 <b>approximate</b> 是诚实的，它可能漏掉真正的最近邻，<b>但第一阶段本就是粗筛，后面有排序兜底</b>。",
+    e:"讲者推荐 <b>Sentence-BERT</b>：它的损失直接写着「相关的余弦高、不相关的低」—— 这暗示<b>通用 BERT 的嵌入并不天然适合相似度检索</b>。⚠ 语义检索的性质两面：<b>「没有一个词相同但意思一样」是卖点，也意味着它不保证结果含有你查询中的词</b>。"});
+  QUIZ(1494,3,{t:"候选召回阶段用 bi-encoder（查询与文档分别编码）的关键好处是什么？",
+    o:["它能建模查询与文档之间的注意力交互，因而更准确","文档向量可以在建库时预先算好，查询时只需比较向量","它不需要训练，可以直接用通用的 BERT","它能保证检索结果包含查询中的关键词"],
+    a:1,
+    w:"正因为<b>文档的编码不依赖查询</b>，它才能在建库时预先算好并存起来；查询时只需编码一次查询，剩下全是便宜的向量比较——<b>这是能扛住百万级规模的全部原因</b>。<s>「注意力交互」</s>恰恰相反，bi-encoder <b>没有</b>这种交互；有交互的是排序阶段的 <b>cross-encoder</b>，代价是不能预计算。<s>「不需要训练」</s>讲者专门推荐 Sentence-BERT，说明<b>需要为相似度目标专门训</b>。<s>「保证含关键词」</s>语义检索<b>恰恰不保证</b>这一点，这正是下一集要用 BM25 补的。"});
+});
+
+KP("4 · <b>BM25</b> 与混合检索：语义不保证含关键词　<small>讲义 p48–51</small>",function(){
+  /* 钩子 */
+  S(2086,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(390,105,500,54,"查询：Cuddly 在哪？","b");
+      arrow(640,159,330,209,"sm",0);
+      arrow(640,159,950,209,"sm",0);
+      boxNode(170,213,340,54,"想要的：含 Cuddly 的文档","g");
+      boxNode(770,213,340,54,"可能拿到：关于 Huggy 的","r");
+      note("因为 Cuddly 和 Huggy <b>语义上很接近</b>",640,320,"r");
+      note("都是泰迪熊的名字，上下文也相似",640,372,"r");
+      setCap("讲者 34:46 用的就是这个例子。");
+    },"上一集最后那个「致命伤」，讲者用一个很具体的例子展示了出来。  <b>假设你有两只泰迪熊，一只叫 Cuddly，一只叫 Huggy。你问：「Cuddly 在哪？」</b>  纯语义检索会怎么样？  <b>Cuddly 和 Huggy 在嵌入空间里非常接近</b>——<em>都是泰迪熊的名字，出现的上下文也几乎一样</em>。于是检索回来的，<b>很可能是关于 Huggy 的文档</b>。  讲者的说法：if you only used the semantic similarity search, <b>you would not have that guarantee. You would only have documents that are semantically similar.</b>  ⚠ <b>请注意这个失败的性质：它不是「检索得不够好」，而是「检索得太好了」。</b>  <em>嵌入模型准确地识别出 Cuddly 和 Huggy 是同一类东西——这在别的场景下完全正确。但在「找这一个具体的实体」时，这正是你不想要的。</em>");
+  /* 错误答案 */
+  S(2098,function(){
+      clearScene();setEq(null);
+      setBig("再训一个能区分两个名字的嵌入模型","让它学会 Cuddly 和 Huggy 不是一回事");
+      setCap("<s>这条路走不通</s>：专有名词是<b>无穷无尽</b>且<b>不断新增</b>的。");
+    },"既然嵌入模型分不清这两个名字，<b>那就训一个分得清的？</b>  <b>这条路堵死了，而且理由很根本：</b>  专有名词是<b>无穷的</b>——人名、产品型号、订单号、内部代号、错误码……而且它们<b>不断在新增</b>。  <em>你不可能训出一个嵌入模型，能把所有具体实体两两区分开——那等于要求嵌入空间里每个专有名词都占一个孤立的位置，而这和「语义相近的东西靠在一起」这个设计目标直接矛盾。</em>  ⚠ <b>更根本的是：嵌入是「有损压缩」。</b>把一段文字压成 1500 个数，<em>必然要丢掉一些东西</em>。而被丢掉的，往往正是「具体是哪一个」这类<b>细粒度的标识信息</b>——因为对「这段讲的是什么」这个目标来说，它确实不重要。  <b>所以办法不是修嵌入，而是另外加一种完全不同的检索方式。</b>");
+  /* 铺陈 */
+  S(2110,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"BM25：按查询与文档的<b>词重叠</b>打分","y");
+      note("它是一个<b>启发式</b>公式，不是学出来的模型",640,205,"r");
+      note("查「Cuddly」→ 结果里<b>一定</b>含 Cuddly",640,265,"g");
+      note("因为这是它的<b>定义</b>，不是它的能力",640,320,"g");
+      note("⚠ 代价：完全不懂「退款」和「把钱拿回来」是一回事",640,382,"r");
+      setCap("讲者：BM25 is a relevance score that is actually a <b>heuristic</b> score。");
+    },"补救办法是一种<b>完全不同原理</b>的检索：<b>BM25</b>。  讲者的定义很准：<b>BM25 is a relevance score that is actually a heuristic score. It is based on some function of the overlap between what is in your query and what is in your document.</b>  <b>两个关键词：</b> · <b>heuristic（启发式）</b>——它是一个<em>写死的公式</em>，不是学出来的模型。没有训练，没有嵌入。 · <b>overlap（词重叠）</b>——它数的是<em>查询里的词在文档里出现了多少、多罕见</em>。  <b>于是它有一个语义检索永远给不了的保证：</b>查 Cuddly，<em>结果里一定含有 Cuddly</em>。  ⚠ <b>注意这不是它「更聪明」，而是它的定义就是如此。</b>  <b>代价同样彻底</b>：它完全不懂「退款政策」和「怎么把钱拿回来」说的是一回事——<em>一个词都不重合，分数就是零</em>。");
+  /* 主体 */
+  S(2122,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"语义检索（嵌入）","g");
+      note("会「同义改写」",340,195,"g");
+      note("不保证含关键词",340,243,"r");
+      boxNode(730,105,440,58,"BM25（词重叠）","y");
+      note("保证含关键词",950,195,"g");
+      note("不会「同义改写」",950,243,"r");
+      arrow(340,290,560,330,"sm",0);
+      arrow(950,290,720,330,"sm",0);
+      boxNode(440,335,400,50,"混合：把两边的结果合起来","b");
+      setCap("讲者：很多人<b>按自己的用例</b>决定要不要混，以及怎么混。");
+    },"既然两种方法的长处和短处<b>恰好互补</b>，那就两种都用。这叫<b>混合检索</b>（hybrid search）。  讲者的描述很实在，而且他强调这是个<b>看用例</b>的决定：<b>what people do is to look at the use cases that they have and think about whether having some heuristic as well in the relevance score is useful for their use case.</b>  <b>怎么判断你的场景需不需要？问一个问题：</b>  <b>用户的查询里，有多少是「具体的那一个」（名字、型号、编号、错误码），有多少是「这类意思」？</b>  · 内部文档问答、客服 FAQ → <em>偏语义</em>。 · 代码库检索、产品目录、法规条文 → <b>关键词极其重要</b>。  ⚠ <b>讲者没有给「怎么合并两边分数」的具体做法</b>，只说 some combination。<em>这确实是个有讲究的地方（分数尺度不同，不能直接相加），但不在本讲范围内。</em>");
+  /* 主体 */
+  S(2134,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"查询","b");
+      note("短 · 常常是个问句",340,195,"b");
+      boxNode(730,105,440,58,"知识库里的块","g");
+      note("长 · 陈述性的段落",950,195,"g");
+      note("用<b>同一个</b>编码器去编码这两种东西",640,290,"r");
+      note("得到的向量，<b>本来就不太可比</b>",640,345,"r");
+      setCap("第三集那个 bi-encoder，在这里暴露了一个前提问题。");
+    },"讲者在这里指出了另一个更微妙的问题，<b>它和 Cuddly 那个无关，但同样影响召回质量</b>。  <b>查询和文档，本来就是两种不同性质的文本：</b> · <b>查询</b>：短，而且常常是个<em>问句</em>。 · <b>知识库里的块</b>：长，是<em>陈述性的段落</em>。  而第三集说过，bi-encoder 用<b>同一个编码器</b>去编码这两者。  讲者：if you use the same encoder to embed your query and your documents, <b>these two embeddings are not super comparable, because one is for a question and the other one is for a document.</b>  ⚠ <b>这是一个「分布不匹配」的问题</b>：你在同一个空间里比较两种分布不同的东西，<em>而相似度这个度量默认它们是同质的</em>。  <b>下一镜看一个很有意思的补救办法。</b>");
+  /* 反驳 */
+  S(2146,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,260,56,"用户的问句","b");
+      arrow(374,138,446,138,"sm",0);
+      boxNode(450,110,320,56,"让 LLM 编一篇答案","y");
+      note("假的 · 可能不准",610,200,"r");
+      arrow(774,138,846,138,"sm",0);
+      boxNode(850,110,300,56,"拿它去检索","g");
+      note("现在是「文档 比 文档」，性质对上了",1000,200,"g");
+      note("⚠ 讲者：it <b>may or may not work</b> —— 值得一试，不是定论",640,352,"y");
+      setCap("另一条路：干脆训<b>两个</b>编码器，查询一个、文档一个。");
+    },"补救办法叫 <b>HyDE</b>，思路相当反直觉：  <b>先让 LLM 根据问题「编」一篇假的答案文档，然后拿这篇假文档去检索。</b>  讲者：instead of computing the embedding related to the prompt, it will <b>first generate a fake document</b> — it's just an LLM call — and then <b>embeds that fake document</b> to find relevant chunks。  <b>为什么有用？</b>因为这样一来，<em>比较的双方都是「文档」了</em>——上一镜那个性质错位被消掉了。  ⚠ <b>而且注意：这篇假文档的内容准不准，不重要。</b>它不会出现在最终答案里，<em>它唯一的作用是作为一个「形状对的」检索查询</em>。  ⚠ 讲者对它的评价很克制：<b>it may or may not work. It's not used all the time by everyone. So I would say just something that is good to try to see if that works.</b>  <b>他还给了另一条更直接的路：干脆训两个编码器——一个专门编码查询，一个专门编码文档。</b>效果上更对症，<em>但 people typically don't do that, just because of maintenance purposes</em>——<b>两套模型要维护、要同步更新，工程上更麻烦。</b>");
+  SUM(2086,4,{h:"语义检索不保证含关键词，所以要混合",
+    k:"讲者的例子：两只熊叫 <b>Cuddly</b> 和 <b>Huggy</b>，查「Cuddly 在哪」时纯语义检索<b>不保证</b>结果里真的含 Cuddly（两者语义太近）。补救是加上 <b>BM25</b> —— 一个按<b>词重叠</b>打分的<b>启发式</b>公式。",
+    m:"两者的长短处<b>恰好互补</b>：语义会「同义改写」但不保证关键词；BM25 保证关键词但不懂同义。所以用<b>混合检索</b>。判断要不要混，问一句：<b>用户查的是「具体的那一个」还是「这类意思」</b>。",
+    w:"<s>误解</s>：「把嵌入训得更细就能区分两个名字」。专有名词<b>无穷且不断新增</b>，而且嵌入是<b>有损压缩</b> —— 被丢掉的正是「具体是哪一个」这类标识信息，这与「语义相近的靠在一起」直接矛盾。",
+    e:"另一个错位：<b>查询是短问句、文档是长段落</b>，同一个编码器编出来的向量本就不太可比。<b>HyDE</b> 的办法是先让 LLM <b>编一篇假文档</b>再拿它检索（内容准不准不重要，形状对就行）；⚠ 讲者评价 <b>it may or may not work</b>。更直接的是训两个编码器，但<b>维护成本高</b>，很少有人做。"});
+  QUIZ(2086,4,{t:"为什么纯语义检索在「查找某个具体名字」时会失效？",
+    o:["嵌入模型的词表里通常不包含专有名词","语义相近的不同实体（如 Cuddly 与 Huggy）嵌入也相近，结果不保证含查询中的词","专有名词的嵌入向量模长过小，余弦相似度不稳定","BM25 会覆盖语义检索的结果"],
+    a:1,
+    w:"Cuddly 和 Huggy 都是泰迪熊的名字、上下文也相似，所以<b>嵌入非常接近</b>——检索回来的很可能是关于 Huggy 的。讲者：you would only have documents that are <b>semantically similar</b>，而<b>没有任何保证</b>结果含有查询里的词。⚠ 这个失败不是「检索得不够好」，而是「检索得太好了」。<s>「词表不含专有名词」</s>子词分词能表示任何字符串。<s>「模长过小」</s>余弦已除模长，与此无关。<s>「BM25 覆盖」</s>BM25 是<b>补救手段</b>，而且混合检索是把两边合起来，不是覆盖。"});
+});
+
+KP("5 · <b>上下文化分块</b>，以及提示词缓存　<small>讲义 p52–57</small>",function(){
+  /* 钩子 */
+  S(2471,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,56,"「……该值不得超过 80，否则会触发保护。」","b");
+      note("这是哪份文档？哪个参数？什么单位？",640,205,"r");
+      note("块本身没写，<b>它的嵌入也就表达不了</b>",640,258,"r");
+      boxNode(340,320,600,50,"第二集那个问题，这里正面解决","g");
+      setCap("切块是机械的，<b>意义却是整篇给的</b>。");
+    },"第二集留了一个问题：<b>块太小会脱离上下文</b>。而即使块大小合适，<em>机械切割也必然会产生一些「单独看不懂」的块</em>。  举个例子，一个块的内容是：「<em>……该值不得超过 80，否则会触发保护。</em>」  <b>这是哪份文档？哪个参数？什么单位？</b>块里没写——<em>因为这些信息在文档开头，被切到别的块里去了</em>。  <b>后果是直接的：这个块的嵌入向量，表达不出它真正讲的是什么。</b>于是它<em>几乎不可能被正确检索到</em>。  这一集讲两件事： · <b>怎么把丢掉的上下文补回去</b>。 · 补的办法很贵，所以还要讲<b>怎么让它便宜</b>——<em>而那个机制本身很值得知道</em>。");
+  /* 错误答案 */
+  S(2483,function(){
+      clearScene();setEq(null);
+      setBig("块开大一点，重叠多一点，上下文不就有了","第二集那两个旋钮不就是干这个的吗");
+      setCap("<s>治不了</s>：缺的信息可能在<b>文档开头</b>，离这个块很远。");
+    },"自然的想法：<b>第二集不是有「块大小」和「重叠」两个旋钮吗？开大一点不就行了。</b>  <b>治不了，因为距离不对。</b>  重叠解决的是「<em>相邻</em>两块之间被劈断」的问题，典型是几十上百个 token 的尺度。  <b>而刚才那个例子里，缺的信息（这是哪份文档、哪个参数）可能在文档的第一页</b>——<em>离这个块几千上万个 token</em>。  要靠重叠覆盖这个距离，<b>等于把整篇文档塞进每一个块</b>，那就回到了第一集被否决的方案。  ⇒ <b>所以需要的不是「多带一点邻居」，而是「带一个摘要」</b>——<em>一小段专门说明「这个块在整篇里是什么」的文字</em>。  <b>而这段文字，只能由读过整篇文档的东西来写。</b>");
+  /* 铺陈 */
+  S(2495,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,58,"整篇文档","b");
+      arrow(414,134,500,134,"sm",0);
+      boxNode(540,105,300,58,"LLM","y");
+      note("「请用一两句话说明",690,200,"y");
+      note("这个块在整篇里是什么」",690,248,"y");
+      arrow(844,134,930,134,"sm",0);
+      boxNode(950,105,210,58,"一段上下文","g");
+      boxNode(390,320,500,50,"把它 prepend 到块前面，再算嵌入","g");
+      setCap("<b>上下文化分块</b>（contextual chunking）。");
+    },"办法很直接：<b>对每一个块，把它和整篇文档一起交给 LLM，让 LLM 写一小段说明——「这个块在整篇文章里讲的是什么」。</b>  然后<b>把这段说明拼到块的前面</b>，再去算嵌入。  讲者：you ask your model, <b>please give me a short succinct context to just make sense of that chunk</b>。  于是刚才那个块就从「<em>该值不得超过 80</em>」变成了：  <b>「本段出自 XX 型号变频器手册的「保护参数」一节，讲的是输出频率上限。——该值不得超过 80……」</b>  <em>现在它的嵌入能表达它真正讲的东西了。</em>  ⚠ <b>注意这一步是在建库时做的，不是查询时。</b>一次性付出，之后每次检索都受益。  <b>但讲者立刻自己提了反对意见：「这得调多少次 LLM 啊？」</b>");
+  /* 主体 */
+  S(2507,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"每个块一次 LLM 调用 —— 而块有几十万个","r");
+      note("而且每次都要把<b>整篇文档</b>也送进去",640,205,"r");
+      arrow(640,245,640,295,"sm",0);
+      boxNode(290,299,700,54,"⚠ 但这些调用的<b>前缀是一样的</b>","g");
+      setCap("同一篇文档的所有块，前面都挂着同一篇全文。");
+    },"讲者自己提了那个显然的反对意见：<b>that's a lot of LLM calls. You have potentially a lot of chunks. And that's just going to be very pricey.</b>  账确实吓人：<b>每个块一次调用，而且每次都要把整篇文档送进去。</b>一个有几十万个块的知识库，这笔钱非常可观。  <b>但他接着指出了一个关键观察：</b>  <b>处理同一篇文档的不同块时，送进去的内容前半部分是完全一样的——那篇全文。</b>变的只有后面那一小段「请说明这个块」。  ⚠ <b>而第一讲讲过的一件事，让这个观察变得有用：LLM 是 decoder-only 的，因果掩码保证了第 i 个位置的表示只依赖它左边的东西。</b>  <b>于是：相同的前缀 ⇒ 完全相同的激活值。</b>  <em>既然每次都算出一样的东西，那为什么要算这么多次？</em>");
+  /* 主体 */
+  S(2519,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,560,58,"第一次：把整篇文档的激活值算出来并<b>存下</b>","y");
+      boxNode(110,185,560,58,"之后每次：<b>直接查表</b>，只算后面那一小段","g");
+      boxNode(730,105,440,58,"价格","r");
+      note("普通输入：1 倍",950,195,"r");
+      note("缓存命中的输入：<b>约 1/10</b>",950,243,"g");
+      note("⚠ 实务建议：把<b>各次请求共有的部分放在开头</b>",640,352,"y");
+      setCap("讲者：模型定价页上，这两档是<b>分开列</b>的。");
+    },"这个机制叫<b>提示词缓存</b>（prompt caching）。  <b>做法</b>：第一次处理这个前缀时，<b>把算出来的激活值存起来</b>；之后遇到相同前缀，<em>直接查表，只计算后面新增的那部分</em>。  <b>这不是近似，是精确复用</b>——因为因果掩码保证了那些激活值本来就一模一样。  ⚠ <b>注意它和第三讲 KV cache 的关系</b>：原理是同一个（<em>缓存历史 token 的 K、V 避免重算</em>），<b>但适用范围不同</b>——<em>KV cache 是同一次生成内部复用，提示词缓存是跨请求复用</em>。  <b>价格上是实打实的</b>。讲者说去看模型的定价页：<b>普通输入 token 一个价，缓存命中的输入 token 另一个价</b>，他举的 OpenAI 的例子是 <b>约十分之一</b>。  ⚠ <b>由此得出一条非常实用的建议，讲者专门讲了：</b>  <b>写提示词时，把各次请求中「可能重复」的部分统统放到开头。</b>系统提示、工具定义、长文档——<em>都往前放</em>。放在后面就享受不到缓存，<b>因为前缀一变，后面全部要重算。</b>");
+  /* 反驳 */
+  S(2531,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"建库时（一次性）","g");
+      note("切块 · 上下文化 · 算嵌入",340,195,"g");
+      note("贵，但只付一次",340,243,"g");
+      boxNode(730,105,440,58,"查询时（每次）","y");
+      note("编码查询 · 向量检索 · 排序",950,195,"y");
+      note("必须快",950,243,"y");
+      note("⚠ 换嵌入模型 / 改块大小 ⇒ <b>整库重建</b>",640,352,"r");
+      setCap("这条成本结构，决定了 RAG 系统该怎么设计。");
+    },"这一集收尾时，把 RAG 的<b>成本结构</b>讲清楚，因为它决定了很多设计判断。  <b>两类成本，性质完全不同：</b>  · <b>建库时（一次性）</b>：切块、上下文化、算嵌入。<em>很贵——尤其上下文化要调几十万次 LLM</em>。但<b>只付一次</b>，所以可以奢侈一点。 · <b>查询时（每次请求）</b>：编码查询、向量检索、排序。<b>必须快</b>，因为用户在等，而且要乘以流量。  ⚠ <b>这就解释了第三集那个两阶段设计</b>：为什么召回要用「预先算好的向量 + 便宜的比较」，而把贵的方法留给候选变少之后。  ⚠ <b>还有一条很实际的运维后果，讲者没明说但很重要：</b>  <b>换嵌入模型、改块大小、改上下文化的提示词——任何一个变动，都意味着整个知识库要重建。</b>  <em>所以 RAG 系统的「可调性」比它看起来差得多。</b>第二集说这三个数「建库前就得想清楚」，这里是它的完整理由。");
+  SUM(2471,5,{h:"给块补上下文，以及怎么让这件事变便宜",
+    k:"机械切块必然产生「单独看不懂」的块（缺的信息可能在<b>文档开头</b>，离它几千 token）。<b>上下文化分块</b>：把整篇文档与该块一起交给 LLM，让它写一小段「这个块在整篇里是什么」，<b>prepend 上去再算嵌入</b>。",
+    m:"代价是每块一次 LLM 调用。但同一篇文档的这些调用<b>前缀完全相同</b>，而 decoder-only 的因果掩码保证<b>相同前缀 ⇒ 相同激活</b> —— 于是可以用<b>提示词缓存</b>只算一次，缓存命中的输入<b>约为原价十分之一</b>。",
+    w:"<s>误解</s>：「把块开大、重叠多一点就行」。重叠治的是<b>相邻块之间</b>被劈断（几十上百 token 尺度），而缺的上下文可能在<b>文档第一页</b>；靠重叠覆盖等于把全文塞进每个块。",
+    e:"⚠ 实务建议：<b>把各次请求共有的部分放在提示词开头</b>（系统提示、工具定义、长文档），因为<b>前缀一变后面全要重算</b>。⚠ RAG 的成本结构是<b>建库一次性贵、查询时必须快</b>；而<b>换嵌入模型或改块大小 ⇒ 整库重建</b>，所以可调性比看起来差得多。"});
+  QUIZ(2471,5,{t:"提示词缓存为什么能把重复前缀的成本降到约十分之一？",
+    o:["decoder-only 的因果掩码保证相同前缀产生完全相同的激活，可以存下来直接复用","它把前缀压缩成更短的摘要再送入模型","它把前缀的计算转移到了更便宜的 CPU 上","它只对前缀做一次采样，之后复用采样结果"],
+    a:0,
+    w:"LLM 是 decoder-only 的，<b>因果掩码保证第 i 个位置的表示只依赖它左边的内容</b>——所以同样的前缀每次都会算出<b>一模一样</b>的激活。既然如此就存下来直接查表，<em>这是精确复用，不是近似</em>。与第三讲的 KV cache 原理相同，区别是<b>跨请求</b>复用而非同一次生成内部。<s>「压缩成摘要」</s>那会改变内容，不是缓存。<s>「转到 CPU」</s>与硬件无关。<s>「复用采样结果」</s>前缀是<b>输入</b>，根本不涉及采样。"});
+});
+
+KP("6 · 排序阶段与<b>四个指标</b>　<small>讲义 p58–76</small>",function(){
+  /* 钩子 */
+  S(3060,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,58,"约上百个候选","b");
+      arrow(414,134,500,134,"sm",0);
+      boxNode(540,105,300,58,"排序 / 重排","y");
+      arrow(844,134,930,134,"sm",0);
+      boxNode(950,105,210,58,"前 k 个","g");
+      note("候选少了，就<b>付得起更贵的方法</b>",640,250,"g");
+      note("叫「重排」是因为第一阶段已经排过一次了",640,330,"y");
+      setCap("第三集那个「先粗后精」，这是精的那一半。");
+    },"第三集把百万级粗筛到了<b>约上百个候选</b>。这一集做第二阶段：<b>排序</b>（ranking），也常叫<b>重排</b>（re-ranking）——<em>因为第一阶段按相似度排过一次了</em>。  <b>为什么还要再排一次？</b>因为第一阶段用的是最便宜的方法（预算向量 + 余弦），<em>它的精度就那样</em>。  <b>而现在候选只剩上百个——这意味着你付得起一个贵得多的方法。</b>  讲者也说这一阶段 <b>sometimes optional</b>——<em>如果第一阶段的结果已经够好，可以不做</em>。  <b>这一集讲两件事：排序用什么方法，以及——怎么知道你的检索到底好不好。</b>后者是四个指标，<em>它们同样来自搜索与推荐领域</em>。");
+  /* 错误答案 */
+  S(3072,function(){
+      clearScene();setEq(null);
+      setBig("换一个更大更好的嵌入模型来重算相似度","候选少了，算得起");
+      setCap("<s>换了个更大的锤子，但还是同一种锤法</s> —— 缺的不是容量。");
+    },"既然候选变少了，<b>那就换个更大的嵌入模型重算一遍相似度？</b>  <b>这会好一点，但没抓住要害。</b>  第三集那个 bi-encoder 的结构性限制还在：<b>查询和文档是分开编码的，两边在编码时谁也看不见谁。</b>  <em>查询的向量是在「不知道要和什么比」的情况下算出来的；文档的向量更是在建库时就定死了，那时候连这个查询还不存在。</em>  <b>于是最后那一步「比较」，只能在两个各自压缩好的摘要之间进行。</b>  ⚠ <b>缺的不是模型容量，是「交互」。</b>  举个例子：查询问「<em>第二季度的营收</em>」，某个块里同时提到了第一季度和第二季度的数字。<b>把这个块压成一个向量时，模型不知道该突出哪一个</b>——因为它没见过查询。  <b>所以第二阶段要换的不是模型大小，是架构。</b>");
+  /* 铺陈 */
+  S(3084,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"bi-encoder（第一阶段）","b");
+      note("查询、文档<b>各编各的</b>",340,195,"b");
+      note("可预计算 ⇒ 扛得住百万级",340,243,"g");
+      boxNode(730,105,440,58,"cross-encoder（第二阶段）","y");
+      note("查询 + 文档<b>拼在一起</b>送进编码器",950,195,"y");
+      note("能算两者之间的<b>注意力</b>",950,243,"g");
+      note("⚠ 代价：<b>不能预计算</b> —— 每一对都要跑一次模型",640,352,"r");
+      setCap("学生当场问：是会算两者之间的注意力吗？讲者：<b>absolutely</b>。");
+    },"第二阶段的架构叫 <b>cross-encoder</b>（交叉编码器）。  <b>做法：把查询和文档块拼在一起，作为一个整体送进编码器，直接输出一个相关性分数。</b>  <b>关键差别</b>，讲者说得很清楚：you have a model that <b>takes a look at both your query and your chunk at the same time</b>；而第一阶段 didn't have that interaction that a model could capture。  课堂上有学生直接问：<b>是会计算两者之间的注意力吗？</b>讲者答：<b>absolutely</b>。  <em>也就是说——查询里的每个词都能 attend 到文档里的每个词。上一镜那个「第二季度」的例子，在这里就解决了：模型看得见查询，自然知道该关注哪个数字。</em>  ⚠ <b>但代价是彻底的：没有任何东西可以预先算好。</b>  <b>每一对（查询，文档）都必须完整跑一次模型。</b>一百万个块就是一百万次前向——<em>所以它只能用在候选已经被砍到上百个之后。</em>  <b>这就是「先粗后精」这个结构存在的全部理由。</b>");
+  /* 主体 */
+  S(3096,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,250,50,"排第 1","g");
+      note("相关 → 加很多分",235,172,"g");
+      boxNode(390,100,250,50,"排第 3","y");
+      note("相关 → 加一些分",515,172,"y");
+      boxNode(670,100,250,50,"排第 10","b");
+      note("相关 → 加很少分",795,172,"b");
+      boxNode(950,100,210,50,"不相关","r");
+      note("不加分",1055,172,"r");
+      note("<b>D</b>iscounted：排得越靠后，折扣越狠",640,265,"y");
+      note("<b>N</b>ormalized：除以「理想排序」的得分 ⇒ <b>满分为 1</b>",640,330,"g");
+      setCap("讲者：公式看着吓人，但它做的事很简单。");
+    },"排完了，<b>怎么知道排得好不好？</b>  第一个指标是 <b>NDCG</b>。讲者说 <b>it's a lot of letters</b>，但拆开就不吓人了：  · <b>G（Gain，增益）</b>：看每个位置上的文档<em>是不是真的相关</em>（相关记 1，不相关记 0）。 · <b>C（Cumulative，累积）</b>：把前 k 个位置的增益<b>加起来</b>。 · <b>D（Discounted，折扣）</b>：<b>按排名打折</b>——排第 1 的相关文档贡献最多，排第 10 的贡献很少。<em>这就是「排得靠前更好」这个要求的数学化</em>。 · <b>N（Normalized，归一化）</b>：除以<b>理想排序</b>下能拿到的最高分（IDCG）。  ⚠ <b>为什么要归一化？</b>讲者说得很准：因为 <b>this metric can take a lot of different values, depending on how many relevant documents there are</b>。有 2 个相关文档和有 20 个，原始 DCG 的量级完全不同，<em>没法互相比较</em>。  <b>除以理想值之后，满分恒为 1</b>——<em>they want to make the score meaningful</em>。");
+  /* 主体 */
+  S(3108,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,320,56,"MRR","y");
+      note("第一个相关文档",270,190,"y");
+      note("排名的<b>倒数</b>",270,238,"y");
+      note("之后的全不看",270,286,"r");
+      boxNode(480,105,320,56,"recall@k","g");
+      note("所有相关的里面",640,190,"g");
+      note("有几个进了前 k",640,238,"g");
+      boxNode(850,105,320,56,"precision@k","b");
+      note("你挑的前 k 个里",1010,190,"b");
+      note("有几个真相关",1010,238,"b");
+      note("基准：<b>MTEB</b>（massive text embedding benchmark）",640,360,"y");
+      setCap("讲者：这四个你会在一堆论文里见到，<b>至少要熟悉它们的思路</b>。");
+    },"另外三个指标，各看一个侧面：  · <b>MRR</b>（倒数排名）：<b>第一个相关文档排在第几，就取它的倒数</b>。排第 2，得 1/2。讲者点明了它的性质：<b>it basically does not care about any relevant documents that are past that first relevant document</b>——<em>只看第一个</em>。他说它 <b>typically correlates well</b>，所以虽然简单但好用。  · <b>recall@k</b>：<b>所有真正相关的文档里，有多少进了前 k。</b>——「<em>漏了没有</em>」  · <b>precision@k</b>：<b>你挑出的前 k 个里，有多少是真相关的。</b>——「<em>挑错了没有</em>」  ⚠ 讲者强调后两个就是<b>分类里的召回率和精确率</b>，只是搬到了排序场景。  <b>什么时候看哪个？</b> · <b>第一阶段（候选召回）</b>看 <b>recall@k</b>——第三集说过，那一步的目标就是<em>别漏</em>。 · <b>第二阶段（排序）</b>看 <b>NDCG</b> 或 <b>MRR</b>——因为那一步在乎<em>顺序</em>。  讲者给了基准：<b>MTEB</b>（massive text embedding benchmark），<em>可以拿你的检索器上去跑</em>。");
+  /* 反驳 */
+  S(3120,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"四个指标都在问：「排在这里的，<b>真的</b>相关吗？」","y");
+      note("「真的」从哪来？—— <b>人标的标签</b>",640,205,"r");
+      note("学生问到了这一点，讲者确认：that is the <b>ground truth</b>",640,262,"r");
+      boxNode(290,320,700,50,"没有标注，你连「检索好不好」都不知道","r");
+      setCap("而第一集说过：<b>检索错了，整个 RAG 就错了</b>。");
+    },"最后一条，是这一集最该带走的实务警告。  <b>这四个指标全都建立在一个东西上：你得事先知道哪些块是真正相关的。</b>  课堂上正好有学生问到：<b>相关性分数怎么来的？</b>讲者的回答把这点说死了：<b>you know which ones are relevant, which ones are not ... that's the ground truth</b>。  <b>也就是说——你需要一批标注好的「查询 + 哪些块相关」的数据。</b>  ⚠ <b>这是 RAG 系统在实践中最容易被跳过的一步，而跳过它的后果很严重：</b>  回到第一集那条——<b>检索错了，模型会带着「依据」自信地答错，而且更难被发现</b>。  <b>如果你没有检索的评测集，那么当整个系统给出错误答案时，你根本无法定位问题出在哪一环</b>：是检索没找对？还是找对了但模型没用好？<em>两者的修法完全不同。</em>  <b>所以：建 RAG 系统时，评测集和知识库同样重要。</b>");
+  SUM(3060,6,{h:"排序用 cross-encoder，好坏用四个指标量",
+    k:"<b>cross-encoder</b>：查询与文档<b>拼在一起</b>送进编码器，能算两者间的<b>注意力交互</b>。代价是<b>不能预计算</b> —— 每一对都要跑一次模型，所以只能用在候选砍到上百个之后。",
+    m:"<b>NDCG</b> 拆开看就不吓人：<b>G</b>ain（是否相关）· <b>C</b>umulative（前 k 个加总）· <b>D</b>iscounted（排得越后折扣越狠）· <b>N</b>ormalized（除以理想排序，<b>满分恒为 1</b>，使不同查询可比）。",
+    w:"<s>误解</s>：「换个更大的嵌入模型重算就行」。<b>缺的不是容量，是交互</b> —— bi-encoder 里文档向量在建库时就定死了，那时查询还不存在，模型不知道该突出哪部分。",
+    e:"另三个指标：<b>MRR</b>（第一个相关文档排名的倒数，<b>之后的全不看</b>）· <b>recall@k</b>（漏了没有，看第一阶段）· <b>precision@k</b>（挑错了没有）。基准 <b>MTEB</b>。⚠ <b>四个指标全都需要人标的 ground truth</b> —— 没有评测集，系统答错时你无法定位是「没找对」还是「找对了没用好」。"});
+  QUIZ(3060,6,{t:"cross-encoder 为什么只能用在第二阶段，不能直接用于百万级候选召回？",
+    o:["它的模型参数量远大于 bi-encoder，显存放不下","它只能处理固定长度的输入，长文档会被截断","它输出的是分数而非向量，无法用 ANN 索引","它需要查询与文档一起输入，因此无法预计算文档表示，每一对都要跑一次模型"],
+    a:3,
+    w:"cross-encoder 的优势正是把查询和文档<b>拼在一起</b>送进模型、算两者间的注意力；但这也意味着<b>文档的表示依赖于查询</b>，建库时无法预先算好——<em>每一对都要完整跑一次前向</em>，百万级就是百万次。而 bi-encoder 的「互不相见」恰恰让文档向量可预计算。<s>「参数量更大」</s>两者可以是同一规模的模型，瓶颈不在大小。<s>「长度截断」</s>两者都有长度限制，不是分歧点。<s>「无法用 ANN」</s>这是上一条的<em>后果</em>而非原因——正因为不能预计算成向量，才谈不上建索引。"});
+});
+
+KP("7 · <b>函数调用</b>：它只看得到 API，看不到实现　<small>讲义 p78–101</small>",function(){
+  /* 钩子 */
+  S(3643,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"非结构化：文章、手册","g");
+      note("RAG 很合适",340,195,"g");
+      boxNode(730,105,440,58,"结构化：表格、数据库","y");
+      note("给定输入 → 确定的输出",950,195,"y");
+      note("这其实就是一个<b>函数</b>",950,243,"g");
+      note("「附近有没有泰迪熊」—— 这不是文档能回答的",640,352,"r");
+      setCap("而且它还要<b>实时</b>。RAG 的知识库是静态的。");
+    },"RAG 适合取<b>文本</b>。但有一类信息，用「找文档」去拿很别扭。  讲者的例子很好：<b>「帮我找附近有没有泰迪熊」。</b>  这个问题没有一篇文档能回答——<em>答案取决于你此刻在哪，以及此刻的库存</em>。<b>它是实时的、结构化的。</b>  <b>而结构化数据的本质，就是「给定一组输入，返回确定的输出」——那不就是一个函数吗？</b>  于是方向变了：<b>与其让模型去读一篇文档，不如让它去调一个函数。</b>  这叫<b>工具调用</b>（tool calling），具体到函数这种形式就叫<b>函数调用</b>（function calling）。  ⚠ 讲者提了一句实际观察：<b>这类场景里 LLM 常用 Python 表示</b>，because it's so simple to read——<em>但这只是惯例，没有什么绑定在 Python 上</em>。");
+  /* 错误答案 */
+  S(3655,function(){
+      clearScene();setEq(null);
+      setBig("要调用函数，模型总得知道它怎么实现的吧","不然怎么知道会返回什么");
+      setCap("<s>不需要</s>。它只看得到 <b>API 和文档字符串</b>，看不到实现。");
+    },"一个很自然的误解：<b>既然模型要调这个函数，它总得知道函数里面是怎么写的吧？</b>  <b>不需要，而且这正是整个设计的关键。</b>  讲者说得非常明确：<b>all you care about as an LLM is the function API, the input and output, as well as the main lines of documentation. All these implementation details, you're going to have it on your code base. But the LLM is not going to see it.</b>  <b>模型看得见的只有三样：函数名、参数签名、文档字符串。</b>  ⚠ <b>由此推出一条极其实用的工程准则：</b>  <b>那段文档字符串，不是写给人看的注释，它是模型唯一的说明书。</b>  <em>如果文档写得含糊，模型就调不对；写得清楚，模型就调得对。调试「模型老是用错这个工具」时，第一个该改的往往不是模型，而是那段文档。</em>  ⚠ 另外有学生问：<b>这些函数是预先定义好的吗？</b>讲者：<b>yes, you define them beforehand. They're not LLM generated on the fly.</b>");
+  /* 铺陈 */
+  S(3667,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,54,"① LLM 填参数","y");
+      note("根据提问，决定传什么",260,185,"y");
+      arrow(414,132,500,132,"sm",0);
+      boxNode(540,105,300,54,"② 执行函数","b");
+      note("<b>和 LLM 无关</b>，就是跑代码",690,185,"b");
+      arrow(844,132,930,132,"sm",0);
+      boxNode(950,105,210,54,"③ LLM 组织语言","g");
+      note("把结构化结果说成人话",1055,185,"g");
+      note("⚠ 第②步是<b>你的代码</b>在跑，不是模型在「想象」结果",640,330,"r");
+      setCap("讲者把这三步逐个走了一遍。");
+    },"整个流程只有三步：  <b>① LLM 填参数。</b>把函数的 API 和文档放进提示词，模型根据用户的提问<b>决定该传什么参数</b>。讲者强调：the goal of the LLM here is <b>not to infer the function's implementation, rather only what arguments we should put to it</b>。  <em>例子里，模型从上下文（比如已授权的定位）知道你在斯坦福，于是把坐标填进去。</em>  <b>② 执行函数。</b>讲者：<b>it has nothing to do with LLMs. You just take your function, your argument, and you execute that.</b>  ⚠ <b>这一步是你的真实代码在跑</b>——查数据库、调 API。<em>结果是真的，不是模型编的。</em><b>这正是工具调用能解决幻觉的那一部分：事实由代码提供，不由模型生成。</b>  <b>③ LLM 组织语言。</b>把函数返回的结构化结果（JSON 之类）喂回模型，让它<b>说成人话</b>。讲者：you don't want to have this JSON-like response, but rather a response in natural language。");
+  /* 主体 */
+  S(3679,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"第一组","y");
+      note("输入：用户提问 + 函数 API",340,195,"y");
+      note("输出：<b>该填的参数</b>",340,243,"y");
+      boxNode(730,105,440,58,"第二组","g");
+      note("输入：<b>完整对话历史</b> + 工具返回",950,195,"g");
+      note("输出：最终的自然语言回答",950,243,"g");
+      note("⚠ 第二组的输入<b>不只是那个 JSON</b> —— 这点容易写错",640,352,"r");
+      setCap("对应上一镜的第 ① 步和第 ③ 步；第 ② 步不需要训。");
+    },"怎么让模型学会这件事？<b>如果走训练的路，需要两组 SFT 数据</b>——<em>正好对应第①步和第③步（第②步是代码，不用训）</em>。  · <b>第一组</b>：输入是<em>用户提问 + 函数 API</em>，输出是<b>该填的参数</b>。 · <b>第二组</b>：输入是工具返回的结果，输出是<b>最终的自然语言回答</b>。  ⚠ <b>但讲者在第二组上特意纠正了一个常见的误解：</b>  <b>the second pair isn't just mapping the JSON response to the final response, it's actually linking all the conversation history so far.</b>  <b>输入必须包含完整的对话历史</b>——<em>模型要知道最初的问题是什么、发生过一次工具调用、这个结果对应的是那次调用</em>。  <b>只给它一个 JSON，它不知道该怎么说。</b>  ⚠ 讲者还强调数据要<b>多样</b>：要覆盖典型的用户分布——<em>有人说「找我附近的熊」（靠上下文推断位置），有人直接说「找某地的熊」（参数在提问里），还有多轮对话中途才提出的</em>。");
+  /* 主体 */
+  S(3691,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"以前：SFT","y");
+      note("造两组数据、重训模型",340,195,"y");
+      boxNode(730,105,440,58,"现在：写清楚就行","g");
+      note("把 API 和说明放进上下文",950,195,"g");
+      note("因为模型<b>代码能力已经很强</b>了",950,243,"g");
+      note("⚠ 但纯 few-shot 有保留：它<b>泛化不好</b>",640,352,"r");
+      setCap("讲者：you can <b>forego of specific SFT training</b>。");
+    },"讲者接着给了一个更新的实践：<b>现在往往根本不需要训。</b>  理由很直接：<b>现在的 LLM 在预训练和指令微调阶段吃了大量代码数据，它们本来就很会读和写函数调用。</b>于是 you can <b>forego of specific SFT training</b>，<em>只要把 API 和说明放进上下文就行</em>。  <b>那「放什么进去」最有效？</b>讲者在课堂上让大家猜：  · 有人答 <b>few-shot</b>（给几个输入输出的例子）。讲者说这确实是常见做法，<b>但有保留</b>：<em>few-shot learning has challenges when it comes to generalization</em>——你给的是有限的几个点，<b>可能覆盖不到用户千变万化的说法</b>。  ⚠ <b>这正好呼应第三讲第六集</b>：讲者当时就说过，<em>例子会把模型「constrain into given sets of examples that are finite」</em>。<b>同一条观察在这里第二次出现。</b>  · 另一个学生答 <b>让它推理</b>。讲者说这是个好答案，但指出一个实际困难：<b>写出一段能引导出正确推理的说明本身很难</b>，所以实践中不会手写——<em>而是从那些 SFT 数据里反推出来</em>。");
+  /* 反驳 */
+  S(3703,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"工具调用保证了","g");
+      note("<b>事实由代码提供</b>，不是模型编的",340,195,"g");
+      boxNode(730,105,440,58,"⚠ 没保证","r");
+      note("参数填得对不对",950,195,"r");
+      note("结果解读得对不对",950,243,"r");
+      note("第①③步仍然是模型在做 —— 仍然会出错",640,352,"r");
+      setCap("最后一集会看到：这正是智能体还没铺开的原因。");
+    },"最后把工具调用的能力边界说准。  <b>它确实解决了幻觉的一部分</b>：第②步是真实代码在跑，<em>返回的数据是真的</em>。模型没法编造库存数量或房间温度。  ⚠ <b>但第①步和第③步仍然是模型在做：</b>  · <b>第①步可能填错参数。</b>用户说「下周二」，模型算错了日期；用户说「便宜一点的」，模型填了个错的价格区间。<em>函数会老老实实执行这个错误的请求，返回一个「正确但无关」的结果。</em> · <b>第③步可能解读错结果。</b>返回了三条记录，模型只说了一条；返回了「无结果」，模型却给了个编的答案。  <b>所以准确的说法是：工具调用把「模型编造事实」换成了「模型可能用错工具」。</b>  <em>后者更容易发现（可以记录每次调用的参数和返回），但它没有消失。</em>  ⚠ <b>而当工具调用被串成多步循环时（第九集），每一步的小错都会被放大。</b>讲者在最后一集会明说：<b>这就是大规模智能体还没铺开的原因。</b>");
+  SUM(3643,7,{h:"函数调用：三步，而模型只参与第一步和第三步",
+    k:"数据有结构时，不该「找文档」而该「调函数」。三步：① <b>LLM 填参数</b> ② <b>执行函数</b>（与 LLM 无关，是你的代码在跑）③ <b>LLM 把结构化结果说成人话</b>。",
+    m:"⚠ 模型<b>只看得到 API 签名与文档字符串，看不到实现</b>。由此一条实用准则：<b>那段文档是模型唯一的说明书</b> —— 模型老用错工具时，第一个该改的往往是文档而非模型。",
+    w:"<s>误解</s>：「要调函数，模型得知道它怎么实现的」。讲者：the LLM is <b>not going to see</b> the implementation；它要做的只是<b>决定传什么参数</b>。",
+    e:"要训就是<b>两组 SFT 对</b>，⚠ 第二组的输入<b>必须含完整对话历史</b>而不只是那个 JSON。但现在往往<b>不用训</b> —— 模型代码能力已经很强。⚠ 工具调用只解决了幻觉的一半：<b>事实由代码提供，但参数可能填错、结果可能解读错</b>。"});
+  QUIZ(3643,7,{t:"在函数调用中，LLM 能看到被调用函数的哪些内容？",
+    o:["函数签名、参数说明与文档字符串，但看不到实现","函数的完整实现代码，以便推断返回值","仅函数名，参数由运行时自动推断","实现代码与历史调用日志，但不含文档"],
+    a:0,
+    w:"讲者说得很明确：all you care about as an LLM is <b>the function API, the input and output, as well as the main lines of documentation</b>；实现细节在你的代码库里，<b>the LLM is not going to see it</b>。由此得出一条实用准则——<b>那段文档字符串是模型唯一的说明书</b>，模型老用错工具时第一个该改的往往是它。<s>「完整实现」</s>模型的任务只是<b>决定传什么参数</b>，不需要推断实现。<s>「仅函数名」</s>没有参数说明，模型无从填参。<s>「不含文档」</s>恰恰相反，文档是最关键的那部分。"});
+});
+
+KP("8 · 工具一多怎么办：<b>工具选择</b>与 MCP　<small>讲义 p102–114</small>",function(){
+  /* 钩子 */
+  S(4411,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,210,46,"查天气","b");
+      boxNode(340,100,210,46,"订餐","b");
+      boxNode(570,100,210,46,"查日历","b");
+      boxNode(800,100,210,46,"发邮件","b");
+      boxNode(1030,100,130,46,"…×100","b");
+      note("全部塞进提示词 ⇒ 又长又贵，而且<b>挑错的概率上升</b>",640,210,"r");
+      note("第一集那条「塞太多反而找不着」，在这里重演",640,268,"r");
+      boxNode(390,320,500,50,"所以要先做一次「<b>工具选择</b>」","g");
+      setCap("讲者 73:31：目标是<b>同时</b>降低延迟、提高性能。");
+    },"上一集只有一个工具。<b>真实系统里会有几十上百个。</b>  问题随之而来：<b>你不可能把一百个函数的 API 和文档全塞进每一次提示词。</b>  · <b>贵</b>：按 token 收费，而且每次请求都付。 · <b>慢</b>：提示词越长，首个 token 越晚出来。 · ⚠ <b>而且准确率会下降</b>——<em>第一集那条「塞太多模型反而找不着」在这里原样重演</em>。候选越多，挑错的概率越大。  <b>所以要先做一步「工具选择」</b>：<em>根据用户的提问，先挑出可能相关的少数几个工具，只把它们放进提示词。</em>  讲者给的目标很精准：<b>both reduce latency and improve performance</b>——<em>既快又准，不是权衡</em>。  ⚠ <b>注意这个问题的形状，和前六集一模一样</b>：从一大堆候选里<em>先粗筛出相关的少数</em>。");
+  /* 错误答案 */
+  S(4423,function(){
+      clearScene();setEq(null);
+      setBig("把一百个工具都给它，让它自己选","模型不是挺聪明的吗");
+      setCap("这就是上一镜被否决的做法 —— <b>又贵，又更容易挑错</b>。");
+    },"最省事的想法：<b>全给它，让它自己挑。</b>  这正是上一镜否决的方案，<b>但值得再强调一次它为什么不行</b>，因为这个直觉很顽固。  「模型挺聪明的」这句话<b>在能力上成立，在工程上不成立</b>：  · 它也许真能从一百个里挑对，<b>但你每次请求都为那一百个的描述付了钱</b>。 · 而且第一集那条曲线还在——<em>提示词越长，它对里面内容的把握越差</em>。  ⚠ <b>更关键的是：这件事根本不需要用模型来做。</b>  <b>「根据一句话，从一堆候选里找出相关的」——这正是前六集整整讲完的那个问题。</b>  <em>工具的描述就是「文档」，用户的提问就是「查询」。</em>  <b>于是整套检索机器可以直接搬过来用。</b>");
+  /* 铺陈 */
+  S(4435,function(){
+      clearScene();setEq(null);setBig(null);
+      matrix({rows:4,cols:2,cw:340,ch:56,x:300,y:110,
+      cell:function(i,j){
+      var t=[["RAG 里的","工具选择里的"],
+      ["文档块","工具的描述"],
+      ["用户查询","用户的提问"],
+      ["取回前 k 块","取回前 k 个工具"]];
+      return t[i][j];},
+      hl:function(i,j){return i===0?"y":"g";}});
+      note("前六集那套东西，<b>原样能用</b>",640,375,"g");
+      setCap("认出「同一个问题换了件衣服」，比学一个新办法省力得多。");
+    },"把两件事并排一放，<b>对应关系是完全的</b>：  · RAG 的<b>文档块</b> ↔ 这里的<b>工具描述</b>（函数名 + 文档字符串） · RAG 的<b>用户查询</b> ↔ 这里的<b>用户提问</b> · RAG 的<b>取回前 k 个块</b> ↔ 这里的<b>取回前 k 个工具</b>  <b>于是前六集那套东西原样能用：</b> · 把每个工具的描述<b>算成嵌入</b>，建一个小知识库。 · 用户提问时<b>算余弦相似度</b>，取最相关的几个。 · 工具多到一定程度时，甚至可以<b>加一层重排</b>。 · <em>而 BM25 在这里尤其有用——用户提到具体的工具名或术语时，关键词匹配比语义更可靠。</em>  ⚠ <b>这一镜真正想教的不是「工具选择怎么做」，而是一种识别能力：</b>  <b>遇到新问题时，先问「它和我已经会解的哪个问题是同一个形状」。</b>  <em>讲者在第三集也做过同样的事——他指出整套两阶段检索是从搜索和推荐领域搬来的。</em>");
+  /* 主体 */
+  S(4447,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,220,50,"应用 A","b");
+      boxNode(130,165,220,50,"应用 B","b");
+      boxNode(130,225,220,50,"应用 C","b");
+      arrow(354,130,560,160,"sm",0);
+      arrow(354,190,560,180,"sm",0);
+      arrow(354,250,560,200,"sm",0);
+      boxNode(580,150,420,60,"同一个服务（比如某书店）","y");
+      note("三家各写一遍它的工具接口",640,275,"r");
+      note("格式不同、维护各自为政、升级各改各的",640,330,"r");
+      setCap("讲者：目标是 <b>avoid duplication of tool implementation</b>。");
+    },"工具选择解决了「工具太多」。<b>但还有另一个问题，是生态层面的。</b>  <b>同一个服务，被不同的应用各自包一遍。</b>  假设有个书店提供查书、下单的能力。于是： · 应用 A 写一套函数去调它的 API。 · 应用 B 又写一套。 · 应用 C 再写一套。  <b>三套实现、三种参数格式、三份文档、三条各自的升级路径。</b>书店那边一改接口，<em>三家都得跟着改，而且各改各的</em>。  讲者把目标说得很直接：<b>avoid duplication of tool implementation</b>。  ⇒ <b>解法是标准化：定义一个统一的协议，让「提供能力的一方」自己把接口实现一次，所有应用都按这个协议来接。</b>  <em>这是一个在软件史上反复出现的模式——从数据库驱动到语言服务器协议。</em>");
+  /* 主体 */
+  S(4459,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,220,50,"应用 A","b");
+      boxNode(130,165,220,50,"应用 B","b");
+      boxNode(130,225,220,50,"应用 C","b");
+      arrow(354,180,460,180,"sm",0);
+      boxNode(480,150,280,60,"MCP 协议","g");
+      arrow(764,180,870,180,"sm",0);
+      boxNode(890,150,270,60,"书店的 MCP 服务","y");
+      note("由<b>书店自己</b>实现 —— 他们最懂自己的内容",1025,250,"y");
+      note("MCP = <b>M</b>odel <b>C</b>ontext <b>P</b>rotocol",640,330,"g");
+      setCap("讲者：服务提供方 <b>are the most experts at serving such content</b>。");
+    },"这个协议叫 <b>MCP</b>——<b>M</b>odel <b>C</b>ontext <b>P</b>rotocol。  <b>核心安排：由服务提供方自己实现一个 MCP 服务，所有应用通过统一协议接入。</b>  讲者用书店的例子：<b>the MCP server would probably be implemented by your book provider, because typically they are the most experts at serving such content</b>。  ⚠ <b>这个论点值得留意：它不只是「省得重复写」，而是「让最懂的那一方来写」。</b>  <em>书店最清楚自己的库存怎么查、什么叫「相似的书」、哪些参数组合有意义。一个第三方开发者包装出来的接口，不可能有这个深度。</em>  讲者还提到 MCP 服务可以暴露三类东西： · <b>工具</b>——<em>找书、推荐书</em> · <b>提示词模板</b>——<em>「怎么按口味推荐」这类用法示范</em> · <b>资源</b>——<em>比如某个藏书清单、畅销榜</em>  <b>也就是说它标准化的不只是「能做什么」，还有「该怎么用」。</b>");
+  /* 反驳 */
+  S(4471,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"MCP 带来的","g");
+      note("接一个新能力，成本大幅下降",340,195,"g");
+      note("生态可以快速长大",340,243,"g");
+      boxNode(730,105,440,58,"⚠ 同时带来的","r");
+      note("接入门槛低 = <b>谁都能接</b>",950,195,"r");
+      note("工具能做的事，就是攻击者能做的事",950,243,"r");
+      note("最后一集专门讲这个",640,352,"y");
+      setCap("能力的标准化，也是风险的标准化。");
+    },"最后提一条讲者没有明说、但与下一集直接相关的事。  <b>MCP 的价值在于把「接入一个新能力」的成本降到很低。</b>这确实让生态长得很快。  ⚠ <b>但同一个性质反过来看就是：接入的门槛低，意味着谁都能被接进来。</b>  <b>而工具能做的事，就是攻击者能做的事。</b>一个能发邮件的工具，<em>可以用来把数据发出去</em>；一个能读文件的工具，<em>可以用来读不该读的文件</em>。  <b>更麻烦的是：工具返回的内容会进入模型的上下文。</b>如果那段内容里<em>混进了指令</em>，模型可能会照做——<b>它分不清哪些是数据、哪些是指令。</b>  <em>（这一层讲者没展开，但它是第十集那个「数据外泄」例子背后的机制。）</em>  ⚠ <b>所以：当你评估「要不要接入某个工具」时，该问的不只是「它能帮我做什么」，还有「如果它被利用，最坏会发生什么」。</b>");
+  SUM(4411,8,{h:"工具太多就先检索一次；接口重复就标准化",
+    k:"<b>工具选择</b>：工具一多就不能全塞进提示词（贵、慢，<b>而且挑错概率上升</b>）。做法是先按提问挑出相关的少数几个 —— 目标是 <b>both reduce latency and improve performance</b>。",
+    m:"⚠ 它<b>就是一次检索</b>：工具描述 ↔ 文档块，用户提问 ↔ 查询，取前 k 个工具 ↔ 取前 k 块。<b>前六集那套东西原样能用</b>。这一集真正想教的是识别能力：<b>先问「新问题和我已会解的哪个是同一个形状」</b>。",
+    w:"<s>误解</s>：「把一百个工具全给它，让它自己挑」。模型也许挑得对，<b>但你每次请求都在为那一百个描述付钱</b>，而且提示词越长它把握越差。",
+    e:"<b>MCP</b>（Model Context Protocol）解决的是另一个问题：同一个服务被各家各包一遍。核心安排是<b>由服务提供方自己实现</b> —— 不只是省得重复写，而是<b>让最懂的那一方来写</b>。⚠ 但标准化降低接入门槛，<b>也就标准化了攻击面</b>：工具能做的事，就是攻击者能做的事。"});
+  QUIZ(4411,8,{t:"「工具选择」这个问题，本质上与本讲前面哪一部分是同一个问题？",
+    o:["与 PPO 的策略优化同构，都是在候选动作上做选择","与提示词缓存同构，都是在复用重复的前缀","与函数调用的参数填写同构，都是在填一个槽位","与 RAG 的检索同构：工具描述是文档，用户提问是查询"],
+    a:3,
+    w:"对应关系是完全的：<b>工具描述 ↔ 文档块</b>、<b>用户提问 ↔ 查询</b>、<b>取前 k 个工具 ↔ 取前 k 块</b>。于是嵌入、余弦相似度、BM25、重排<em>原样能用</em>——而且 BM25 在这里尤其有用（用户提到具体工具名时）。<s>「PPO」</s>那是训练阶段的优化，不涉及「按查询找相关项」。<s>「提示词缓存」</s>解决的是重复计算，与「挑哪个」无关。<s>「参数填写」</s>那是选定工具<b>之后</b>的事，是另一个环节。"});
+});
+
+KP("9 · <b>ReAct</b>：观察 → 计划 → 行动 → 再观察　<small>讲义 p116–140</small>",function(){
+  /* 钩子 */
+  S(5629,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,110,900,58,"「我的泰迪熊好冷，帮我想想办法。」","b");
+      note("它没说温度是多少 · 没说要调到几度",640,215,"r");
+      note("甚至没说「请调温度」—— 这一步得自己想出来",640,268,"r");
+      boxNode(340,320,600,50,"⚠ 这个请求<b>不能</b>被一次工具调用完成","r");
+      setCap("讲者用的就是这个例子。");
+    },"上两集的工具调用有个隐含前提：<b>你一眼就知道该调哪个函数、传什么参数。</b>  <b>但现实中的请求常常不是这样。</b>讲者的例子：  <b>「我的泰迪熊好冷，帮我想想办法。」</b>  请注意这句话里<b>什么都没给</b>： · 没说现在温度是多少——<em>得先去查</em>。 · 没说要调到几度——<em>得先知道现在多少才能判断</em>。 · <b>甚至没说「请调温度」</b>——<em>「冷」和「温度」这个联系，得自己建立</em>。  <b>所以这不是一次函数调用能解决的。</b>你得<b>先观察、再决定做什么、做完看结果、再决定下一步</b>。  <b>而「决定下一步」这件事需要模型重新思考——于是就有了循环。</b>");
+  /* 错误答案 */
+  S(5641,function(){
+      clearScene();setEq(null);
+      setBig("让模型先列出完整计划，然后照着执行","查温度 → 调高 5 度 → 完成");
+      setCap("<s>第二步就卡住了</s>：调高几度，<b>取决于第一步查到什么</b>。");
+    },"一个听起来很合理的方案：<b>让模型先把完整计划列出来，然后照着执行。</b>  <b>第二步就卡住了。</b>  「调高 5 度」这个决定，<b>取决于第一步查到的温度是多少</b>——<em>如果现在是 15 度，可能要调高 8 度；如果是 20 度，也许根本不用调</em>。  <b>你没法在还没看到结果之前，就决定看到结果之后该做什么。</b>  ⚠ <b>这是「规划」和「循环」的本质区别</b>： · <b>一次性规划</b>：假设<em>所有信息事先都有</em>。 · <b>循环</b>：承认<b>每一步的结果会改变下一步该做什么</b>。  <em>而现实世界里，你调用工具的全部意义，就是去获取你事先没有的信息。所以一次性规划在原理上就不够用。</em>  <b>必须有一个「做一步、看一眼、再决定」的回路。</b>");
+  /* 铺陈 */
+  S(5653,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(480,100,320,54,"观察 Observe","b");
+      arrow(800,127,920,170,"sm",0);
+      boxNode(840,195,320,54,"计划 Plan","y");
+      arrow(920,249,640,310,"sm",0);
+      boxNode(480,290,320,54,"行动 Act","g");
+      arrow(480,317,330,249,"sm",0);
+      boxNode(120,195,320,54,"看结果","b");
+      arrow(280,195,480,140,"sm",0);
+      note("达成目标才退出循环",640,375,"r");
+      setCap("<b>ReAct = Reason + Act</b>。⚠ 各家论文叫法不同，<b>循环结构才是重点</b>。");
+    },"这个回路的经典形式叫 <b>ReAct</b>——<b>Re</b>ason + <b>Act</b>（思考 + 行动）。讲者称它是一篇 <b>hallmark paper</b>。  <b>核心思想</b>：很多目标没法一步做完，<em>你得把它拆成可以原子地执行的小步，一步一步做，每步之后重新评估</em>。  三个阶段： · <b>观察（Observe）</b>：把当前状况<em>翻译成一个可以行动的描述</em>。 · <b>计划（Plan）</b>：根据观察，<em>决定下一步该做什么</em>。 · <b>行动（Act）</b>：<em>调用工具</em>。  然后<b>拿着结果回到观察</b>，如此循环，<b>直到目标达成才退出</b>。  ⚠ <b>讲者特意打了个预防针，很值得记住：</b>  <b>it doesn't necessarily have to be called that way or be in that order. The ReAct paper introduces terms think, observe, act. You might see the language changing a bit from paper to paper.</b>  <em>别纠结于三个词叫什么——重要的是那个「做一步、看一眼、再决定」的回路。</em>");
+  /* 主体 */
+  S(5665,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,480,46,"观察：「冷」可能与房间温度有关，而温度未知","b");
+      boxNode(110,155,480,46,"计划：去查房间温度","y");
+      boxNode(110,210,480,46,"行动：调 get_room_temperature()","g");
+      boxNode(650,100,510,46,"观察：65 华氏度，比预期冷","b");
+      boxNode(650,155,510,46,"计划：把温度调高","y");
+      boxNode(650,210,510,46,"行动：调 set_temperature(+5)","g");
+      boxNode(340,290,600,50,"观察：温度已调好 → <b>退出循环</b>","r");
+      note("两轮循环，三次观察 —— 每次观察都改变了下一步",640,375,"y");
+      setCap("注意第一次观察做的事：把「冷」<b>翻译成</b>「温度」。");
+    },"讲者把那个例子完整走了一遍：  <b>第一轮：</b> · <b>观察</b>：「用户的泰迪熊冷，这<em>可能与房间当前温度有关，而该温度未知</em>」——⚠ <b>这一步做的事最关键：它把一个模糊的抱怨，翻译成了一个可以行动的缺口。</b> · <b>计划</b>：去查房间温度。 · <b>行动</b>：调 `get_current_room_temperature()`。  <b>第二轮：</b> · <b>观察</b>：返回 65 华氏度，<em>比预期冷</em>。 · <b>计划</b>：把温度调高。 · <b>行动</b>：调 `increase_temperature(+5)`。  <b>第三次观察</b>：温度已经设好了 ⇒ <b>目标达成，退出循环，把结果告诉用户。</b>  ⚠ <b>请注意「观察」这一步在两轮里做的是不同的事</b>：第一次是<em>理解问题</em>，第二次是<em>解读工具的返回</em>。  <b>而第七集那条「工具返回要是模型能看懂的结构」，在这里收了——因为观察这一步就是在读它。</b>");
+  /* 主体 */
+  S(5677,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"工具调用","y");
+      note("一问 → 一调 → 一答",340,195,"y");
+      note("步数<b>固定</b>",340,243,"y");
+      boxNode(730,105,440,58,"智能体","g");
+      note("自己决定<b>要做几步</b>",950,195,"g");
+      note("自己决定<b>什么时候停</b>",950,243,"g");
+      note("讲者的定义：autonomously <b>pursues goals</b> on a user behalf",640,352,"y");
+      setCap("多出来的那一层，是<b>递归与推理</b>。");
+    },"现在可以把「智能体」和「工具调用」的差别说准了。  讲者给的定义：<b>an agent is a system that autonomously pursues goals and completes tasks on a user's behalf</b>。  <b>而他对差别的概括很简洁</b>：compared to tools, you not only can perform tasks, but <b>you have also some reasoning involved in it. You could have multiple loops of iterations.</b>  <b>具体说，多出来的是两个自主权：</b> · <b>要做几步，模型自己决定</b>——而不是你事先写死。 · <b>什么时候停，模型自己决定</b>——它要判断「目标达成了没有」。  ⚠ <b>第二条比第一条危险得多。</b>  <em>「什么时候停」没有外部标准可依，全靠模型自己判断。判断早了，任务没完成就交差；判断晚了，它会一直循环下去——而每一轮都在花钱。</em>  ⚠ 讲者也说明了两者<b>不是互斥的</b>：agentic frameworks are <b>not necessarily disjoint</b> from what we presented before——<em>循环里面当然可以有推理链、可以有 RAG</em>。<b>它是在上面加了一层，不是替换。</b>");
+  /* 反驳 */
+  S(5689,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,50,"第 1 步","g");
+      arrow(364,130,436,130,"sm",0);
+      boxNode(440,105,250,50,"第 2 步","g");
+      arrow(694,130,766,130,"sm",0);
+      boxNode(770,105,250,50,"第 3 步 ✗","r");
+      arrow(1024,130,1096,130,"sm",0);
+      boxNode(1060,105,100,50,"…","r");
+      note("任何一步走偏，<b>后面全部建立在错的基础上</b>",640,230,"r");
+      note("而它不会停下来 —— 它会继续「努力」",640,288,"r");
+      note("讲者：这正是大规模智能体<b>还没铺开</b>的原因",640,368,"y");
+      setCap("第七集那条「参数可能填错」，在循环里被乘了很多次。");
+    },"最后一条是这一集最该带走的，<b>而且它直接来自讲者的收尾</b>。  <b>循环放大能力，也放大误差。</b>  讲者：when you talk about agents, you have this risk that <b>at every step of your thought process, you might diverge to something that just doesn't work. So that is a huge problem.</b>  他举的例子正是第七集那两条：<b>模型没有正确解读工具的输出，或者在参数预测上犯了错。</b>  ⚠ <b>而循环让这件事变得严重得多：</b> · 单次工具调用错了，<em>你立刻就看到一个奇怪的回答</em>。 · <b>循环里第三步错了，模型会拿着这个错误的结果继续往下做</b>——<em>第四步、第五步都建立在它之上</em>。而且它<b>不会停下来</b>，它会继续「努力」完成任务。  <b>讲者直接给出了结论：this is the reason why you don't see large scale agents ruling the world right now, because we are limited by these consequences.</b>  ⚠ 他还指出了该怎么解决：<b>理想情况下你不该用 SFT 去补推理的缺口，而是要靠模型本身的推理能力变强。</b>——<em>也就是说，这是第六讲那条路要解决的问题。</em>");
+  SUM(5629,9,{h:"ReAct：做一步、看一眼、再决定",
+    k:"循环 <b>观察 → 计划 → 行动 → 回到观察</b>，直到目标达成才退出。⚠ <b>各家论文叫法不同</b>（think/observe/act），<b>循环结构才是重点</b>。",
+    m:"为什么必须是循环而不是一次性规划：<b>你没法在看到结果之前，决定看到结果之后该做什么</b> —— 而调用工具的全部意义就是获取事先没有的信息。<b>智能体 vs 工具调用的差别就是这个回路</b>：要做几步、什么时候停，<b>都由模型自己决定</b>。",
+    w:"<s>误解</s>：「让它先列好完整计划再执行」。「调高 5 度」取决于第一步查到多少度 —— 第二步就卡住了。",
+    e:"⚠ <b>循环放大能力，也放大误差</b>：第三步错了，后面全建立在错的基础上，<b>而它不会停下来</b>。讲者直接给了结论：<b>这正是大规模智能体还没铺开的原因</b>，而该解决它的不是 SFT 补丁，是<b>模型本身的推理能力</b>（第六讲那条路）。"});
+  QUIZ(5629,9,{t:"智能体（agent）与单纯的工具调用，关键差别是什么？",
+    o:["智能体必须使用推理模型，工具调用不需要","智能体有观察—计划—行动的循环，自己决定要做几步、什么时候停","智能体可以访问外部资源，工具调用只能访问本地函数","智能体不需要预先定义函数，可以临时生成工具"],
+    a:1,
+    w:"讲者的概括：compared to tools, you not only perform tasks, but <b>you have also some reasoning involved — you could have multiple loops of iterations</b>。多出来的是两个自主权：<b>做几步</b>和<b>什么时候停</b>，而后者尤其危险（没有外部标准，全靠模型判断）。<s>「必须用推理模型」</s>不是定义性的差别，而且两者并不互斥。<s>「访问外部资源」</s>工具调用<b>本来就</b>可以调外部 API，这正是第七集那个找泰迪熊的例子。<s>「临时生成工具」</s>讲者明确说函数是<b>预先定义</b>的，not LLM generated on the fly。"});
+});
+
+KP("10 · <b>安全</b>，以及为什么智能体还没铺开　<small>讲义 p141–150</small>",function(){
+  /* 钩子 */
+  S(6140,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"前九集：给它工具，再给它一个循环","g");
+      arrow(640,170,640,220,"sm",0);
+      boxNode(190,224,900,60,"⚠ 于是它能<b>替你做事</b> —— 包括你不想它做的事","r");
+      note("能力和风险，是<b>同一件事</b>的两面",640,352,"y");
+      setCap("讲者：with these new capabilities comes a whole string of new potential issues。");
+    },"前九集一直在<b>增强</b>：给模型资料，给它工具，再给它一个自主的循环。  <b>这一集看另一面。</b>  讲者的开场很直接：<b>with these new capabilities comes a whole string of new potential issues. These models, they have now the ability to execute actions for you. So you could think of some harmful actor doing things that you wouldn't want.</b>  ⚠ <b>关键在于：这里的风险不是「模型说错话」，而是「模型做错事」。</b>  <em>一个只会生成文本的模型，最坏的后果是给了你一个错误答案。而一个能发邮件、能写文件、能调 API 的模型，最坏的后果是——<b>它真的发了、真的写了、真的调了。</b></em>  <b>能力和风险在这里不是两件事，是同一件事的两面。</b>");
+  /* 错误答案 */
+  S(6152,function(){
+      clearScene();setEq(null);
+      setBig("只给它安全的工具就行了","查天气、查日历，这些有什么危险");
+      setCap("<s>「安全的工具」比你想的少</s> —— 任何能<b>往外写</b>的工具都够用了。");
+    },"最省事的想法：<b>只给它「安全」的工具。</b>  <b>问题是「安全的工具」比你想的少得多。</b>  讲者举的那个例子，用的工具听起来再普通不过：<b>一个能发邮件的工具。</b>  <b>数据外泄（data exfiltration）</b>：假设智能体既能读到你的某些数据，又能发邮件。那么一条这样的指令——<em>「把密码写进邮件，发到某个地址」</em>——<b>就能把数据送出去</b>。  ⚠ <b>注意这里没有任何「危险的工具」：读是正常功能，发邮件也是正常功能。危险来自两者的组合。</b>  <b>判断一个工具安不安全，不能只看它自己，要看它和别的工具能凑出什么。</b>一条很实用的经验是：  <b>只要同时具备「能接触到敏感数据」和「能把数据送到外面」这两种能力，外泄的通道就存在了。</b>  <em>而「能送到外面」的形式很多：发邮件、写文件、调一个带参数的 URL、甚至往公开的页面写一条评论。</em>");
+  /* 铺陈 */
+  S(6164,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"训练期","g");
+      note("SFT 与 RL 的数据里掺入<b>安全</b>相关的",340,195,"g");
+      note("就是第六讲 R1 那个 harmlessness",340,243,"g");
+      boxNode(730,105,440,58,"推理期","y");
+      note("一个<b>安全分类器</b>看着对话",950,195,"y");
+      note("判断这次输出该不该放出去",950,243,"y");
+      note("⚠ 两道都不是百分之百 —— 所以要<b>叠着用</b>",640,352,"r");
+      setCap("讲者给的两类补救措施。");
+    },"讲者给了两类补救，<b>它们作用在完全不同的时刻</b>：  <b>① 训练期。</b>在 SFT 和 RL 的数据混合里<b>掺入安全相关的样本</b>，让模型本身倾向于拒绝有害请求。  ⚠ <b>这正是第六讲 R1 配方第四阶段那个 harmlessness 奖励</b>——<em>而且你现在该记起来：讲者当时特意说，harmlessness 作用在全部 token 上，包括思考部分。</em>  <b>② 推理期。</b>讲者：you can also have <b>inference safeguards. For example, a safety classifier that looks at the conversation so far, and judges whether the output of the LLM is going to be safe or not.</b>  <em>也就是在模型之外再加一道独立的检查。</em>  ⚠ <b>为什么需要两道？</b>因为<b>任何一道都不是百分之百的</b>。训练期的防线可能被新的攻击方式绕过；推理期的分类器也会漏判。  <b>而它们失效的方式不一样——这正是叠加使用的价值所在。</b>  讲者还给了一个基准：<b>AgentSafetyBench</b>，<em>它梳理了可能的安全隐患并提供了一整套测试</em>。");
+  /* 主体 */
+  S(6176,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,110,900,60,"首个被报道的、由 AI 编排的大规模网络攻击","r");
+      note("攻击者用的正是<b>工具调用与智能体能力</b>",640,215,"r");
+      note("讲者：<b>just yesterday</b> —— 就在这堂课的前一天",640,272,"y");
+      boxNode(290,320,700,50,"讲者的态度：<b>it is not a lost battle</b>","g");
+      setCap("能力在涨，攻防两边都在涨。");
+    },"讲者在这里插了一条<b>当天的新闻</b>，而且他强调了时间：  <b>just yesterday</b>——就在这堂课的前一天，Anthropic 披露他们是<b>首个被报道的、由 AI 编排的大规模网络攻击</b>的目标，<em>而攻击正是利用了工具调用和智能体能力</em>。  讲者说对方 <b>published a super detailed report</b>，逐步说明了攻击者做了什么、以及可能的补救路线，<b>并强烈推荐去读</b>。  ⚠ <b>但请注意他的结论不是悲观的：</b>  <b>it's not a lost battle. It's just that the tools we have for defending against tool-based attacks need to be — so we need to have such measures in place. And with these measures, maybe it's going to be fine.</b>  <b>他的框架是：攻击方和防守方的能力在同步提升，而防守是有办法的——前提是你真的把措施部署上。</b>  <em>这一镜之所以值得保留，是因为它说明了一件事：这一讲讲的不是未来的风险，是已经发生的事。</em>");
+  /* 主体 */
+  S(6188,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"① 幻觉仍是大问题","r");
+      note("RAG 和工具<b>缓解</b>了它",340,195,"y");
+      note("但没有根治",340,243,"r");
+      boxNode(730,105,440,58,"② 推理能力是瓶颈","r");
+      note("多步循环里任一步偏了就全错",950,195,"r");
+      note("<b>这才是智能体没铺开的真原因</b>",950,243,"r");
+      note("⚠ 讲者：不该用 SFT 去补推理的缺口",640,352,"y");
+      setCap("讲义最后一页的两条「closing thoughts」。");
+    },"讲者在最后一页列了两条<b>closing thoughts</b>，都是坦白：  <b>① Hallucination is a (big) problem.</b>  ⚠ 注意这条出现在讲完 RAG 和工具调用<b>之后</b>。这两样<em>确实缓解了幻觉</em>——把事实的来源从模型权重换成了外部数据。<b>但第一集和第七集说过，问题只是换了形态：检索可能找错、参数可能填错、结果可能解读错。</b>  <b>② Reasoning abilities are a bottleneck.</b>  这是第九集那条的正式表述：<b>多步循环里，任何一步的推理失误都会被后面继承并放大。</b>  ⚠ <b>讲者关于怎么解决它的那句话很值得记住：</b>  <b>this is something that you can fix with SFT. But ideally, you wouldn't want to use SFT to fix reasoning gaps — use the model itself.</b>  <em>意思是：用 SFT 去补某个具体场景的推理漏洞，是在打补丁——每出现一个新场景就要补一次。真正的解法是让模型本身的推理能力变强。</em>  <b>也就是第六讲那条路。</b>");
+  /* 反驳 */
+  S(6200,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"start small","g");
+      note("先做最简单的那个用例",280,172,"g");
+      boxNode(470,100,340,52,"start smart","y");
+      note("先用<b>最强</b>的模型探上界",640,172,"y");
+      boxNode(830,100,330,52,"再优化","b");
+      note("然后才去压延迟和成本",995,172,"b");
+      note("调试：<b>去读它的推理链</b> —— 错在哪是用人话写着的",640,280,"g");
+      boxNode(240,320,800,50,"生成代码很便宜，<b>判断代码对不对才是难的</b>","r");
+      setCap("讲者的收尾原话。");
+    },"讲者给了三条建议，都很实在：  <b>① Start small.</b> 先挑一个最简单的用例（<em>比如「找最近的熊」</em>），<b>确认整条链真的跑通了，再往上加</b>。  <b>② Start smart.</b> ⚠ 这条反直觉但很重要：<b>先用最强的模型</b>，take the most capable model first <b>so that you know the headroom of where you can go</b>。  <em>也就是说——先确认「这件事在当前技术下到底做不做得到」。如果最强的模型都做不好，那问题不在工程；如果它做得好，你才知道优化的目标是什么。</em>  <b>③ 然后才去优化</b>延迟和成本。  <b>调试</b>：讲者说 LLM 会输出推理链，<b>always good to look at them, to see what is going wrong</b>——<em>第三讲那条「CoT 顺带给了你一个调试器」在这里再次被用上</em>。  最后他讲了自己最常用的场景——<b>用智能体辅助编程</b>，并留下这门课最值得记的一句话之一：  <b>Generating code is cheap, but judging whether a code is correct, and does the right thing — this is the hard part.</b>  ⚠ <b>他由此提醒：正因为如此，更要把基础打扎实——因为从现在起，「你的判断力」才是最值钱的东西。</b>");
+  SUM(6140,10,{h:"能力即风险，而推理能力是真正的瓶颈",
+    k:"智能体能<b>做事</b>而不只是说话，于是风险从「说错话」变成「做错事」。两道防线：<b>训练期</b>（掺安全数据，即第六讲 R1 的 harmlessness）与<b>推理期</b>（独立的安全分类器）—— <b>两道都不是百分之百，所以要叠着用</b>。",
+    m:"⚠ <b>危险往往来自能力的组合而非单个工具</b>：能读数据 + 能往外写（邮件/文件/带参 URL），外泄通道就存在了。讲者的例子里两个工具听起来都很普通。而这不是假想 —— <b>就在课前一天</b>，Anthropic 披露了首个大规模 AI 编排的网络攻击。",
+    w:"<s>误解</s>：「只给它安全的工具就行」。「安全的工具」比想的少得多；判断一个工具安不安全，<b>要看它和别的工具能凑出什么</b>。",
+    e:"两条坦白：① <b>幻觉仍是大问题</b>（RAG 与工具只是缓解）② <b>推理能力是瓶颈</b>，而⚠ 讲者说<b>不该用 SFT 去补推理缺口</b>（那是打补丁），该靠模型本身变强 —— 即第六讲那条路。实务三条：<b>start small · start smart（先用最强模型探上界）· 再优化</b>。最后一句：<b>生成代码很便宜，判断代码对不对才是难的。</b>"});
+  QUIZ(6140,10,{t:"讲者举的「数据外泄」例子说明了什么？",
+    o:["危险常常来自多个看似普通的能力的组合，而非某个单独的危险工具","必须禁止智能体访问任何外部网络","安全分类器可以完全杜绝这类风险","只要在训练期加入 harmlessness 数据就足够了"],
+    a:0,
+    w:"讲者的例子里，两个工具听起来都很普通：<b>能读到数据</b>和<b>能发邮件</b>。危险来自两者的<b>组合</b>——只要同时具备「接触敏感数据」和「把数据送到外面」的能力，外泄通道就存在了（而「送出去」的形式很多：邮件、文件、带参 URL……）。<s>「禁止外部网络」</s>那等于废掉工具调用的全部价值。<s>「分类器可完全杜绝」</s>讲者给的是<b>两道</b>防线，正因为<b>任何一道都不是百分之百</b>。<s>「训练期就够了」</s>同上——训练期的防线可能被新攻击方式绕过，所以要和推理期的叠着用。"});
+});
+
+KP("完",function(){
+  S(6520,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("CME295 · Lecture 7","它能动手了",
+      "下一讲：怎么知道它做得好不好 —— LLM 评测");
+    },"把十集收成一句：<b>与其把模型变大，不如把「它需要知道的那一点」准确地送到它面前。</b>  三段的升级关系很清楚： · <b>RAG</b>：取回<b>文本</b>，模型只读。 · <b>工具调用</b>：取回<b>结构化结果</b>，而且模型可以<em>让外界做事</em>。 · <b>智能体</b>：加上<b>循环</b>——观察、计划、行动，再看结果决定下一步。  ⚠ 全讲最该带走的一条方法论，藏在 RAG 那六集里：<b>这套东西基本是从搜索和推荐系统搬过来的</b>——两阶段检索、bi-encoder/cross-encoder、NDCG 与 MRR，<em>全是那个领域几十年的积累</em>。讲者反复提到这一点。<b>遇到新问题时，先问「这个问题的形状，在别的领域有没有被解决过」。</b>  三处讲者明确留白： ① <b>幻觉仍是大问题</b>——RAG 能缓解，但没根治。 ② <b>推理能力是瓶颈</b>——这是大规模智能体还没铺开的真正原因。 ③ <b>安全是真实的、当下的</b>：讲者提到<em>就在前一天</em>，Anthropic 披露了首个大规模由 AI 编排的网络攻击。  最后留一句他的原话，和这门课的学习方式有关：<b>生成代码很便宜，判断代码对不对才是难的部分。</b>  下一讲：既然它能做这么多事了，<b>怎么知道它做得好不好。</b>");
+});
+window.__startProjector(CFG);
+})();
+</script>
