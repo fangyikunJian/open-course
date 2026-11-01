@@ -13,7 +13,10 @@
   ③ CS224R 深度强化学习 —— cs224r-2025/course.json
   ④ CSE 541 交互式学习  —— bandits-cse541/course.json
   ⑤ Sutton & Barto 第二版 —— reinforcement learning/corpus/sutton-barto/course.json
-  ⑥ ARTI2001 课程材料   —— G:/Adelaide COMSC/.../Machine Learning（它有自己的总入口）
+  ⑥ CME 295 Transformers 与 LLM —— CME295/course.json
+     ⚠ 这门课只有放映厅、没有精读，而且讲义不入库（版权材料，走公开直链），
+       所以它的 course.json 里只有一个 view，「课件」按钮不存在而不是灰掉。
+  ⑦ ARTI2001 课程材料   —— G:/Adelaide COMSC/.../Machine Learning（它有自己的总入口）
 
 **加一门课要改两处**：`main()` 里加一个 `course_rows(...)` 区块，
 以及下面那行 `n_items` 的求和 —— 还有这段 docstring 与页面的 LEDE。
@@ -272,6 +275,16 @@ def main():
         cse541, "cse541"))
 
     # ③c Sutton & Barto
+    # ③d CME 295（只有放映厅；讲义是版权材料，不入库，走公开直链）
+    cme295 = course_rows("CME295")
+    body.append(render_course(
+        "CME 295 Transformers 与大语言模型 · 中文学习站",
+        '斯坦福 Autumn 2025（Afshine &amp; Shervine Amidi）。<b>九讲九部放映厅</b>。'
+        '⚠ 这门课的中文内容以<b>讲稿时间码</b>为准（每一镜都能对回原视频），'
+        '讲义页码作参照 —— 与其余几门的做法不同。<a href="%s">课程入口 ↗</a>'
+        % url("CME295/index.html"),
+        cme295, "cme295"))
+
     sb = course_rows("reinforcement learning/corpus/sutton-barto")
     body.append(render_course(
         "Sutton & Barto 第二版 · 中文精读",
@@ -304,7 +317,7 @@ def main():
         '逐页精读 · 备考包 · 复习放映厅</div></div>'
         '<div class="btns">%s</div></div></section>' % btns)
 
-    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + len(cse541) + len(sb) + 1)
+    n_items = (len(plan["items"]) + len(cs234) + len(cs224r) + len(cse541) + len(sb) + len(cme295) + 1)
     html = TPL
     for a, b in (("{{LIGHT}}", theme.LIGHT), ("{{DARK}}", theme.DARK), ("{{CSS}}", CSS),
                  ("{{LEDE}}", "一个入口：研究学习清单、三门课（CS234 / CS224R / CSE 541）"
@@ -322,8 +335,8 @@ def main():
     out = os.path.join(ROOT, "★总入口.html")
     io.open(out, "w", encoding="utf-8", newline="\n").write(html)
     print("写出 %s" % os.path.basename(out))
-    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · CSE541 %d 讲 · S&B %d 章 · ARTI2001 1 块 ⇒ 共 %d 条"
-          % (len(plan["items"]), len(cs234), len(cs224r), len(cse541), len(sb), n_items))
+    print("  研究清单 %d 条 · CS234 %d 讲 · CS224R %d 讲 · CSE541 %d 讲 · S&B %d 章 · CME295 %d 讲 · ARTI2001 1 块 ⇒ 共 %d 条"
+          % (len(plan["items"]), len(cs234), len(cs224r), len(cse541), len(sb), len(cme295), n_items))
 
 
 if __name__ == "__main__":
