@@ -1,0 +1,1633 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME295 L08 · LLM 评测 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"CME295 · Lecture 8 · 不知道怎么量，就不知道该改什么",
+  subtitle:"9 个知识点 · 讲义 p12–169 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=8fNP4N46RRo&t="
+};
+
+
+// 内容权威：讲稿 corpus/transcripts/L8.txt（108 分 53 秒）
+//   + 官方讲义 fall25-cme295-lecture8.pdf（170 页）
+// https://cme295.stanford.edu/slides/fall25-cme295-lecture8.pdf
+// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。
+//
+// 时间码用 scratchpad 的定位器从 L8_timed.txt 的 198 个锚点插值得到。
+// 逐条核过的要点：
+//   [5:09]  本讲只谈**输出质量**，不谈延迟/价格/可用性那一类。
+//           难点：LLM 是 text-to-text，**输出可以是任何东西** —— 很难有通用指标。
+//   [6:29]  理想方案是每条输出都让人打分，但① 评分任务本身**主观**
+//           （讲者的例子：「送泰迪熊当礼物」有用还是没用，两个人会给相反的分）
+//           ② 慢 ③ 贵。
+//   [8:29]  **评分者一致率**不能直接看。讲者当堂算了一遍：两个人**纯随机**各以 0.5
+//           的概率打「好」，一致率就已经有 **50%** 了。所以要用
+//           **Cohen's kappa** 这类把「随机基线」减掉的指标（还有 Fleiss kappa、
+//           Krippendorff alpha）。一致率不满意时人们会开「**对齐会**」统一尺度。
+//   [18:59] **规则指标**：人只写一次参考答案，之后反复比对。
+//           **METEOR**（翻译，F 分数 × (1−序penalty)，⚠ alpha/beta/gamma 全是人定的）·
+//           **BLEU**（偏精确率，带**短句惩罚**，否则译得短就能刷分）·
+//           **ROUGE**（摘要）。
+//   [24:xx] 两个根本限制：① **不容许措辞变化** —— 讲者给了三句意思相同但用词全不同的话，
+//           这些指标在它们上面表现都很差；② **与人工评分的相关性并不好**；
+//           而且 ③ 它**仍然需要人先写参考答案**。
+//   [28:15] **LLM-as-a-Judge**（LaaJ）：输入是 提示词 + 待评回答 + 评判标准，
+//           输出是 **rationale（理由）+ score（分数）**。
+//           ⚠ **理由要先于分数输出** —— 经验上效果更好，而且这和第六讲
+//           「推理模型先出思维链」是同一个机制。
+//   [34:43] 怎么保证能解析？用第三讲的 **guided decoding** —— 服务商那边叫
+//           **structured output**。
+//   [31:xx] 两大好处：**不需要参考答案**、**分数带解释**（规则指标给不出解释）。
+//           两种形态：**pointwise**（单条打分）与 **pairwise**（二选一）；
+//           ⚠ pairwise 还能**合成偏好数据**去训第五讲那个奖励模型。
+//   [38:49] **位置偏差**：换个顺序问，答案可能就变。解法：**两个顺序各问一次取多数**。
+//   [40:33] **冗长偏差**：更长的回答更容易被judge偏爱。解法：在准则里明说别看长度、
+//           给反例、或对长度加惩罚。
+//   [42:34] **自我偏好偏差**：模型偏爱自己生成的回答。解法：
+//           **别用同一个模型既生成又评判**；而且 judge 最好**更大、推理更强**。
+//           ⚠ 讲者的保留：如今各家模型训练数据高度重合，这条约束很难严格做到。
+//           ⚠ 他也明说**这三个偏差绝非穷举**。
+//   [45:xx] 最佳实践：**准则要清晰** · **用二元刻度**（judge 更好判，人也更好判，
+//           而且去掉了多档带来的噪声）· **理由先于分数** · **拿人工评分校准** ·
+//           **低温度**（0.1~0.2，为了可复现）。
+//   [50:01] ⚠ 最重要的一条：LaaJ 分数**本身只是人工评分的一个近似**，
+//           所以**不要针对这个代理过度优化** —— 第五讲奖励黑客那条在这里原样重演。
+//   [52:xx] **事实性**要特殊处理：一段话里有多个事实，不能一刀切成「对/错」。
+//           做法：① 一次 LLM 调用把文本**拆成事实清单** ② **逐条核**（用 RAG 或网页搜索）
+//           ③ **按重要性加权聚合**。讲者的例子得分 0.6。
+//   [62:33] 智能体的失败模式按**三步**分类：工具预测 / 工具调用 / 回答生成。
+//           工具预测有四种：**该用不用**（punt，可能是 tool router 的召回问题）·
+//           **幻觉出不存在的工具** · **用错工具** · **参数填错**。
+//           ⚠ 讲者反复强调：很多「模型的错」其实是**你的 API 命名与描述写得不好** ——
+//           函数名、参数名、描述就是你能调的三个旋钮。
+//   [84:47] 基准四类：**知识**（MMLU，约 60 个学科的四选一；主要量预训练）·
+//           **推理**（AIME 数学、PIQA 常识）· **代码**（SWE-bench：从真实 GitHub
+//           仓库里取「修了 issue 且带测试」的 PR，用测试前后状态判定）·
+//           **安全**（HarmBench，四类；⚠ 它是唯一**靠分类器判定**的，因此自身也会出错）。
+//           ⚠ 讲者点明一个共同设计：**尽量做成可硬编码提取答案的形式**（选择题、三位数答案），
+//           因为用 LaaJ 判会**再引入一层误差**。
+//           ⚠ 安全基准**跨模型不可比** —— 每家的安全政策不同，不追求 100%。
+//   [101:12] **tau-bench**（Tool-Agent-User）：给工具、给政策、给任务，
+//            **用户那一侧由另一个大模型扮演**（因为多轮对话没法硬编码）；
+//            奖励看**数据库最终状态**是否正确。它引入 **pass^k** —— 
+//            「k 次**全部**成功的概率」，和第六讲的 pass@k（至少一次）正好相反。
+//            ⚠ 自动化场景要的是**可靠性**，所以该看 pass^k。
+//   [107:39] **Pareto 前沿**：把性能对价格（或安全、上下文长度）画出来，边界上那些就是。
+//            讲者给了自己的用法：Sonnet 适合写代码，要快且便宜时用 Gemini Flash ——
+//            但他强调 these are **not global recommendations**。
+//   [107:52] **数据污染**：基准的答案可能已在训练语料里。对策：哈希值、
+//            屏蔽名单（防止联网查到答案）、以及数学这类**可以用全新考题**的领域。
+//   [108:26] **Goodhart 定律**：<b>当一个度量变成目标，它就不再是个好度量。</b>
+//
+// ⚠ 本片**没有**讲：METEOR/BLEU 的完整公式、MMLU 的具体题目、
+//   HarmBench 四个类别的细节、Gemini 3 发布报告的具体数字。
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("CME295 · Lecture 8","LLM evaluation",
+      "讲义 170 页 · 讲稿 108 分 53 秒 · 本片取 9 条主线");
+    },"前七讲一直在造东西：架构、训练、对齐、推理、检索、工具。<b>这一讲问一个一直被跳过的问题——你怎么知道它好不好？</b>  难处一开始就很明确：<b>LLM 是 text-to-text 的，输出可以是任何东西</b>——自然语言、代码、数学推导。<em>很难有一个通用指标。</em>  九集沿着一条「退而求其次」的链条走：  · <i>人来打分</i>（1 集）：最理想，但贵、慢，<b>而且主观</b>。⚠ 第一集有个很好的当堂计算：<b>两个人纯随机打分，一致率就已经有 50%</b>。 · <i>写死规则</i>（1 集）：便宜了，但<b>换个说法就不认了</b>。 · <i>让模型当裁判</i>（3 集）：现在的主流。灵活、能给理由——<b>但它有三个系统性偏差，而且它本身只是人工评分的一个近似</b>。 · <i>具体怎么评</i>（2 集）：事实性要拆开核；智能体要把失败分类。 · <i>公开基准</i>（2 集）：四大类，以及它们的边界。  ⚠ 最后一集以<b>古德哈特定律</b>收尾：<em>当一个度量变成目标，它就不再是个好度量。</em>");
+});
+
+KP("1 · 人来打分：<b>一致率 50% 可能全是运气</b>　<small>讲义 p12–25</small>",function(){
+  /* 钩子 */
+  S(389,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,105,900,54,"「送泰迪熊基本都没错，挑一个你喜欢的就好。」","b");
+      arrow(440,159,330,209,"sm",0);
+      arrow(840,159,950,209,"sm",0);
+      boxNode(170,213,340,54,"有用：明确建议了礼物","g");
+      boxNode(770,213,340,54,"没用：没说挑哪一只","r");
+      note("⚠ 这<b>不是</b>谁错了 —— 评分任务本身就有歧义",640,330,"r");
+      setCap("讲者 6:29 的例子。评测的第一道坎在这里。");
+    },"这一讲要回答「怎么知道模型好不好」。最理想的办法显然是<b>让人来打分</b>。  <b>但讲者一上来就展示了这条路的第一道坎，而且它不是成本问题。</b>  问题：「我该送什么生日礼物？」回答：「<em>送泰迪熊基本都没错，挑一个你喜欢的就好。</em>」  <b>就「有用性」这个维度打分：</b> · 一个评分者说<b>有用</b>——<em>它明确建议了一类礼物</em>。 · 另一个说<b>没用</b>——<em>它没说该挑哪一只，是熊？是大象？是长颈鹿？</em>  ⚠ <b>关键在于：这两个人都没有错。</b>  <b>评分任务本身是主观的。</b>而一旦评分者之间不一致，<em>你收上来的「人工评分」就不再是一个可靠的标尺</em>。  <b>所以第一件事不是去评模型，而是先去评「评分这件事本身可不可靠」。</b>");
+  /* 错误答案 */
+  S(401,function(){
+      clearScene();setEq(null);
+      setBig("算一下两个评分者给出相同答案的比例","一致率高就说明标准统一了");
+      setCap("讲者当堂反问：<b>给你一个一致率，你能判断它是好是坏吗？</b>");
+    },"既然担心评分者不一致，<b>那就量一下一致率</b>——两个人给出相同评分的比例。  看起来天经地义。<b>但讲者当堂反问了一句，正中要害：</b>  <b>if I give you a given number of agreement rates, can you tell me if it's a good number or a bad number?</b>  <em>假如我告诉你「一致率是 70%」——这算高还是低？</em>  <b>你没法回答，因为缺一个参照：如果两个人闭着眼睛乱打，一致率会是多少？</b>  下一镜讲者当场算了这个数，<b>而结果比大多数人直觉的高得多</b>。");
+  /* 铺陈 */
+  S(413,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$P(\\text{一致})=p_A p_B+(1-p_A)(1-p_B)$$","top");
+      note("两人都打「好」　+　两人都打「不好」",640,330,"y");
+      note("各以 0.5 的概率乱打：0.25 + 0.25 = <b>0.5</b>",640,382,"r");
+      setCap("讲者在黑板上推了这一步。<b>50% 完全来自运气。</b>");
+    },"讲者在黑板上算了这笔账，<b>推法很干净，值得跟一遍</b>：  假设两个评分者 Alice 和 Bob <b>完全随机</b>地打分，Alice 以概率 p_A 打「好」，Bob 以 p_B 打「好」，<em>而且彼此独立</em>。  <b>他们「一致」只有两种情况：都打好，或者都打不好。</b>  · 都打好：<b>p_A × p_B</b> · 都打不好：<b>(1−p_A) × (1−p_B)</b>  代入 p_A = p_B = 0.5：<b>0.25 + 0.25 = 0.5</b>  <b>也就是说——两个人闭着眼睛乱打，一致率就已经有 50% 了。</b>  ⚠ <b>而讲者还指出了更麻烦的一点：这个「随机基线」本身是变的。</b>如果两人都倾向于打「好」（比如 p 都是 0.9），<em>随机一致率会更高</em>——算一下是 0.82。  <b>所以「一致率 70%」这个数，在不同的打分倾向下含义完全不同。</b>");
+  /* 主体 */
+  S(425,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\kappa=\\frac{p_o-p_e}{1-p_e}$$","top");
+      note("p_o = 实际观察到的一致率　·　p_e = 纯随机的一致率",640,322,"y");
+      note("实际 = 随机 → kappa = 0　·　完全一致 → kappa = 1",640,374,"g");
+      setCap("比随机还差，kappa <b>会是负的</b> —— 这正是它有用的地方。");
+    },"既然光看一致率没有意义，<b>那就把随机基线减掉</b>。这就是 <b>Cohen's kappa</b>。  <b>分子</b>：实际一致率 − 随机一致率，<em>也就是「你比运气好了多少」</em>。 <b>分母</b>：1 − 随机一致率，<em>也就是「最多能比运气好多少」</em>。  于是这个比值有了明确的读法： · <b>κ = 1</b>：完全一致。 · <b>κ = 0</b>：和瞎猜一样。 · <b>κ &lt; 0</b>：<em>比瞎猜还差</em>——讲者特意点了这一条。  ⚠ <b>「能取负值」是这类指标设计得好的标志</b>：它意味着这个尺度有一个真正的零点，<em>而不是像原始一致率那样，最低也有 50%</em>。  讲者还提到了两个扩展，<b>它们解决的是同一类问题</b>： · <b>Fleiss kappa</b>：<em>超过两个评分者</em>。 · <b>Krippendorff alpha</b>：<em>更一般的情形</em>。  <b>共同思路都是：先算出「随机会是多少」，再看你超出了多少。</b>");
+  /* 主体 */
+  S(437,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"kappa 值作为一个<b>健康度指标</b>持续跟踪","g");
+      arrow(640,163,640,213,"sm",0);
+      boxNode(290,217,700,54,"低了 → 把评分者召集起来统一尺度","y");
+      note("讲者：people would hold <b>agreement sessions</b>",640,320,"y");
+      note("⚠ 要改的是<b>标注指南</b>，不是评分者的个人判断",640,375,"r");
+      setCap("第五讲说过：<b>标注指南本身就是超参数</b>。");
+    },"量出来之后怎么用？讲者讲的是实际做法：  <b>把 kappa 当作一个持续跟踪的「健康度指标」</b>。一旦它掉到不满意的水平，<b>就把评分者召集起来开一次「对齐会」</b>（agreement sessions），<em>统一大家对评分标准的理解</em>。  ⚠ <b>注意这里真正在改的是什么：不是评分者的个人判断，而是那份标注指南。</b>  <em>第五讲第二集说过同一件事——「human ratings are very sensitive to the guidelines」，而且「标注指南本身就是超参数」。</em>  <b>一致率低，通常意味着指南里有含糊之处，而不是某个评分者「标得不好」。</b>  ⚠ 把这条推到底会得到一个有点反直觉的结论：<b>一致率可以通过「把指南写得越来越机械」来提高——但如果指南机械到脱离了你真正在乎的东西，一致率再高也没意义。</b>  <em>（这是本讲最后那条古德哈特定律的一个早期预演。）</em>");
+  /* 反驳 */
+  S(449,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"人工评分的缺点","r");
+      note("慢 · 贵 · 主观",340,195,"r");
+      note("所以不能每条输出都用它",340,243,"r");
+      boxNode(730,105,440,58,"⚠ 但它仍然是","g");
+      note("后面一切指标<b>试图逼近的那个东西</b>",950,195,"g");
+      note("第五集：LaaJ 要拿它来<b>校准</b>",950,243,"g");
+      note("放弃它 ≠ 不需要它",640,352,"y");
+      setCap("接下来两集都是在找「便宜一点的替代品」。");
+    },"这一集最后要把人工评分的位置摆正，<b>否则后面几集容易走偏</b>。  <b>它的三个缺点都是真的</b>：慢（<em>让人评一千条输出要很久</em>）、贵、主观。所以讲者的结论是：<b>每条输出都让人评，这不实际。</b>  ⚠ <b>但「不实际」不等于「不需要」。</b>  <b>人工评分始终是地面真值——后面所有的指标，都是在试图逼近它。</b>  · <b>第二集</b>的规则指标，<em>要先让人写参考答案</em>；而且讲者说它们的设计目标就是<b>与人工评分相关</b>。 · <b>第五集</b>会讲一条最佳实践：<b>拿人工评分去校准 LLM 裁判</b>——因为 <em>at the end of the day, it is the quantity that we want to approximate</em>。  <b>所以接下来的路线不是「抛弃人工评分」，而是「少用它，但把它用在刀刃上」：用它来校准那些便宜的自动指标，而不是用它来评每一条输出。</b>");
+  SUM(389,1,{h:"人工评分是地面真值，但它自己也要先被度量",
+    k:"理想方案是每条输出都让人打分，但它<b>慢、贵，而且主观</b> —— 讲者的例子里两个评分者对同一条回答给出相反的分，<b>而且两人都没错</b>。",
+    m:"所以要先量「评分本身可不可靠」。⚠ <b>一致率不能直接看</b>：两人纯随机各以 0.5 打「好」，一致率就已经有 <b>50%</b>（0.25+0.25），而且这个随机基线<b>随打分倾向而变</b>。<b>Cohen's kappa</b> 把它减掉：κ=(p_o−p_e)/(1−p_e)，<b>能取负值</b>正是它有真零点的标志。",
+    w:"<s>误解</s>：「一致率 70% 听起来还行」。讲者反问：<b>给你一个一致率，你能判断它是好是坏吗？</b> —— 缺的是「瞎猜会是多少」这个参照。",
+    e:"一致率低时的做法是开<b>对齐会</b>，而⚠ <b>要改的是标注指南，不是评分者的判断</b>（第五讲：指南本身就是超参数）。⚠ 「不实际」≠「不需要」：<b>人工评分始终是后面一切指标试图逼近的那个东西</b>，第五集的 LaaJ 还要拿它来校准。"});
+  QUIZ(389,1,{t:"为什么不能直接用「评分者一致率」来判断标注质量？",
+    o:["一致率只适用于二元评分，多档评分无法计算","一致率无法推广到两个以上的评分者","即使评分者完全随机打分，一致率也会相当高（二元等概率时约 50%）","一致率会随样本量增大而系统性上升"],
+    a:2,
+    w:"讲者当堂算了这笔账：两人独立随机、各以 0.5 的概率打「好」，一致率 = 0.25+0.25 = <b>50%</b>，<b>全部来自运气</b>；而且这个随机基线<b>随打分倾向而变</b>（都倾向打「好」时会更高）。所以需要 <b>Cohen's kappa</b> 这类把随机基线减掉的指标。<s>「只适用于二元」</s>一致率对多档同样可算。<s>「无法推广到多人」</s>那是 <b>Fleiss kappa</b> 解决的事，不是这里的问题。<s>「随样本量上升」</s>一致率是比例，不随样本量系统性变化。"});
+});
+
+KP("2 · 规则指标：<b>换个说法就不认了</b>　<small>讲义 p27–37</small>",function(){
+  /* 钩子 */
+  S(1139,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"原来：每次都要人评","r");
+      note("模型改一版，就重评一轮",340,195,"r");
+      boxNode(730,105,440,58,"现在：人只写一次参考答案","g");
+      note("之后拿指标<b>自动比对</b>",950,195,"g");
+      note("模型迭代多少次，都用<b>同一批参考答案</b>",950,243,"g");
+      note("已经是个很大的改进",640,352,"y");
+      setCap("代价是：那个「比对」得写成一个公式。");
+    },"既然每条输出都让人评不现实，<b>第一个退让是：让人只做一次工作。</b>  做法：<b>固定一批提示词，让人为它们写出「理想回答」作为参考答案</b>。之后模型改多少版，都<b>拿输出和这批固定的参考答案自动比对</b>。  讲者：I can make iterations in my model and <b>always compare the outputs with this fixed reference, instead of always asking humans to rate that again and again</b>。  <b>这已经是个很大的改进</b>——人工成本从「O(输出条数 × 迭代次数)」降到了「O(提示词条数)」。  ⚠ <b>但代价立刻出现：那个「比对」现在必须写成一个公式。</b>  而自然语言的麻烦在于——<b>同一个意思有无数种说法</b>。讲者说这类指标理想上应该 <em>be a little bit flexible</em>。  <b>下面看它们是怎么努力做到「灵活」的，以及为什么还是不够。</b>");
+  /* 错误答案 */
+  S(1151,function(){
+      clearScene();setEq(null);
+      setBig("数一数输出和参考答案有多少词是一样的","重合越多就越接近");
+      setCap("这确实是这些指标的内核 —— <b>而它们的毛病也全在这儿</b>。");
+    },"最直接的比对方式：<b>数词的重合。</b>  <b>这确实就是这一类指标的内核</b>——METEOR、BLEU、ROUGE 全都建立在「匹配的 n-gram 有多少」之上。  它们各自做了一些补救，但<b>核心假设没变：说法越接近参考答案，就越好</b>。  ⚠ <b>而这个假设在自然语言上是错的，这一集后面会用一个很有力的例子说明。</b>  先看它们是怎么努力的——<b>因为那些补救措施本身，暴露了这条路的处境</b>。");
+  /* 铺陈 */
+  S(1163,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\mathrm{METEOR}=F_{\\alpha}\\times(1-\\mathrm{Penalty})$$","top");
+      note("F 分数：基于一元词的精确率与召回率",640,320,"g");
+      note("Penalty：匹配被打散成越多段，罚得越狠（管语序）",640,372,"y");
+      setCap("⚠ 讲者：alpha、beta、gamma <b>全是人拍脑袋定的</b>。");
+    },"<b>METEOR</b>（Metric for Evaluation of Translation with Explicit ORdering），用于翻译。  结构是两部分相乘： · <b>F 分数</b>：精确率（<em>输出里的词有多少在参考答案中</em>）和召回率（<em>参考答案里的词有多少在输出中</em>）的加权调和平均。 · <b>(1 − 惩罚)</b>：<b>名字里的 explicit ordering 就在这里</b>——它数匹配的部分被打散成了多少个连续片段。<em>片段越多，说明语序越乱，罚得越狠。</em>  <b>它确实做了一些「灵活化」的努力</b>：匹配时会把<em>同义词</em>和<em>同词根</em>的词也算进来。  ⚠ <b>但讲者对它的评价相当不客气</b>：  <b>when you look at this formula, first of all, it looks very arbitrary. I have alpha as a hyperparameter, gamma, beta. So it's kind of a recipe, I feel.</b>  <em>三个超参数全靠人拍脑袋定——这本身就说明这个指标不是从什么原理推导出来的，而是调出来的。</em>");
+  /* 主体 */
+  S(1175,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"BLEU（翻译）","y");
+      note("偏<b>精确率</b>：输出里的 n-gram 有多少是对的",340,195,"y");
+      note("⚠ 所以要加<b>短句惩罚</b>",340,243,"r");
+      boxNode(730,105,440,58,"ROUGE（摘要）","g");
+      note("偏<b>召回率</b>：参考答案的内容盖住了多少",950,195,"g");
+      note("两者都有一堆变体",640,352,"b");
+      setCap("<b>短句惩罚</b>那条，是一个很典型的「堵漏洞」。");
+    },"另外两个：  · <b>BLEU</b>（bilingual evaluation understudy），翻译用。讲者说它是<b>偏精确率</b>的——<em>看输出里的 n-gram 有多少在参考答案中出现</em>。 · <b>ROUGE</b>，摘要用。<b>偏召回率</b>——<em>看参考答案的内容被覆盖了多少</em>。  ⚠ <b>BLEU 的「短句惩罚」（brevity penalty）是个很好的例子，值得单独看：</b>  既然 BLEU 偏精确率，<b>那有个很容易钻的空子：只输出一个你非常确定的短词组</b>——<em>精确率会很高，因为你说的每个词都对</em>。  讲者：if you translate something that's very short, <b>you may be able to game the metric</b>。  <b>所以必须额外加一项惩罚太短的输出。</b>  ⚠ <b>注意这个模式：一个指标被发现有空子 ⇒ 打一个补丁。</b>METEOR 的那三个超参数、BLEU 的短句惩罚，<em>都是这么来的</em>。这正是讲者说它「像个配方」的原因。");
+  /* 主体 */
+  S(1187,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,100,1020,46,"参考答案：毛绒泰迪熊能在睡前安慰孩子","g");
+      boxNode(130,160,1020,46,"柔软的填充熊常让孩子在入睡时感到安心","y");
+      boxNode(130,220,1020,46,"许多幼儿抱着温柔的玩具伙伴时更容易入睡","y");
+      note("三句话意思几乎一样，<b>用词几乎不重合</b>",640,315,"r");
+      note("讲者：these metrics would <b>perform very poorly</b>",640,372,"r");
+      setCap("而这正是自然语言的常态，不是特例。");
+    },"现在是这一集最有力的那个例子。讲者给了三句话：  · <b>参考答案</b>：「<em>毛绒泰迪熊能在睡前安慰孩子</em>」 · 「<em>柔软的填充熊常让孩子在入睡时感到安心</em>」 · 「<em>许多幼儿抱着温柔的玩具伙伴时更容易入睡</em>」  <b>三句话说的是同一件事，而用词几乎不重合。</b>  讲者的判断：<b>in all these cases, the metrics that we saw would really perform very poorly</b>。  ⚠ <b>请注意这不是一个刁钻的反例，而是自然语言的常态。</b>  <em>同义词、不同的句式、不同的详略、不同的侧重——人类写作本来就充满这些变化，而且它们往往正是「写得好」的表现。</em>  <b>METEOR 加同义词匹配、BLEU 加短句惩罚，这些补丁扩大了一点容忍范围，但改变不了根本：它们比的是「说法」，而我们想比的是「意思」。</b>");
+  /* 反驳 */
+  S(1199,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"① 不容措辞变化","r");
+      boxNode(480,100,340,52,"② 与人工评分相关性不好","r");
+      boxNode(850,100,310,52,"③ 仍然需要人","r");
+      note("改进它的唯一办法，是<b>调参数去拟合人工评分</b>",640,230,"y");
+      note("所以它<b>绕不开</b>人工评分，只是把人往前挪了一步",640,288,"r");
+      note("⇒ 那不如直接找一个「懂意思」的东西来评",640,368,"g");
+      setCap("下一集：那个东西就是另一个 LLM。");
+    },"讲者列了三条限制，<b>而第三条最值得想</b>：  ① <b>不容许措辞变化</b>——上一镜那个例子。  ② <b>与人工评分的相关性并不好</b>。讲者的说法很克制但很到位：<em>people have come up with all these hyperparameters to make it be correlated to human ratings, but they're not that correlated</em>。  ⚠ <b>注意这句话里的循环</b>：那些超参数<em>本来就是为了拟合人工评分而调的</em>，<b>调完了相关性还是不够好</b>——<em>这说明问题不在参数，在这类指标的形式本身</em>。  ③ <b>它仍然需要人工评分才能开始</b>——<em>要有人写参考答案，而且要有人工评分才能校准那些超参数</em>。  <b>把三条合起来看，这条路的处境就清楚了：它比「每条都让人评」便宜，但没有摆脱对人的依赖，而且换来的指标还不够准。</b>  <b>所以需要一个真正「懂意思」的评判者。而这门课前七讲造的，恰好就是这么一个东西。</b>");
+  SUM(1139,2,{h:"规则指标：比的是说法，而我们想比的是意思",
+    k:"让人<b>只写一次参考答案</b>，之后自动比对。<b>METEOR</b>（翻译，F 分数 ×(1−语序惩罚)）· <b>BLEU</b>（偏精确率，<b>必须加短句惩罚</b>否则译得短就能刷分）· <b>ROUGE</b>（摘要，偏召回率）。",
+    m:"它们的内核都是<b>数词的重合</b>，而「说法接近 = 更好」这个假设在自然语言上是错的 —— 讲者给了三句意思相同、用词几乎不重合的话，<b>这些指标在它们上面都表现很差</b>，而这是常态不是特例。",
+    w:"<s>模式识别</s>：METEOR 的三个超参数（讲者说 <b>it looks very arbitrary, kind of a recipe</b>）与 BLEU 的短句惩罚，<b>都是「发现空子就打补丁」的产物</b> —— 它们不是从原理推导出来的。",
+    e:"三条限制里<b>第三条最伤</b>：它<b>仍然需要人</b>（写参考答案 + 校准超参数），所以只是把人往前挪了一步。而②那些超参数<b>本来就是为拟合人工评分而调的，调完相关性还是不够好</b> —— 说明问题在形式本身。"});
+  QUIZ(1139,2,{t:"BLEU 为什么必须额外加一个「短句惩罚」？",
+    o:["因为短句的 n-gram 统计不稳定，方差过大","因为 BLEU 偏精确率，只输出少量很有把握的词就能把分数刷高","因为翻译任务要求输出与原文长度大致相当","因为短句无法计算语序惩罚项"],
+    a:1,
+    w:"BLEU 看的是「输出里的 n-gram 有多少在参考答案中」——这是<b>精确率</b>。于是只要输出一小段你非常确定的词组，<em>说的每个词都对，分数就很高</em>。讲者：if you translate something that's very short, <b>you may be able to game the metric</b>。所以要惩罚太短的输出。⚠ 这是「发现空子就打补丁」的典型。<s>「方差过大」</s>不是加这一项的动机。<s>「长度相当」</s>这是结果而非理由。<s>「无法算语序」</s>语序惩罚是 <b>METEOR</b> 的部件，不是 BLEU 的。"});
+});
+
+KP("3 · <b>LLM 当裁判</b>：先给理由，再给分　<small>讲义 p39–59</small>",function(){
+  /* 钩子 */
+  S(1695,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"前七讲造的那个模型","g");
+      note("在海量文本上预训练 ⇒ 懂语言",640,205,"g");
+      note("用人类偏好调过 ⇒ 知道人大致喜欢什么",640,258,"g");
+      boxNode(390,320,500,50,"那就让它来当裁判","y");
+      setCap("<b>LLM-as-a-Judge</b>（LaaJ）。讲者说这个说法出自两年前一篇论文。");
+    },"上一集卡在「规则指标比的是说法，不是意思」。  <b>而这门课前七讲造的，恰好是一个懂意思的东西。</b>  讲者的推理很自然：<b>we spent the first seven lectures motivating these large language models that are pretrained on huge amounts of data, that are tuned to match human preference. So they do contain human knowledge. They do contain some indication of what humans may prefer.</b>  <b>那就让模型来评模型。</b>这叫 <b>LLM-as-a-Judge</b>（简称 LaaJ），<em>出自两年前的一篇论文</em>。  <b>输入三样</b>：原始提示词、待评的回答、<b>评判标准</b>。 <b>输出两样</b>：<b>分数</b>，和——<b>一段理由</b>。  ⚠ <b>「理由」这一项是和前面所有方法的根本差别，下一镜专讲。</b>");
+  /* 错误答案 */
+  S(1707,function(){
+      clearScene();setEq(null);
+      setBig("只要分数，理由就不用了吧","省 token，也好解析");
+      setCap("<s>反了</s>：先写理由<b>能让分数本身更准</b> —— 这和第六讲是同一个机制。");
+    },"既然只需要一个分数，<b>那让它直接输出分数不就好了？省 token，也省得解析。</b>  <b>恰恰相反。讲者给的做法是：先输出理由，再输出分数。</b>  他先说了经验事实：<b>it's something that empirically improves the quality of the results</b>。  然后给了机制上的解释，<b>而这个解释把这一讲和第六讲连上了</b>：  <b>you can think of this trick as being on the same idea of reasoning models — it allows the model to externalize, verbalize its \"thought process\" before giving the score.</b>  <em>第三讲的思维链、第六讲的推理模型，用的是同一个机制：写出中间过程，等于给了它更多计算、也把中间结论放进了上下文。</em>  <b>所以「先理由后分数」不是为了可解释性而付出的代价——它本身就让分数更准。</b>  ⚠ <b>顺序很重要</b>：先分数后理由就没用了，<em>那时理由只是在为已经定下的分数找说辞</em>。");
+  /* 铺陈 */
+  S(1719,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"问题：采样是随机的，格式不保证","r");
+      arrow(640,163,640,213,"sm",0);
+      boxNode(190,217,900,58,"第三讲的 <b>guided decoding</b>：只允许采样「合法」的 token","g");
+      note("服务商那边的名字：<b>structured output</b>",640,320,"y");
+      note("讲者：这是第三讲第 65 页那个技术",640,375,"b");
+      setCap("讲者当堂问：你们能保证解析得出来吗？—— <b>不能</b>。");
+    },"讲者当堂问了一个很实际的问题：<b>按这个提示词去问，你能保证一定拿到可解析的「理由 + 分数」吗？</b>  <b>不能。</b>因为采样本身是随机的（第三讲），<em>模型完全可能多说两句、换个格式、或者漏掉分数</em>。  然后他让大家回忆第三讲的一个技术——<b>guided decoding（受约束解码）</b>：<em>解码时只允许从「合法」的 token 里采样</em>，从而保证输出符合给定格式（比如 JSON）。  <b>而他给了一个很实用的提示：在各家服务商那里，这个功能的名字叫 structured output。</b>  讲者：<b>whenever you want a response of a given format, you would just go for that.</b>  ⚠ <b>这一镜的价值在于它把第三讲一个当时没展开的技术（本片 L03 也跳过了它）接到了一个具体用途上</b>——<em>评测流水线里，输出格式必须可靠，否则整条自动化就断了</em>。");
+  /* 主体 */
+  S(1731,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"① 不需要参考答案","g");
+      note("规则指标必须先有人写参考",340,195,"y");
+      note("LaaJ 直接看提示词和回答就能评",340,243,"g");
+      boxNode(730,105,440,58,"② 分数带解释","g");
+      note("规则指标给你一个 0.43，无从解读",950,195,"y");
+      note("LaaJ 告诉你<b>它为什么扣分</b>",950,243,"g");
+      note("第二个好处，对<b>改进模型</b>来说比第一个更值钱",640,352,"r");
+      setCap("「不知道怎么量就不知道该改什么」—— 这里是「知道该改什么」。");
+    },"讲者总结了两个好处，<b>而它们正好对应上一集两条限制</b>：  ① <b>不需要参考答案。</b>规则指标必须先有人写出理想回答；LaaJ <em>直接看提示词和回答就能评</em>——because the LLM <b>already has a lot of knowledge acquired during pretraining and human preferences</b>。  ② <b>分数带解释。</b>讲者：in the rule-based world you would have all these formulas and multiplications, and sometimes you would come up with a number that <b>would not be very self-explanatory</b>。  ⚠ <b>第二个好处对实际工作的价值，比第一个大得多。</b>  <em>一个 BLEU 分数 0.43 告诉你「不太好」，但不告诉你哪里不好。而 LaaJ 会说「回答没有涵盖用户问的第二个问题」——这是一条可以直接行动的信息。</em>  <b>回到本讲的标题：不知道怎么量，就不知道该改什么。而「带理由的分数」正好同时解决了「量」和「该改什么」。</b>");
+  /* 主体 */
+  S(1743,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"pointwise（单条打分）","b");
+      note("「这条回答好不好？」",340,195,"b");
+      boxNode(730,105,440,58,"pairwise（两两比较）","g");
+      note("「A 和 B 哪个更好？」",950,195,"g");
+      note("⚠ pairwise 的输出，<b>正好就是第五讲要的偏好对</b>",640,300,"r");
+      note("可以拿去训奖励模型 —— 评测与训练在这里闭环",640,358,"y");
+      setCap("第五讲第二集提到的 LLM-as-a-judge，就是指这个。");
+    },"LaaJ 有两种形态：  · <b>pointwise</b>：给一条回答打分。「<em>这条好不好？</em>」 · <b>pairwise</b>：给两条回答选一个。「<em>A 好还是 B 好？</em>」  ⚠ <b>而 pairwise 这一种有个额外用途，讲者专门点了出来：</b>  <b>pairwise 的输出格式，正好就是第五讲训奖励模型需要的那种偏好对。</b>  讲者：these methods can also be a good way to <b>synthetically generate preference ratings</b> ... and you can use that as the label to train your reward model。  <b>于是评测和训练在这里闭环了：</b> · 第五讲第二集说过，收集偏好数据可以用人、也可以用 <b>LLM-as-a-judge</b>——<em>后者就是 RLAIF</em>。 · 这一讲说明了那个 judge 具体是怎么工作的。  ⚠ <b>而且这解释了为什么第五讲第二集会说「LLM-as-a-judge 这几年这么热」</b>——<em>当标注的「条数」成为主要成本时，把标注者换成模型的诱惑非常大。</em>");
+  /* 反驳 */
+  S(1755,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"解决了","g");
+      note("不要参考答案 · 容许措辞变化 · 有解释",340,195,"g");
+      boxNode(730,105,440,58,"⚠ 新问题","r");
+      note("裁判<b>自己</b>会不会判错？",950,195,"r");
+      note("它有没有<b>系统性</b>的偏好？",950,243,"r");
+      note("下一集：三个已经被命名的偏差",640,352,"y");
+      setCap("把评判交给一个模型，就继承了那个模型的全部毛病。");
+    },"这一集最后要先压一下期待。  <b>LaaJ 确实解决了前两集的问题</b>：不要参考答案、容许措辞变化、分数带解释。  ⚠ <b>但它引入了一个全新的问题：这个裁判自己靠谱吗？</b>  <b>把评判交给一个 LLM，就继承了 LLM 的全部毛病</b>——它会出错、会被表面特征影响、<em>而且它的错误可能是系统性的而不是随机的</em>。  <b>「系统性」这三个字是关键。</b>  <em>随机的误差可以靠多评几次平均掉；而系统性的偏差——比如总是偏爱更长的回答——不管你评多少次，它都朝同一个方向偏。而且你会据此去优化模型，于是模型会学着去迎合那个偏差。</em>  <b>下一集讲三个已经被研究清楚、而且有名字的偏差。</b>");
+  SUM(1695,3,{h:"LLM 当裁判：先给理由，再给分",
+    k:"输入 <b>提示词 + 待评回答 + 评判标准</b>，输出 <b>理由 + 分数</b>。两个好处正好对应上一集两条限制：<b>不需要参考答案</b>、<b>分数带解释</b>。两种形态：pointwise（单条打分）与 pairwise（二选一）。",
+    m:"⚠ <b>理由必须先于分数</b>：经验上更准，而且机制与第三讲的 CoT、第六讲的推理模型<b>完全相同</b> —— 写出中间过程等于给了它更多计算。顺序反了就没用（那时理由只是为已定的分数找说辞）。",
+    w:"<s>误解</s>：「只要分数，理由省了吧」。先写理由<b>让分数本身更准</b>，不是为可解释性付的代价。格式不保证可解析？用第三讲的 <b>guided decoding</b> —— 服务商那边叫 <b>structured output</b>。",
+    e:"⚠ pairwise 的输出<b>正好是第五讲训奖励模型要的偏好对</b>，评测与训练在此闭环（这也是 RLAIF 的来源）。⚠ 但它<b>只是把问题换了位置</b>：裁判继承了 LLM 的全部毛病，而且它的错误可能是<b>系统性</b>的 —— 多评几次平均不掉。"});
+  QUIZ(1695,3,{t:"LLM-as-a-Judge 为什么要求「先输出理由，再输出分数」？",
+    o:["为了方便人工复核时先看理由","因为理由在前可以触发 structured output 的格式校验","因为与思维链同一个机制：先写出推理过程能让最终的分数更准","为了让理由不受已给出分数的影响而失真"],
+    a:2,
+    w:"讲者先给了经验事实（it <b>empirically improves the quality of the results</b>），再给了机制：<b>on the same idea of reasoning models</b>——让模型在给分前把「思考过程」外化出来。这与第三讲的 CoT、第六讲的推理模型是同一个机制：写出中间过程等于给了它更多计算，中间结论也进了上下文。<s>「方便人工复核」</s>是附带好处，不是讲者给的理由。<s>「触发格式校验」</s>structured output 与字段顺序无关。<s>「理由不失真」</s>方向说反了——<b>分数在前，理由才会沦为事后找说辞</b>，而这正是要避免的，但讲者强调的是<em>分数会更准</em>。"});
+});
+
+KP("4 · 裁判的<b>三个偏差</b>　<small>讲义 p60–72</small>",function(){
+  /* 钩子 */
+  S(2243,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,460,54,"问：A 和 B 哪个好？","b");
+      note("答：A",360,180,"g");
+      boxNode(710,105,460,54,"问：B 和 A 哪个好？","b");
+      note("答：B",940,180,"r");
+      note("两次问的是<b>同一对回答</b>",640,275,"y");
+      note("变的只有<b>先说哪个</b>",640,330,"r");
+      setCap("<b>位置偏差</b>（position bias）。讲者 38:49。");
+    },"上一集最后那个担心，这一集给出具体形态。  <b>第一个偏差叫位置偏差</b>，而且它的演示极其简单：  <b>拿同一对回答，问两次——第一次「A 和 B 哪个好」，第二次「B 和 A 哪个好」。</b>  <em>结果可能两次都答「第一个」。</em>  讲者：there is a chance that the model responds with response A <b>just because it was the first one to be mentioned</b>。  ⚠ <b>请注意这个偏差的性质：它和回答的内容完全无关。</b>唯一变的是顺序，<em>而顺序本不该影响判断</em>。  <b>但也正因为它只和顺序有关，它有一个非常干净的解法——下一镜。</b>");
+  /* 错误答案 */
+  S(2255,function(){
+      clearScene();setEq(null);
+      setBig("反正总是把新模型放在 A 位","大家都一样，偏差就抵消了");
+      setCap("<s>不会抵消，会<b>固定地</b>偏向一方</s> —— 系统性偏差不会自己消失。");
+    },"一个很容易想到的「解法」：<b>反正有偏差，那就固定顺序——每次都把新模型放 A 位，老模型放 B 位。</b>  <b>这不但没解决问题，还把问题钉死了。</b>  ⚠ <b>关键在于区分两种误差：</b> · <b>随机误差</b>：时高时低，<em>多测几次就平均掉了</em>。 · <b>系统性偏差</b>：<b>总是朝同一个方向偏</b>，<em>测多少次都在那儿</em>。  <b>固定顺序，等于把一个本来可以消除的偏差，变成了每一次评测都带着的系统性加成。</b>于是你的新模型会<em>永远看起来比老模型好一点</em>——而那一点全是位置带来的。  <b>这正是上一集结尾说的那句话的具体例子：系统性偏差不会被平均掉。</b>  ⇒ <b>正确的方向是反过来：主动制造对称，让偏差自己抵消。</b>");
+  /* 铺陈 */
+  S(2267,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"问 (A, B) → 答 A","g");
+      boxNode(730,105,440,58,"问 (B, A) → 答 A","g");
+      note("两次都选 A ⇒ 结论<b>可信</b>",640,220,"g");
+      boxNode(110,265,460,58,"问 (A, B) → 答 A","r");
+      boxNode(730,265,440,58,"问 (B, A) → 答 B","r");
+      note("两次都选「第一个」⇒ 这次判断<b>不可信</b>",640,382,"r");
+      setCap("讲者：take the average, or take the majority voting of this position swapping。");
+    },"解法很干净：<b>两个顺序各问一次，然后看结果。</b>  · <b>两次给出同一个赢家</b>（比如都选 A）⇒ <em>这个判断不受位置影响，可信</em>。 · <b>两次都选「第一个」</b>（第一次选 A，第二次选 B）⇒ <b>这次判断完全由位置决定，不可信</b>。  讲者：taking the average or taking the <b>majority voting of this position swapping</b> is typically what you would do。  ⚠ <b>这个做法还有一个额外的好处，讲者没明说但很重要：它顺带给了你一个「置信度」。</b>  <em>不一致的比例，就是位置偏差的严重程度。如果一半的判断都不一致，那说明你的裁判在这个任务上基本是在掷硬币——这是一个很有用的诊断信号。</em>  讲者还提到有论文<b>去调位置编码</b>来治这个，但他说那些 <em>a bit more advanced</em>，<b>不是开箱就用的做法</b>。");
+  /* 主体 */
+  S(2279,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"回答 A：简短、切中要点","g");
+      boxNode(730,105,440,58,"回答 B：长、面面俱到","y");
+      note("裁判倾向于选 B —— <b>仅仅因为它更长</b>",640,220,"r");
+      note("三种补救：",640,290,"b");
+      note("准则里明说别看长度 · 给反例 · 对长度加惩罚",640,345,"b");
+      setCap("<b>冗长偏差</b>（verbosity bias）。它比位置偏差难治。");
+    },"<b>第二个偏差：冗长偏差。</b>  <b>裁判倾向于偏爱更长、更详细的回答——而且不是因为它更对。</b>讲者：the model will tend to prefer responses that are just more verbose <b>just because they're more verbose, not necessarily because they're more correct</b>。  ⚠ <b>它比位置偏差难治，因为没有「交换一下」这种对称操作可做。</b>  讲者给了三种补救，<b>力度递增</b>：  ① <b>在评判准则里明说</b>：「<em>不要因为回答更长就偏爱它</em>」。 ② <b>给上下文示例</b>（in-context learning）：<em>用例子演示「短的那个才是好的」</em>。 ③ <b>对长度加惩罚</b>：<em>用 pointwise 方式打分，再按长度扣</em>。  ⚠ <b>注意第三种的风险：它是在用一个人为设定的惩罚去对冲一个未知强度的偏差</b>——<em>调过头就变成偏爱短回答了</em>。  <b>而这个偏差有一个很实际的后果：如果你用带冗长偏差的裁判去优化模型，模型会学着把回答写长。</b>（<em>第六讲那个「输出越来越长」是另一个机制，但后果一样。</em>）");
+  /* 主体 */
+  S(2291,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"裁判偏爱<b>自己生成</b>的那条回答","r");
+      note("直觉：它生成过这个序列，说明它<b>认为</b>这个序列很可能",640,210,"y");
+      note("而「它认为可能」和「它认为好」在它内部是接近的",640,262,"y");
+      boxNode(290,320,700,50,"解法：别用同一个模型既生成又评判","g");
+      setCap("<b>自我偏好偏差</b>（self-enhancement bias）。");
+    },"<b>第三个偏差：自我偏好。</b>  <b>如果让一个模型去评判它自己生成的回答，它会倾向于偏爱自己那条</b>——<em>即便另一条更符合要求</em>。  讲者给的直觉很有意思：<b>如果这个模型生成了这样一个回答，说明从概率的角度它认为这个序列「很可能出现」。而「它认为可能」和「它认为好」，在模型内部是很接近的两件事。</b>  <b>解法：别用同一个模型既当选手又当裁判。</b>  ⚠ <b>但讲者立刻给了一条很诚实的保留：</b>  <b>nowadays it's hard to have that strict constraint respected, because all models are trained on basically the same data sets. So you can argue they're all being subject to the same training mixes.</b>  <em>也就是说——换一个厂商的模型来当裁判，只是把「自我偏好」削弱了，没有消除。因为各家模型的训练数据高度重合，它们对「什么是好回答」的判断本来就趋同。</em>  <b>讲者的实际建议是：换一个模型，而且最好更大、推理能力更强。</b>");
+  /* 反驳 */
+  S(2303,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"已被命名的三个","y");
+      note("位置 · 冗长 · 自我偏好",340,195,"y");
+      note("它们之所以有名字，是因为<b>容易演示</b>",340,243,"b");
+      boxNode(730,105,440,58,"⚠ 没有名字的呢","r");
+      note("讲者：these three biases are <b>by no means exhaustive</b>",950,195,"r");
+      note("课堂上学生当场又提出了一个",950,243,"r");
+      note("你能消除的，只有你<b>发现了</b>的那些",640,352,"r");
+      setCap("这是第六讲那条「规则覆盖不全就会漂」的又一次出现。");
+    },"这一集最后一条，是讲者自己加的限定，<b>而它比前面三个加起来更重要</b>。  课堂上有学生提出了另一种可能的偏差——<em>裁判本身可能就和人类偏好不对齐</em>。讲者的回答：  <b>these three biases are by no means exhaustive. So this can very well be another bias that you can list as well.</b>  ⚠ <b>想清楚这意味着什么：</b>  <b>位置、冗长、自我偏好之所以有名字，是因为它们容易被演示和测量</b>——<em>交换顺序、比较长度、对比来源，都是简单的对照实验</em>。  <b>而那些不容易被演示的偏差，照样存在，只是你不知道。</b>  <em>比如：偏爱带 markdown 格式的？偏爱用某种句式开头的？偏爱和训练数据风格接近的？——这些都可能存在，而且你的评测体系对它们完全无感。</em>  ⚠ <b>这是第六讲那条规则的又一次出现：规则（这里是「偏差清单」）覆盖不全，优化就会往没被覆盖的方向漂。</b>  <b>所以下一集那条「用人工评分校准」才那么关键——它是唯一能发现未知偏差的办法。</b>");
+  SUM(2243,4,{h:"裁判的三个系统性偏差",
+    k:"<b>位置偏差</b>（倾向选先出现的）· <b>冗长偏差</b>（偏爱更长的，不是更对的）· <b>自我偏好偏差</b>（偏爱自己生成的）。",
+    m:"位置偏差有干净的解法：<b>两个顺序各问一次取多数</b>，而且不一致的比例<b>顺带就是偏差严重程度</b>。冗长偏差只能靠准则明说 / 给反例 / 长度惩罚（⚠ 第三种是在用人为惩罚对冲未知强度的偏差）。自我偏好靠<b>换一个更大的模型当裁判</b>。",
+    w:"<s>误解</s>：「固定一个顺序，偏差就抵消了」。<b>系统性偏差不会被平均掉</b> —— 固定顺序只是把它钉死成每次评测都带的加成。要区分<b>随机误差</b>（可平均）与<b>系统性偏差</b>（不可平均）。",
+    e:"⚠ 讲者两条保留：① 自我偏好<b>很难严格消除</b>，因为各家模型训练数据高度重合、判断本就趋同；② <b>这三个绝非穷举</b> —— 它们有名字只因<b>容易演示</b>，不容易演示的照样存在而你不知道。所以下一集的<b>人工校准</b>是唯一能发现未知偏差的办法。"});
+  QUIZ(2243,4,{t:"为什么「固定评判顺序」不能解决位置偏差？",
+    o:["因为系统性偏差不会被平均掉，固定顺序只是把它变成每次都带的固定加成","因为固定顺序会让裁判记住上一次的判断","因为位置偏差只在 pairwise 模式下出现，固定顺序无法改变模式","因为服务商的 API 不允许固定提示词中的顺序"],
+    a:0,
+    w:"要区分两种误差：<b>随机误差</b>多测几次能平均掉；<b>系统性偏差总是朝同一方向偏</b>，测多少次都在。固定顺序等于让放在 A 位的那一方<b>永远白拿一点优势</b>。正确做法是主动制造对称——<b>两个顺序各问一次取多数</b>，而且不一致的比例顺带就是偏差的严重程度。<s>「记住上一次」</s>每次调用相互独立，没有记忆。<s>「只在 pairwise 出现」</s>这是真的，但与「固定顺序为何无效」无关。<s>「API 不允许」</s>没有这种限制。"});
+});
+
+KP("5 · 最佳实践，以及<b>别对着代理过度优化</b>　<small>讲义 p73–83</small>",function(){
+  /* 钩子 */
+  S(2700,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"① 准则写清楚","g");
+      boxNode(480,100,340,52,"② 用二元刻度","g");
+      boxNode(850,100,310,52,"③ 理由先于分数","g");
+      boxNode(290,180,340,52,"④ 拿人工评分校准","y");
+      boxNode(660,180,310,52,"⑤ 低温度","y");
+      note("第 ③ 条第三集讲过了；这一集讲其余四条",640,290,"b");
+      note("⚠ 而最重要的一条在最后，它<b>不是</b>技巧",640,358,"r");
+      setCap("讲者把它们归在「best practices」一页。");
+    },"有了裁判，也知道了它的毛病，<b>这一集讲怎么把它用好</b>。  讲者给了五条实践：  ① <b>评判准则要清晰</b> ② <b>用二元刻度</b> ③ <b>理由先于分数</b>（<em>第三集讲过了</em>） ④ <b>拿人工评分校准</b> ⑤ <b>低温度</b>  前三条是「怎么问」，后两条是「怎么信」。  ⚠ <b>而这一集真正的重点在最后一镜——它不是一条技巧，而是一条关于「你到底在优化什么」的警告。</b>  <em>它和第五讲的奖励黑客是同一回事。</em>");
+  /* 错误答案 */
+  S(2712,function(){
+      clearScene();setEq(null);
+      setBig("用 1 到 10 分，比「好 / 不好」信息丰富得多","二元太粗了");
+      setCap("<s>第五讲那条原样重演</s>：<b>多出的档位带来的噪声，比信息多</b>。");
+    },"一个很自然的想法：<b>既然要量，刻度就该细一点——1 到 10 分，比「好/不好」信息多得多。</b>  <b>讲者的建议恰恰相反：用二元刻度（pass / fail）。</b>  他给了两条理由： ① <b>it makes the job of the LLM-as-a-Judge easier</b>——<em>裁判只要判好或坏</em>。 ② <b>人也一样</b>：humans typically also find it easier to just judge out of two options。  而第二条是关键，<b>因为第四条实践要拿人工评分来校准</b>——<em>如果人自己都给不出稳定的 7 分和 8 分，那这个刻度就没法用来校准</em>。  讲者的总结很准：<b>it just removes the noise of having several possible choices. And it's not necessarily an extra signal that may be really useful.</b>  ⚠ <b>这和第五讲第二集完全是同一条</b>：当时讲的是偏好标注为什么只用二元而非六档——<em>「哪个更好」容易一致，「好多少」几乎一定不一致</em>。  <b>同一个取舍，在这门课里出现了两次：当更细的刻度带来的不一致超过它带来的信息时，退回到最粗但最稳的那种。</b>");
+  /* 铺陈 */
+  S(2724,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"评判标准写得越具体，裁判越稳","g");
+      note("「这个回答好不好」 → 太空，怎么判都行",640,205,"r");
+      note("「是否正面回答了用户问的那个问题」 → 可判",640,258,"g");
+      note("⚠ 它同时也是你唯一能用来<b>对付偏差</b>的旋钮",640,352,"y");
+      setCap("上一集治冗长偏差，靠的就是在准则里明说。");
+    },"第一条实践：<b>评判准则要清晰（crisp guidelines）。</b>  讲者的理由：评判维度<b>常常是主观的</b>，所以必须把「<em>我要什么、不要什么</em>」说得尽可能明确。  <b>对比一下：</b> · 「<em>这个回答好不好？</em>」——太空，裁判只能靠自己的默认偏好来填补，<b>而那正是偏差的来源</b>。 · 「<em>这个回答是否正面回答了用户问的那个问题？是否包含事实错误？</em>」——<b>可判，而且不同次之间会稳定</b>。  ⚠ <b>这条之所以排第一，是因为准则是你唯一能直接控制的东西。</b>  <em>模型的参数你改不了，它的偏差你消不掉；但你给它的评判标准，完全由你写。</em>  <b>上一集治冗长偏差，用的第一个办法就是「在准则里明说别看长度」</b>——<em>所有的偏差治理，最后都要落到这段文字上。</em>  ⚠ 而且这又一次回到第一集那条：<b>这和「给人类评分者的标注指南」是同一件事。</b>");
+  /* 主体 */
+  S(2736,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"评测用温度 0.1 ~ 0.2","g");
+      note("不是为了「更准」—— 是为了<b>两天后再跑一次，分数差不多</b>",640,210,"y");
+      note("第三讲：温度调的是「多大程度上服从模型自己的判断」",640,268,"b");
+      boxNode(340,320,600,50,"评测时你<b>不要</b>多样性","r");
+      setCap("讲者给的典型值就是 0.1 到 0.2。");
+    },"第五条实践：<b>评测时用低温度</b>，讲者给的典型值是 <b>0.1 到 0.2</b>。  <b>理由不是「低温更准」，而是可复现：</b>  <b>let's imagine you do one evaluation, and then you do another one two days later — you don't want the scores to be super different.</b>  ⚠ <b>这是第三讲温度那一集的一个很好的应用</b>：  <em>第三讲说温度调的是「多大程度上服从模型自己的判断」，而且采样带来多样性。生成任务要多样性——同一个问题答两次不该一模一样。</em>  <b>但评测任务恰恰相反：你要的是同一个输入永远给同一个分数。</b>  <em>如果评测分数本身带着随机波动，那你就分不清「模型改好了」和「这次运气好」。</em>  ⚠ <b>为什么不干脆用 0？</b>讲者没说。<em>一个合理的理由是：温度严格为 0 在某些实现里会触发退化行为（比如重复），留一点点随机反而更稳。</em><b>但这一层是我补的，不在课上。</b>");
+  /* 主体 */
+  S(2748,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"收一批人工评分","y");
+      arrow(574,134,660,134,"sm",0);
+      boxNode(680,105,480,58,"和 LaaJ 的分数做<b>相关性分析</b>","g");
+      note("对不上 → 主要去改<b>提示词</b>（也就是那份准则）",640,230,"y");
+      note("⚠ 这是唯一能发现<b>未知偏差</b>的办法",640,300,"r");
+      note("上一集：三个偏差「by no means exhaustive」",640,358,"b");
+      setCap("讲者：because <b>it is the quantity that we want to approximate</b>。");
+    },"第四条实践：<b>拿人工评分来校准裁判。</b>  做法：<b>收一批人工评分，同时跑一遍 LaaJ，做相关性分析</b>，看两者是否一致；对不上的地方，<b>主要去改提示词</b>（<em>mainly the prompt</em>——<b>也就是那份评判准则</b>）。  讲者给的理由很根本：<b>at the end of the day, it is the quantity that we want to approximate</b>——<em>人工评分才是我们真正想逼近的东西，LaaJ 只是它的代理</em>。  ⚠ <b>而这条实践的价值，远不止「对一下分数」。</b>  <b>回到上一集最后那条：三个已知偏差「by no means exhaustive」。</b>  <em>你没法去测一个你还不知道存在的偏差。但你可以测「LaaJ 和人工评分整体上差多少」——如果某一类样本上系统性地对不上，那里就藏着一个你还没命名的偏差。</em>  <b>所以校准是唯一能发现未知偏差的办法。</b>  讲者也承认这要看预算：<b>if there is the budget and it's something that is possible for the project</b>。");
+  /* 反驳 */
+  S(2760,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"你真正想要的","g");
+      note("人类觉得这个回答好",340,195,"g");
+      boxNode(730,105,440,58,"你实际在优化的","r");
+      note("LaaJ 给的分数",950,195,"r");
+      arrow(950,250,340,250,"r",40);
+      boxNode(340,288,600,54,"⚠ 两者<b>不是同一个东西</b>","r");
+      note("讲者：you don't want to <b>overoptimize against the proxy</b>",640,368,"y");
+      setCap("第五讲的奖励黑客，在这里原样重演。");
+    },"这一集最重要的一条，<b>而且它不是技巧</b>。  讲者的原话值得完整记下来：  <b>it may be that we're improving our model so that our LLM-as-a-Judge score is very high, but the LLM-as-a-Judge score is itself an approximation of human ratings. So you don't want to overoptimize against the proxy.</b>  ⚠ <b>请对照第五讲第五集：</b>  · 第五讲：<em>奖励模型是人类偏好的代理 ⇒ 优化得太狠会钻它的空子（奖励黑客）</em>。 · 这一讲：<b>LaaJ 分数是人工评分的代理 ⇒ 优化得太狠会钻它的空子</b>。  <b>一模一样的结构，只是换了个场景。</b>  <em>而且这里更隐蔽：第五讲那个奖励模型是你明知道要优化的东西；而 LaaJ 分数常常被当成「客观的评测结果」来看待——人们不觉得自己在「优化一个代理」，只觉得自己在「让模型变好」。</em>  ⚠ <b>讲者给的应对，正好就是上一镜那条：让代理尽可能贴近真值。</b>that's why you want to have that proxy be <b>as aligned as possible with your ground truth labels</b>。  <b>而这条线索会在第九集以古德哈特定律的形式再出现一次。</b>");
+  SUM(2700,5,{h:"五条实践，以及那条不是技巧的警告",
+    k:"① <b>准则写清楚</b>（你唯一能直接控制的东西，所有偏差治理最后都落在它上面）② <b>用二元刻度</b> ③ <b>理由先于分数</b> ④ <b>拿人工评分校准</b> ⑤ <b>低温度 0.1~0.2</b>。",
+    m:"二元刻度的理由是<b>裁判好判、人也好判</b> —— 而第④条要拿人工评分校准，人自己给不出稳定的 7 分和 8 分，刻度就没法用。低温度不是为了更准，是为了<b>可复现</b>（评测要的恰恰<b>不是</b>多样性）。",
+    w:"<s>误解</s>：「刻度分细一点信息更多」。<b>多出的档位带来的噪声比信息多</b> —— 与第五讲偏好标注只用二元<b>是同一条取舍</b>，在这门课里出现了两次。",
+    e:"⚠ 校准是<b>唯一能发现未知偏差</b>的办法（上一集：三个已知偏差「by no means exhaustive」）。⚠ 最重要的一条：<b>别对着代理过度优化</b> —— LaaJ 分数只是人工评分的近似，这与第五讲的<b>奖励黑客结构完全相同</b>，而且更隐蔽：人们常把它当成「客观评测结果」。"});
+  QUIZ(2700,5,{t:"为什么 LLM-as-a-Judge 推荐用二元（pass/fail）刻度而不是 1–10 分？",
+    o:["因为裁判和人类都更容易在两个选项间稳定判断，多档带来的噪声多于信息","因为二元输出更容易用 structured output 约束格式","因为二元评分可以直接用作奖励模型的训练标签","因为多档评分会放大位置偏差"],
+    a:0,
+    w:"讲者给了两条理由：<b>it makes the job of the judge easier</b>，而且<b>humans also find it easier to judge out of two options</b> —— 后者关键，因为还要拿人工评分来校准，人自己给不出稳定的 7 分和 8 分，这个刻度就没法用。总结是 <b>it removes the noise of having several possible choices</b>。⚠ 这与第五讲偏好标注只用二元是<b>同一条取舍</b>。<s>「格式更好约束」</s>structured output 对多档同样有效。<s>「可直接当训练标签」</s>那是 <b>pairwise</b> 的用途，与刻度粗细无关。<s>「放大位置偏差」</s>位置偏差来自顺序，与档位数无关。"});
+});
+
+KP("6 · <b>事实性</b>：拆成一条条事实再核　<small>讲义 p87–95</small>",function(){
+  /* 钩子 */
+  S(3120,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,1020,100,"「泰迪熊最早出现在 1920 年代，得名于罗斯福总统 —— 他在一次狩猎中曾得意地要射杀一头被捕获的熊。」","b");
+      note("⚠ 错一：是 <b>1900 年代</b>，不是 1920 年代",640,250,"r");
+      note("⚠ 错二：他<b>拒绝</b>射杀，不是「得意地要射杀」",640,305,"r");
+      note("那这段话的事实性该打几分？",640,375,"y");
+      setCap("前五集说「用二元刻度」。<b>事实性是那条规则的例外。</b>");
+    },"上一集给的实践是<b>用二元刻度</b>。<b>这一集讲一个必须破例的维度：事实性。</b>  讲者给了一段话：  「<em>泰迪熊最早出现在 1920 年代，得名于罗斯福总统——他在一次狩猎中曾得意地要射杀一头被捕获的熊。</em>」  <b>里面有两处错误</b>： · 是 <b>1900 年代</b>，不是 1920 年代。 · 罗斯福<b>拒绝</b>射杀那头熊——<em>这正是「泰迪熊」这个名字的由来</em>。  <b>那这段话的事实性该打几分？</b>  ⚠ 讲者点明了为什么二元不行：<b>一段文本里包含很多事实，有些错得离谱，有些只差一点，有些完全正确。如果只因为一处小错就把整段判为「不正确」，那太粗了。</b>  <b>所以需要一个能表达「错了多少」的办法。</b>");
+  /* 错误答案 */
+  S(3132,function(){
+      clearScene();setEq(null);
+      setBig("让 LLM 直接判断这段话有多真实，给个 0.6","反正它懂意思");
+      setCap("<s>这正是上一集说过不该做的</s>：细刻度不稳，而且<b>不可追溯</b>。");
+    },"既然要表达程度，<b>那让裁判直接给个 0 到 1 的分？</b>  <b>这正是上一集反对的做法</b>，而且在事实性上问题更大：  ① <b>细刻度不稳</b>——同一段话问两次，可能一次 0.6 一次 0.4。 ② <b>更要命：不可追溯。</b>它说 0.6，<em>你不知道它认为哪一句错了</em>。  <b>而事实性恰恰是最需要追溯的维度</b>——<em>你想知道的不是「有点不准」，而是「具体哪句话错了，错在哪」</em>。  ⇒ <b>所以正确的方向不是让刻度变细，而是把任务拆开：</b>  <b>把一个「这段话有多真实」的模糊问题，拆成很多个「这一条事实对不对」的二元问题。</b>  <em>每个子问题仍然是二元的（符合上一集的实践），而聚合之后自然就有了程度。</em>");
+  /* 铺陈 */
+  S(3144,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,58,"原始文本","b");
+      arrow(414,134,500,134,"sm",0);
+      boxNode(540,105,300,58,"一次 LLM 调用","y");
+      arrow(844,134,930,134,"sm",0);
+      boxNode(950,105,210,58,"事实清单","g");
+      boxNode(190,215,400,44,"泰迪熊出现于 1920 年代","r");
+      boxNode(190,267,400,44,"得名于罗斯福总统","g");
+      boxNode(650,215,400,44,"起因是一次狩猎","g");
+      boxNode(650,267,400,44,"他得意地要射杀那头熊","r");
+      setCap("讲者的例子里拆出了<b>四条</b>事实。");
+    },"<b>第一步：用一次 LLM 调用，把这段多句、可能多段的文本，拆成一张事实清单。</b>  讲者：one LLM call that <b>transforms our original multi-sentence, multi-paragraph text into a list of facts</b>。  那段话拆出<b>四条</b>： · 泰迪熊出现于 1920 年代　<em>（错）</em> · 得名于罗斯福总统　<em>（对）</em> · 起因是一次狩猎　<em>（对）</em> · 他得意地要射杀那头熊　<em>（错）</em>  ⚠ <b>这一步本身就是个值得注意的操作：它把一个「整体评判」问题，转成了一个「拆解 + 逐项评判」问题。</b>  <em>而拆解这件事，恰恰是 LLM 擅长的——它理解文本结构。</em>  ⚠ <b>但也要看到风险：拆解这一步本身会出错。</b>漏掉一条事实、把一句话拆成两条含义不同的、<em>或者拆出一条原文并没断言的东西</em>——<b>这些错误会一路传到最终分数里，而且很难察觉。</b>");
+  /* 主体 */
+  S(3156,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,54,"一条事实","g");
+      arrow(414,132,500,132,"sm",0);
+      boxNode(540,105,300,54,"去查","y");
+      arrow(844,132,930,132,"sm",0);
+      boxNode(950,105,210,54,"对 / 错","b");
+      note("怎么查：<b>RAG</b>（第七讲）· 网页搜索 · 再来一次 LLM 调用",640,240,"y");
+      note("单条事实是二元的 —— 上一集那条实践在这里成立",640,300,"g");
+      note("⚠ 每条事实都要一次外部查询 ⇒ 这个指标<b>很贵</b>",640,375,"r");
+      setCap("讲者：fact-checking typically involves things like <b>RAG</b>, web search。");
+    },"<b>第二步：对清单里的每一条，判断它对不对。</b>  <b>这里可以用二元</b>——讲者：we would typically proceed in a binary fashion, because <b>a fact is either correct or not</b>。<em>上一集那条实践在单条事实的粒度上成立了。</em>  <b>怎么判？</b>讲者点名了第七讲的技术：<b>this fact-checking process typically involves things like RAG, web search is also something else</b>。  <em>也就是说：拿这条事实去查知识库或网络，看有没有支持它的证据。</em>  ⚠ <b>请注意这个指标的成本结构：</b>  <b>评一段文本的事实性 = 1 次拆解调用 + N 次检索 + N 次判断。</b>  <em>相比之下，BLEU 算一下就出来了，LaaJ 也只要一次调用。</em>  <b>这解释了讲者为什么说事实性 requires a little bit more work——它不是「换个提示词」就能加上的维度，它是一条独立的流水线。</b>");
+  /* 主体 */
+  S(3168,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\mathrm{Score}=\\frac{\\sum_i \\alpha_i \\cdot \\mathbb{1}[\\text{fact}_i \\text{ 正确}]}{\\sum_i \\alpha_i}$$","top");
+      note("alpha 是每条事实的<b>重要性</b>权重",640,322,"y");
+      note("全部取 1 也行 —— 那就是「对了几条」的比例",640,374,"g");
+      setCap("讲者的例子：第 2、3 条对 ⇒ 得分 <b>0.6</b>。");
+    },"<b>第三步：把逐条结果加权聚合。</b>  讲者指出<b>不同事实的重要性不同</b>：as an example, maybe the fact that the president <b>proudly</b> wanted to shoot the bear is <b>not as important as</b> the name of the person after which the teddy bears were named。  <em>「得名于罗斯福」这条错了，整段话就垮了；「他的态度是得意还是拒绝」错了，是个细节问题。</em>  所以用权重 α_i 表示重要性，<b>而讲者也说了可以简化</b>：these weights can be <b>all equal to one another if you want to make it simpler</b>——<em>那就退化成「对了几条的比例」</em>。  他的例子里<b>第 2、3 条正确</b>，算出来是 <b>0.6</b>。  ⚠ <b>但权重从哪来？讲者没说。</b>而这是个真问题：  <em>要么人工标注重要性（贵，且本身主观），要么再让一个 LLM 判断重要性（又引入一层误差）。</em>  <b>所以实践中「全部取 1」可能是更诚实的选择——至少它没有假装自己知道哪条更重要。</b>");
+  /* 反驳 */
+  S(3180,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"讲者的定位","y");
+      note("「how to quantify this nuance」",340,195,"y");
+      note("是一个 <b>open question</b>，有人在写论文",340,243,"r");
+      boxNode(730,105,440,58,"这套流程本身","g");
+      note("是<b>目前常用的做法</b>",950,195,"g");
+      note("不是「正确答案」",950,243,"y");
+      note("而且它<b>每一步都可能出错</b>：拆解 · 检索 · 判断 · 加权",640,352,"r");
+      setCap("第二讲那条「不是推导出来的，是试出来的」在这里又出现。");
+    },"最后把这套办法的性质说准。  <b>讲者明确把它定位成一个开放问题</b>：the question we want to tackle is <b>how do we want to quantify this nuance. So this is an open question that people have been writing papers on.</b> 他接着说的是 <b>what people typically use nowadays</b>——<em>「目前大家常用的做法」，不是「正确答案」。</em>  ⚠ <b>而把这条流水线摊开看，它每一步都可能出错：</b> · <b>拆解</b>：漏掉事实、拆错粒度、拆出原文没断言的东西。 · <b>检索</b>：第七讲说过——<em>检索错了，后面全错</em>。 · <b>判断</b>：证据和事实之间的关系往往不是简单的「支持/反驳」。 · <b>加权</b>：重要性从哪来，没有好答案。  <b>四层误差叠在一起，最后输出一个看起来很精确的 0.6。</b>  ⚠ <b>这是本讲那条主线的又一次出现：每让评测便宜一步，就多叠一层近似。而最终那个数字的精确外观，会掩盖它下面有多少层估计。</b>  <b>所以用这类指标时，该关心的是「它的相对变化」，而不是「它的绝对值」。</b>");
+  SUM(3120,6,{h:"事实性：把整体评判拆成逐条核查",
+    k:"三步：① 一次 LLM 调用把文本<b>拆成事实清单</b> ② <b>逐条核</b>（用第七讲的 RAG 或网页搜索，单条可以二元）③ <b>按重要性加权聚合</b>。讲者的例子里 4 条中对 2 条，得分 <b>0.6</b>。",
+    m:"为什么不直接让裁判给个 0.6：<b>细刻度不稳，而且不可追溯</b> —— 你不知道它认为哪句错了。拆开之后，<b>每个子问题仍是二元的</b>（符合上一集的实践），聚合后自然有了程度。",
+    w:"<s>破例</s>：上一集说「用二元刻度」，而事实性是那条规则的例外 —— 因为一段文本含多个事实，<b>一处小错不该让整段判为错</b>。",
+    e:"⚠ 讲者明确说这是 <b>open question</b>，给的是「目前常用做法」不是正确答案。而这条流水线<b>每一步都会出错</b>：拆解、检索（第七讲：检索错了后面全错）、判断、加权（权重从哪来讲者没说）。<b>四层误差叠出一个看起来很精确的 0.6</b> —— 所以该看它的<b>相对变化</b>，不是绝对值。"});
+  QUIZ(3120,6,{t:"评估事实性时，为什么不直接让 LLM 裁判给出一个 0–1 的分数？",
+    o:["因为 LLM 无法输出连续数值，只能输出离散类别","因为细刻度评分不稳定，而且不可追溯——你不知道它认为哪一句错了","因为事实性必须用规则指标而非 LLM 评估","因为 0–1 分数无法与人工评分做相关性分析"],
+    a:1,
+    w:"两个问题：<b>细刻度不稳</b>（同段话问两次可能 0.6 / 0.4，这正是上一集反对细刻度的理由），而且<b>不可追溯</b>——它说 0.6，你不知道它认为哪句错了。而事实性恰恰是最需要追溯的维度。所以正确方向是<b>把任务拆开</b>：拆成事实清单，每条二元判断，再聚合。<s>「无法输出连续值」</s>模型完全可以输出小数。<s>「必须用规则指标」</s>恰恰相反，核查用的是 RAG 和 LLM 调用。<s>「无法做相关性分析」</s>连续分数反而更好做相关分析。"});
+});
+
+KP("7 · 智能体错在哪：<b>把失败分类</b>　<small>讲义 p97–135</small>",function(){
+  /* 钩子 */
+  S(3753,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,54,"① 预测工具","y");
+      arrow(414,132,500,132,"sm",0);
+      boxNode(540,105,300,54,"② 调用工具","b");
+      arrow(844,132,930,132,"sm",0);
+      boxNode(950,105,210,54,"③ 生成回答","g");
+      note("第七讲那三步，现在<b>反过来当成分类框架用</b>",640,250,"y");
+      note("用户看到的都是「答得不对」—— 但病因完全不同",640,330,"r");
+      setCap("讲者先摆出这三步，再逐步枚举失败模式。");
+    },"第七讲把工具调用拆成了三步。<b>这一集反过来用：拿这三步当失败分类的框架。</b>  <b>为什么需要分类？</b>因为用户看到的永远是同一件事——<em>「它答得不对」</em>。但背后的病因完全不同：  · <b>它压根没用该用的工具？</b> · <b>它用了一个不存在的工具？</b> · <b>它用对了工具但参数填错？</b> · <b>工具本身返回了错的东西？</b> · <b>一切都对，但最后一步说岔了？</b>  <b>这五种的修法完全不同，而且修错了地方就是白费功夫。</b>  ⚠ 讲者在这一段的收尾给了一条很实在的方法论，可以先记住：<b>be very methodical into categorizing kinds of errors and then dealing with them in group</b>。");
+  /* 错误答案 */
+  S(3765,function(){
+      clearScene();setEq(null);
+      setBig("智能体表现不好？换个更强的模型","反正模型越强越不容易出错");
+      setCap("有时对 —— 但讲者反复强调：<b>很多「模型的错」其实是你的 API 写得不好</b>。");
+    },"最常见的反应：<b>表现不好就换个更强的模型。</b>  <b>有时这确实是对的</b>——讲者在讲「幻觉出不存在的工具」时就说过：如果模型太弱，it can <b>make up things that it thinks can be reasonable</b>，<em>而这种情况他给不出更好的建议，只能升级模型</em>。  ⚠ <b>但他在同一段里立刻加了一句更重要的话：</b>  <b>some other potential causes could be coming from actually you.</b>  他的论证很有说服力：<b>模型在 SFT 阶段见过大量高质量的 API</b>，它知道一个写得好的接口长什么样。<em>如果你定义的工具写得不规范、命名不合逻辑，模型就会「对不上」。</em>  <b>而他给了三个你能直接调的旋钮</b>：  <b>函数名 · 参数名 · 描述</b>——<em>these are your three knobs to tune</em>。因为<b>这三样正是模型唯一看得见的东西</b>（第七讲第七集那条）。  ⚠ <b>他甚至建议：用 AI 辅助写这些工具定义，因为那是检查「从模型角度看这个接口合不合理」的好办法。</b>");
+  /* 铺陈 */
+  S(3777,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,54,"① 该用不用（punt）","r");
+      note("直接答「我做不到」",340,180,"r");
+      boxNode(730,105,440,54,"② 幻觉出不存在的工具","r");
+      note("调了一个你没定义的函数",950,180,"r");
+      boxNode(110,235,460,54,"③ 用错工具","r");
+      note("用了另一个也存在的",340,310,"r");
+      boxNode(730,235,440,54,"④ 参数填错","r");
+      note("工具对了，参数不对",950,310,"r");
+      note("四种的修法<b>全不一样</b>",640,382,"y");
+      setCap("第一步「预测工具」就有四种失败方式。");
+    },"光是<b>第一步「预测该用哪个工具、传什么参数」</b>，就有四种失败方式：  ① <b>该用不用。</b>明明有工具却不用，直接回一句「<em>抱歉我做不到</em>」。⚠ 讲者给了这个行为一个行话名字：<b>punt</b>（弃权）。  ② <b>幻觉出不存在的工具。</b>你定义的是 `find_teddy_bear`，它去调 `find_bear`——<em>一个根本不存在的函数</em>。  ③ <b>用错工具。</b>用了另一个确实存在、看起来也合理、但不是你想要的那个。讲者的例子：你想让它<em>查找</em>，它却<em>发了条消息去问</em>——<b>这也不无道理，只是不是你要的行为</b>。  ④ <b>参数填错。</b>工具选对了，<em>但坐标填成了 (0, 0)——南大西洋某处</em>。  <b>下一镜看前两种的病因，它们的诊断路径最有代表性。</b>");
+  /* 主体 */
+  S(3789,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"病因 A：工具路由器漏了它","y");
+      note("第七讲那个「工具选择」步",340,195,"y");
+      note("⚠ 它是<b>召回导向</b>的 ⇒ 这是<b>召回错误</b>",340,243,"r");
+      boxNode(730,105,440,58,"病因 B：工具在，但模型没想到用","g");
+      note("走 SFT 的话 → 补这类训练样本",950,195,"g");
+      note("走提示的话 → 改提示词",950,243,"g");
+      note("两种病因<b>在不同的地方</b> —— 必须先分清再动手",640,352,"r");
+      setCap("讲者把这条诊断路径走得很细。");
+    },"以<b>「该用不用」</b>为例，讲者把诊断路径走得很细，<b>而这个过程本身就是示范</b>：  <b>病因 A：工具路由器根本没把它选进来。</b>  <em>回忆第七讲第八集：工具一多，就要先做一步「工具选择」把候选筛到少数几个。</em>讲者点明了这一步的性质：<b>它是召回导向的</b>——<em>you want to trim the list, but you still want to at least find those that you need</em>。  <b>所以如果路由器没选中它，这叫召回错误。</b>修法很明确：<em>调路由器</em>。  <b>病因 B：工具在候选里，但模型就是没想到要用。</b>  修法取决于你当初是怎么教它用工具的（<em>第七讲第七集那两条路</em>）： · 走 <b>SFT</b> 的 → <em>补上这类模式的训练样本</em>。 · 走<b>提示</b>的 → <em>改提示词，让「该用这个工具」这件事对模型更明显</em>。  ⚠ <b>两种病因在系统的不同位置，必须先分清再动手。</b>");
+  /* 主体 */
+  S(3801,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"⚠ 先查的","g");
+      note("<b>顶层指令</b>写清楚了没有？",340,195,"g");
+      note("「必须使用提供给你的函数」",340,243,"g");
+      boxNode(730,105,440,58,"再查的","y");
+      note("函数名/参数名/描述<b>是否合逻辑</b>",950,195,"y");
+      note("最后才是：模型太弱 ⇒ 升级",950,243,"r");
+      note("讲者的顺序：<b>先看是不是普遍现象</b>",640,352,"r");
+      setCap("「模型太弱」是<b>最后</b>才考虑的解释，不是第一个。");
+    },"<b>「幻觉出不存在的工具」</b>这一种，讲者的诊断顺序特别值得学——<b>因为它把最容易想到的解释放在了最后</b>。  他先提了「<em>模型太弱</em>」这个可能，<b>然后立刻自我修正</b>：  <b>at the very beginning I was saying maybe the model is too weak. But actually, maybe the first thing you should check is whether the horizontal instructions are clear enough.</b>  <b>他说的「horizontal instructions」是指跨所有工具的顶层指令</b>——<em>比如有没有明确告诉模型「你必须使用提供给你的这些函数」</em>。  <b>诊断顺序：</b> ① <b>看这是不是普遍现象</b>（<em>see if this phenomenon is generalized</em>）—— 如果到处都在编函数名，<b>那多半是顶层指令的问题</b>。 ② 检查<b>函数名、参数名、描述</b>是否合逻辑。 ③ <b>最后</b>才考虑模型太弱、需要升级。  ⚠ <b>讲者还给了个有意思的建议：顶层指令很重要，所以不妨让 LLM 帮你打磨它</b>——<em>typically top-level instructions, they are very important, so you need perfect formatting and perfect logic</em>。");
+  /* 反驳 */
+  S(3813,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"工具预测错","r");
+      note("4 种",280,170,"r");
+      boxNode(480,100,340,52,"工具调用错","r");
+      note("返回错的 / 什么都不返回",650,170,"r");
+      boxNode(850,100,310,52,"回答生成错","r");
+      note("前面都对，最后说岔了",1005,170,"r");
+      note("讲者：be very <b>methodical</b> into categorizing kinds of errors",640,280,"y");
+      note("and then <b>dealing with them in group</b>",640,330,"y");
+      setCap("否则每修一个 bug 都是一次独立的冒险。");
+    },"把三步的失败模式补齐：  · <b>第一步 · 工具预测错</b>：上面那四种。 · <b>第二步 · 工具调用错</b>：<em>工具返回了错的结果，或者什么都没返回</em>。⚠ <b>这一类往往不是 LLM 的问题——是你的 API 或后端服务有问题</b>。 · <b>第三步 · 回答生成错</b>：<em>前面全对，但最后一步没把结果正确地传达给用户</em>。  <b>而讲者在这一段结尾给的方法论，是这一集真正的收获：</b>  <b>when you deal with tools and evaluations, you have a lot of possible errors. One thing that will help you navigate through this is to be very methodical into categorizing kinds of errors and then dealing with them in group.</b>  他还加了一句很生动的话：<b>every time that you deal with a given loss, it's maybe just an adventure to solve</b>——<em>如果不分类，每修一个 bug 都是一次独立的冒险</em>。  ⚠ <b>分类的价值在于：同一类里的错误往往有同一个根因，修一次就能修掉一批。</b>而不分类的话，<em>你会把同一个根因的十个表现当成十个问题去修</em>。  <b>这条方法论不限于 LLM——它适用于任何复杂系统的调试。</b>");
+  SUM(3753,7,{h:"把智能体的失败按三步分类，再成组地修",
+    k:"沿用第七讲的三步做分类框架：<b>工具预测错</b>（四种：该用不用「punt」· 幻觉出不存在的工具 · 用错工具 · 参数填错）· <b>工具调用错</b>（返回错的 / 什么都不返回，⚠ 常常是你的 API 问题）· <b>回答生成错</b>。",
+    m:"用户看到的都是「答得不对」，<b>但病因在系统的不同位置</b>。以「该用不用」为例：可能是<b>工具路由器的召回错误</b>（第七讲那个工具选择步是召回导向的），也可能是<b>模型没想到用</b>（则改 SFT 样本或提示词）—— <b>必须先分清再动手</b>。",
+    w:"<s>误解</s>：「答不对就换个更强的模型」。讲者反复强调 <b>some causes could be coming from actually you</b> —— 模型在 SFT 阶段见过大量高质量 API，<b>函数名、参数名、描述</b>就是你能调的三个旋钮（也正是模型唯一看得见的东西）。",
+    e:"⚠ 诊断「幻觉工具」的顺序值得学：<b>先看是不是普遍现象</b>（则多半是顶层指令不清）→ 再查命名与描述 → <b>最后</b>才考虑模型太弱。⚠ 方法论：<b>be methodical into categorizing errors and dealing with them in group</b> —— 否则每修一个 bug 都是一次独立的冒险。"});
+  QUIZ(3753,7,{t:"智能体「该用工具却不用」（punt）时，讲者给的第一个排查方向是什么？",
+    o:["模型的上下文窗口是否已被占满","工具的后端服务是否返回了空结果","温度设置是否过高导致采样跑偏","工具路由器是否没把该工具选进候选（召回错误）"],
+    a:3,
+    w:"第七讲的<b>工具选择</b>步是<b>召回导向</b>的——它把候选裁剪到少数几个，但要尽量别漏。所以第一个要查的是：<b>该工具根本没被选进候选</b>（召回错误），那就去调路由器；只有确认它在候选里、模型却没想到用，才轮到改 SFT 样本或提示词。<b>两种病因在系统的不同位置。</b><s>「上下文占满」</s>不是讲者给的路径。<s>「后端返回空」</s>那属于<b>第二步「工具调用错」</b>，但 punt 的定义是<em>压根没调用</em>。<s>「温度过高」</s>与工具选择无关。"});
+});
+
+KP("8 · 基准四类，以及它们<b>为什么都是选择题</b>　<small>讲义 p137–151</small>",function(){
+  /* 钩子 */
+  S(5087,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,56,"知识","b");
+      note("MMLU",235,185,"b");
+      boxNode(390,105,250,56,"推理","g");
+      note("AIME · PIQA",515,185,"g");
+      boxNode(670,105,250,56,"代码","y");
+      note("SWE-bench",795,185,"y");
+      boxNode(950,105,210,56,"安全","r");
+      note("HarmBench",1055,185,"r");
+      note("⚠ 知识那一类，主要量的是<b>预训练做得好不好</b>",640,320,"y");
+      setCap("前七集讲怎么自己评；这一集讲<b>公开的、可比的</b>那些。");
+    },"前七集讲的是<b>怎么评你自己的系统</b>。这一集换个问题：<b>怎么把不同的模型放在一起比？</b>  讲者把常见基准分成四类：  · <b>知识</b>（MMLU）——<em>模型记住了多少事实</em> · <b>推理</b>（AIME 数学、PIQA 常识）——<em>能不能一步步推出来</em> · <b>代码</b>（SWE-bench） · <b>安全</b>（HarmBench）  ⚠ <b>讲者对第一类给了一个很有用的定位：</b>  <b>this knowledge benchmark mostly, but not only, measures how well pretraining was done</b>——<em>它量的是预训练阶段，海量语料里的信息被模型保留了多少</em>。  <b>也就是说：不同类别的基准，对应的是训练流水线的不同阶段。</b>知识对应预训练，推理对应第六讲那套 RL，代码两者都有。  <em>看基准分数时知道它在量哪一段，比知道那个数字有用得多。</em>");
+  /* 错误答案 */
+  S(5099,function(){
+      clearScene();setEq(null);
+      setBig("基准就该让模型自由作答，再用 LaaJ 打分","这样才像真实使用场景");
+      setCap("<s>那会再引入一层误差</s> —— 所以基准几乎全是<b>选择题</b>。");
+    },"一个合理的疑问：<b>基准为什么大多是选择题？那不太像真实使用场景。</b>  <b>讲者给出的理由很干脆，而且它是这一集最值得带走的设计洞察：</b>  <b>you don't ask the model to just come up with some answer and have maybe an LLM-as-a-Judge giving some opinion about it, because doing so introduces another layer of potential errors. The LLM-as-a-Judge isn't necessarily perfect.</b>  <em>前面四集刚讲完裁判有三个偏差、而且「绝非穷举」。如果基准的评分依赖裁判，那不同模型的分数差异里就掺进了裁判的偏差。</em>  <b>所以基准的设计原则是：让答案可以被硬编码地提取和比对。</b>  讲者：this framing enables us to have <b>a hard-coded way to extract the answer output by the LLM</b>——<em>比如要求它在最后输出一个字母，然后直接比对</em>。  ⚠ <b>这是一个很值得记住的权衡：基准牺牲了「像真实场景」，换来了「可比性」。</b>");
+  /* 铺陈 */
+  S(5111,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"MMLU","b");
+      note("约 <b>60 个学科</b>的四选一",340,195,"b");
+      note("法律、医学、日常…… 需要<b>先验知识</b>",340,243,"b");
+      boxNode(730,105,440,58,"AIME","g");
+      note("高中数学奥赛选拔考",950,195,"g");
+      note("答案是<b>三位数</b> ⇒ 天然好判",950,243,"g");
+      boxNode(290,290,700,54,"PIQA：物理常识，<b>二选一</b>，两万道","y");
+      setCap("讲者：MMLU 有点像这门课的期中考 —— 也是选择题。");
+    },"<b>MMLU</b>（Massive Multitask Language Understanding）：约 <b>60 个学科</b>的四选一，<em>法律、医学、日常生活都有</em>。讲者说它 <b>a bit like CME 295 exams</b>——<em>这门课的考试也有选择题部分</em>。  ⚠ 他点明了 MMLU 的特点：<b>each problem mostly requires some prior knowledge about that topic. So it's not purely logic that will help you solve it.</b>——<em>这正是它能量「预训练记住了多少」的原因</em>。  <b>AIME</b>：美国高中数学奥赛的选拔考试，<b>很难</b>。而它特别适合当基准的原因很实际：<b>答案要求写成一个三位数</b>——<em>格式天然受约束，好判</em>。  讲者说题面常常只有一句话，<em>看着简单，但你必须把推理写下来才找得到答案</em>——<b>这正是要测的东西</b>。  <b>PIQA</b>（Physical Interaction QA）：<b>物理常识</b>，<em>二选一，两万道题</em>。  他举的例子很好：<b>「东西掉进地毯里怎么找？」——用密封的吸尘器，还是套上发网的吸尘器？</b><em>答案是发网：密封的会把东西吸走，套发网的能把它拦在外面。</em>  ⚠ <b>这叫常识，但未必显然。</b>");
+  /* 主体 */
+  S(5123,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"怎么出题","g");
+      note("在热门 Python 仓库里找 PR",340,195,"g");
+      note("条件：<b>修了一个 issue</b> 且 <b>带了测试</b>",340,243,"g");
+      boxNode(730,105,440,58,"怎么判分","y");
+      note("给模型代码库 + issue，要它给出 <b>patch</b>",950,195,"y");
+      note("打上补丁，<b>看测试过不过</b>",950,243,"y");
+      note("⚠ 妙处：对错的判据是<b>原作者自己写的测试</b>",640,352,"r");
+      setCap("讲者：这和「测试驱动开发」是同一个思路。");
+    },"<b>SWE-bench</b>（讲者说论文没定义缩写，<em>但很可能是 software engineering</em>）的出题方式特别巧妙：  <b>在热门的 Python 仓库里，筛出那些「修复了某个 issue」且「同时引入了测试」的 pull request。</b>  ⚠ <b>为什么要「同时引入了测试」？</b>讲者的推理很干净：  <b>if you have a PR that introduces some tests and some fix, you can fairly assume that these tests were not passing without the fix, and that they are passing after the fix.</b>  <em>也就是说——这个 PR 自带了一个「改对了没有」的客观判据，而且是原作者写的。</em>  <b>评测流程</b>：给模型<b>代码库 + issue 描述</b>，要它产出一个 <b>patch</b>；<b>打上去，跑测试，看通不通过</b>。  讲者提到 <b>test-driven development</b>：<em>这正是那个思路——有测试，就有客观标准</em>。  ⚠ <b>回到第六讲：这就是「可验证奖励」的典型例子。</b>而这也解释了为什么代码和数学是推理模型最先突破的领域。");
+  /* 主体 */
+  S(5135,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"HarmBench：四类有害行为","r");
+      note("标准 · 版权 · 上下文相关 · 多模态",640,200,"r");
+      note("⚠ 有害回答是开放式的，<b>没法正则匹配</b>",640,258,"y");
+      boxNode(290,310,700,54,"⇒ 只能训一个<b>分类器</b>来判 —— 它自己也会错","r");
+      setCap("四类基准里，<b>只有这一类</b>破了「硬编码判分」那条规则。");
+    },"<b>HarmBench</b>（讲者推测是 harmful behavior benchmark），分四类：<b>标准（常规有害行为）· 版权（能否生成受版权保护的内容）· 上下文相关 · 多模态</b>。  ⚠ <b>但它破了上一镜那条规则：</b>  <b>有害的输出是开放式的，你没法靠正则匹配穷举它们。</b>所以 HarmBench <b>训了一个分类器</b>来判定。  讲者明确点出了代价：<b>this is the only benchmark among those that I presented that is done based on a classifier that can itself be prone to error</b>——<em>其他基准的判据都「grounded in constrained set of values」，而这一个的判据自己也会出错</em>。  ⚠ <b>他还讲了一个这个基准里很有意思的设计判断：</b>  <b>它把「模型能力」和「安全性」分开了</b>——<em>如果模型试图执行有害行为，哪怕因为能力不够而失败了，这次攻击也算成功</em>。  <b>这个区分很重要：安全要测的是「意图」，不是「结果」。</b>一个想作恶但做不好的模型，<em>在能力提升之后就会变成一个能作恶的模型</em>。");
+  /* 反驳 */
+  S(5147,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"其他三类","g");
+      note("有公认的对错 ⇒ <b>跨模型可比</b>",340,195,"g");
+      boxNode(730,105,440,58,"安全这一类","r");
+      note("每家的<b>安全政策不同</b>",950,195,"r");
+      note("没人追求在这个基准上拿 100%",950,243,"r");
+      note("⚠ 所以模型卡里会有「安全」一节，但<b>不做跨模型对比</b>",640,352,"y");
+      setCap("用安全基准前，<b>先去看它具体测了什么</b>。");
+    },"最后一条限定，讲者讲得很细，<b>而它纠正了一个很普遍的误读</b>：  <b>安全基准的分数，不能拿来跨模型比较。</b>  理由：<b>safety is a bit subjective with respect to the LLM provider. Every company has its own policy. So you cannot necessarily compare performance on a given benchmark across models, just because all these providers might not claim they want to perfectly solve that benchmark 100%.</b>  <em>也就是说——一家公司在某个安全基准上得分低，可能不是因为它「不安全」，而是因为它的政策和这个基准的假设不一致。</em>  <b>讲者说这就是为什么：模型卡里通常有「安全」一节描述他们做了什么工作，但不会给出跨模型的基准对比。</b>  ⚠ <b>他给的实务建议是：</b>  <b>when you execute a safety benchmark, you should check the content of the benchmark in order to put a meaning behind it.</b>  <em>——去看它具体测了哪些行为，判断它的假设是否和你的政策一致。否则那个数字对你没有意义。</em>");
+  SUM(5087,8,{h:"四类基准，以及它们为什么几乎全是选择题",
+    k:"<b>知识</b>（MMLU，约 60 学科四选一，⚠ 主要量<b>预训练做得好不好</b>）· <b>推理</b>（AIME 答案是三位数 · PIQA 物理常识二选一）· <b>代码</b>（SWE-bench）· <b>安全</b>（HarmBench）。",
+    m:"⚠ 共同设计原则：<b>让答案可被硬编码提取</b>。因为用 LaaJ 来判会<b>再引入一层误差</b>（前四集刚讲完裁判有偏差且「绝非穷举」）。<b>基准牺牲「像真实场景」换来「可比性」。</b>",
+    w:"<b>SWE-bench 的出题方式</b>值得学：筛出「修了 issue <b>且同时引入测试</b>」的真实 PR —— 那组测试<b>自带一个原作者写的客观判据</b>（改之前不过、改之后过）。这正是第六讲说的「可验证奖励」。",
+    e:"⚠ <b>HarmBench 是唯一靠分类器判定的</b>，所以<b>判据自己也会出错</b>；它还把<b>意图与能力分开</b>（试图作恶但失败也算攻击成功）。⚠ <b>安全基准跨模型不可比</b> —— 每家政策不同、没人追求 100%，用之前<b>先看它具体测了什么</b>。"});
+  QUIZ(5087,8,{t:"公开基准为什么大多设计成选择题或有固定答案格式？",
+    o:["因为选择题的题目更容易大批量生成","因为自由作答需要用 LLM 裁判评分，会再引入一层误差","因为选择题更接近真实用户的使用方式","因为固定格式可以减少模型的推理 token 消耗"],
+    a:1,
+    w:"讲者的理由：<b>doing so introduces another layer of potential errors — the LLM-as-a-Judge isn't necessarily perfect</b>。前四集刚讲完裁判有位置/冗长/自我偏好三个偏差且「绝非穷举」，若基准依赖它，模型间的分数差异里就掺进了裁判的偏差。所以要 <b>a hard-coded way to extract the answer</b>。⚠ 这是<b>牺牲「像真实场景」换「可比性」</b>的权衡。<s>「容易生成」</s>MMLU 等基准的题目大多来自真实考试，并不便宜。<s>「更接近真实使用」</s>恰恰相反。<s>「减少 token」</s>不是设计动机。"});
+});
+
+KP("9 · <b>pass^k</b> · 帕累托前沿 · 数据污染 · 古德哈特　<small>讲义 p152–169</small>",function(){
+  /* 钩子 */
+  S(6072,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,300,56,"模拟的「用户」","y");
+      note("<b>由另一个大模型扮演</b>",260,195,"r");
+      arrow(414,138,500,138,"sm",0);
+      boxNode(540,110,300,56,"被测智能体","g");
+      arrow(844,138,930,138,"sm",0);
+      boxNode(950,110,210,56,"工具 / 数据库","b");
+      note("判分看<b>数据库最终状态</b>对不对",640,290,"g");
+      note("为什么用户要模拟：多轮对话<b>没法硬编码</b>",640,358,"y");
+      setCap("<b>tau-bench</b>（Tool-Agent-User）。航空与零售两个领域。");
+    },"上一集那些基准都是单轮的。<b>智能体怎么评？</b>  <b>tau-bench</b>——<em>τ 取自 Tool-Agent-User</em>。它提供两个领域（<b>航空和零售</b>）的工具集，一套<b>政策</b>（<em>智能体能做什么、不能做什么</em>），以及一批任务。  ⚠ <b>最有意思的设计在用户那一侧：用户是由另一个大模型模拟的。</b>  讲者解释了为什么必须这样：<b>the user interaction with the agent cannot be hard-coded, because further turns will depend on previous ones.</b>  <em>你没法预先写死用户的第二句话——它取决于智能体第一步做了什么。</em>  <b>怎么判分？看数据库的最终状态。</b>讲者：calculating a reward that's a function of the <b>database change</b>——<em>用户想改签，那就看票务记录最终是不是改对了</em>。  ⚠ <b>这个判据很聪明：它绕开了「评判对话质量」这件难事，直接看「事情办成了没有」。</b>");
+  /* 错误答案 */
+  S(6084,function(){
+      clearScene();setEq(null);
+      setBig("第六讲那个 pass@k，这里直接用就行","k 次里至少成功一次");
+      setCap("<s>要的恰恰相反</s>：自动化场景要的是<b>每次都成</b>。");
+    },"第六讲讲过 <b>pass@k</b>——<b>k 次尝试里至少一次成功</b>的概率。<b>这里直接用？</b>  <b>不行，而且理由很有说服力。</b>  <em>pass@k 适合的是那种「你可以多试几次、而且能判断哪次对了」的场景——比如写代码，生成十个版本挑能跑通的那个。</em>  <b>但 tau-bench 测的是「用智能体去自动化客服流程」。</b>讲者点明了这个场景真正在乎的东西：  <b>an agent in the loop here could be a way to see if automating the agent side of things could help. And in order to truly know whether it can help, you want to have reliability and consistency in mind.</b>  <em>一个航空公司的改签机器人，十次里有一次办对，是完全不可用的——因为出错的那九次，每一次都是一个真实用户被坑了，而且你没有机会「重试」。</em>  <b>自动化要的不是「有可能成功」，是「每次都成功」。</b>");
+  /* 铺陈 */
+  S(6096,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"pass@k（第六讲）","y");
+      note("k 次里<b>至少一次</b>成功",340,195,"y");
+      note("适合：能多试、能判对错的场景",340,243,"y");
+      boxNode(730,105,440,58,"pass^k（这一讲）","g");
+      note("k 次<b>全部</b>成功",950,195,"g");
+      note("适合：要<b>可靠性</b>的自动化场景",950,243,"g");
+      note("讲者说这是个 <b>funny word play</b> —— 一个 @ 换成了 ^",640,352,"r");
+      setCap("两个符号差一点，<b>含义正好相反</b>。");
+    },"于是 tau-bench 引入了 <b>pass^k</b>——讲者说这是个 <b>funny word play</b>：  · <b>pass@k</b>：k 次里<b>至少一次</b>成功。 · <b>pass^k</b>：k 次<b>全部</b>成功。  <b>一个 @ 换成 ^，含义正好相反。</b>  ⚠ <b>而两者的适用场景也正好相反：</b> · <b>pass@k</b> 适合「<em>可以多试、而且能判断哪次对了</em>」——<b>人在环里挑</b>。 · <b>pass^k</b> 适合「<em>只能跑一次、而且没人检查</em>」——<b>全自动</b>。  <b>这个区分值得记住，因为它直接对应你打算怎么部署这个系统。</b>  ⚠ 讲者在这里做了个很好的教学处理：<b>他说时间不够推导 pass^k 的公式，但让大家回去参考第六讲 pass@k 的推导自己做</b>——<em>I just want you to be convinced that this is indeed the formula. If you're not convinced, please feel free to do it at home.</em>  <em>（思路是一样的：从 n 个样本里抽 k 个，算「全部成功」而不是「全部失败」。）</em>");
+  /* 主体 */
+  S(6108,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,350],[320,280],[480,235],[660,205],[860,190],[1060,182]],"fit g");
+      note("纵轴：性能",170,140,"b");
+      note("横轴：价格（或延迟、上下文长度…）",640,392,"b");
+      note("边界上这些 = <b>帕累托前沿</b>",820,255,"g");
+      note("前沿之下的，<b>在这个维度上被支配</b>",400,180,"r");
+      setCap("讲者给了自己的用法，但强调 <b>not global recommendations</b>。");
+    },"讲完基准，讲者给了一个很重要的定位：  <b>benchmarks are here to characterize the profile of your LLM. So it's not all good or all bad.</b>  <em>不同模型各有长短，没有一个在所有维度上都最好。</em>  <b>怎么系统地看？画帕累托前沿。</b>把性能对另一个你在乎的维度（<em>价格、延迟、安全、上下文长度</em>）画出来，<b>边界上那些模型就是「在这个价位上你能买到的最好」</b>。  ⚠ <b>讲者给了自己的实际用法，而且特意加了限定：</b>  <b>Sonnet 模型写代码很好用；要又快又便宜时用 Gemini Flash。</b>但紧接着：<b>these are not, by any means, global recommendations. Your own use case and your own experience can guide you into having a profile of models that suits your tasks best.</b>  <em>这个限定本身就是在示范：讲出自己的经验，同时说清它的适用范围。</em>");
+  /* 主体 */
+  S(6120,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"基准的题目和答案，可能已经进了训练语料","r");
+      note("那分数就不再反映能力，只反映<b>记住了多少</b>",640,205,"r");
+      note("三种对策：",640,268,"g");
+      note("哈希值核对 · 屏蔽名单（防联网查到）· 用<b>全新考题</b>",640,322,"g");
+      note("⚠ 数学这类领域有「每年出新题」这个奢侈条件",640,382,"y");
+      setCap("基准有效的前提是：<b>模型没见过它</b>。");
+    },"基准还有一个前提性的问题：<b>数据污染</b>。  讲者说得很直接：<b>these benchmarks are as good as the assumption of whether you have seen the actual benchmark results or not. So make sure you haven't seen them.</b>  <em>如果基准的题目和答案已经出现在训练语料里，那分数反映的就不是能力，而是「记住了多少」。</em>  <b>三种对策</b>： · <b>哈希值</b>——<em>核对题目有没有出现在语料里</em>。 · <b>屏蔽名单</b>——<em>工具调用场景下，禁止访问可能含有答案的网站</em>。 · <b>用全新考题</b>——讲者说数学领域有这个 <b>luxury</b>：<em>AIME 每年出新题，模型肯定没见过</em>。  ⚠ <b>注意第三条的含义：它说明大多数领域没有这个奢侈条件。</b>  <em>而且污染很难完全排除——训练语料有几万亿 token，谁也没法逐条检查。所以基准分数总是带着一个「可能虚高」的不确定性。</em>");
+  /* 反驳 */
+  S(6132,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,110,900,70,"When a measure becomes a target, it ceases to be a good measure","r");
+      note("第五讲：奖励模型是代理 ⇒ <b>奖励黑客</b>",640,240,"y");
+      note("第五集：LaaJ 分数是代理 ⇒ <b>别过度优化</b>",640,295,"y");
+      note("这一集：基准是代理 ⇒ <b>古德哈特定律</b>",640,350,"r");
+      setCap("同一个形状，这门课里出现了<b>三次</b>。");
+    },"讲者用<b>古德哈特定律</b>收尾整讲：  <b>When a measure becomes a target, it ceases to be a good measure.</b> （<em>当一个度量变成目标，它就不再是一个好度量。</em>）  ⚠ <b>请把这三处放在一起看，它们是同一个结构：</b>  · <b>第五讲</b>：奖励模型是人类偏好的代理 ⇒ <em>优化太狠就钻它空子（奖励黑客）</em>。 · <b>本讲第五集</b>：LaaJ 分数是人工评分的代理 ⇒ <em>别对着代理过度优化</em>。 · <b>这一集</b>：基准分数是真实能力的代理 ⇒ <em>一旦全行业都盯着它，它就失效了</em>。  <b>三次，同一个形状。</b>  讲者给的结论很克制也很实在：<b>benchmark results are to be weighed against what you're truly looking for. These results don't necessarily tell you whether a model is good for you or not.</b>  他提了 <b>ChatBot Arena</b>（<em>真人对战打分</em>）作为一种更贴近真实体验的补充，<b>但最后那句才是重点</b>：  <b>ultimately, you should be the one trying out these models and see for yourself which one corresponds to your use case.</b>  <em>——没有任何一个数字能替你做这个判断。</em>");
+  SUM(6072,9,{h:"pass^k · 帕累托前沿 · 数据污染 · 古德哈特",
+    k:"<b>tau-bench</b> 评智能体：<b>用户由另一个大模型模拟</b>（多轮对话没法硬编码），判分看<b>数据库最终状态</b>。它引入 <b>pass^k</b> = k 次<b>全部</b>成功的概率。",
+    m:"⚠ <b>pass@k 与 pass^k 的适用场景正好相反</b>：前者适合「可以多试、有人挑」（第六讲写代码），后者适合「只跑一次、没人检查」的<b>自动化</b> —— 自动化要的是<b>可靠性</b>，十次办对一次是不可用的。",
+    w:"基准画的是<b>画像不是排名</b>：把性能对价格/延迟/上下文长度画出来，边界上那些是<b>帕累托前沿</b>。⚠ 讲者给了自己的用法（Sonnet 写代码、Gemini Flash 图快省）<b>但特意声明这不是普适建议</b>。",
+    e:"⚠ <b>数据污染</b>：基准有效的前提是模型没见过它。对策是哈希核对、屏蔽名单、以及<b>用全新考题</b>（数学才有这个奢侈条件）。⚠ 收尾的<b>古德哈特定律</b>——「当一个度量变成目标，它就不再是好度量」——与第五讲的奖励黑客、本讲第五集的「别优化代理」<b>是同一个结构，出现了三次</b>。"});
+  QUIZ(6072,9,{t:"tau-bench 为什么用 pass^k 而不是第六讲的 pass@k？",
+    o:["因为智能体任务的单次成功率太低，pass@k 会饱和","因为 pass^k 的计算复杂度更低","因为它测的是自动化场景，需要的是可靠性——每次都成功，而不是至少成功一次","因为智能体无法并行多次尝试"],
+    a:2,
+    w:"讲者的理由：要判断「自动化这件事能不能帮上忙」，<b>you want to have reliability and consistency in mind</b>。一个航空改签机器人十次办对一次是<b>完全不可用</b>的——出错的九次每次都坑了一个真实用户，而且没有重试机会。所以要的是 <b>k 次全部成功</b>的概率。⚠ 两者适用场景正好相反：pass@k 适合「可以多试、有人挑」，pass^k 适合「只跑一次、没人检查」。<s>「会饱和」</s>不是讲者给的理由。<s>「复杂度更低」</s>两者都是简单组合数。<s>「无法并行」</s>可以并行，但<b>并行与否不改变「要不要每次都成」这个需求</b>。"});
+});
+
+KP("完",function(){
+  S(6520,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("CME295 · Lecture 8","度量这件事，没有免费的",
+      "下一讲：全课回顾与 2025 的前沿");
+    },"把九集收成一条链：<b>每一次「让评测变便宜」，都是在用一层近似换成本。</b>  <b>人工评分</b>（最接近真相，但贵）→ <b>规则指标</b>（便宜了，但不容措辞变化）→ <b>LLM 当裁判</b>（灵活了，但有偏差）→ <b>公开基准</b>（可比了，但会被污染、会被当成目标）。  ⚠ <b>而这条链上有一个反复出现的陷阱，它是本讲真正的主题：</b>  <b>你优化的那个东西，和你真正想要的东西，从来不是同一个。</b>  · 第五讲：<em>奖励模型是人类偏好的代理 ⇒ 奖励黑客</em>。 · 这一讲第五集：<em>LaaJ 分数是人工评分的代理 ⇒ 别过度优化它</em>。 · 这一讲第九集：<em>基准是真实能力的代理 ⇒ 古德哈特定律</em>。  <b>三次，同一个形状。</b>所以讲者给的最后一条建议很朴素，也很对：<b>基准能帮你画出模型的「画像」，但最终该由你自己试，看哪个适合你的场景。</b>  还有一条很实用的方法论，在第七集：<b>面对一堆乱七八糟的失败时，先把它们分类，再成组地解决。</b>讲者的原话是 <em>being very organized here is going to help you a lot</em>。  下一讲是最后一讲：<b>全课回顾，以及 2025 年的前沿。</b>");
+});
+window.__startProjector(CFG);
+})();
+</script>

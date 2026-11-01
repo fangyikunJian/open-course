@@ -1,0 +1,262 @@
+[
+ {
+  "kp": 6,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 3120,
+    "cap": "这段话里有两个错",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,105,1020,100,\"「泰迪熊最早出现在 1920 年代，得名于罗斯福总统 —— 他在一次狩猎中曾得意地要射杀一头被捕获的熊。」\",\"b\");\nnote(\"⚠ 错一：是 <b>1900 年代</b>，不是 1920 年代\",640,250,\"r\");\nnote(\"⚠ 错二：他<b>拒绝</b>射杀，不是「得意地要射杀」\",640,305,\"r\");\nnote(\"那这段话的事实性该打几分？\",640,375,\"y\");\nsetCap(\"前五集说「用二元刻度」。<b>事实性是那条规则的例外。</b>\");",
+    "narration": "上一集给的实践是<b>用二元刻度</b>。<b>这一集讲一个必须破例的维度：事实性。</b>\n\n讲者给了一段话：\n\n「<em>泰迪熊最早出现在 1920 年代，得名于罗斯福总统——他在一次狩猎中曾得意地要射杀一头被捕获的熊。</em>」\n\n<b>里面有两处错误</b>：\n· 是 <b>1900 年代</b>，不是 1920 年代。\n· 罗斯福<b>拒绝</b>射杀那头熊——<em>这正是「泰迪熊」这个名字的由来</em>。\n\n<b>那这段话的事实性该打几分？</b>\n\n⚠ 讲者点明了为什么二元不行：<b>一段文本里包含很多事实，有些错得离谱，有些只差一点，有些完全正确。如果只因为一处小错就把整段判为「不正确」，那太粗了。</b>\n\n<b>所以需要一个能表达「错了多少」的办法。</b>"
+   },
+   {
+    "beat": "wrong",
+    "t": 3180,
+    "cap": "「那就让裁判给个 0 到 1 的分」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"让 LLM 直接判断这段话有多真实，给个 0.6\",\"反正它懂意思\");\nsetCap(\"<s>这正是上一集说过不该做的</s>：细刻度不稳，而且<b>不可追溯</b>。\");",
+    "narration": "既然要表达程度，<b>那让裁判直接给个 0 到 1 的分？</b>\n\n<b>这正是上一集反对的做法</b>，而且在事实性上问题更大：\n\n① <b>细刻度不稳</b>——同一段话问两次，可能一次 0.6 一次 0.4。\n② <b>更要命：不可追溯。</b>它说 0.6，<em>你不知道它认为哪一句错了</em>。\n\n<b>而事实性恰恰是最需要追溯的维度</b>——<em>你想知道的不是「有点不准」，而是「具体哪句话错了，错在哪」</em>。\n\n⇒ <b>所以正确的方向不是让刻度变细，而是把任务拆开：</b>\n\n<b>把一个「这段话有多真实」的模糊问题，拆成很多个「这一条事实对不对」的二元问题。</b>\n\n<em>每个子问题仍然是二元的（符合上一集的实践），而聚合之后自然就有了程度。</em>"
+   },
+   {
+    "beat": "setup",
+    "t": 3250,
+    "cap": "第一步：把文本拆成事实清单",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,300,58,\"原始文本\",\"b\");\narrow(414,134,500,134,\"sm\",0);\nboxNode(540,105,300,58,\"一次 LLM 调用\",\"y\");\narrow(844,134,930,134,\"sm\",0);\nboxNode(950,105,210,58,\"事实清单\",\"g\");\nboxNode(190,215,400,44,\"泰迪熊出现于 1920 年代\",\"r\");\nboxNode(190,267,400,44,\"得名于罗斯福总统\",\"g\");\nboxNode(650,215,400,44,\"起因是一次狩猎\",\"g\");\nboxNode(650,267,400,44,\"他得意地要射杀那头熊\",\"r\");\nsetCap(\"讲者的例子里拆出了<b>四条</b>事实。\");",
+    "narration": "<b>第一步：用一次 LLM 调用，把这段多句、可能多段的文本，拆成一张事实清单。</b>\n\n讲者：one LLM call that <b>transforms our original multi-sentence, multi-paragraph text into a list of facts</b>。\n\n那段话拆出<b>四条</b>：\n· 泰迪熊出现于 1920 年代　<em>（错）</em>\n· 得名于罗斯福总统　<em>（对）</em>\n· 起因是一次狩猎　<em>（对）</em>\n· 他得意地要射杀那头熊　<em>（错）</em>\n\n⚠ <b>这一步本身就是个值得注意的操作：它把一个「整体评判」问题，转成了一个「拆解 + 逐项评判」问题。</b>\n\n<em>而拆解这件事，恰恰是 LLM 擅长的——它理解文本结构。</em>\n\n⚠ <b>但也要看到风险：拆解这一步本身会出错。</b>漏掉一条事实、把一句话拆成两条含义不同的、<em>或者拆出一条原文并没断言的东西</em>——<b>这些错误会一路传到最终分数里，而且很难察觉。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3320,
+    "cap": "第二步：逐条核，而且这里可以二元",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,300,54,\"一条事实\",\"g\");\narrow(414,132,500,132,\"sm\",0);\nboxNode(540,105,300,54,\"去查\",\"y\");\narrow(844,132,930,132,\"sm\",0);\nboxNode(950,105,210,54,\"对 / 错\",\"b\");\nnote(\"怎么查：<b>RAG</b>（第七讲）· 网页搜索 · 再来一次 LLM 调用\",640,240,\"y\");\nnote(\"单条事实是二元的 —— 上一集那条实践在这里成立\",640,300,\"g\");\nnote(\"⚠ 每条事实都要一次外部查询 ⇒ 这个指标<b>很贵</b>\",640,375,\"r\");\nsetCap(\"讲者：fact-checking typically involves things like <b>RAG</b>, web search。\");",
+    "narration": "<b>第二步：对清单里的每一条，判断它对不对。</b>\n\n<b>这里可以用二元</b>——讲者：we would typically proceed in a binary fashion, because <b>a fact is either correct or not</b>。<em>上一集那条实践在单条事实的粒度上成立了。</em>\n\n<b>怎么判？</b>讲者点名了第七讲的技术：<b>this fact-checking process typically involves things like RAG, web search is also something else</b>。\n\n<em>也就是说：拿这条事实去查知识库或网络，看有没有支持它的证据。</em>\n\n⚠ <b>请注意这个指标的成本结构：</b>\n\n<b>评一段文本的事实性 = 1 次拆解调用 + N 次检索 + N 次判断。</b>\n\n<em>相比之下，BLEU 算一下就出来了，LaaJ 也只要一次调用。</em>\n\n<b>这解释了讲者为什么说事实性 requires a little bit more work——它不是「换个提示词」就能加上的维度，它是一条独立的流水线。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3390,
+    "cap": "第三步：按重要性加权聚合",
+    "draw_js": "clearScene();setBig(null);setCap(null);\nsetEq(\"$$\\\\mathrm{Score}=\\\\frac{\\\\sum_i \\\\alpha_i \\\\cdot \\\\mathbb{1}[\\\\text{fact}_i \\\\text{ 正确}]}{\\\\sum_i \\\\alpha_i}$$\",\"top\");\nnote(\"alpha 是每条事实的<b>重要性</b>权重\",640,322,\"y\");\nnote(\"全部取 1 也行 —— 那就是「对了几条」的比例\",640,374,\"g\");\nsetCap(\"讲者的例子：第 2、3 条对 ⇒ 得分 <b>0.6</b>。\");",
+    "narration": "<b>第三步：把逐条结果加权聚合。</b>\n\n讲者指出<b>不同事实的重要性不同</b>：as an example, maybe the fact that the president <b>proudly</b> wanted to shoot the bear is <b>not as important as</b> the name of the person after which the teddy bears were named。\n\n<em>「得名于罗斯福」这条错了，整段话就垮了；「他的态度是得意还是拒绝」错了，是个细节问题。</em>\n\n所以用权重 α_i 表示重要性，<b>而讲者也说了可以简化</b>：these weights can be <b>all equal to one another if you want to make it simpler</b>——<em>那就退化成「对了几条的比例」</em>。\n\n他的例子里<b>第 2、3 条正确</b>，算出来是 <b>0.6</b>。\n\n⚠ <b>但权重从哪来？讲者没说。</b>而这是个真问题：\n\n<em>要么人工标注重要性（贵，且本身主观），要么再让一个 LLM 判断重要性（又引入一层误差）。</em>\n\n<b>所以实践中「全部取 1」可能是更诚实的选择——至少它没有假装自己知道哪条更重要。</b>"
+   },
+   {
+    "beat": "refute",
+    "t": 3450,
+    "cap": "⚠ 这是个开放问题，不是定论",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"讲者的定位\",\"y\");\nnote(\"「how to quantify this nuance」\",340,195,\"y\");\nnote(\"是一个 <b>open question</b>，有人在写论文\",340,243,\"r\");\nboxNode(730,105,440,58,\"这套流程本身\",\"g\");\nnote(\"是<b>目前常用的做法</b>\",950,195,\"g\");\nnote(\"不是「正确答案」\",950,243,\"y\");\nnote(\"而且它<b>每一步都可能出错</b>：拆解 · 检索 · 判断 · 加权\",640,352,\"r\");\nsetCap(\"第二讲那条「不是推导出来的，是试出来的」在这里又出现。\");",
+    "narration": "最后把这套办法的性质说准。\n\n<b>讲者明确把它定位成一个开放问题</b>：the question we want to tackle is <b>how do we want to quantify this nuance. So this is an open question that people have been writing papers on.</b> 他接着说的是 <b>what people typically use nowadays</b>——<em>「目前大家常用的做法」，不是「正确答案」。</em>\n\n⚠ <b>而把这条流水线摊开看，它每一步都可能出错：</b>\n· <b>拆解</b>：漏掉事实、拆错粒度、拆出原文没断言的东西。\n· <b>检索</b>：第七讲说过——<em>检索错了，后面全错</em>。\n· <b>判断</b>：证据和事实之间的关系往往不是简单的「支持/反驳」。\n· <b>加权</b>：重要性从哪来，没有好答案。\n\n<b>四层误差叠在一起，最后输出一个看起来很精确的 0.6。</b>\n\n⚠ <b>这是本讲那条主线的又一次出现：每让评测便宜一步，就多叠一层近似。而最终那个数字的精确外观，会掩盖它下面有多少层估计。</b>\n\n<b>所以用这类指标时，该关心的是「它的相对变化」，而不是「它的绝对值」。</b>"
+   }
+  ],
+  "sum": {
+   "h": "事实性：把整体评判拆成逐条核查",
+   "k": "三步：① 一次 LLM 调用把文本<b>拆成事实清单</b> ② <b>逐条核</b>（用第七讲的 RAG 或网页搜索，单条可以二元）③ <b>按重要性加权聚合</b>。讲者的例子里 4 条中对 2 条，得分 <b>0.6</b>。",
+   "m": "为什么不直接让裁判给个 0.6：<b>细刻度不稳，而且不可追溯</b> —— 你不知道它认为哪句错了。拆开之后，<b>每个子问题仍是二元的</b>（符合上一集的实践），聚合后自然有了程度。",
+   "w": "<s>破例</s>：上一集说「用二元刻度」，而事实性是那条规则的例外 —— 因为一段文本含多个事实，<b>一处小错不该让整段判为错</b>。",
+   "e": "⚠ 讲者明确说这是 <b>open question</b>，给的是「目前常用做法」不是正确答案。而这条流水线<b>每一步都会出错</b>：拆解、检索（第七讲：检索错了后面全错）、判断、加权（权重从哪来讲者没说）。<b>四层误差叠出一个看起来很精确的 0.6</b> —— 所以该看它的<b>相对变化</b>，不是绝对值。"
+  },
+  "quiz": {
+   "t": "评估事实性时，为什么不直接让 LLM 裁判给出一个 0–1 的分数？",
+   "o": [
+    "因为 LLM 无法输出连续数值，只能输出离散类别",
+    "因为细刻度评分不稳定，而且不可追溯——你不知道它认为哪一句错了",
+    "因为事实性必须用规则指标而非 LLM 评估",
+    "因为 0–1 分数无法与人工评分做相关性分析"
+   ],
+   "a": 1,
+   "w": "两个问题：<b>细刻度不稳</b>（同段话问两次可能 0.6 / 0.4，这正是上一集反对细刻度的理由），而且<b>不可追溯</b>——它说 0.6，你不知道它认为哪句错了。而事实性恰恰是最需要追溯的维度。所以正确方向是<b>把任务拆开</b>：拆成事实清单，每条二元判断，再聚合。<s>「无法输出连续值」</s>模型完全可以输出小数。<s>「必须用规则指标」</s>恰恰相反，核查用的是 RAG 和 LLM 调用。<s>「无法做相关性分析」</s>连续分数反而更好做相关分析。"
+  }
+ },
+ {
+  "kp": 7,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 3753,
+    "cap": "智能体错了，错在哪一步",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,300,54,\"① 预测工具\",\"y\");\narrow(414,132,500,132,\"sm\",0);\nboxNode(540,105,300,54,\"② 调用工具\",\"b\");\narrow(844,132,930,132,\"sm\",0);\nboxNode(950,105,210,54,\"③ 生成回答\",\"g\");\nnote(\"第七讲那三步，现在<b>反过来当成分类框架用</b>\",640,250,\"y\");\nnote(\"用户看到的都是「答得不对」—— 但病因完全不同\",640,330,\"r\");\nsetCap(\"讲者先摆出这三步，再逐步枚举失败模式。\");",
+    "narration": "第七讲把工具调用拆成了三步。<b>这一集反过来用：拿这三步当失败分类的框架。</b>\n\n<b>为什么需要分类？</b>因为用户看到的永远是同一件事——<em>「它答得不对」</em>。但背后的病因完全不同：\n\n· <b>它压根没用该用的工具？</b>\n· <b>它用了一个不存在的工具？</b>\n· <b>它用对了工具但参数填错？</b>\n· <b>工具本身返回了错的东西？</b>\n· <b>一切都对，但最后一步说岔了？</b>\n\n<b>这五种的修法完全不同，而且修错了地方就是白费功夫。</b>\n\n⚠ 讲者在这一段的收尾给了一条很实在的方法论，可以先记住：<b>be very methodical into categorizing kinds of errors and then dealing with them in group</b>。"
+   },
+   {
+    "beat": "wrong",
+    "t": 3820,
+    "cap": "「答不对就换个更好的模型」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"智能体表现不好？换个更强的模型\",\"反正模型越强越不容易出错\");\nsetCap(\"有时对 —— 但讲者反复强调：<b>很多「模型的错」其实是你的 API 写得不好</b>。\");",
+    "narration": "最常见的反应：<b>表现不好就换个更强的模型。</b>\n\n<b>有时这确实是对的</b>——讲者在讲「幻觉出不存在的工具」时就说过：如果模型太弱，it can <b>make up things that it thinks can be reasonable</b>，<em>而这种情况他给不出更好的建议，只能升级模型</em>。\n\n⚠ <b>但他在同一段里立刻加了一句更重要的话：</b>\n\n<b>some other potential causes could be coming from actually you.</b>\n\n他的论证很有说服力：<b>模型在 SFT 阶段见过大量高质量的 API</b>，它知道一个写得好的接口长什么样。<em>如果你定义的工具写得不规范、命名不合逻辑，模型就会「对不上」。</em>\n\n<b>而他给了三个你能直接调的旋钮</b>：\n\n<b>函数名 · 参数名 · 描述</b>——<em>these are your three knobs to tune</em>。因为<b>这三样正是模型唯一看得见的东西</b>（第七讲第七集那条）。\n\n⚠ <b>他甚至建议：用 AI 辅助写这些工具定义，因为那是检查「从模型角度看这个接口合不合理」的好办法。</b>"
+   },
+   {
+    "beat": "setup",
+    "t": 3890,
+    "cap": "工具预测的四种错",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,54,\"① 该用不用（punt）\",\"r\");\nnote(\"直接答「我做不到」\",340,180,\"r\");\nboxNode(730,105,440,54,\"② 幻觉出不存在的工具\",\"r\");\nnote(\"调了一个你没定义的函数\",950,180,\"r\");\nboxNode(110,235,460,54,\"③ 用错工具\",\"r\");\nnote(\"用了另一个也存在的\",340,310,\"r\");\nboxNode(730,235,440,54,\"④ 参数填错\",\"r\");\nnote(\"工具对了，参数不对\",950,310,\"r\");\nnote(\"四种的修法<b>全不一样</b>\",640,382,\"y\");\nsetCap(\"第一步「预测工具」就有四种失败方式。\");",
+    "narration": "光是<b>第一步「预测该用哪个工具、传什么参数」</b>，就有四种失败方式：\n\n① <b>该用不用。</b>明明有工具却不用，直接回一句「<em>抱歉我做不到</em>」。⚠ 讲者给了这个行为一个行话名字：<b>punt</b>（弃权）。\n\n② <b>幻觉出不存在的工具。</b>你定义的是 `find_teddy_bear`，它去调 `find_bear`——<em>一个根本不存在的函数</em>。\n\n③ <b>用错工具。</b>用了另一个确实存在、看起来也合理、但不是你想要的那个。讲者的例子：你想让它<em>查找</em>，它却<em>发了条消息去问</em>——<b>这也不无道理，只是不是你要的行为</b>。\n\n④ <b>参数填错。</b>工具选对了，<em>但坐标填成了 (0, 0)——南大西洋某处</em>。\n\n<b>下一镜看前两种的病因，它们的诊断路径最有代表性。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3960,
+    "cap": "「该用不用」：先查路由器，再查提示词",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"病因 A：工具路由器漏了它\",\"y\");\nnote(\"第七讲那个「工具选择」步\",340,195,\"y\");\nnote(\"⚠ 它是<b>召回导向</b>的 ⇒ 这是<b>召回错误</b>\",340,243,\"r\");\nboxNode(730,105,440,58,\"病因 B：工具在，但模型没想到用\",\"g\");\nnote(\"走 SFT 的话 → 补这类训练样本\",950,195,\"g\");\nnote(\"走提示的话 → 改提示词\",950,243,\"g\");\nnote(\"两种病因<b>在不同的地方</b> —— 必须先分清再动手\",640,352,\"r\");\nsetCap(\"讲者把这条诊断路径走得很细。\");",
+    "narration": "以<b>「该用不用」</b>为例，讲者把诊断路径走得很细，<b>而这个过程本身就是示范</b>：\n\n<b>病因 A：工具路由器根本没把它选进来。</b>\n\n<em>回忆第七讲第八集：工具一多，就要先做一步「工具选择」把候选筛到少数几个。</em>讲者点明了这一步的性质：<b>它是召回导向的</b>——<em>you want to trim the list, but you still want to at least find those that you need</em>。\n\n<b>所以如果路由器没选中它，这叫召回错误。</b>修法很明确：<em>调路由器</em>。\n\n<b>病因 B：工具在候选里，但模型就是没想到要用。</b>\n\n修法取决于你当初是怎么教它用工具的（<em>第七讲第七集那两条路</em>）：\n· 走 <b>SFT</b> 的 → <em>补上这类模式的训练样本</em>。\n· 走<b>提示</b>的 → <em>改提示词，让「该用这个工具」这件事对模型更明显</em>。\n\n⚠ <b>两种病因在系统的不同位置，必须先分清再动手。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 4030,
+    "cap": "「幻觉工具」：先别怪模型",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"⚠ 先查的\",\"g\");\nnote(\"<b>顶层指令</b>写清楚了没有？\",340,195,\"g\");\nnote(\"「必须使用提供给你的函数」\",340,243,\"g\");\nboxNode(730,105,440,58,\"再查的\",\"y\");\nnote(\"函数名/参数名/描述<b>是否合逻辑</b>\",950,195,\"y\");\nnote(\"最后才是：模型太弱 ⇒ 升级\",950,243,\"r\");\nnote(\"讲者的顺序：<b>先看是不是普遍现象</b>\",640,352,\"r\");\nsetCap(\"「模型太弱」是<b>最后</b>才考虑的解释，不是第一个。\");",
+    "narration": "<b>「幻觉出不存在的工具」</b>这一种，讲者的诊断顺序特别值得学——<b>因为它把最容易想到的解释放在了最后</b>。\n\n他先提了「<em>模型太弱</em>」这个可能，<b>然后立刻自我修正</b>：\n\n<b>at the very beginning I was saying maybe the model is too weak. But actually, maybe the first thing you should check is whether the horizontal instructions are clear enough.</b>\n\n<b>他说的「horizontal instructions」是指跨所有工具的顶层指令</b>——<em>比如有没有明确告诉模型「你必须使用提供给你的这些函数」</em>。\n\n<b>诊断顺序：</b>\n① <b>看这是不是普遍现象</b>（<em>see if this phenomenon is generalized</em>）—— 如果到处都在编函数名，<b>那多半是顶层指令的问题</b>。\n② 检查<b>函数名、参数名、描述</b>是否合逻辑。\n③ <b>最后</b>才考虑模型太弱、需要升级。\n\n⚠ <b>讲者还给了个有意思的建议：顶层指令很重要，所以不妨让 LLM 帮你打磨它</b>——<em>typically top-level instructions, they are very important, so you need perfect formatting and perfect logic</em>。"
+   },
+   {
+    "beat": "refute",
+    "t": 4080,
+    "cap": "方法论：分类，然后成组地修",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,340,52,\"工具预测错\",\"r\");\nnote(\"4 种\",280,170,\"r\");\nboxNode(480,100,340,52,\"工具调用错\",\"r\");\nnote(\"返回错的 / 什么都不返回\",650,170,\"r\");\nboxNode(850,100,310,52,\"回答生成错\",\"r\");\nnote(\"前面都对，最后说岔了\",1005,170,\"r\");\nnote(\"讲者：be very <b>methodical</b> into categorizing kinds of errors\",640,280,\"y\");\nnote(\"and then <b>dealing with them in group</b>\",640,330,\"y\");\nsetCap(\"否则每修一个 bug 都是一次独立的冒险。\");",
+    "narration": "把三步的失败模式补齐：\n\n· <b>第一步 · 工具预测错</b>：上面那四种。\n· <b>第二步 · 工具调用错</b>：<em>工具返回了错的结果，或者什么都没返回</em>。⚠ <b>这一类往往不是 LLM 的问题——是你的 API 或后端服务有问题</b>。\n· <b>第三步 · 回答生成错</b>：<em>前面全对，但最后一步没把结果正确地传达给用户</em>。\n\n<b>而讲者在这一段结尾给的方法论，是这一集真正的收获：</b>\n\n<b>when you deal with tools and evaluations, you have a lot of possible errors. One thing that will help you navigate through this is to be very methodical into categorizing kinds of errors and then dealing with them in group.</b>\n\n他还加了一句很生动的话：<b>every time that you deal with a given loss, it's maybe just an adventure to solve</b>——<em>如果不分类，每修一个 bug 都是一次独立的冒险</em>。\n\n⚠ <b>分类的价值在于：同一类里的错误往往有同一个根因，修一次就能修掉一批。</b>而不分类的话，<em>你会把同一个根因的十个表现当成十个问题去修</em>。\n\n<b>这条方法论不限于 LLM——它适用于任何复杂系统的调试。</b>"
+   }
+  ],
+  "sum": {
+   "h": "把智能体的失败按三步分类，再成组地修",
+   "k": "沿用第七讲的三步做分类框架：<b>工具预测错</b>（四种：该用不用「punt」· 幻觉出不存在的工具 · 用错工具 · 参数填错）· <b>工具调用错</b>（返回错的 / 什么都不返回，⚠ 常常是你的 API 问题）· <b>回答生成错</b>。",
+   "m": "用户看到的都是「答得不对」，<b>但病因在系统的不同位置</b>。以「该用不用」为例：可能是<b>工具路由器的召回错误</b>（第七讲那个工具选择步是召回导向的），也可能是<b>模型没想到用</b>（则改 SFT 样本或提示词）—— <b>必须先分清再动手</b>。",
+   "w": "<s>误解</s>：「答不对就换个更强的模型」。讲者反复强调 <b>some causes could be coming from actually you</b> —— 模型在 SFT 阶段见过大量高质量 API，<b>函数名、参数名、描述</b>就是你能调的三个旋钮（也正是模型唯一看得见的东西）。",
+   "e": "⚠ 诊断「幻觉工具」的顺序值得学：<b>先看是不是普遍现象</b>（则多半是顶层指令不清）→ 再查命名与描述 → <b>最后</b>才考虑模型太弱。⚠ 方法论：<b>be methodical into categorizing errors and dealing with them in group</b> —— 否则每修一个 bug 都是一次独立的冒险。"
+  },
+  "quiz": {
+   "t": "智能体「该用工具却不用」（punt）时，讲者给的第一个排查方向是什么？",
+   "o": [
+    "模型的上下文窗口是否已被占满",
+    "工具的后端服务是否返回了空结果",
+    "温度设置是否过高导致采样跑偏",
+    "工具路由器是否没把该工具选进候选（召回错误）"
+   ],
+   "a": 3,
+   "w": "第七讲的<b>工具选择</b>步是<b>召回导向</b>的——它把候选裁剪到少数几个，但要尽量别漏。所以第一个要查的是：<b>该工具根本没被选进候选</b>（召回错误），那就去调路由器；只有确认它在候选里、模型却没想到用，才轮到改 SFT 样本或提示词。<b>两种病因在系统的不同位置。</b><s>「上下文占满」</s>不是讲者给的路径。<s>「后端返回空」</s>那属于<b>第二步「工具调用错」</b>，但 punt 的定义是<em>压根没调用</em>。<s>「温度过高」</s>与工具选择无关。"
+  }
+ },
+ {
+  "kp": 8,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 5087,
+    "cap": "四类基准，各量一样东西",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,250,56,\"知识\",\"b\");\nnote(\"MMLU\",235,185,\"b\");\nboxNode(390,105,250,56,\"推理\",\"g\");\nnote(\"AIME · PIQA\",515,185,\"g\");\nboxNode(670,105,250,56,\"代码\",\"y\");\nnote(\"SWE-bench\",795,185,\"y\");\nboxNode(950,105,210,56,\"安全\",\"r\");\nnote(\"HarmBench\",1055,185,\"r\");\nnote(\"⚠ 知识那一类，主要量的是<b>预训练做得好不好</b>\",640,320,\"y\");\nsetCap(\"前七集讲怎么自己评；这一集讲<b>公开的、可比的</b>那些。\");",
+    "narration": "前七集讲的是<b>怎么评你自己的系统</b>。这一集换个问题：<b>怎么把不同的模型放在一起比？</b>\n\n讲者把常见基准分成四类：\n\n· <b>知识</b>（MMLU）——<em>模型记住了多少事实</em>\n· <b>推理</b>（AIME 数学、PIQA 常识）——<em>能不能一步步推出来</em>\n· <b>代码</b>（SWE-bench）\n· <b>安全</b>（HarmBench）\n\n⚠ <b>讲者对第一类给了一个很有用的定位：</b>\n\n<b>this knowledge benchmark mostly, but not only, measures how well pretraining was done</b>——<em>它量的是预训练阶段，海量语料里的信息被模型保留了多少</em>。\n\n<b>也就是说：不同类别的基准，对应的是训练流水线的不同阶段。</b>知识对应预训练，推理对应第六讲那套 RL，代码两者都有。\n\n<em>看基准分数时知道它在量哪一段，比知道那个数字有用得多。</em>"
+   },
+   {
+    "beat": "wrong",
+    "t": 5150,
+    "cap": "「让模型自由作答，再找裁判评」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"基准就该让模型自由作答，再用 LaaJ 打分\",\"这样才像真实使用场景\");\nsetCap(\"<s>那会再引入一层误差</s> —— 所以基准几乎全是<b>选择题</b>。\");",
+    "narration": "一个合理的疑问：<b>基准为什么大多是选择题？那不太像真实使用场景。</b>\n\n<b>讲者给出的理由很干脆，而且它是这一集最值得带走的设计洞察：</b>\n\n<b>you don't ask the model to just come up with some answer and have maybe an LLM-as-a-Judge giving some opinion about it, because doing so introduces another layer of potential errors. The LLM-as-a-Judge isn't necessarily perfect.</b>\n\n<em>前面四集刚讲完裁判有三个偏差、而且「绝非穷举」。如果基准的评分依赖裁判，那不同模型的分数差异里就掺进了裁判的偏差。</em>\n\n<b>所以基准的设计原则是：让答案可以被硬编码地提取和比对。</b>\n\n讲者：this framing enables us to have <b>a hard-coded way to extract the answer output by the LLM</b>——<em>比如要求它在最后输出一个字母，然后直接比对</em>。\n\n⚠ <b>这是一个很值得记住的权衡：基准牺牲了「像真实场景」，换来了「可比性」。</b>"
+   },
+   {
+    "beat": "setup",
+    "t": 5220,
+    "cap": "知识与推理：MMLU · AIME · PIQA",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"MMLU\",\"b\");\nnote(\"约 <b>60 个学科</b>的四选一\",340,195,\"b\");\nnote(\"法律、医学、日常…… 需要<b>先验知识</b>\",340,243,\"b\");\nboxNode(730,105,440,58,\"AIME\",\"g\");\nnote(\"高中数学奥赛选拔考\",950,195,\"g\");\nnote(\"答案是<b>三位数</b> ⇒ 天然好判\",950,243,\"g\");\nboxNode(290,290,700,54,\"PIQA：物理常识，<b>二选一</b>，两万道\",\"y\");\nsetCap(\"讲者：MMLU 有点像这门课的期中考 —— 也是选择题。\");",
+    "narration": "<b>MMLU</b>（Massive Multitask Language Understanding）：约 <b>60 个学科</b>的四选一，<em>法律、医学、日常生活都有</em>。讲者说它 <b>a bit like CME 295 exams</b>——<em>这门课的考试也有选择题部分</em>。\n\n⚠ 他点明了 MMLU 的特点：<b>each problem mostly requires some prior knowledge about that topic. So it's not purely logic that will help you solve it.</b>——<em>这正是它能量「预训练记住了多少」的原因</em>。\n\n<b>AIME</b>：美国高中数学奥赛的选拔考试，<b>很难</b>。而它特别适合当基准的原因很实际：<b>答案要求写成一个三位数</b>——<em>格式天然受约束，好判</em>。\n\n讲者说题面常常只有一句话，<em>看着简单，但你必须把推理写下来才找得到答案</em>——<b>这正是要测的东西</b>。\n\n<b>PIQA</b>（Physical Interaction QA）：<b>物理常识</b>，<em>二选一，两万道题</em>。\n\n他举的例子很好：<b>「东西掉进地毯里怎么找？」——用密封的吸尘器，还是套上发网的吸尘器？</b><em>答案是发网：密封的会把东西吸走，套发网的能把它拦在外面。</em>\n\n⚠ <b>这叫常识，但未必显然。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 5290,
+    "cap": "SWE-bench：用真实 PR 当考题",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"怎么出题\",\"g\");\nnote(\"在热门 Python 仓库里找 PR\",340,195,\"g\");\nnote(\"条件：<b>修了一个 issue</b> 且 <b>带了测试</b>\",340,243,\"g\");\nboxNode(730,105,440,58,\"怎么判分\",\"y\");\nnote(\"给模型代码库 + issue，要它给出 <b>patch</b>\",950,195,\"y\");\nnote(\"打上补丁，<b>看测试过不过</b>\",950,243,\"y\");\nnote(\"⚠ 妙处：对错的判据是<b>原作者自己写的测试</b>\",640,352,\"r\");\nsetCap(\"讲者：这和「测试驱动开发」是同一个思路。\");",
+    "narration": "<b>SWE-bench</b>（讲者说论文没定义缩写，<em>但很可能是 software engineering</em>）的出题方式特别巧妙：\n\n<b>在热门的 Python 仓库里，筛出那些「修复了某个 issue」且「同时引入了测试」的 pull request。</b>\n\n⚠ <b>为什么要「同时引入了测试」？</b>讲者的推理很干净：\n\n<b>if you have a PR that introduces some tests and some fix, you can fairly assume that these tests were not passing without the fix, and that they are passing after the fix.</b>\n\n<em>也就是说——这个 PR 自带了一个「改对了没有」的客观判据，而且是原作者写的。</em>\n\n<b>评测流程</b>：给模型<b>代码库 + issue 描述</b>，要它产出一个 <b>patch</b>；<b>打上去，跑测试，看通不通过</b>。\n\n讲者提到 <b>test-driven development</b>：<em>这正是那个思路——有测试，就有客观标准</em>。\n\n⚠ <b>回到第六讲：这就是「可验证奖励」的典型例子。</b>而这也解释了为什么代码和数学是推理模型最先突破的领域。"
+   },
+   {
+    "beat": "body",
+    "t": 5360,
+    "cap": "安全基准：唯一靠分类器判的",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(240,105,800,58,\"HarmBench：四类有害行为\",\"r\");\nnote(\"标准 · 版权 · 上下文相关 · 多模态\",640,200,\"r\");\nnote(\"⚠ 有害回答是开放式的，<b>没法正则匹配</b>\",640,258,\"y\");\nboxNode(290,310,700,54,\"⇒ 只能训一个<b>分类器</b>来判 —— 它自己也会错\",\"r\");\nsetCap(\"四类基准里，<b>只有这一类</b>破了「硬编码判分」那条规则。\");",
+    "narration": "<b>HarmBench</b>（讲者推测是 harmful behavior benchmark），分四类：<b>标准（常规有害行为）· 版权（能否生成受版权保护的内容）· 上下文相关 · 多模态</b>。\n\n⚠ <b>但它破了上一镜那条规则：</b>\n\n<b>有害的输出是开放式的，你没法靠正则匹配穷举它们。</b>所以 HarmBench <b>训了一个分类器</b>来判定。\n\n讲者明确点出了代价：<b>this is the only benchmark among those that I presented that is done based on a classifier that can itself be prone to error</b>——<em>其他基准的判据都「grounded in constrained set of values」，而这一个的判据自己也会出错</em>。\n\n⚠ <b>他还讲了一个这个基准里很有意思的设计判断：</b>\n\n<b>它把「模型能力」和「安全性」分开了</b>——<em>如果模型试图执行有害行为，哪怕因为能力不够而失败了，这次攻击也算成功</em>。\n\n<b>这个区分很重要：安全要测的是「意图」，不是「结果」。</b>一个想作恶但做不好的模型，<em>在能力提升之后就会变成一个能作恶的模型</em>。"
+   },
+   {
+    "beat": "refute",
+    "t": 5430,
+    "cap": "⚠ 安全基准跨模型不可比",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"其他三类\",\"g\");\nnote(\"有公认的对错 ⇒ <b>跨模型可比</b>\",340,195,\"g\");\nboxNode(730,105,440,58,\"安全这一类\",\"r\");\nnote(\"每家的<b>安全政策不同</b>\",950,195,\"r\");\nnote(\"没人追求在这个基准上拿 100%\",950,243,\"r\");\nnote(\"⚠ 所以模型卡里会有「安全」一节，但<b>不做跨模型对比</b>\",640,352,\"y\");\nsetCap(\"用安全基准前，<b>先去看它具体测了什么</b>。\");",
+    "narration": "最后一条限定，讲者讲得很细，<b>而它纠正了一个很普遍的误读</b>：\n\n<b>安全基准的分数，不能拿来跨模型比较。</b>\n\n理由：<b>safety is a bit subjective with respect to the LLM provider. Every company has its own policy. So you cannot necessarily compare performance on a given benchmark across models, just because all these providers might not claim they want to perfectly solve that benchmark 100%.</b>\n\n<em>也就是说——一家公司在某个安全基准上得分低，可能不是因为它「不安全」，而是因为它的政策和这个基准的假设不一致。</em>\n\n<b>讲者说这就是为什么：模型卡里通常有「安全」一节描述他们做了什么工作，但不会给出跨模型的基准对比。</b>\n\n⚠ <b>他给的实务建议是：</b>\n\n<b>when you execute a safety benchmark, you should check the content of the benchmark in order to put a meaning behind it.</b>\n\n<em>——去看它具体测了哪些行为，判断它的假设是否和你的政策一致。否则那个数字对你没有意义。</em>"
+   }
+  ],
+  "sum": {
+   "h": "四类基准，以及它们为什么几乎全是选择题",
+   "k": "<b>知识</b>（MMLU，约 60 学科四选一，⚠ 主要量<b>预训练做得好不好</b>）· <b>推理</b>（AIME 答案是三位数 · PIQA 物理常识二选一）· <b>代码</b>（SWE-bench）· <b>安全</b>（HarmBench）。",
+   "m": "⚠ 共同设计原则：<b>让答案可被硬编码提取</b>。因为用 LaaJ 来判会<b>再引入一层误差</b>（前四集刚讲完裁判有偏差且「绝非穷举」）。<b>基准牺牲「像真实场景」换来「可比性」。</b>",
+   "w": "<b>SWE-bench 的出题方式</b>值得学：筛出「修了 issue <b>且同时引入测试</b>」的真实 PR —— 那组测试<b>自带一个原作者写的客观判据</b>（改之前不过、改之后过）。这正是第六讲说的「可验证奖励」。",
+   "e": "⚠ <b>HarmBench 是唯一靠分类器判定的</b>，所以<b>判据自己也会出错</b>；它还把<b>意图与能力分开</b>（试图作恶但失败也算攻击成功）。⚠ <b>安全基准跨模型不可比</b> —— 每家政策不同、没人追求 100%，用之前<b>先看它具体测了什么</b>。"
+  },
+  "quiz": {
+   "t": "公开基准为什么大多设计成选择题或有固定答案格式？",
+   "o": [
+    "因为选择题的题目更容易大批量生成",
+    "因为自由作答需要用 LLM 裁判评分，会再引入一层误差",
+    "因为选择题更接近真实用户的使用方式",
+    "因为固定格式可以减少模型的推理 token 消耗"
+   ],
+   "a": 1,
+   "w": "讲者的理由：<b>doing so introduces another layer of potential errors — the LLM-as-a-Judge isn't necessarily perfect</b>。前四集刚讲完裁判有位置/冗长/自我偏好三个偏差且「绝非穷举」，若基准依赖它，模型间的分数差异里就掺进了裁判的偏差。所以要 <b>a hard-coded way to extract the answer</b>。⚠ 这是<b>牺牲「像真实场景」换「可比性」</b>的权衡。<s>「容易生成」</s>MMLU 等基准的题目大多来自真实考试，并不便宜。<s>「更接近真实使用」</s>恰恰相反。<s>「减少 token」</s>不是设计动机。"
+  }
+ },
+ {
+  "kp": 9,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 6072,
+    "cap": "智能体怎么评：让模型扮演用户",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,300,56,\"模拟的「用户」\",\"y\");\nnote(\"<b>由另一个大模型扮演</b>\",260,195,\"r\");\narrow(414,138,500,138,\"sm\",0);\nboxNode(540,110,300,56,\"被测智能体\",\"g\");\narrow(844,138,930,138,\"sm\",0);\nboxNode(950,110,210,56,\"工具 / 数据库\",\"b\");\nnote(\"判分看<b>数据库最终状态</b>对不对\",640,290,\"g\");\nnote(\"为什么用户要模拟：多轮对话<b>没法硬编码</b>\",640,358,\"y\");\nsetCap(\"<b>tau-bench</b>（Tool-Agent-User）。航空与零售两个领域。\");",
+    "narration": "上一集那些基准都是单轮的。<b>智能体怎么评？</b>\n\n<b>tau-bench</b>——<em>τ 取自 Tool-Agent-User</em>。它提供两个领域（<b>航空和零售</b>）的工具集，一套<b>政策</b>（<em>智能体能做什么、不能做什么</em>），以及一批任务。\n\n⚠ <b>最有意思的设计在用户那一侧：用户是由另一个大模型模拟的。</b>\n\n讲者解释了为什么必须这样：<b>the user interaction with the agent cannot be hard-coded, because further turns will depend on previous ones.</b>\n\n<em>你没法预先写死用户的第二句话——它取决于智能体第一步做了什么。</em>\n\n<b>怎么判分？看数据库的最终状态。</b>讲者：calculating a reward that's a function of the <b>database change</b>——<em>用户想改签，那就看票务记录最终是不是改对了</em>。\n\n⚠ <b>这个判据很聪明：它绕开了「评判对话质量」这件难事，直接看「事情办成了没有」。</b>"
+   },
+   {
+    "beat": "wrong",
+    "t": 6140,
+    "cap": "「那还是用 pass@k 吧」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"第六讲那个 pass@k，这里直接用就行\",\"k 次里至少成功一次\");\nsetCap(\"<s>要的恰恰相反</s>：自动化场景要的是<b>每次都成</b>。\");",
+    "narration": "第六讲讲过 <b>pass@k</b>——<b>k 次尝试里至少一次成功</b>的概率。<b>这里直接用？</b>\n\n<b>不行，而且理由很有说服力。</b>\n\n<em>pass@k 适合的是那种「你可以多试几次、而且能判断哪次对了」的场景——比如写代码，生成十个版本挑能跑通的那个。</em>\n\n<b>但 tau-bench 测的是「用智能体去自动化客服流程」。</b>讲者点明了这个场景真正在乎的东西：\n\n<b>an agent in the loop here could be a way to see if automating the agent side of things could help. And in order to truly know whether it can help, you want to have reliability and consistency in mind.</b>\n\n<em>一个航空公司的改签机器人，十次里有一次办对，是完全不可用的——因为出错的那九次，每一次都是一个真实用户被坑了，而且你没有机会「重试」。</em>\n\n<b>自动化要的不是「有可能成功」，是「每次都成功」。</b>"
+   },
+   {
+    "beat": "setup",
+    "t": 6210,
+    "cap": "pass^k：k 次全部成功",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"pass@k（第六讲）\",\"y\");\nnote(\"k 次里<b>至少一次</b>成功\",340,195,\"y\");\nnote(\"适合：能多试、能判对错的场景\",340,243,\"y\");\nboxNode(730,105,440,58,\"pass^k（这一讲）\",\"g\");\nnote(\"k 次<b>全部</b>成功\",950,195,\"g\");\nnote(\"适合：要<b>可靠性</b>的自动化场景\",950,243,\"g\");\nnote(\"讲者说这是个 <b>funny word play</b> —— 一个 @ 换成了 ^\",640,352,\"r\");\nsetCap(\"两个符号差一点，<b>含义正好相反</b>。\");",
+    "narration": "于是 tau-bench 引入了 <b>pass^k</b>——讲者说这是个 <b>funny word play</b>：\n\n· <b>pass@k</b>：k 次里<b>至少一次</b>成功。\n· <b>pass^k</b>：k 次<b>全部</b>成功。\n\n<b>一个 @ 换成 ^，含义正好相反。</b>\n\n⚠ <b>而两者的适用场景也正好相反：</b>\n· <b>pass@k</b> 适合「<em>可以多试、而且能判断哪次对了</em>」——<b>人在环里挑</b>。\n· <b>pass^k</b> 适合「<em>只能跑一次、而且没人检查</em>」——<b>全自动</b>。\n\n<b>这个区分值得记住，因为它直接对应你打算怎么部署这个系统。</b>\n\n⚠ 讲者在这里做了个很好的教学处理：<b>他说时间不够推导 pass^k 的公式，但让大家回去参考第六讲 pass@k 的推导自己做</b>——<em>I just want you to be convinced that this is indeed the formula. If you're not convinced, please feel free to do it at home.</em>\n\n<em>（思路是一样的：从 n 个样本里抽 k 个，算「全部成功」而不是「全部失败」。）</em>"
+   },
+   {
+    "beat": "body",
+    "t": 6280,
+    "cap": "基准画的是「画像」，不是排名",
+    "draw_js": "clearScene();setEq(null);setBig(null);\ncurve([[180,350],[320,280],[480,235],[660,205],[860,190],[1060,182]],\"fit g\");\nnote(\"纵轴：性能\",170,140,\"b\");\nnote(\"横轴：价格（或延迟、上下文长度…）\",640,392,\"b\");\nnote(\"边界上这些 = <b>帕累托前沿</b>\",820,255,\"g\");\nnote(\"前沿之下的，<b>在这个维度上被支配</b>\",400,180,\"r\");\nsetCap(\"讲者给了自己的用法，但强调 <b>not global recommendations</b>。\");",
+    "narration": "讲完基准，讲者给了一个很重要的定位：\n\n<b>benchmarks are here to characterize the profile of your LLM. So it's not all good or all bad.</b>\n\n<em>不同模型各有长短，没有一个在所有维度上都最好。</em>\n\n<b>怎么系统地看？画帕累托前沿。</b>把性能对另一个你在乎的维度（<em>价格、延迟、安全、上下文长度</em>）画出来，<b>边界上那些模型就是「在这个价位上你能买到的最好」</b>。\n\n⚠ <b>讲者给了自己的实际用法，而且特意加了限定：</b>\n\n<b>Sonnet 模型写代码很好用；要又快又便宜时用 Gemini Flash。</b>但紧接着：<b>these are not, by any means, global recommendations. Your own use case and your own experience can guide you into having a profile of models that suits your tasks best.</b>\n\n<em>这个限定本身就是在示范：讲出自己的经验，同时说清它的适用范围。</em>"
+   },
+   {
+    "beat": "body",
+    "t": 6350,
+    "cap": "数据污染：答案可能已经在训练集里",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(240,105,800,58,\"基准的题目和答案，可能已经进了训练语料\",\"r\");\nnote(\"那分数就不再反映能力，只反映<b>记住了多少</b>\",640,205,\"r\");\nnote(\"三种对策：\",640,268,\"g\");\nnote(\"哈希值核对 · 屏蔽名单（防联网查到）· 用<b>全新考题</b>\",640,322,\"g\");\nnote(\"⚠ 数学这类领域有「每年出新题」这个奢侈条件\",640,382,\"y\");\nsetCap(\"基准有效的前提是：<b>模型没见过它</b>。\");",
+    "narration": "基准还有一个前提性的问题：<b>数据污染</b>。\n\n讲者说得很直接：<b>these benchmarks are as good as the assumption of whether you have seen the actual benchmark results or not. So make sure you haven't seen them.</b>\n\n<em>如果基准的题目和答案已经出现在训练语料里，那分数反映的就不是能力，而是「记住了多少」。</em>\n\n<b>三种对策</b>：\n· <b>哈希值</b>——<em>核对题目有没有出现在语料里</em>。\n· <b>屏蔽名单</b>——<em>工具调用场景下，禁止访问可能含有答案的网站</em>。\n· <b>用全新考题</b>——讲者说数学领域有这个 <b>luxury</b>：<em>AIME 每年出新题，模型肯定没见过</em>。\n\n⚠ <b>注意第三条的含义：它说明大多数领域没有这个奢侈条件。</b>\n\n<em>而且污染很难完全排除——训练语料有几万亿 token，谁也没法逐条检查。所以基准分数总是带着一个「可能虚高」的不确定性。</em>"
+   },
+   {
+    "beat": "refute",
+    "t": 6400,
+    "cap": "古德哈特：度量变成目标，就不再是好度量",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(190,110,900,70,\"When a measure becomes a target, it ceases to be a good measure\",\"r\");\nnote(\"第五讲：奖励模型是代理 ⇒ <b>奖励黑客</b>\",640,240,\"y\");\nnote(\"第五集：LaaJ 分数是代理 ⇒ <b>别过度优化</b>\",640,295,\"y\");\nnote(\"这一集：基准是代理 ⇒ <b>古德哈特定律</b>\",640,350,\"r\");\nsetCap(\"同一个形状，这门课里出现了<b>三次</b>。\");",
+    "narration": "讲者用<b>古德哈特定律</b>收尾整讲：\n\n<b>When a measure becomes a target, it ceases to be a good measure.</b>\n（<em>当一个度量变成目标，它就不再是一个好度量。</em>）\n\n⚠ <b>请把这三处放在一起看，它们是同一个结构：</b>\n\n· <b>第五讲</b>：奖励模型是人类偏好的代理 ⇒ <em>优化太狠就钻它空子（奖励黑客）</em>。\n· <b>本讲第五集</b>：LaaJ 分数是人工评分的代理 ⇒ <em>别对着代理过度优化</em>。\n· <b>这一集</b>：基准分数是真实能力的代理 ⇒ <em>一旦全行业都盯着它，它就失效了</em>。\n\n<b>三次，同一个形状。</b>\n\n讲者给的结论很克制也很实在：<b>benchmark results are to be weighed against what you're truly looking for. These results don't necessarily tell you whether a model is good for you or not.</b>\n\n他提了 <b>ChatBot Arena</b>（<em>真人对战打分</em>）作为一种更贴近真实体验的补充，<b>但最后那句才是重点</b>：\n\n<b>ultimately, you should be the one trying out these models and see for yourself which one corresponds to your use case.</b>\n\n<em>——没有任何一个数字能替你做这个判断。</em>"
+   }
+  ],
+  "sum": {
+   "h": "pass^k · 帕累托前沿 · 数据污染 · 古德哈特",
+   "k": "<b>tau-bench</b> 评智能体：<b>用户由另一个大模型模拟</b>（多轮对话没法硬编码），判分看<b>数据库最终状态</b>。它引入 <b>pass^k</b> = k 次<b>全部</b>成功的概率。",
+   "m": "⚠ <b>pass@k 与 pass^k 的适用场景正好相反</b>：前者适合「可以多试、有人挑」（第六讲写代码），后者适合「只跑一次、没人检查」的<b>自动化</b> —— 自动化要的是<b>可靠性</b>，十次办对一次是不可用的。",
+   "w": "基准画的是<b>画像不是排名</b>：把性能对价格/延迟/上下文长度画出来，边界上那些是<b>帕累托前沿</b>。⚠ 讲者给了自己的用法（Sonnet 写代码、Gemini Flash 图快省）<b>但特意声明这不是普适建议</b>。",
+   "e": "⚠ <b>数据污染</b>：基准有效的前提是模型没见过它。对策是哈希核对、屏蔽名单、以及<b>用全新考题</b>（数学才有这个奢侈条件）。⚠ 收尾的<b>古德哈特定律</b>——「当一个度量变成目标，它就不再是好度量」——与第五讲的奖励黑客、本讲第五集的「别优化代理」<b>是同一个结构，出现了三次</b>。"
+  },
+  "quiz": {
+   "t": "tau-bench 为什么用 pass^k 而不是第六讲的 pass@k？",
+   "o": [
+    "因为智能体任务的单次成功率太低，pass@k 会饱和",
+    "因为 pass^k 的计算复杂度更低",
+    "因为它测的是自动化场景，需要的是可靠性——每次都成功，而不是至少成功一次",
+    "因为智能体无法并行多次尝试"
+   ],
+   "a": 2,
+   "w": "讲者的理由：要判断「自动化这件事能不能帮上忙」，<b>you want to have reliability and consistency in mind</b>。一个航空改签机器人十次办对一次是<b>完全不可用</b>的——出错的九次每次都坑了一个真实用户，而且没有重试机会。所以要的是 <b>k 次全部成功</b>的概率。⚠ 两者适用场景正好相反：pass@k 适合「可以多试、有人挑」，pass^k 适合「只跑一次、没人检查」。<s>「会饱和」</s>不是讲者给的理由。<s>「复杂度更低」</s>两者都是简单组合数。<s>「无法并行」</s>可以并行，但<b>并行与否不改变「要不要每次都成」这个需求</b>。"
+  }
+ }
+]
