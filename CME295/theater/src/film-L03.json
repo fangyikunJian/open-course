@@ -1,0 +1,28 @@
+{
+ "file": "L03-大语言模型.html",
+ "html_title": "CME295 L03 · 大语言模型 · 放映厅",
+ "title": "CME295 · Lecture 3 · 只留解码器之后，剩下的问题全是「怎么挑下一个词」",
+ "subtitle": "%d 个知识点 · 讲义 p8–122 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "https://www.youtube.com/watch?v=Q5baLehv5So&t=",
+ "prelude_js": "// 内容权威：讲稿 corpus/transcripts/L3.txt（108 分 25 秒）\n//   + 官方讲义 fall25-cme295-lecture3.pdf（125 页）\n// https://cme295.stanford.edu/slides/fall25-cme295-lecture3.pdf\n// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。\n//\n// 时间码用 scratchpad 的定位器从 L3_timed.txt 的 189 个锚点插值得到。\n// 逐条核过的原话：\n//   [3:31]   LLM 是 decoder-only 的 Transformer\n//   [10:50]  MoE：门控 G（也叫 router）决定哪个专家参与\n//   [13:xx]  稀疏 MoE 只选 top-k 专家，k 常取 1 或 2；计量单位是 FLOPS\n//   [15:xx]  专家放在 **FFN** 那一层，因为参数量 d_model×d_ff 远大于注意力的投影矩阵\n//   [16:xx]  路由在 **token 级**：同一句话里不同 token 可以走不同专家\n//   [21:17]  routing collapse：「the router always chooses some experts, but not others」\n//   [22:xx]  缓解靠在损失里加一项，让 f_i 与 P_i 更接近均匀；还有 noisy gating\n//   [24:xx]  增加专家 = 增加**参数量**而不增加**激活参数**；Switch Transformer 到 1.x 万亿\n//   [41:38]  beam search：保留 k 条最可能的路径；k 叫 beam size / beam width\n//   [43:xx]  长度惩罚：序列越长连乘越小，原样用会**偏好短句**\n//   [45:xx]  「beam search is actually not something that people typically use」，\n//            机器翻译才用；通用生成要的是多样性\n//   [48:40]  取最高概率叫 greedy decoding，它「locally optimal, but not necessarily globally optimal」\n//   [49:37]  top-k 采样　[50:08] top-p（累积概率超过阈值的最小集合）\n//   [52:45]  温度 T 在 softmax 的指数里；讲者当场做了配方法证明：\n//            T→0 分布变尖（只剩最大那个），T→∞ 变均匀\n//   [65:45]  guided decoding（只允许「合法」的下一个 token）—— 本片未展开\n//   [74:30]  in-context learning：「you don't actually learn anything with respect to the weights」\n//   [75:15]  zero-shot 与 few-shot\n//   [77:xx]  ⚠ 讲者亲自打的补丁：新模型推理能力变强后，**把指令写好可能比给例子更好**，\n//            因为例子会把模型「constrain into given sets of examples that are finite」\n//   [78:50]  chain of thought：先给推理过程再给答案；还能用来**调试**（看它哪一步错）\n//   [82:18]  self-consistency：采样多次 + 多数投票；**各路并行**，延迟约等于最慢那一路\n//   [89:06]  KV cache：只缓存 K 和 V，不缓存 Q（旧 token 的 query 对新 token 没用）\n//   [94:25]  PagedAttention（vLLM）：按固定小块分配，治内部/外部碎片\n//   [97:22]  MLA（DeepSeek）：把 K/V 投影**分解**出一个低维中间空间，\n//            压缩矩阵在 K 与 V 之间共享、还跨 h 个头共享 —— 缓存从 h 份变 1 份\n//   [101:37] 投机解码：小模型 draft + 接受/拒绝采样，**可证明**与大模型分布一致；\n//            真正的理由是推理**受显存带宽限制**，不是受算力限制\n//   [106:44] MTP：把 draft 模型**并进同一个模型**，训练目标从预测下一个词改成预测多个词\n//\n// ⚠ 本片**没有**讲：guided decoding（p65–75）、LLM 术语四维拆解（p77–80）、\n//   MoE 的可解释性图（p31）。",
+ "kp_names": {
+  "1": "1 · LLM 是什么：<b>把编码器也丢掉</b>　<small>讲义 p8–15</small>",
+  "2": "2 · <b>MoE</b>：参数翻几十倍，每次只算一份　<small>讲义 p17–28</small>",
+  "3": "3 · <b>路由坍缩</b>：专家没人用，就等于不存在　<small>讲义 p29–31</small>",
+  "4": "4 · 贪心不是最优：<b>beam search</b> 与它为什么没人用　<small>讲义 p45–55</small>",
+  "5": "5 · 采样、top-k/top-p 与<b>温度</b>　<small>讲义 p56–64</small>",
+  "6": "6 · <b>不改权重</b>也能教会它：ICL · CoT · 自洽　<small>讲义 p77–85</small>",
+  "7": "7 · <b>KV cache</b> 这条线：GQA → PagedAttention → MLA　<small>讲义 p91–115</small>",
+  "8": "8 · <b>投机解码</b>：用小模型替大模型抢跑　<small>讲义 p116–122</small>"
+ },
+ "kp_base": { "1": 211, "2": 650, "3": 1110, "4": 2498, "5": 2920, "6": 4470, "7": 5346, "8": 6097 },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"CME295 · Lecture 3\",\"Large Language Models\",\n  \"讲义 125 页 · 讲稿 108 分 25 秒 · 本片取 8 条主线\");",
+  "narration": "上一讲最后留了一句话：BERT 丢掉解码器，而<b>今天的 LLM 丢掉的是编码器</b>。这一讲就从那里开始。\n\n一旦只剩解码器，模型要做的事就只有一件——<b>预测下一个词</b>。整整一讲的内容，几乎都是围绕这一件事派生出来的：\n\n· <i>模型怎么变大</i>（2 集）：MoE 让参数翻几十倍而每次只算一小份；代价是<b>路由坍缩</b>。\n· <i>怎么挑下一个词</i>（2 集）：贪心 → beam search → 采样 → top-k/top-p → 温度。⚠ 这里有个常见误解：beam search 听起来更高级，但<b>通用生成里几乎没人用它</b>。\n· <i>不改权重怎么教它</i>（1 集）：ICL、思维链、自洽。\n· <i>怎么算得起</i>（2 集）：KV cache 那条线，以及投机解码。\n\n⚠ 最后两集有一个贯穿的事实，值得先知道：<b>推理阶段卡住你的通常不是算力，是显存带宽。</b>这一讲后半所有的技巧，几乎都是在省搬运而不是省计算。"
+ },
+ "closing": {
+  "t": 6480,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"CME295 · Lecture 3\",\"下一个词，挑完了\",\n  \"下一讲：这些权重是怎么来的 —— 预训练与微调\");",
+  "narration": "把八集收成一条线：<b>只剩解码器之后，一切都是「怎么挑下一个词」的子问题。</b>\n\n· <i>模型多大</i>：MoE 把<b>参数量</b>和<b>激活参数量</b>拆成两件事——可以有万亿参数，而每个 token 只过其中一小份。代价是路由必须被<b>强迫</b>均匀，否则专家白养。\n· <i>怎么挑</i>：贪心是局部最优；beam search 更接近全局最优但<b>缺少多样性</b>，所以只在机器翻译那类场景用；通用生成一律<b>采样</b>，再用 top-k / top-p 把长尾切掉，用温度调整分布的尖锐程度。\n· <i>怎么教</i>：ICL 完全不动权重。⚠ 而讲者亲自给 few-shot 打了补丁——<b>新模型上，把指令写清楚可能比给例子更好</b>，因为例子会把它限制在有限的几个样板里。\n· <i>怎么算得起</i>：KV cache → GQA → PagedAttention → MLA，一路都在<b>压缓存</b>；投机解码和 MTP 则是在<b>一次前向里多推进几个 token</b>。\n\n⚠ 后半这些技巧之所以成立，全靠一个前提：<b>推理是 memory bound 的</b>，一次前向算 1 个 token 和算 5 个 token 代价差不多。<em>这个前提一旦变了（比如超长上下文下计算重新成为瓶颈），这些结论都要重算。</em>\n\n下一讲：这些权重本身是怎么来的。"
+ }
+}

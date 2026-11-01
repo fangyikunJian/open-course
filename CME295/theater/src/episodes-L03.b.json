@@ -1,0 +1,270 @@
+[
+ {
+  "kp": 5,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 2920,
+    "cap": "抽签，但别让冷门中奖",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nfillBars({max:0.35,vals:[0.31,0.24,0.17,0.11,0.06,0.04,0.03,0.02],\n  x:270,y:344,w:740,h:210,\n  label:function(i){return [\"fluffy\",\"gentle\",\"kind\",\"smart\",\"big\",\"old\",\"blue\",\"airplane\"][i];},\n  cls:function(i){return i<4?\"g\":(i>6?\"r\":\"b\");}});\nnote(\"下一个词的概率分布\",640,112,\"y\");\nnote(\"airplane 概率很低 —— 但<b>不是零</b>\",640,392,\"r\");",
+    "animated": true,
+    "watch": "柱子从右往左长出来。盯住最右边那根 airplane —— 它矮得几乎看不见，但它确实有高度，也就确实可能被抽中。",
+    "narration": "上一集结尾换了目标：<b>不找最可能的句子，按分布抽</b>。\n\n好处立刻就有：同一个问题问两次，答案不一样；输出有了多样性；也不用维护 k 条路径。\n\n但看这张分布图。fluffy、gentle、kind、smart 概率高，抽中它们很合理。可词表里还有几万个词，<b>每一个的概率都不是零</b>——包括完全不着调的 airplane。\n\n讲者说得很明白：these very low probability tokens, they can still, <b>theoretically, be sampled</b>. But it's not necessarily something that we want。\n\n问题是：<b>词表有几万个词，长尾加起来的总概率并不小。</b>每一步都有可观的几率抽到一个离谱的词，而一旦抽中，后面全得顺着它编下去。\n\n这一集就是在解决：<b>怎么保住随机性，同时把长尾切掉。</b>"
+   },
+   {
+    "beat": "wrong",
+    "t": 2980,
+    "cap": "「那就设个概率下限」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"低于 0.01 的词一律不要\",\"设一个固定的概率阈值\");\nsetCap(\"<s>不行</s>。同一个阈值，在不同的分布上含义完全不同。\");",
+    "narration": "最直接的想法：<b>设一个固定下限，低于 0.01 的词一律排除</b>。\n\n问题在于<b>分布的形状是变化的</b>：\n\n· 有时模型非常确定——比如「中华人民共和」后面几乎只能是「国」，最高那个词概率 0.98，其余全在 0.001 以下。此时阈值 0.01 会把<em>所有</em>备选都砍掉，只剩一个，退化成贪心。\n· 有时模型很不确定——比如故事开头该写什么，可能有 50 个词各占 0.02 左右。此时阈值 0.01 一个都砍不掉，等于没设。\n\n<b>同一个绝对阈值，在「尖锐」和「平坦」两种分布上的效果恰好相反。</b>\n\n所以实际用的两种方法都是<b>相对</b>的——一个相对于<i>排名</i>，一个相对于<i>累积概率</i>。下面两镜。"
+   },
+   {
+    "beat": "setup",
+    "t": 3040,
+    "cap": "top-k：只留排名前 k 个",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nfillBars({max:0.35,vals:[0.31,0.24,0.17,0.11,0.06,0.04,0.03,0.02],\n  x:270,y:330,w:740,h:200,\n  label:function(i){return i<4?\"留\":\"切\";},\n  cls:function(i){return i<4?\"g\":\"r\";}});\nnote(\"top-k = 4：按排名切，只从前 4 个里抽\",640,112,\"y\");\nnote(\"不管分布什么形状，永远留 k 个\",640,382,\"r\");",
+    "animated": true,
+    "watch": "盯住右边四根被标成「切」的柱子 —— 无论它们多高，只要排名在 4 名之后就一律出局。",
+    "narration": "<b>top-k 采样</b>：按概率排序，<b>只保留前 k 个</b>，重新归一化后在它们之间抽。\n\n讲者 <b>49:37</b>：you select the top k highest probable tokens and you sample from them。k=4 就是取最高的四个。\n\n它解决了上一镜那个问题——<b>k 是相对于排名的，不受分布绝对数值影响</b>。\n\n但它引入了自己的毛病，而且正好是上一镜的镜像：\n\n· 分布很<b>尖锐</b>时（最高那个 0.98），top-k=40 会把 39 个几乎不可能的词<em>强行拉进</em>候选池。\n· 分布很<b>平坦</b>时（50 个词各 0.02），top-k=4 会把 46 个同样合理的词砍掉，<em>过度限制</em>。\n\n<b>k 是个固定的数字，而分布的「有效宽度」是变的。</b>于是有了第二种。"
+   },
+   {
+    "beat": "body",
+    "t": 3110,
+    "cap": "top-p：按累积概率切",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nfillBars({max:0.35,vals:[0.31,0.24,0.17,0.11,0.06,0.04,0.03,0.02],\n  x:270,y:330,w:740,h:200,\n  label:function(i){return [\"0.31\",\"0.55\",\"0.72\",\"0.83\",\"0.89\",\"0.93\",\"0.96\",\"0.98\"][i];},\n  cls:function(i){return i<4?\"g\":\"r\";}});\nnote(\"top-p = 0.8：从高到低累加，超过 0.8 就停\",640,112,\"y\");\nnote(\"标的是<b>累积</b>概率 —— 这里到第 4 个就够了\",640,382,\"g\");",
+    "animated": true,
+    "watch": "柱子下面标的是累积概率。盯住第 4 根 —— 累积刚过 0.8，切口就落在这里；分布若更尖，切口会更靠左。",
+    "narration": "<b>top-p 采样</b>（也叫 nucleus sampling）：按概率从高到低<b>累加</b>，<b>一旦累计超过阈值 p 就停</b>，只在这些词里抽。\n\n讲者 <b>50:08</b>：you limit yourself to the highest probable tokens such that their <b>cumulative probability is more than a threshold p</b>。\n\n关键在于<b>候选个数是自适应的</b>：\n\n· 分布<b>尖锐</b>时（最高 0.98），累加一个就超过 0.8 了 ⇒ <i>只留 1 个</i>，自动退化成贪心，不会拉进垃圾。\n· 分布<b>平坦</b>时（各 0.02），要累加 40 个才到 0.8 ⇒ <i>留 40 个</i>，保住多样性。\n\n<b>这正是 top-k 做不到的：它让切口跟着分布的形状走。</b>\n\n⚠ 两者不是互斥的，实践中常常<b>同时</b>设 k 和 p，取更严的那个作为兜底。"
+   },
+   {
+    "beat": "body",
+    "t": 3180,
+    "cap": "温度：在算概率那一步动手",
+    "draw_js": "clearScene();setBig(null);setCap(null);\nsetEq(\"$$P(w_i)=\\\\frac{e^{x_i/T}}{\\\\sum_j e^{x_j/T}}$$\",\"top\");\nnote(\"T 不在采样那一步，它在<b>算概率</b>那一步\",640,330,\"y\");\nnote(\"T 改的是分布本身，top-k/top-p 改的是候选集合\",640,382,\"g\");\nsetCap(\"讲者 52:45：温度 <b>T</b> 就藏在 softmax 的指数里。\");",
+    "narration": "第三个旋钮和前两个<b>作用在不同的地方</b>，这点最容易混。\n\n先补上一个一直跳过的环节：<b>概率是怎么来的？</b>模型最后一层把 d_model 维向量<b>线性投影到词表大小 V</b>，得到每个词的分数（logits），再过 softmax 变成概率。\n\n<b>温度 T</b> 就加在这里：softmax 的指数里，每个 logit 先<b>除以 T</b>。\n\n⚠ 关键区别：\n· <b>top-k / top-p</b> 在概率算好<em>之后</em>动手，改的是<b>候选集合</b>。\n· <b>温度</b> 在算概率<em>的时候</em>动手，改的是<b>分布本身的形状</b>。\n\n讲者在黑板上当场做了个配方法证明：把分子分母同乘 e^(−x_k/T)（k 是最大那个 logit 的下标），于是分母变成 <b>1 + Σ e^((x_j−x_k)/T)</b>，而每个 x_j − x_k ≤ 0。"
+   },
+   {
+    "beat": "refute",
+    "t": 3270,
+    "cap": "T→0 变尖，T→∞ 变平",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nfillBars({max:1,vals:[0.84,0.04,0.04,0.04,0.04],x:150,y:330,w:420,h:190,\n  label:function(i){return \"\";},cls:function(i){return i===0?\"g\":\"b\";}});\nnote(\"T 很小：几乎只剩最大那个\",350,112,\"g\");\nfillBars({max:1,vals:[0.21,0.2,0.2,0.2,0.19],x:720,y:330,w:420,h:190,\n  label:function(i){return \"\";},cls:function(i){return \"y\";}});\nnote(\"T 很大：趋近均匀\",930,112,\"y\");\nnote(\"⚠ 高温不是「更有创意」，是<b>更接近瞎猜</b>\",640,382,\"r\");",
+    "animated": true,
+    "watch": "两组柱子同时长出来。盯住左边那一根独高的，和右边五根齐平的 —— 同一个模型、同一份 logits，只因为 T 不同。",
+    "narration": "接着上一镜的配方法往下推，两个极限都能算出来：\n\n· <b>T → 0</b>：分母里 e^((x_j−x_k)/T) 的指数趋向负无穷（因为 x_j−x_k &lt; 0），这些项全部归零。于是<b>最大那个词概率趋近 1，其余趋近 0</b>——分布变成一根尖峰，等价于贪心。\n· <b>T → ∞</b>：所有指数趋向 0，e⁰ = 1，于是每个词的概率都变成 <b>1/V</b>——<b>完全均匀</b>。\n\n讲者的总结：low temperature will create a <b>spiky</b> distribution, high temperature will create a <b>uniform</b> distribution。\n\n⚠ 现在反驳一个很流行的说法：<b>「调高温度 = 更有创意」。</b>\n\n温度<em>不会</em>给模型任何新知识。它做的只是<b>把概率质量从高分词挪给低分词</b>。T 推到极端，分布趋近均匀——那时模型输出的是<b>彻底的随机词串</b>，这显然不叫创意。\n\n<b>准确的说法是：温度调的是「多大程度上服从模型自己的判断」。</b>调高只是更不服从，而「不服从」在低温区看起来像创意，在高温区就是胡言乱语。"
+   }
+  ],
+  "sum": {
+   "h": "三个旋钮，作用在<b>两个不同的位置</b>",
+   "k": "<b>top-k</b> 按排名留前 k 个；<b>top-p</b> 按累积概率超过 p 就停，候选数<b>自适应</b>；<b>温度 T</b> 在 softmax 指数里除 logits。",
+   "m": "top-k / top-p 在概率算好<b>之后</b>动手，改的是<b>候选集合</b>；温度在算概率<b>的时候</b>动手，改的是<b>分布的形状</b>。所以三者可以叠加使用。",
+   "w": "<s>误解一</s>：「设个固定概率下限就行」——同一阈值在尖锐/平坦分布上效果相反。<s>误解二</s>：「高温 = 更有创意」——温度<b>不增加任何知识</b>，只是把概率质量挪给低分词；推到极端就是均匀随机。",
+   "e": "T→0 时分布趋近 one-hot（等价贪心），T→∞ 趋近均匀 —— 讲者当场用<b>配方法</b>（分子分母同乘 e^(−x_k/T)）证明了两个极限。准确的说法：温度调的是<b>多大程度上服从模型自己的判断</b>。"
+  },
+  "quiz": {
+   "t": "top-p 相对 top-k 的关键优势是什么？",
+   "o": [
+    "它保留的候选数随分布形状自适应变化",
+    "它的计算开销比 top-k 更低",
+    "它能保证绝不采样到低概率词",
+    "它同时还调整了分布的尖锐程度"
+   ],
+   "a": 0,
+   "w": "top-p 累加到阈值就停，所以<b>候选个数是算出来的</b>：分布尖锐时可能只留 1 个（自动退化成贪心，不会拉进垃圾），平坦时可能留 40 个（保住多样性）。top-k 的 k 是<b>固定数字</b>，而分布的有效宽度是变的。<s>「开销更低」</s>两者都要排序，差别可忽略。<s>「绝不采样到低概率词」</s>两者都只是<em>切掉长尾</em>，候选集内部仍按概率随机抽。<s>「调整尖锐程度」</s>那是<b>温度</b>干的事——它在算概率<em>时</em>动手，top-p 在算完<em>之后</em>动手，这正是本集强调的分界。"
+  }
+ },
+ {
+  "kp": 6,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 4470,
+    "cap": "一个权重都不改，也能教会它",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,420,58,\"传统做法：微调\",\"r\");\nnote(\"要标注数据 · 要训练 · 要一份新权重\",340,195,\"r\");\nboxNode(730,110,440,58,\"ICL：把例子写进提示词里\",\"g\");\nnote(\"不改一个权重，推理时当场生效\",950,195,\"g\");\nnote(\"讲者：learning 这个词在这里是<b>被滥用</b>的\",640,310,\"y\");\nsetCap(\"讲者 74:30：<b>you don't actually learn anything with respect to the weights</b>。\");",
+    "narration": "前面几集都在讲「模型内部怎么算」。这一集讲一件完全不同的事：<b>不动模型，只改你给它的输入。</b>\n\n传统做法是<b>微调</b>：收标注数据、跑训练、得到一份新权重。贵，而且每个任务一份。\n\n<b>in-context learning</b>（ICL，上下文学习）：<em>什么都不训</em>，直接把要求和例子写进提示词里。\n\n讲者 <b>74:30</b> 对这个名字有个很好的吐槽：<b>learning is a bit of a term that is overloaded, because you don't actually learn anything with respect to the weights of the LLM</b>——你只是 distill some knowledge <b>inside of the context</b>。\n\n<b>请把这一点记死：ICL 里没有任何学习发生。</b>模型的权重一个比特都没变，下一个请求它就「忘」了。所谓「学会」，完全是这一次前向里、由上下文带来的行为改变。"
+   },
+   {
+    "beat": "wrong",
+    "t": 4530,
+    "cap": "「给例子总比不给好」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"few-shot 一定强过 zero-shot\",\"给了例子，模型就知道你要什么\");\nsetCap(\"<s>以前对，现在不一定</s> —— 讲者自己在这里打了个补丁。\");",
+    "narration": "两种 ICL：\n· <b>zero-shot</b>：什么例子都不给，直接提要求。\n· <b>few-shot</b>：先给几组「输入 → 输出」的示范，再问你真正要问的。\n\n长期以来的共识是 few-shot 更好，讲者也说 giving examples tends to <b>steer the LLM nicely</b> into the task。\n\n但他在幻灯片上特意把 <i>generally</i> 这个词<b>标成了斜体</b>，然后解释了为什么：\n\n<b>they are generally better, few-shot, but not always.</b>\n\n随着模型推理能力变强，<b>把指令写好，可能比给例子更好</b>——讲者说这已经是 something that you see more and more these days。\n\n理由在下一镜，而且很反直觉。"
+   },
+   {
+    "beat": "setup",
+    "t": 4600,
+    "cap": "例子会<b>限制</b>它",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"给例子\",\"y\");\nnote(\"模型去对齐这几个有限的样板\",340,190,\"y\");\nnote(\"遇到没见过的输入，反而更难泛化\",340,238,\"r\");\nboxNode(730,105,440,58,\"写清楚怎么做\",\"g\");\nnote(\"用自然语言讲清推理步骤\",950,190,\"g\");\nnote(\"它可以用自己的推理能力去办\",950,238,\"g\");\nnote(\"讲者提到「plan and solve」那类工作\",640,350,\"y\");\nsetCap(\"讲者：例子会 <b>constrain your model into given sets of examples that are finite</b>。\");",
+    "narration": "为什么例子反而可能有害？讲者的论证很漂亮：\n\n<b>when you provide examples, you constrain your model into given sets of examples that are finite.</b>\n\n也就是说，几个例子<b>既是示范，也是枷锁</b>。模型会去对齐这几个有限的样板。于是——\n\n<b>当推理时的输入落在这些例子覆盖不到的地方，模型反而更难泛化</b>，因为 it will try to align on what it has seen in the context。\n\n反过来，如果你<b>用自然语言把「该怎么做」讲清楚</b>（而不是举例），模型就能 use its reasoning abilities to actually do it——方法本身是通用的，不受几个样本的形状限制。\n\n讲者提到了「<b>plan and solve</b>」那类工作：让模型先自己制定计划、再执行，表现很好。\n\n他也很诚实地加了一句：<b>the literature on this is still in progress</b>——这是个正在变化的判断，不是定论。"
+   },
+   {
+    "beat": "body",
+    "t": 4670,
+    "cap": "思维链：逼它先说过程",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"直接要答案\",\"r\");\nnote(\"「这只熊几岁？」→「5」\",340,190,\"r\");\nnote(\"中间的连接没有被算出来\",340,238,\"r\");\nboxNode(730,105,440,58,\"先给推理，再给答案\",\"g\");\nnote(\"「它 2019 年做的，现在 2024…」→「5」\",950,190,\"g\");\nnote(\"推理过程本身占用了计算\",950,238,\"g\");\nnote(\"讲者 78:50：explaining reasoning helps in improving 表现\",640,352,\"y\");\nsetCap(\"<b>chain of thought</b>（思维链，CoT）。\");",
+    "narration": "第二个技巧：<b>chain of thought</b>（思维链）。\n\n做法：<b>强迫模型在给出答案之前，先把推理过程写出来</b>。\n\n讲者 <b>78:50</b> 的例子：问「这只泰迪熊几岁？」。如果 you force the model to respond directly with a number，它可能连不起来为什么是这个数；而让它写出完整的推理链，<em>then it becomes clear as to what led to that response</em>。\n\n为什么有用？这里补一个讲者没说透的机制：<b>模型每生成一个 token，才多做一次前向。</b>要求它直接吐出答案，等于只给它一次前向的计算量去解一道多步题。让它写出中间步骤，<b>每一步都是真的算了一遍，而且写下来的中间结果会进入后续的上下文</b>——相当于把草稿纸给了它。\n\n<b>CoT 可以和 few-shot 叠加</b>：在示范里也带上推理过程，模型就会照着这个格式来。"
+   },
+   {
+    "beat": "body",
+    "t": 4740,
+    "cap": "它还顺带给了你一个调试器",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,105,420,58,\"传统调试\",\"r\");\nnote(\"看权重？看激活？—— 没法看\",340,190,\"r\");\nboxNode(730,105,440,58,\"看它的推理链\",\"g\");\nnote(\"「我们现在是 2019 年…」\",950,190,\"y\");\nnote(\"→ 原来是我上下文里的日期写错了\",950,238,\"g\");\nnote(\"错在哪一步，是<b>用人话写着</b>的\",640,350,\"g\");\nsetCap(\"讲者：you can trace back, you can do some <b>root causing very easily</b>。\");",
+    "narration": "讲者在这里给了 CoT 一个很实际的理由，和性能无关：\n\n<b>它让你能调试。</b>\n\nyou don't debug like the old days. <b>You don't look at weights, at the intrinsics of the LLM.</b> 那些东西根本看不出所以然。\n\n而有了推理链，错在哪一步是<b>用自然语言写着的</b>。讲者的例子：你问「这只熊明年几岁」，结果不对；翻开它的推理链，看到里面写着 <i>hey, we're in 2019</i>——<b>哦，原来是我在上下文里把日期写错了</b>。\n\n<b>root causing 变得非常容易。</b>\n\n⚠ 但这里有个重要的保留，讲者没说：<b>模型写出来的推理链，不保证是它真实的计算过程。</b>它完全可能先「想」到答案再编一套看起来合理的理由（这在研究里叫 unfaithful reasoning）。\n\n<b>所以 CoT 是一个很好的调试线索，但不是一份可信的执行日志。</b>"
+   },
+   {
+    "beat": "refute",
+    "t": 4815,
+    "cap": "自洽：多跑几遍，投票",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,210,50,\"采样 1 → 42\",\"g\");\nboxNode(110,165,210,50,\"采样 2 → 42\",\"g\");\nboxNode(110,230,210,50,\"采样 3 → 37\",\"r\");\nboxNode(110,295,210,50,\"采样 4 → 42\",\"g\");\narrow(324,198,520,198,\"sm\",0);\nboxNode(540,170,300,56,\"多数投票 → 42\",\"y\");\nnote(\"⚠ 全部<b>并行</b>跑，互不进入对方的上下文\",950,170,\"y\");\nnote(\"所以延迟 ≈ 最慢那一路，不是四倍\",950,240,\"g\");\nsetCap(\"<b>self-consistency</b>（自洽）。讲者 82:18。\");",
+    "narration": "最后一招，建立在前两招之上：<b>self-consistency</b>（自洽）。\n\n做法：<b>对同一个问题采样很多次</b>（注意——这要求用采样而不是贪心，所以它建立在第五集之上），每次都让模型写出完整推理链，然后<b>把各次的最终答案抽出来做多数投票</b>。\n\n讲者 <b>82:18</b>：you sample responses multiple times and then parse the actual answer ... by majority voting, you can come up to an answer in a <b>more robust way</b>。\n\n两个实务细节，都是学生问出来的：\n\n① <b>怎么把答案从一大段推理里抠出来？</b>讲者给了三条路：在提示词里要求「把答案放最后」、用正则、或者<em>再用一个 LLM 去抽</em>。\n\n② <b>是不是要跑四倍的时间？</b>不是。<b>you sample it in parallel</b>，各路之间 none of these go into the context of each other——完全独立，所以<b>延迟约等于最慢那一路</b>，付的是<em>算力</em>的四倍而不是<em>时间</em>的四倍。\n\n⚠ 讲者还强调：要确认它真的更好，<b>需要基准和标注答案</b>。这一点很容易被跳过。"
+   }
+  ],
+  "sum": {
+   "h": "不改权重的三招：ICL · 思维链 · 自洽",
+   "k": "<b>ICL</b> 把例子写进提示词（zero-shot / few-shot），<b>权重一个比特都没变</b>；<b>CoT</b> 逼模型先写推理再给答案；<b>自洽</b> 采样多次 + 多数投票。三者可以叠加。",
+   "m": "CoT 之所以有用：每生成一个 token 才多一次前向，<b>写出中间步骤等于给了它草稿纸</b>。自洽<b>各路并行、互不进入对方上下文</b>，所以延迟 ≈ 最慢那一路，付的是算力而非时间。",
+   "w": "<s>误解</s>：「给例子总比不给好」。讲者亲自打的补丁：例子会把模型 <b>constrain into given sets of examples that are finite</b>，遇到没见过的输入反而更难泛化 —— 新模型上<b>把指令写清楚可能更好</b>。",
+   "e": "CoT 还顺带给了你一个<b>调试器</b>：错在哪一步是用人话写着的。⚠ 但模型写出的推理链<b>不保证是它真实的计算过程</b>（unfaithful reasoning）—— 它是好线索，不是可信日志。"
+  },
+  "quiz": {
+   "t": "self-consistency 要跑 N 次采样，它的延迟大约是单次的多少倍？",
+   "o": [
+    "N 倍，因为每一次都要完整生成一遍",
+    "约 1 倍，因为各路并行且互不依赖",
+    "log N 倍，因为可以用树状归并",
+    "取决于 N 条推理链的平均长度之和"
+   ],
+   "a": 1,
+   "w": "N 条推理链<b>完全独立</b>——讲者：none of these go into the context of each other，so you do all of that <b>in parallel</b>。因此墙上时间约等于<b>最慢那一路</b>，付出的是 <em>N 倍算力</em>而不是 N 倍时间。<s>「N 倍」</s>把算力成本误当成了延迟；这正是本题要分清的。<s>「log N」</s>没有任何归并结构，投票是在全部完成后一次做掉的。<s>「长度之和」</s>那是把并行当成了串行。"
+  }
+ },
+ {
+  "kp": 7,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 5346,
+    "cap": "每生成一个词，把历史重算一遍",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,180,50,\"my\",\"b\");\nboxNode(300,105,180,50,\"teddy\",\"b\");\nboxNode(490,105,180,50,\"bear\",\"b\");\nboxNode(680,105,160,50,\"is\",\"y\");\nnote(\"生成 is 时：要算 my/teddy/bear 的 K 和 V\",430,185,\"r\");\nboxNode(860,105,170,50,\"cute\",\"y\");\nnote(\"生成 cute 时：<b>又算了一遍</b>同样的 K 和 V\",640,255,\"r\");\nnote(\"这三个词的 K、V 从来没变过\",640,352,\"y\");\nsetCap(\"第一集那根钉子：<b>生成只能串行</b>，而且每步都重算历史。\");",
+    "narration": "回到第一集那根钉子：<b>生成只能一个词一个词来，每个词都要一次完整前向。</b>\n\n现在看这次前向里有什么浪费。\n\n生成 <i>is</i> 时，注意力要算 my、teddy、bear 三个词的 K 和 V。生成 <i>cute</i> 时，又要算 my、teddy、bear、is 的 K 和 V——<b>前三个刚刚才算过，而且算出来一模一样</b>。\n\n为什么一模一样？因为是<b>因果掩码</b>：my 的表示只依赖它左边的东西，后面追加任何词都影响不到它。\n\n<b>所以这是纯粹的重复劳动，序列越长浪费越大。</b>\n\n这一集讲这条线上的四级优化，一级比一级激进。"
+   },
+   {
+    "beat": "wrong",
+    "t": 5410,
+    "cap": "「那把 Q K V 都缓存起来」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"既然都算过了，Q、K、V 三个一起存\",\"反正都是重复计算\");\nsetCap(\"<s>Q 不用存</s>。旧 token 的 query，对新 token 毫无用处。\");",
+    "narration": "既然重复，那就缓存。但缓存<b>什么</b>？\n\n直觉上三个都存。错了——<b>只存 K 和 V</b>。\n\n讲者说得很明确：I'm <b>not</b> underlining the Q part here, because of course the query corresponding to the previous tokens are <b>not going to be of interest for the present token</b>。\n\n理由在注意力的非对称性里：\n· <b>query</b> 是「<i>我</i>要找什么」——每个词<em>只用自己的</em> query 发问。生成新词时只需要<b>新词自己</b>的 query，旧词的 query 这一步根本不参与。\n· <b>key 和 value</b> 是「我是什么 / 我能给什么」——<b>每一步都要被所有后来者反复取用</b>。\n\n<b>所以叫 KV cache，不叫 QKV cache。</b>\n\n⚠ 这也正好解释了上一讲那个悬而未决的问题：<b>为什么 GQA 共享的是 K/V 而不是 Q</b>——因为要存的只有 K 和 V。"
+   },
+   {
+    "beat": "setup",
+    "t": 5470,
+    "cap": "KV cache：拿空间换时间",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"不缓存\",\"r\");\nnote(\"每步重算全部历史的 K、V\",340,190,\"r\");\nnote(\"第 n 步的代价随 n 增长\",340,238,\"r\");\nboxNode(730,105,440,58,\"缓存\",\"g\");\nnote(\"每步只算<b>新 token</b> 的 K、V，追加进去\",950,190,\"g\");\nnote(\"代价是显存：随序列<b>线性</b>增长\",950,238,\"y\");\nnote(\"⚠ 训练时没这回事 —— teacher forcing 一次全送进去\",640,352,\"y\");\nsetCap(\"这是本讲后半的起点，后面三级都是在<b>压这个缓存</b>。\");",
+    "narration": "<b>KV cache</b>：把算过的 K、V 矩阵存下来，下一步直接取，只计算<b>新 token</b> 的那一份然后追加。\n\n这是一笔很划算的交易：<b>用显存换计算</b>。\n\n但新的代价随即出现，而且是本讲后半的主线：<b>这个缓存随序列长度线性增长</b>，还要<em>每一层都存一份</em>。上下文一长，它就成了显存的大头。\n\n⚠ 一个常见困惑，学生也问了：<b>训练时要不要 KV cache？</b>讲者的回答：训练用 <b>teacher forcing</b>，整句一次性送进去，<em>this concept of KV caching doesn't even come up</em>。\n\n<b>KV cache 是纯粹的推理期概念。</b>这又一次印证第一集那条——训练和生成的不对称。\n\n接下来三级优化，全是在回答同一个问题：<b>怎么让这个缓存小一点。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 5540,
+    "cap": "第一级：GQA（上一讲那个）",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,300,54,\"MHA：h 份 K/V\",\"r\");\nboxNode(490,105,300,54,\"GQA：g 份\",\"y\");\nboxNode(870,105,290,54,\"MQA：1 份\",\"g\");\nnote(\"缓存大小直接按份数缩小\",640,210,\"y\");\nnote(\"讲者当堂提问，学生答出了 group query attention\",640,268,\"g\");\nnote(\"现代 LLM 大多用 GQA，g 取一个折中值\",640,352,\"y\");\nsetCap(\"上一讲埋的伏笔在这里收 —— <b>它省的就是这个缓存</b>。\");",
+    "narration": "第一级优化，上一讲已经讲过了，这里才揭晓它的真正用途。\n\n讲者当堂提问：有没有什么上一周学的东西能<b>减少要缓存的 K、V 个数</b>？有学生先答「稀疏注意力」，讲者说 that could be, <b>but not here</b>——<i>假设你仍然 attend 所有人</i>，只看 K、V 的份数。\n\n然后有人答出了 <b>group query attention</b>。\n\n· <b>MHA</b>：h 个头各有一套 K/V ⇒ 缓存 h 份。\n· <b>GQA</b>：分 g 组，组内共用 ⇒ 缓存 <b>g 份</b>。\n· <b>MQA</b>：全部共用 ⇒ 缓存 <b>1 份</b>。\n\n讲者说现代 LLM 里 <b>a lot of papers use GQA</b>，g 取一个折中值。\n\n⚠ 请注意他纠正那位学生的方式——这正好复习了上一讲最后那条：<b>稀疏注意力省的是计算，GQA 省的是缓存。</b>两条路问的不是同一个问题。"
+   },
+   {
+    "beat": "body",
+    "t": 5610,
+    "cap": "第二级：PagedAttention，治碎片",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,460,54,\"朴素：按最大上下文长度预留\",\"r\");\nnote(\"不知道何时停，只能按 2k 全留\",340,180,\"r\");\nnote(\"实际只用了 200 → 1800 格白占\",340,228,\"r\");\nboxNode(730,100,440,54,\"PagedAttention：按小块分配\",\"g\");\nnote(\"固定大小的块（论文取 16），用完再要\",950,180,\"g\");\nnote(\"另有一张表把 token 位置映射到块\",950,228,\"g\");\nnote(\"这是操作系统分页的思路 —— vLLM 用的就是它\",640,348,\"y\");\nsetCap(\"讲者 94:25。省的不是计算，是<b>被白白预留的显存</b>。\");",
+    "narration": "第二级完全是<b>系统工程</b>，不碰模型。\n\n场景：你是一台推理服务器，同时服务很多用户。每来一个请求，你得给它的 KV cache 分配显存。<b>但你不知道它会生成多长</b>——解码要到吐出 EOS 才停。\n\n朴素做法：<b>按最大上下文长度预留</b>。上下文 2k 就留 2k。\n\n讲者点出浪费：实际可能只生成了 200 个 token，<b>剩下 1800 个位置白占着</b>。并发一高，显存立刻不够——<em>不是真的用满了，是被预留占满了</em>。\n\n论文给了两个名字：<b>internal fragmentation</b>（留了没用的）和 <b>external fragmentation</b>（块与块之间的空隙）。\n\n<b>PagedAttention</b> 的解法直接借自操作系统的<b>分页</b>：不整块预留，<b>切成固定大小的小块</b>（论文取 16 个 token 一块），用完一块再要一块，另外维护一张表把 token 位置映射到实际块。\n\n这就是 <b>vLLM</b> 背后的东西。⚠ 注意它<b>一点模型都没改</b>，纯靠内存管理把并发量提上去。"
+   },
+   {
+    "beat": "refute",
+    "t": 5680,
+    "cap": "第三级：MLA —— 把 K/V 压进低维",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,240,54,\"token 表示\",\"b\");\narrow(354,132,436,132,\"sm\",0);\nboxNode(440,105,240,54,\"压到低维\",\"y\");\narrow(684,132,766,132,\"sm\",0);\nboxNode(770,105,240,54,\"解压成 K\",\"g\");\nboxNode(770,185,240,54,\"解压成 V\",\"g\");\nnote(\"<b>只缓存中间那个低维的</b>\",560,252,\"y\");\nnote(\"压缩矩阵在 K 与 V 之间共享，还跨 h 个头共享\",640,318,\"g\");\nnote(\"于是 h 份 K + h 份 V → <b>1 份低维向量</b>\",640,358,\"r\");\nsetCap(\"DeepSeek 的 <b>MLA</b>（讲者 97:22）。这一级动的是模型本身。\");",
+    "narration": "第三级最激进，它<b>改模型结构</b>。\n\n讲者 <b>97:22</b>：DeepSeek 的 <b>multi-latent attention</b>（MLA）。\n\n思路是<b>矩阵分解</b>：原本 token 表示直接乘 W^K 得到 key。MLA 把这个投影拆成两步——<b>先压到一个低维的中间空间，再解压回 key 的维度</b>。\n\n<b>然后只缓存中间那个低维向量。</b>用的时候再解压。\n\n真正聪明的是叠在上面的两层共享，讲者说 they did something that is <b>very smart</b>：\n\n① <b>压缩矩阵在 K 和 V 之间共享</b> ⇒ 同一个 token，K 和 V 共用一份缓存，解压时才用各自的矩阵分开。\n② <b>还跨 h 个头共享</b> ⇒ instead of having h such embeddings, <b>you have just one</b>。\n\n把四级连起来看，这条线的形状很清楚：\n<b>KV cache</b>（别重算）→ <b>GQA</b>（少存几份）→ <b>PagedAttention</b>（别浪费预留）→ <b>MLA</b>（把要存的东西本身变小）。\n\n⚠ 只有最后一级是<b>有损</b>的——低维中间空间<em>装不下原来全部的信息</em>。前三级都不改变模型的数学。<b>这是一条从纯工程走向以质量换显存的路。</b>"
+   }
+  ],
+  "sum": {
+   "h": "KV cache 这条线：四级优化，一级比一级激进",
+   "k": "<b>KV cache</b>（存 K、V 避免重算）→ <b>GQA</b>（h 份变 g 份）→ <b>PagedAttention</b>（按 16 个 token 的小块分配，治碎片）→ <b>MLA</b>（K/V 投影分解出低维中间层，只缓存它）。",
+   "m": "只缓存 K、V <b>不缓存 Q</b>：query 是「我要找什么」，旧 token 的 query 对新 token 毫无用处；而 K、V 要被所有后来者<b>反复取用</b>。这也解释了 GQA 为何共享 K/V 而非 Q。",
+   "w": "<s>误解</s>：「既然都算过了，Q 也一起缓存」。讲者明确说 Q <b>not going to be of interest for the present token</b>。另：训练用 teacher forcing 整句并行，<b>KV cache 是纯推理期概念</b>。",
+   "e": "⚠ 四级里<b>只有 MLA 是有损的</b> —— 低维中间空间装不下原来全部信息；前三级都不改变模型的数学。MLA 的巧处在两层共享：压缩矩阵<b>在 K 与 V 之间共享、还跨 h 个头共享</b>，于是 h 份 K + h 份 V 变成 1 份。"
+  },
+  "quiz": {
+   "t": "为什么叫 KV cache，而不把 Q 也缓存起来？",
+   "o": [
+    "Q 的维度比 K、V 大得多，缓存不划算",
+    "Q 在每一层都会被重新计算，无法复用",
+    "旧 token 的 query 在生成新 token 时根本不参与计算",
+    "Q 是随机初始化的，缓存了也没有意义"
+   ],
+   "a": 2,
+   "w": "注意力是<b>非对称</b>的：query 代表「<em>我</em>要找什么」，每个词只用自己的 query 发问；生成新词时只需要<b>新词自己</b>的 query，旧词的 query 这一步完全不参与。而 K、V 代表「我是什么 / 我能给什么」，要被所有后来者反复取用——讲者：the query corresponding to the previous tokens are <b>not going to be of interest for the present token</b>。<s>「Q 维度更大」</s>不成立，Q 与 K 维度相同。<s>「每层重新计算」</s>K、V 同样每层一份，这不是分歧点。<s>「随机初始化」</s>Q 是算出来的，不是随机的。"
+  }
+ },
+ {
+  "kp": 8,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 6097,
+    "cap": "让小模型先跑，大模型来判卷",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,330,56,\"小模型（draft）\",\"y\");\nnote(\"飞快地猜出 is / cute / and\",275,190,\"y\");\narrow(444,133,606,133,\"sm\",0);\nboxNode(610,105,420,56,\"大模型：一次前向全部验证\",\"g\");\nnote(\"接受 → 一步前进好几个词\",820,190,\"g\");\nnote(\"拒绝 → 从出错的地方重来\",820,238,\"r\");\nsetCap(\"<b>speculative decoding</b>（投机解码），讲者 101:37。\");",
+    "narration": "最后一集回到第一集那根钉子的另一半：<b>每个词一次前向，这个数量本身能不能减少？</b>\n\n<b>投机解码</b>的办法听起来像作弊：\n\n① 找一个<b>小模型</b>（论文叫 <b>draft</b>，草稿模型），让它飞快地往下猜几个词。\n② 把这几个猜出来的词<b>一次性</b>全部送进大模型，<b>一次前向</b>就拿到每个位置上大模型自己的概率分布。\n③ 用一套接受/拒绝规则逐个核对。<b>全接受，就一步前进了好几个词</b>；中途拒绝，就从那里重来。\n\n关键的不可思议之处：<b>这样做出来的结果，分布和大模型自己逐个生成是一样的。</b>不是近似，是<em>可以证明</em>的相等。\n\n下面三镜：为什么这不是作弊，以及为什么它居然划算。"
+   },
+   {
+    "beat": "wrong",
+    "t": 6160,
+    "cap": "「小模型参与了，质量肯定下降」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"用小模型生成，输出当然变差\",\"天下哪有免费的午餐\");\nsetCap(\"<s>不变差</s>。输出分布<b>可证明</b>与大模型完全一致。\");",
+    "narration": "最自然的怀疑：让小模型参与生成，输出质量总要打折吧？\n\n<b>不打折。</b>讲者说这个方法 uses some scheme that <b>makes the distribution outputs match the target one</b>。\n\n这不是「实验上差不多」，而是<b>可以证明的严格相等</b>。讲者的说法：if you start from the <b>law of total probability</b> and write each term with these quantities, then you will find the target distribution at the end。他说论文里 demonstrates it in <b>just a few lines</b>，还鼓励大家自己推一遍。\n\n课堂上有人认出来了：<b>这是拒绝采样吗？</b>讲者确认：<b>yes</b>。\n\n<b>拒绝采样是个老技术</b>：想从分布 p 抽样但只能方便地从 q 抽样时，先从 q 抽，再按一定概率决定接受还是重抽，使得最终样本<em>服从 p</em>。这里 q 是小模型，p 是大模型。\n\n<b>所以小模型只影响「快不快」，不影响「抽到什么」。</b>它猜得准就省得多，猜得烂就退化成逐个生成——<em>但永远不会错</em>。"
+   },
+   {
+    "beat": "setup",
+    "t": 6230,
+    "cap": "接受还是拒绝，怎么判",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,480,58,\"大模型给这个词的概率 >= 小模型给的\",\"g\");\nnote(\"直接接受\",350,192,\"g\");\nboxNode(750,105,420,58,\"否则\",\"r\");\nnote(\"按一个比值概率接受，不然就拒绝\",960,192,\"r\");\nnote(\"拒绝时从修正后的分布重抽一个\",960,240,\"y\");\nnote(\"正是这条规则，让总体分布等于大模型的分布\",640,352,\"y\");\nsetCap(\"小模型高估了某个词，就按高估的程度罚它。\");",
+    "narration": "规则本身很简洁。对小模型猜的每一个词：\n\n· 如果<b>大模型给它的概率 ≥ 小模型给它的概率</b>——说明小模型没有高估，<b>直接接受</b>。\n· 否则——小模型<em>高估</em>了这个词。此时<b>按两者的比值作为概率</b>来决定接受，不接受就拒绝。拒绝时，从一个修正过的分布里重抽一个词。\n\n<b>直觉：小模型高估得越离谱，被罚得越狠。</b>正是这个罚则把整体分布拉回到大模型的分布上。\n\n还有一个很漂亮的小细节，讲者特意解释了：<b>为什么要把最后一个 token 也送进去？</b>\n\n因为一次前向送 k 个 draft token 进去，<b>顺带就免费得到了「第 k+1 个位置」的概率分布</b>。所以哪怕前面全被拒绝，<em>至少还能从这个分布里采一个词出来</em>——<b>每一轮保证至少前进 1 个 token，绝不空转。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 6300,
+    "cap": "为什么划算：推理是 memory bound 的",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,105,420,58,\"直觉：算 5 个词 = 5 倍代价\",\"r\");\nnote(\"如果瓶颈是算力，那确实\",340,190,\"r\");\nboxNode(730,105,440,58,\"实际：瓶颈是<b>搬权重</b>\",\"g\");\nnote(\"把几百 GB 参数读进芯片才是大头\",950,190,\"g\");\nnote(\"读一次，顺手算 1 个还是 5 个，差别不大\",950,238,\"g\");\nnote(\"讲者：<b>computations are not the limiting factor</b>\",640,352,\"y\");\nsetCap(\"这一条是整个后半讲的<b>隐藏前提</b>。\");",
+    "narration": "现在回答最关键的问题：<b>为什么这样折腾反而更快？</b>\n\n直觉上，让大模型一次处理 5 个词，不就是 5 倍计算量吗？\n\n讲者给出了这一讲最重要的那条事实：\n\n<b>doing a single pass is as expensive as doing one pass at a time, because at inference time, you're memory bound.</b> In other words, <b>computations are not the limiting factor. It's basically the memory that will bottleneck your computation.</b>\n\n翻译一下：生成一个 token 时，真正耗时的<b>不是算术，而是把几百 GB 的模型权重从显存搬进计算单元</b>。权重搬一次，顺手处理 1 个 token 还是 5 个 token，<b>代价差不多</b>。\n\n所以策略变成：<b>小模型便宜，让它多跑几次串行；大模型贵，但一次搬运要尽量多干活。</b>\n\n⚠ <b>这条前提撑着本讲后半的几乎所有技巧</b>（KV cache 省的也是搬运）。而且它<em>不是永恒的</em>——超长上下文下注意力的 O(n²) 会让计算重新成为瓶颈，那时这些结论都要重算。"
+   },
+   {
+    "beat": "body",
+    "t": 6370,
+    "cap": "MTP：把草稿模型并进自己",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(390,100,500,54,\"最后一层解码器的表示\",\"b\");\narrow(530,154,330,200,\"sm\",0);\narrow(600,154,560,200,\"sm\",0);\narrow(700,154,790,200,\"sm\",0);\narrow(760,154,1010,200,\"sm\",0);\nboxNode(240,204,180,50,\"头 1\",\"g\");\nboxNode(470,204,180,50,\"头 2\",\"y\");\nboxNode(700,204,180,50,\"头 3\",\"y\");\nboxNode(930,204,180,50,\"头 4\",\"y\");\nnote(\"头 1 = 正式模型 · 其余是自带的草稿模型\",640,300,\"y\");\nnote(\"训练目标从「预测下一个词」改成「预测接下来 k 个词」\",640,360,\"r\");\nsetCap(\"<b>MTP</b> = Multi-Token Prediction（讲者 106:44）。\");",
+    "narration": "最后一个技巧，是投机解码的<b>自给自足版</b>。\n\n投机解码需要<b>两个模型</b>——又要训练、又要部署、又要在显存里放两份。\n\n<b>MTP</b>（Multi-Token Prediction）的办法：<b>把草稿模型并进同一个模型里</b>。\n\n具体做法：在最后一层解码器的表示上面<b>挂 k 个预测头</b>。训练时目标函数就变了——<b>不再是预测下一个词，而是一次预测接下来的 k 个词</b>。\n\n推理时：<b>头 1 当作正式模型，其余几个头就是自带的草稿模型</b>。它们一次前向就给出 k 个候选，再送回头 1 做接受/拒绝。\n\n讲者点了两条该记住的：\n① <b>目标函数变了</b>（这是和投机解码最本质的区别）。\n② <b>draft 和 target 嵌在同一个模型里</b>，不用维护两套。\n\n⚠ 但有个代价讲者讲得很清楚：因为架构和目标都改了，<b>那个「分布可证明相等」的漂亮性质没有了</b>。论文改用<em>贪心</em>的接受规则，只是它的一个变体。"
+   },
+   {
+    "beat": "refute",
+    "t": 6440,
+    "cap": "省的是搬运，不是计算",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,460,58,\"本讲后半全部技巧\",\"y\");\nnote(\"KV cache：别重复搬\",340,185,\"y\");\nnote(\"GQA / MLA：要搬的东西变小\",340,233,\"y\");\nnote(\"投机解码 / MTP：搬一次多干点活\",340,281,\"y\");\nboxNode(740,100,440,58,\"⚠ 前提\",\"r\");\nnote(\"推理是 memory bound 的\",960,185,\"r\");\nnote(\"这个前提变了，结论全要重算\",960,233,\"r\");\nsetCap(\"八集到此。<b>下一讲：这些权重本身是怎么来的。</b>\");",
+    "narration": "收尾时把后两集连起来，因为它们其实是<b>同一件事的两面</b>。\n\n<b>本讲后半的每一个技巧，省的都是「搬运」而不是「计算」：</b>\n\n· <b>KV cache</b>：别重复搬同一份历史。\n· <b>GQA / MLA</b>：要搬的东西本身变小。\n· <b>PagedAttention</b>：别为没用上的空间占着位置。\n· <b>投机解码 / MTP</b>：权重搬一次，尽量多推进几个 token。\n\n<b>它们全部挂在同一个前提上：推理阶段是 memory bound 的。</b>\n\n⚠ 请把这个前提当成一个<b>可能会变的事实</b>，而不是定理：\n· 上下文极长时，注意力的 O(n²) 会让计算重新成为瓶颈；\n· 硬件的算力/带宽比一直在变；\n· MoE 模型的访存模式和稠密模型也不一样。\n\n<b>一旦前提变了，上面这些结论的优先级全要重排。</b>\n\n整讲八集到此。下一讲换一个完全不同的问题：<b>这些权重本身，是怎么训出来的。</b>"
+   }
+  ],
+  "sum": {
+   "h": "投机解码：小模型抢跑，大模型一次判卷",
+   "k": "小模型（<b>draft</b>）先猜 k 个词，大模型<b>一次前向</b>全部验证，按接受/拒绝规则逐个核对。全接受就一步前进 k 个词。<b>MTP</b> 则把草稿模型做成同一模型上的多个预测头。",
+   "m": "之所以划算，是因为推理<b>受显存带宽限制而非算力</b> —— 讲者：computations are <b>not</b> the limiting factor。权重搬一次，顺手算 1 个还是 5 个 token 代价相近。",
+   "w": "<s>误解</s>：「小模型参与了，质量会下降」。这是<b>拒绝采样</b>（讲者当场确认），输出分布<b>可由全概率公式证明</b>与大模型完全一致。小模型只影响快慢，不影响抽到什么。",
+   "e": "⚠ MTP 改了架构与目标函数，于是<b>丢掉了「分布可证明相等」这个性质</b>，论文改用贪心接受规则。另：一次前向把最后一个 token 也送进去，是为了<b>免费拿到第 k+1 个位置的分布</b>，保证每轮至少前进 1 个 token。"
+  },
+  "quiz": {
+   "t": "投机解码之所以能加速，依赖的关键事实是什么？",
+   "o": [
+    "小模型的预测准确率已经接近大模型",
+    "大模型一次前向处理多个 token，与处理一个 token 代价相近，因为推理受显存带宽限制",
+    "接受/拒绝规则让大模型只需计算部分层",
+    "草稿模型可以与大模型并行运行在不同设备上"
+   ],
+   "a": 1,
+   "w": "讲者的原话是整个后半讲的隐藏前提：doing a single pass is as expensive as doing one pass at a time, because at inference time you're <b>memory bound</b> —— computations are <b>not the limiting factor</b>。把几百 GB 权重搬进计算单元才是大头，搬一次顺手多算几个 token 几乎白赚。<s>「准确率接近」</s>不需要：小模型猜得烂只会退化成逐个生成，<em>永远不会出错</em>，因为拒绝采样保证了分布相等。<s>「只算部分层」</s>没有这回事，大模型每次都是完整前向。<s>「并行在不同设备」</s>draft 与验证是<b>严格串行</b>的——必须先有猜测才能验证。"
+  }
+ }
+]
