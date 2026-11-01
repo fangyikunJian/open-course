@@ -1,0 +1,197 @@
+[
+ {
+  "kp": 5,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 2627,
+    "cap": "架构图里那个 Add & Norm",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(380,105,520,56,\"Add & Norm\",\"y\");\narrow(640,161,640,215,\"sm\",0);\nboxNode(380,219,520,56,\"子层（注意力 或 FFN）\",\"b\");\narrow(640,275,640,329,\"sm\",0);\nboxNode(380,333,520,56,\"Add & Norm\",\"y\");\nnote(\"把输入和子层输出加起来，再归一化\",640,392,\"g\");\nsetCap(\"讲者：这<b>在实践中被证明能加快收敛</b> —— 但原论文那个摆法现在没人用了。\");",
+    "narration": "第二个被换掉的零件：<b>归一化</b>。\n\n上一讲的架构图里到处是 Add &amp; Norm 这个盒子。它做两件事：把子层的<i>输入</i>和<i>输出</i>加起来（残差），然后<b>归一化</b>。\n\n归一化本身很朴素：拿向量减去它自己的均值，再除以标准差，最后用两个可学的量 <b>γ</b>（缩放）和 <b>β</b>（平移）调回来。\n\n讲者给的理由是经验性的：it is shown in practice to <b>improve convergence and just make the convergence be quicker</b>。\n\n但这一集的重点不是它做什么，而是——<b>它该放在哪里</b>。原论文的摆法，今天已经被换掉了。"
+   },
+   {
+    "beat": "wrong",
+    "t": 2690,
+    "cap": "「归一化嘛，放哪儿不都一样」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"反正都要减均值除标准差，放前放后有差别吗？\",\"数学上做的是同一件事\");\nsetCap(\"<s>有差别</s>，而且大到让整个领域都改了摆法。\");",
+    "narration": "一个很容易有的直觉：归一化就是减均值除标准差，<b>放在子层前面还是后面，做的不都是同一个运算？</b>\n\n从「这个算子本身」看，确实一样。但这里的关键不在算子，在于<b>残差那条路上有没有它</b>。\n\n· <b>Post-Norm</b>（原论文）：输出 = Norm(x + Sublayer(x))。<i>归一化压在残差之后</i>——这条「直通的捷径」每过一层就被归一化掐一次。\n· <b>Pre-Norm</b>（现在）：输出 = x + Sublayer(Norm(x))。<i>归一化挪到子层里面</i>——残差那条路<b>完全干净，从头通到尾</b>。\n\n深层网络靠的就是那条干净的捷径把梯度带回去。差别大到今天没人用 Post-Norm 了。\n\n⚠ 讲者<b>没有</b>讲这个梯度解释，他只说了「换了位置」这个事实。上面这段是我补的，你应当知道它不在课上。"
+   },
+   {
+    "beat": "setup",
+    "t": 2760,
+    "cap": "归一化到底在治什么病",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nnote(\"第 k 层的激活\",330,118,\"b\");\nboxNode(130,155,400,54,\"有时某几维特别大\",\"r\");\nboxNode(130,230,400,54,\"有时又特别小\",\"r\");\nnote(\"下一层很难学 —— 输入分布一直在变\",330,330,\"r\");\nboxNode(760,190,400,56,\"归一化：拉回同一量程\",\"g\");\nnote(\"关键词：internal covariate shift\",960,330,\"y\");\nsetCap(\"讲者给了这个术语，可以拿它去查更多。\");",
+    "narration": "课堂上有人问了「归一化背后的直觉是什么」，讲者的回答值得完整记下来。\n\n一个深网络有很多层。层与层之间传的向量叫 <i>activation</i>（激活）。问题是：<b>有时激活的某几维特别大，有时又特别小，而且这个分布随训练不断变化。</b>\n\n讲者：the model is typically having trouble in learning the weights in each of these layers <b>if these activations vary too much</b>。\n\n于是归一化的作用就是——<b>把激活的各个分量拉回一个不太离谱的量程</b>，让下一层面对的输入分布稳定些。\n\n讲者还给了一个可以拿去查文献的术语：<b>internal covariate shift</b>（内部协变量偏移）。\n\n⚠ 多说一句：这个术语所指的解释<b>在学界是有争议的</b>（后来有工作认为归一化的真正作用是平滑了损失曲面，而不是减少协变量偏移）。讲者给的是经典说法。"
+   },
+   {
+    "beat": "body",
+    "t": 2830,
+    "cap": "Post-Norm → Pre-Norm",
+    "draw_js": "clearScene();setBig(null);setCap(null);\nsetEq(\"$$\\\\text{Post: } \\\\mathrm{Norm}(x+\\\\mathrm{Sub}(x))\\\\qquad\\\\text{Pre: } x+\\\\mathrm{Sub}(\\\\mathrm{Norm}(x))$$\",\"top\");\nnote(\"原论文（2017）\",330,345,\"r\");\nnote(\"今天\",950,345,\"g\");\nnote(\"差别只在括号的位置 —— 但残差那条路一个干净、一个不干净\",640,392,\"y\");\nsetCap(\"讲者 46:32：<b>it was what we now call a post-norm version</b>，现在用 pre-norm。\");",
+    "narration": "把两种摆法并排写出来，差别就只是括号的位置：\n\n· <b>Post-Norm</b>：Norm( x + Sub(x) )\n· <b>Pre-Norm</b>：x + Sub( Norm(x) )\n\n讲者 <b>46:32</b>：here in the transformer paper, it was what we now call a <b>post-norm</b> version. And nowadays, we use a <b>pre-norm</b> version，which consists of having the LayerNorm <em>right before the vector goes into the sublayer</em>。\n\n这里的 Sub 可以是注意力层，也可以是 FFN，两处都一样改。\n\n看右边那个式子：<b>x 原封不动地出现在加号左边</b>。把很多层叠起来，这些 x 串成一条从输入直通输出、中间不被任何归一化干预的通路。Post-Norm 那条路每层都要被 Norm 处理一次。\n\n这就是为什么深层 Transformer 几乎一边倒地用 Pre-Norm。"
+   },
+   {
+    "beat": "body",
+    "t": 2900,
+    "cap": "LayerNorm → RMSNorm：连减均值都省了",
+    "draw_js": "clearScene();setBig(null);setCap(null);\nsetEq(\"$$\\\\mathrm{LN}:\\\\;\\\\gamma\\\\frac{x-\\\\mu}{\\\\sigma}+\\\\beta\\\\qquad\\\\mathrm{RMS}:\\\\;\\\\gamma\\\\frac{x}{\\\\sqrt{\\\\frac{1}{d}\\\\sum x_i^2}}$$\",\"top\");\nnote(\"不减均值，不学 beta\",640,350,\"y\");\nnote(\"讲者：收敛性质 comparable，但参数更少、更快\",640,392,\"g\");\nsetCap(\"讲者 47:05：<b>they use something else called RMSNorm</b>。\");",
+    "narration": "换完位置，连归一化本身也换了。\n\n<b>LayerNorm</b>：减均值 μ，除标准差 σ，再乘 γ 加 β。\n<b>RMSNorm</b>（Root Mean Square Normalization）：<em>不减均值</em>，直接除以各分量的均方根；<em>不学 β</em>，只学 γ。\n\n讲者 <b>47:05</b> 给的理由很实在：they show that the convergence properties are basically <b>comparable</b>。But here you have <b>fewer parameters to learn</b>, so it's basically quicker。\n\n又是第一、二集那个模式：<b>换掉它不是因为新的更准，而是因为同样准的前提下更便宜。</b>\n\n⚠ 请注意这里的「更快」主要不是指参数量——β 相比整个模型微不足道。真正省的是<b>每次前向都要算的那个均值</b>，以及由此少掉的一轮规约。在每层、每 token 都要做一次的地方，这点开销是实打实的。"
+   },
+   {
+    "beat": "refute",
+    "t": 2969,
+    "cap": "为什么不是 BatchNorm",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,105,350,56,\"LayerNorm\",\"g\");\nnote(\"沿<b>一个样本自己的维度</b>归一化\",305,190,\"g\");\nnote(\"与 batch 里别人无关\",305,238,\"g\");\nboxNode(800,105,350,56,\"BatchNorm\",\"r\");\nnote(\"沿 <b>batch 这个方向</b>归一化\",975,190,\"r\");\nnote(\"推理时 batch 变了，统计量就变了\",975,238,\"r\");\nnote(\"讲者：can introduce differences between training and then inference\",640,350,\"y\");\nsetCap(\"视觉那边 BatchNorm 是主流，这里<b>不是</b> —— 原因在这条。\");",
+    "narration": "课堂上还有个好问题：<b>这和 BatchNorm 有什么区别？</b>\n\n讲者 <b>49:29</b> 的回答：BatchNorm 是<b>沿另一个方向</b>归一化——同一个维度，跨 batch 里所有样本算统计量。LayerNorm 则是在<b>单个样本自己的各维之间</b>算。\n\n为什么 Transformer 这边不用 BatchNorm？他给了两条：\n\n① 经验上 LayerNorm <b>效果更好</b>（probably because empirically it works better）。\n② 更要紧的一条：BatchNorm <b>依赖 batch</b>，而这会 <em>introduce differences between training and then inference</em>。\n\n第二条值得展开：训练时 batch 很大，统计量稳定；推理时可能一次只来一个样本，<b>根本算不出有意义的 batch 统计量</b>，只能用训练时存下来的滑动平均——于是训练和推理走的是两套路径。文本任务里序列长度还参差不齐，更糟。\n\n<b>LayerNorm / RMSNorm 完全不碰 batch，所以训练和推理是同一个函数。</b>这个性质在自回归生成里是刚需。"
+   }
+  ],
+  "sum": {
+   "h": "归一化换了<b>位置</b>，也换了<b>形式</b>",
+   "k": "Post-Norm <b>Norm(x+Sub(x))</b> → Pre-Norm <b>x+Sub(Norm(x))</b>；LayerNorm → <b>RMSNorm</b>（不减均值、只学 γ）。讲者：收敛性质 comparable，但参数更少、更快。",
+   "m": "Pre-Norm 让<b>残差那条路完全干净</b>，x 原封不动地从头通到尾。不用 BatchNorm 是因为它<b>依赖 batch</b>，会让训练与推理走两套路径；LayerNorm 只在单样本内部算，训练推理是<b>同一个函数</b>。",
+   "w": "<s>误解</s>：「归一化放前放后做的是同一件事」。算子一样，但<b>残差通路上有没有它</b>不一样 —— 差别大到今天没人用 Post-Norm。",
+   "e": "⚠ 讲者<b>只说了「换了位置」这个事实</b>，梯度/残差通路那套解释是补的。他给的术语 <b>internal covariate shift</b> 是经典说法，后来有工作认为真正起作用的是损失曲面被平滑了。"
+  },
+  "quiz": {
+   "t": "Transformer 用 LayerNorm/RMSNorm 而不用 BatchNorm，最要紧的理由是什么？",
+   "o": [
+    "BatchNorm 的统计量依赖 batch，会让训练与推理走两套不同的路径",
+    "BatchNorm 的计算复杂度明显更高",
+    "BatchNorm 无法处理变长序列的填充位置",
+    "BatchNorm 需要学习的参数比 LayerNorm 多得多"
+   ],
+   "a": 0,
+   "w": "BatchNorm 沿 <b>batch 方向</b>算统计量，于是推理时（可能一次只来一个样本）只能改用训练期存下的滑动平均——<em>训练和推理成了两个不同的函数</em>。讲者 49:29：it can <b>introduce differences between training and then inference</b>。LayerNorm/RMSNorm 只在单个样本内部算，不碰 batch，这在自回归生成里是刚需。<s>「复杂度更高」</s>两者都是一遍规约，量级相同。<s>「无法处理填充」</s>是个真实的工程麻烦，但不是讲者给的理由，也可以靠 mask 绕开。<s>「参数多得多」</s>反了：BatchNorm 同样只有 γ、β 两组，参数量不是分歧点。"
+  }
+ },
+ {
+  "kp": 6,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 3069,
+    "cap": "n 个词两两相连 = n² 条边",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nmatrix({rows:6,cols:6,cw:56,ch:40,x:300,y:96,\n  cell:function(i,j){return \"x\";},\n  hl:function(i,j){return \"y\";},\n  label:\"注意力矩阵：每个词对每个词\"});\nnote(\"序列翻一倍，这张表变成四倍\",640,376,\"r\");\nsetCap(\"讲者 51:09：<b>you basically have o of n squared complexity, which is a lot</b>。\");",
+    "narration": "第三个被动过的零件：<b>注意力本身</b>。\n\n上一讲强调过自注意力的好处是「每个词和每个词直连」。这一镜看它的账单：<b>n 个词两两相连，就是 n² 对</b>。\n\n讲者 <b>51:09</b>：you basically have <b>o of n squared complexity, which is a lot</b>, especially as n grows longer。\n\n请感受一下这个增长：序列从 1 千翻到 2 千，这张表从 100 万格变成 <b>400 万格</b>。序列翻 10 倍，代价涨 <b>100 倍</b>。\n\n这一集讲两条省法。⚠ <b>它们省的不是同一个东西</b>——这是本片最想让你分清的一组概念，也是最常被混为一谈的。"
+   },
+   {
+    "beat": "wrong",
+    "t": 3140,
+    "cap": "「只看邻居，远处就看不见了」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"限制成只看附近几个词，远距离依赖不就没了？\",\"那不是回到 RNN 的老问题了吗\");\nsetCap(\"<s>单层确实看不见</s> —— 但<b>叠起来就看得见</b>。\");",
+    "narration": "第一条省法是：<b>别让每个词和所有词连，只连它附近的一个窗口</b>。\n\n立刻会有的质疑：这不就把上一讲好不容易换来的「任意两词路径长度为 1」给扔了吗？远距离依赖怎么办？\n\n<b>就单层而言，这个质疑是对的。</b>窗口外的词，这一层确实看不见。\n\n但 Transformer 有很多层。第 1 层里 A 看到 B，第 2 层里 B 看到 C——那么第 2 层的 A <em>间接</em>地拿到了 C 的信息。<b>层叠起来，有效视野是逐层扩大的。</b>\n\n讲者用了一个计算机视觉里的词来说这件事，下面第三、四镜展开。"
+   },
+   {
+    "beat": "setup",
+    "t": 3210,
+    "cap": "滑动窗口，以及局部与全局交错",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nmatrix({rows:6,cols:6,cw:54,ch:34,x:160,y:96,\n  cell:function(i,j){return Math.abs(i-j)<=1?\"x\":\"\";},\n  hl:function(i,j){return Math.abs(i-j)<=1?\"g\":\"\";},\n  label:\"局部：只连邻居\"});\nmatrix({rows:6,cols:6,cw:54,ch:34,x:766,y:96,\n  cell:function(i,j){return \"x\";},\n  hl:function(i,j){return \"y\";},\n  label:\"全局：照常全连\"});\nnote(\"有的层用局部，有的层用全局，交错着来\",640,352,\"y\");\nsetCap(\"讲者 53:18：这个做法现在叫 <b>sliding window attention</b>。\");",
+    "narration": "这条路的起点是 2020 年的 <b>Longformer</b>：把注意力限制在一个邻域窗口里。\n\n讲者 <b>53:18</b>：nowadays when you have local attention like this, people use the term <b>sliding window attention</b>。\n\n两个容易被图示误导的地方，讲者都点了：\n\n① <b>窗口没有图上画的那么小。</b>他特地说明 the window is super small in my illustration，但现实中 you can think of this window as being <b>o of several thousands</b>。\n\n② <b>不是所有层都用局部。</b>现在的做法是 in some layers they will have local attention, in some others they will have global attention, and <b>they interleave these layers</b>。具体怎么配没有定规——there's not a set recipe。\n\n另外有人问了个很尖锐的问题：softmax 不是要算整行吗，不算完整的矩阵怎么省？讲者的回答是靠 <b>tiling</b> 这类实现技巧，不去物化那张大矩阵。<i>⚠ 这一点本讲没展开，它其实就是 FlashAttention 那条线。</i>"
+   },
+   {
+    "beat": "body",
+    "t": 3280,
+    "cap": "叠层之后：感受野",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,160,48,\"第 1 层\",\"b\");\nnote(\"A 看到 B\",190,185,\"b\");\nboxNode(400,110,160,48,\"第 2 层\",\"b\");\nnote(\"B 已含 C\",480,185,\"b\");\nboxNode(690,110,160,48,\"第 3 层\",\"b\");\nnote(\"A 间接含 C、D\",770,185,\"b\");\nboxNode(980,110,170,48,\"第 k 层\",\"g\");\nnote(\"有效视野 ~ k x 窗口\",1065,185,\"g\");\nnote(\"讲者举例：Mistral 每层都用滑窗\",640,290,\"y\");\nnote(\"这和卷积网络里「感受野」是同一个道理\",640,345,\"g\");\nsetCap(\"讲者 54:55：<b>similar to the idea of the receptive field</b> in computer vision。\");",
+    "narration": "现在回答第二镜那个质疑。\n\n讲者举的例子是 <b>Mistral</b>——它<em>每一层</em>都用滑动窗口。那远处的词怎么办？\n\n他的解释：the token here can attend up to the token here, but then <b>the token here can attend up to the token here</b>, et cetera。也就是说，信息每过一层就往外扩一个窗口。<b>k 层之后，有效视野大约是 k 倍窗口。</b>\n\n讲者 <b>54:55</b> 给了类比：this is <b>similar to the idea of the receptive field</b> in computer vision。卷积核一次只看 3×3，但层叠起来，深层的一个像素对应原图上一大片。\n\n⚠ 但别把这个类比用过头。<b>「能传到」不等于「传得好」</b>——信息要经过 k 层的揉捏才到达，这和直连那条「路径长度为 1」是有实质差别的。这正是上一讲那条主线留下的张力：<b>为了省算力，我们把当初换来的东西又还回去了一部分。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3350,
+    "cap": "第二条路：几个头共用一套 K 和 V",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,300,54,\"MHA\",\"b\");\nnote(\"每个头各有 Q K V\",260,180,\"b\");\nboxNode(490,105,300,54,\"GQA\",\"y\");\nnote(\"分 g 组，组内共用 K V\",640,180,\"y\");\nboxNode(870,105,280,54,\"MQA\",\"g\");\nnote(\"所有头共用一套 K V\",1010,180,\"g\");\nnote(\"Q 始终每头一套 —— 从不共享\",640,270,\"r\");\nnote(\"讲者 58:56 给的就是这三个名字\",640,345,\"y\");\nsetCap(\"注意：被共享的<b>只有 K 和 V</b>，Q 一直是每头独立的。\");",
+    "narration": "第二条省法和窗口完全无关，<b>它不减少任何一次注意力计算</b>。\n\n做法：上一讲说每个头有自己的 W^Q、W^K、W^V。现在<b>让若干个头共用同一套 K 和 V 的投影矩阵</b>，而 Q 仍然每头一套。\n\n讲者 <b>58:56</b> 给了三个名字：\n· <b>MHA</b>：每头独立——原来的多头注意力。\n· <b>GQA</b>（Grouped-Query Attention）：分成 g 组，<i>组内共用</i> K/V。\n· <b>MQA</b>（Multi-Query Attention）：极端情形，<i>所有头共用一套</i> K/V。\n\n请注意这个不对称：<b>被共享的永远是 K 和 V，Q 从不共享。</b>\n\n为什么？讲者先给了一句很诚实的话：<b>people do things to just try out if something works or not</b>——先有做法。然后他给了真正站得住的理由，在下一镜。"
+   },
+   {
+    "beat": "refute",
+    "t": 3410,
+    "cap": "两条路省的根本不是同一样东西",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,420,58,\"滑动窗口\",\"g\");\nnote(\"砍的是 O(n^2) 的<b>计算量</b>\",320,185,\"g\");\nnote(\"改变了谁能看见谁\",320,233,\"y\");\nboxNode(740,100,420,58,\"GQA / MQA\",\"b\");\nnote(\"砍的是 <b>KV cache 的显存</b>\",950,185,\"b\");\nnote(\"每个头看见的范围一点没变\",950,233,\"y\");\nnote(\"两条正交 —— 可以同时用\",640,330,\"r\");\nsetCap(\"混为一谈是最常见的误解。<b>一个省算力，一个省显存。</b>\");",
+    "narration": "这一集最该带走的一条。\n\n讲者解释共享 K/V 的理由时，提到了一个下一讲才会展开的东西：<b>解码的时候，每生成一个新词，都要让它去 attend 之前所有的词</b>。so the keys and the values, <b>they're going to come up a lot</b>。\n\n于是人们把算过的 K、V 存起来重复使用，这就是 <b>KV cache</b>。而讲者 <b>58:10</b> 点破了关键：<b>one thing that we want is for that cache to not become too big</b>。共享 K/V 投影，<em>存下来的东西就少几倍</em>。\n\n所以两条路的账算在完全不同的本子上：\n\n· <b>滑动窗口</b>：砍的是 <i>O(n²) 的计算量</i>。它<b>改变了谁能看见谁</b>，所以会影响模型能力。\n· <b>GQA / MQA</b>：砍的是 <i>KV cache 占的显存</i>。每个头能看见的范围<b>一点没变</b>，仍是全序列。\n\n<b>两者正交，可以同时用</b>，今天的模型也确实同时在用。\n\n⚠ 还有一句背景：讲者提到现代 LLM 是 <b>decoder-only</b>，所以这些技巧主要落在解码器的掩码自注意力上——下一讲的主题。"
+   }
+  ],
+  "sum": {
+   "h": "省算力和省显存是<b>两件事</b>，别混为一谈",
+   "k": "<b>滑动窗口</b>（Longformer / SWA）把注意力限制在邻域，砍 <b>O(n²) 的计算</b>；<b>GQA / MQA</b> 让多个头共用 K/V 投影，砍 <b>KV cache 的显存</b>。两者正交，可同时用。",
+   "m": "滑窗<b>改变了谁能看见谁</b>，靠叠层形成「感受野」把视野扩回去（讲者的 Mistral 例子）；GQA 则<b>完全不改变可见范围</b>，每个头仍看全序列。共享的永远是 K/V 不是 Q，因为<b>解码时 K/V 要被反复取用</b>，缓存不能太大。",
+   "w": "<s>误解一</s>：「滑窗之后远距离依赖就没了」—— 单层是，叠层不是。<s>误解二</s>：「GQA 也是在省算力」—— 它省的是显存，注意力该算多少还是多少。",
+   "e": "⚠ 感受野这个类比别用过头：<b>「能传到」不等于「传得好」</b>，信息要经 k 层揉捏，和「路径长度为 1」有实质差别。另外讲者提了 tiling 不物化大矩阵 —— <b>那其实是 FlashAttention 那条线，本讲没展开</b>。"
+  },
+  "quiz": {
+   "t": "GQA（分组共享 K/V 投影）主要省下的是什么？",
+   "o": [
+    "注意力矩阵的 O(n²) 计算量",
+    "解码时 KV cache 占用的显存",
+    "每一层需要存储的激活值",
+    "词嵌入表的参数量"
+   ],
+   "a": 1,
+   "w": "解码时每生成一个词都要 attend 之前所有词，于是把算过的 K、V 缓存起来复用；共享 K/V 投影让<b>缓存小几倍</b>——讲者 58:10：one thing that we want is for that cache to <b>not become too big</b>。<s>「O(n²) 计算量」</s>那是<b>滑动窗口</b>干的事，这是本集最想分清的一组概念：GQA 下每个头仍然看全序列，<em>该算的注意力一次没少</em>。<s>「每层激活」</s>与头间是否共享投影无关。<s>「词嵌入表」</s>完全不在注意力这一块。"
+  }
+ },
+ {
+  "kp": 7,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 4114,
+    "cap": "把解码器整个扔掉",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,110,340,70,\"编码器\",\"g\");\nboxNode(700,110,340,70,\"解码器\",\"r\");\nnote(\"留下\",300,215,\"g\");\nnote(\"扔掉\",870,215,\"r\");\nnote(\"那不就不能生成文本了？\",640,300,\"y\");\nnote(\"讲者：<b>yes, that is exactly the point</b>\",640,360,\"g\");\nsetCap(\"这不是妥协，是<b>有意为之</b> —— 换来的东西在下一镜。\");",
+    "narration": "最后一集换个方向。\n\n上一讲的 Transformer 有编码器和解码器两半。这一集问：<b>如果把解码器整个扔掉，只留编码器，会怎样？</b>\n\n讲者自己替听众问了那个显然的问题——you cannot do generation with this——然后给了一个很漂亮的回答（<b>68:34</b>）：\n\n<b>yes, that's exactly the point.</b>\n\n不能生成不是副作用，是<b>换来别的东西所付的价</b>。而换来的那个东西，正是这一集的标题：<i>真正的双向</i>。\n\n这条路线的代表作就是 <b>BERT</b>。"
+   },
+   {
+    "beat": "wrong",
+    "t": 4190,
+    "cap": "「双向？注意力本来就看所有词啊」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"自注意力不是本来就能看到全句吗？\",\"那「双向」有什么特别的\");\nsetCap(\"<s>解码器看不到</s> —— 它的注意力是<b>带掩码</b>的。\");",
+    "narration": "一个很容易卡住的地方：上一讲不是说自注意力让每个词看见所有词吗？那「双向」还有什么可强调的？\n\n区别在<b>掩码</b>。\n\n解码器用的是 <b>masked self-attention</b>：每个词只能看见<em>自己和它前面的词</em>，后面的全被屏蔽。这叫<b>因果</b>（causal）。\n\n为什么必须这样？因为解码器要做的是「预测下一个词」。<b>如果训练时它能看见后面的词，那就是把答案直接给它看了。</b>\n\n而编码器没有这个任务，所以它的自注意力<b>不加掩码</b>——每个词真的能同时看见左边和右边。\n\n讲者提到 BERT 作者在论文里专门就这一点和 GPT 对比：<b>GPT they're not truly bidirectional</b>，而编码器出来的表示 truly are。"
+   },
+   {
+    "beat": "setup",
+    "t": 4270,
+    "cap": "不生成，那它产出什么",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,180,50,\"[CLS]\",\"y\");\nboxNode(310,105,150,50,\"this\",\"b\");\nboxNode(480,105,170,50,\"teddy\",\"b\");\nboxNode(670,105,160,50,\"cute\",\"b\");\nboxNode(850,105,150,50,\"[SEP]\",\"y\");\narrow(200,160,200,230,\"sm\",0);\nboxNode(110,234,180,52,\"向量\",\"g\");\nnote(\"它吸收了全句的双向信息\",430,260,\"g\");\narrow(300,260,600,260,\"sm\",0);\nboxNode(620,234,400,52,\"接一个线性层 → 分类\",\"g\");\nsetCap(\"<b>[CLS]</b> 是个占位符，专门用来<b>代表整句</b>。\");",
+    "narration": "既然不生成，产出的是什么？<b>表示</b>——可以拿去做分类的向量。\n\nBERT 在输入里塞了两个结构性的特殊 token：\n\n· <b>[CLS]</b>（讲者 <b>76:49</b>：stands for classification）。放在序列最前面的一个<b>占位符</b>。它本身没有语义，但经过所有编码器层之后，它的输出向量 <i>carries the bidirectional information of your whole input</i>——<b>整句话的信息都被吸进这一个向量</b>。要做句子分类，就在它后面接一个线性层。\n· <b>[SEP]</b>（separator）：用来<b>分隔两个句子</b>。为什么需要分隔两个句子，下一镜揭晓。\n\n⚠ [CLS] 能代表整句，<b>不是因为它被设计得特别</b>，而是因为训练目标<em>逼</em>它成为这样——分类的损失只从它这里回传。这是一个很典型的「让目标函数去塑造表示」的例子。"
+   },
+   {
+    "beat": "body",
+    "t": 4350,
+    "cap": "两个代理任务：MLM 与 NSP",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,100,480,58,\"MLM：遮住 15% 的词，猜它们\",\"g\");\nnote(\"学句子内部的结构\",350,185,\"g\");\nnote(\"不需要任何人工标注\",350,233,\"g\");\nboxNode(700,100,460,58,\"NSP：这两句是否真的相邻\",\"b\");\nnote(\"学句子之间的关系\",930,185,\"b\");\nnote(\"是个<b>分类</b>任务，不是生成\",930,233,\"y\");\nnote(\"[SEP] 就是为 NSP 准备的\",640,330,\"y\");\nsetCap(\"讲者 78:22：<b>MLM stands for Masked Language Model</b>。\");",
+    "narration": "编码器怎么预训练？用<b>两个代理任务</b>——它们都不是你最终想做的事，但做好它们能学到好表示。\n\n① <b>MLM</b>（Masked Language Model）：把输入里 <b>15%</b> 的 token 遮住，让模型猜被遮的是什么。讲者说它 is a way for the model to <b>learn the internal structure of the inputs</b>。\n\n  <i>这个任务只有双向模型做得了</i>——要猜中间那个词，你得同时看左边和右边。因果模型天然做不到。\n\n② <b>NSP</b>（Next Sentence Prediction）：取两个句子拼起来，判断<b>它们是不是真的前后相邻</b>。讲者说它 might be seen as a way to see if <b>the ordering of sentences makes sense</b>。\n\n  课堂上有人质疑：预测下一句不该是解码器的活吗？讲者澄清得很清楚：<b>它不是生成下一句，是把两句并排送进去、判断是否相邻——一个分类任务。</b>[SEP] 就是用来分隔这两句的。"
+   },
+   {
+    "beat": "body",
+    "t": 4420,
+    "cap": "为什么这招这么划算",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,100,420,58,\"预训练：海量无标注文本\",\"g\");\nnote(\"遮词 —— 答案就是原文自己\",340,185,\"g\");\nnote(\"判相邻 —— 答案你本来就知道\",340,233,\"g\");\narrow(560,130,740,130,\"sm\",0);\nboxNode(760,100,400,58,\"微调：少量标注数据\",\"y\");\nnote(\"冻住大部分，只调一点点\",960,185,\"y\");\nnote(\"自监督：标签是从数据里<b>自动造</b>出来的\",640,330,\"y\");\nsetCap(\"讲者 80:33：预训练 <b>can be done on fairly unlabeled data</b>。\");",
+    "narration": "这个设计为什么是突破？因为它<b>绕开了标注</b>。\n\n两个代理任务的标签<b>都不需要人来标</b>：\n· MLM：被遮住的词是什么？<i>原文里就写着</i>。\n· NSP：这两句相不相邻？<i>你从语料里取的时候就知道</i>。讲者说 this is something that <b>you control, because you know which sentences follow each other</b>。\n\n这叫<b>自监督</b>：标签是从数据本身自动构造出来的。于是训练数据的规模不再受标注预算限制——<b>整个互联网都能用</b>。\n\n然后是第二阶段：<b>微调</b>。保留学到的表示，在后面接一个小网络（通常就是个线性投影），用<em>少量</em>标注数据针对具体任务调。讲者：you just start from these very nice embeddings, and <b>you just have a few weights to tune</b>。\n\n<b>这个「先在海量无标注数据上预训练，再用少量标注微调」的两段式，就是后来整个 LLM 范式的雏形。</b>"
+   },
+   {
+    "beat": "refute",
+    "t": 4474,
+    "cap": "代价：它换掉的是生成",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,100,400,58,\"拿到了\",\"g\");\nnote(\"真正的双向表示\",330,180,\"g\");\nnote(\"自监督，不吃标注\",330,228,\"g\");\nboxNode(750,100,400,58,\"失去了\",\"r\");\nnote(\"一切生成类任务\",950,180,\"r\");\nnote(\"而且必须两段式，不能一步到位\",950,228,\"r\");\nnote(\"今天的 LLM 选了反过来的那一半 —— 丢编码器，留解码器\",640,330,\"y\");\nsetCap(\"两条路都在 2018 年摆在桌上。<b>赢的是另一条。</b>\");",
+    "narration": "最后把账算清楚，并把这一讲接回主线。\n\nBERT <b>拿到的</b>：真正双向的表示；自监督，不吃标注；微调成本极低。当年它刷爆了一批榜单。\n\nBERT <b>失去的</b>：<i>所有生成类任务</i>——讲者说 all the text generation tasks are <b>out of reach because we don't have a decoder</b>。而且它必须<b>两段式</b>，相比一步到位的方法，这本身也算个负担。\n\n然后是真正有意思的部分。讲者提到另一个事实：<b>今天的 LLM 选了反过来的那一半——丢掉编码器，只留解码器。</b>\n\n为什么？他给的理由是：people realized that your <b>compute budget could be best invested in the decoder only</b>，而且<b>下一词预测是最简单、最容易规模化的任务</b>，It proved to be wonders。相比之下 T5 那种 span corruption「more bespoke, so it's more complex」。\n\n⚠ <b>赢的不是更聪明的目标函数，是更容易堆规模的那一个。</b>这是整门课接下来的底色。"
+   }
+  ],
+  "sum": {
+   "h": "BERT：丢掉解码器，换来<b>真正的双向</b>",
+   "k": "只保留编码器，自注意力<b>不加掩码</b>，所以每个词能同时看见左右。<b>[CLS]</b> 吸收全句信息供分类，<b>[SEP]</b> 分隔两句。预训练靠两个代理任务：<b>MLM</b>（遮 15% 猜词）与 <b>NSP</b>（判断两句是否相邻）。",
+   "m": "两个代理任务的标签<b>都不用人标</b>（遮住的词原文里有、相不相邻取语料时就知道），这就是<b>自监督</b> —— 训练规模不再受标注预算限制。MLM <b>只有双向模型做得了</b>：猜中间的词必须同时看左右。",
+   "w": "<s>误解</s>：「自注意力本来就能看到全句，双向有什么特别」。<b>解码器是带掩码的</b>（causal），只能看自己和前面；BERT 作者在论文里就是拿这点和 GPT 对比的。",
+   "e": "代价是<b>完全不能生成</b>，且必须两段式。⚠ 今天的 LLM 选了<b>反过来的那一半</b> —— 丢编码器留解码器，因为算力「best invested in the decoder only」，且下一词预测<b>最容易规模化</b>。赢的不是更聪明的目标，是更能堆规模的那个。"
+  },
+  "quiz": {
+   "t": "BERT 的「双向」相对 GPT 那类模型，关键差别在哪？",
+   "o": [
+    "BERT 同时从左到右和从右到左各跑一遍，再把结果拼起来",
+    "BERT 的位置嵌入同时编码了前向和后向的距离",
+    "BERT 的自注意力不加因果掩码，每个词真的能同时看见左右两侧",
+    "BERT 的编码器层数比解码器模型更多"
+   ],
+   "a": 2,
+   "w": "解码器用的是 <b>masked self-attention</b>，每个词只能看自己和前面的词（因为它要预测下一个词，看到后面就是看答案）。BERT 只有编码器、<em>不需要</em>这个掩码，所以每个词的表示真的同时吸收了左右两侧——这也正是 <b>MLM 只有双向模型做得了</b>的原因。<s>「各跑一遍再拼」</s>那是 <b>ELMo</b> 的做法（双向 LSTM），讲者专门提到它同年发表但被 BERT 盖过。<s>「位置嵌入编码双向」</s>位置嵌入与能否看见后文无关，决定可见性的是掩码。<s>「层数更多」</s>与双向性毫无关系。"
+  }
+ }
+]

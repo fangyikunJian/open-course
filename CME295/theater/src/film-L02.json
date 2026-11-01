@@ -1,0 +1,27 @@
+{
+ "file": "L02-位置信息与Transformer变体.html",
+ "html_title": "CME295 L02 · 位置信息与 Transformer 变体 · 放映厅",
+ "title": "CME295 · Lecture 2 · 原论文那版，今天几乎每个零件都换过了",
+ "subtitle": "%d 个知识点 · 讲义 p12–100 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "https://www.youtube.com/watch?v=yT84Y5zCnaA&t=",
+ "prelude_js": "// 内容权威：讲稿 corpus/transcripts/L2.txt（106 分 50 秒）\n//   + 官方讲义 fall25-cme295-lecture2.pdf（109 页）\n// 讲义公开：https://cme295.stanford.edu/slides/fall25-cme295-lecture2.pdf\n// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。\n//\n// 时间码用 scratchpad 的定位器从 L2_timed.txt 的 194 个锚点插值得到，不是估的。\n// 逐条核过的原话（都能在 L2.txt 里搜到）：\n//   [11:15] 「So you lose this position information.」\n//   [13:51] 学习式位置嵌入：「You can only learn position embeddings up to that position.」\n//   [20:32] 正弦式：两个位置嵌入点积「a sum of cosine that are a function of the\n//           relative distance between m and n」\n//   [27:35] 加在输入上「it's kind of indirect」—— 我们要的相似度发生在注意力层\n//   [28:52] T5：「they have tried these relative position bias by learning the bias term」\n//   [30:25] 「ALiBi stands for Attention with linear bias」\n//   [31:21] 「rotating the query and the key vector by some angle」\n//   [37:32] 「It stands for Rotary Position Embeddings」\n//   [39:44] 「we observe a long-term decay」（RoFormer 附录里给的上界，讲者说\n//           「you see these little oscillations, it's not perfect either」）\n//   [46:32] 「it was what we now call a post-norm version」，现在用 pre-norm\n//   [47:05] 「they use something else called RMSNorm」—— 只学 gamma，参数更少\n//   [49:29] 为什么不用 BatchNorm：依赖 batch，「can introduce differences between\n//           training and then inference」\n//   [51:09] 自注意力「you basically have o of n squared complexity」\n//   [53:18] 「people use the term sliding window attention」\n//   [54:55] 叠层之后「similar to the idea of the receptive field」（Mistral 为例）\n//   [56:05] 「to share projection matrices across heads」\n//   [58:10] 为什么共享的是 K/V 不是 Q：解码时反复用到，\n//           「one thing that we want is for that cache to not become too big」\n//   [58:56] 全共享叫 MQA，分 g 组叫 GQA，各头独立就是原来的 MHA\n//   [68:34] 只要编码器就不能生成了吧？—— 讲者：「yes, that's exactly the point」\n//   [71:54] BERT = 「Bidirectional Encoder Representations from Transformers」\n//   [76:49] 「the CLS token, which stands for classification」\n//   [78:22] 「MLM stands for Masked Language Model」\n//   [80:33] 预训练「can be done on fairly unlabeled data」\n//\n// ⚠ 本片**没有**讲（讲稿里有，但不在这条主线上）：T5 的 span corruption 与\n//   sentinel token、ELMo、WordPiece 分词、segment encoding、DistilBERT 与 RoBERTa、\n//   以及 Longformer 里 tiling 的工程实现。",
+ "kp_names": {
+  "1": "1 · 直连丢了词序，<b>给每个位置学一个向量</b>为什么不够　<small>讲义 p12–14</small>",
+  "2": "2 · 正弦硬编码：两个位置的点积<b>只依赖 m−n</b>　<small>讲义 p15–23</small>",
+  "3": "3 · 位置该进<b>注意力层</b>，不是进输入　<small>讲义 p24–28</small>",
+  "4": "4 · <b>RoPE</b>：把 q 和 k 各自转一个角度　<small>讲义 p29–35</small>",
+  "5": "5 · Post-Norm → <b>Pre-Norm</b> → RMSNorm　<small>讲义 p37–44</small>",
+  "6": "6 · 滑窗省<b>算力</b>，GQA 省<b>显存</b> —— 两件不同的事　<small>讲义 p46–54</small>",
+  "7": "7 · <b>BERT</b>：丢掉解码器，换来真正的双向　<small>讲义 p62–100</small>"
+ },
+ "kp_base": { "1": 675, "2": 1050, "3": 1655, "4": 2040, "5": 2627, "6": 3069, "7": 4114 },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"CME295 · Lecture 2\",\"Transformer-based models &amp; tricks\",\n  \"讲义 109 页 · 讲稿 106 分 50 秒 · 本片取 7 条主线\");",
+  "narration": "上一讲讲完 Transformer 的本体，这一讲做的是一件很具体的事：<b>把原论文那版的零件一个一个拆下来，看哪些已经被换掉了。</b>\n\n换掉的有三处，本片按这个顺序走：\n\n<i>位置信息</i>（4 集）——这是上一讲欠下的债。直连换来了梯度路径和并行性，代价是<b>词序没了</b>。从「给每个位置学一个向量加上去」一路走到今天几乎人人都用的 <b>RoPE</b>。\n\n<i>归一化</i>（1 集）——原论文的 Post-Norm 现在没人用了，换成 Pre-Norm，连 LayerNorm 本身也换成了 RMSNorm。\n\n<i>注意力</i>（1 集）——O(n²) 太贵，有两条省法。⚠ 这两条<b>省的不是同一个东西</b>，混为一谈是最常见的误解。\n\n最后一集讲 <i>BERT</i>：如果把解码器整个丢掉会怎样。\n\n讲义是公开的（p12–100），每一集的标题上都标了页码；顶栏的时间可点，跳到视频该处。"
+ },
+ "closing": {
+  "t": 5100,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"CME295 · Lecture 2\",\"零件清点完毕\",\n  \"下一讲：把解码器单独留下，就是今天的 LLM\");",
+  "narration": "把这一讲压成一句话：<b>2017 年那张架构图，今天还剩下的只有「自注意力 + FFN + 残差」这个骨架，几乎每个具体零件都换过了。</b>\n\n· <i>位置</i>：绝对 → 相对，加在输入 → 转进注意力。RoPE 之所以赢，是因为它同时拿到了两样东西——不学（不会过拟合训练集的长度）且只依赖相对距离。\n· <i>归一化</i>：Post-Norm → Pre-Norm，LayerNorm → RMSNorm（只学 γ）。\n· <i>注意力</i>：滑窗砍的是 <b>O(n²) 的计算</b>，GQA/MQA 砍的是 <b>KV cache 的显存</b>。两条路正交，可以同时用。\n· <i>BERT</i>：丢掉解码器 ⇒ 不能生成，但换来<b>真正的双向</b>，适合分类。\n\n⚠ 有两处讲者自己留了白，值得记住它们是<b>开放</b>的，不是已解决的：\n① RoPE 的长程衰减只有一个<b>上界</b>（RoFormer 附录），而且「you see these little oscillations, <b>it's not perfect either</b>」。\n② 为什么共享的是 K/V 而不是 Q，讲者先说「people do things to just try out if something works or not」，再给出了 KV cache 这个站得住的理由。<b>先有做法，后有解释</b>，这在这个领域是常态。\n\n下一讲：BERT 丢的是解码器；今天的 LLM 反过来，<b>丢掉的是编码器</b>。"
+ }
+}
