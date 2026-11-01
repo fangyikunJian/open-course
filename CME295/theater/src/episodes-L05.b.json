@@ -1,0 +1,262 @@
+[
+ {
+  "kp": 6,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 3494,
+    "cap": "「我刚才撒了点谎」",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,460,60,\"前面说的：最大化<b>奖励</b>\",\"r\");\nboxNode(730,110,440,60,\"其实是：最大化<b>优势</b>\",\"g\");\nnote(\"优势 = 这个结果比「预期」好多少\",640,250,\"y\");\nnote(\"讲者：there is something that I have <b>lied a little bit about</b>\",640,358,\"r\");\nsetCap(\"这不是修辞 —— 换成优势之后，训练稳定性完全不同。\");",
+    "narration": "讲者在这里自己拆了个台：<b>there is something that I've lied a little bit about too, which is we don't want to maximize rewards. We actually want to maximize a quantity called advantage.</b>\n\n<b>优势</b>（advantage）是什么？讲者的定义很好记：\n\n<b>how much better is your output compared to what you would expect.</b>\n\n——<em>这个结果，比「预期中会得到的」好多少。</em>\n\n为什么要换？讲者先给了结果：people typically use advantage to make the whole process be <b>more stable</b>。\n\n下面几镜看它为什么能让训练稳定，以及为此要额外付出什么。\n\n⚠ 先预告一个结构：<b>要算「比预期好多少」，你得先有一个「预期」</b>。而那个「预期」本身又得训一个模型出来——<em>这是 PPO 变重的主要来源</em>。"
+   },
+   {
+    "beat": "wrong",
+    "t": 3550,
+    "cap": "「奖励高就该强化，有什么问题」",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"简单题\",\"y\");\nnote(\"随便答答也能拿 0.8\",340,190,\"y\");\nnote(\"按奖励算：<b>大大强化</b>\",340,238,\"r\");\nboxNode(730,105,440,58,\"难题\",\"g\");\nnote(\"拼尽全力才拿 0.5\",950,190,\"g\");\nnote(\"按奖励算：<b>强化得少</b>\",950,238,\"r\");\nnote(\"结果：模型学会<b>多答简单题</b>\",640,352,\"r\");\nsetCap(\"绝对分数混淆了「这题好答」和「这次答得好」。\");",
+    "narration": "直接用奖励当信号，问题出在哪？\n\n<b>绝对分数里混着两样东西：「这道题本身好不好答」和「这一次答得好不好」。</b>\n\n举例：\n· <b>简单题</b>：随便答答都能拿 0.8。\n· <b>难题</b>：拼尽全力才拿 0.5。\n\n按奖励的绝对值来强化，那个 0.8 得到的强化远大于 0.5。<b>可后者才是真正值得鼓励的表现。</b>\n\n<em>模型从中学到的是：多去答简单题，别碰难的。</em>\n\n<b>要修正它，就得把「这题平均能拿多少」减掉——剩下的才是「这一次比平常好多少」。</b>\n\n讲者的说法：you want to compare the rewards that you're obtaining <b>with an average response</b> if you want。\n\n而这个「减去基线」还有一个更技术的好处，下一镜说。"
+   },
+   {
+    "beat": "setup",
+    "t": 3620,
+    "cap": "减去基线，是为了降方差",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"只用奖励\",\"r\");\nnote(\"各条样本的信号<b>散得很开</b>\",340,190,\"r\");\nnote(\"梯度噪声大 → 训练慢、容易崩\",340,238,\"r\");\nboxNode(730,105,440,58,\"奖励 − 基线\",\"g\");\nnote(\"信号集中在 0 附近，有正有负\",950,190,\"g\");\nnote(\"<b>方差小</b> → 收敛快\",950,238,\"g\");\nnote(\"讲者：it <b>reduces the variance</b> of these estimates\",640,352,\"y\");\nsetCap(\"这是「减基线」在 RL 里的标准理由，与期望无关。\");",
+    "narration": "讲者给了更技术的那个理由：\n\n<b>the reason why people use these reward minus baseline is because it reduces the variance of these estimates, and it just makes the training just go faster typically.</b>\n\n直觉是这样的：如果所有样本的奖励都在 0.7 到 0.9 之间，那么用绝对值做信号，<b>每条样本都在说「加强」</b>，只是程度不同。真正有用的信息——<em>哪些比平均好、哪些比平均差</em>——被淹没在一个大的共同偏移里。\n\n<b>减掉基线之后，信号就变成有正有负、集中在 0 附近：好于预期的往上推，差于预期的往下压。</b>\n\n⚠ 关键在于：<b>减去一个不依赖动作的基线，不改变梯度的期望，只降低它的方差。</b>这是 RL 里一个标准结论——<em>你免费拿到了更稳的估计，没有引入偏差</em>。\n\n<b>于是问题就剩一个：那个「预期」从哪来？</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3690,
+    "cap": "价值函数：token 级的预测",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,500,60,\"输入：提示词 + <b>已生成的一部分</b>\",\"b\");\narrow(360,170,360,224,\"sm\",0);\nboxNode(110,228,500,56,\"输出：若照这个策略写完，最终奖励大约是多少\",\"g\");\nboxNode(700,110,460,60,\"⚠ 它是 <b>token 级</b> 的\",\"y\");\nnote(\"奖励是整段一个数\",930,200,\"r\");\nnote(\"价值函数在<b>每个位置</b>都给一个数\",930,248,\"g\");\nsetCap(\"讲者说这句「charged in meaning」，所以重复了一遍。\");",
+    "narration": "「预期」由一个叫<b>价值函数</b>（value function）的东西给出。讲者说这句话含义很重，所以念了两遍：\n\n<b>The value function is a token-level estimation of the reward that takes in a partial input and predicts the reward — if you were to follow the policy in your generation.</b>\n\n拆开看三件事：\n① <b>输入是「提示词 + 已经生成的一部分」</b>——不是完整回答。\n② <b>输出是「如果照当前策略继续写完，最终大概能拿多少奖励」</b>。\n③ <b>它是 token 级的</b>：生成到第 k 个 token 时就能给出一个估计。\n\n⚠ 第三点正是第三集那个<b>信用分配</b>问题的解法。奖励只有整段完成后的一个数，<b>而价值函数在每个位置都能给出一个估计</b>——于是「第 3 个 token 是功还是过」就有办法回答了：<em>看它让「预期还能拿多少」变高了还是变低了。</em>\n\n<b>这也解释了为什么这个函数必须是 token 级的：粒度不够细，就对不齐要更新的那些决策。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 3760,
+    "cap": "代价：又多一个要训的模型",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(340,105,600,58,\"同一个 LLM 主干\",\"b\");\narrow(500,163,330,215,\"sm\",0);\narrow(780,163,950,215,\"sm\",0);\nboxNode(170,219,340,56,\"语言模型头 → 策略\",\"g\");\nboxNode(770,219,340,56,\"价值头 → 一个数\",\"y\");\nnote(\"⚠ 价值头是<b>回归</b>，不是分类\",950,310,\"r\");\nnote(\"和策略<b>一起训</b>\",640,375,\"y\");\nsetCap(\"第八集那个「四个模型」的账，从这里开始变重。\");",
+    "narration": "价值函数从哪来？<b>得训一个。</b>\n\n讲者描述的做法：拿你的 LLM（初始化成 SFT 模型），<b>在上面再挂一个「价值头」</b>。\n\n⚠ 他特意区分了：<b>this time, it's not a classification problem. It's a regression problem.</b>——价值头要输出的是<em>一个实数</em>（预计的最终奖励），不是在词表上的分布。\n\n而且它 <b>typically trained jointly with the policy</b>——<em>和策略一起训</em>，因为策略一变，「照这个策略写下去能拿多少」也就跟着变了。\n\n<b>所以账是这样的：为了把奖励换成优势，你额外付出了一整个要训练的模型。</b>\n\n⚠ 至于优势具体怎么从价值函数算出来，讲者明确说<b>超出本课范围</b>：I am intentionally not going too much into detail ... <b>it is just beyond the scope of this class</b>。他给了方法名字 <b>GAE</b>（generalized advantage estimation）和论文，说那是 <b>mathematically involved</b> 的。\n\n<b>把它当成一个带几个超参数的公式就行——而那几个超参数，第八集会出现在「要调的东西」那张清单上。</b>"
+   },
+   {
+    "beat": "refute",
+    "t": 3810,
+    "cap": "换来的稳定，是有标价的",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"拿到了\",\"g\");\nnote(\"方差更小、训练更稳更快\",340,190,\"g\");\nnote(\"信用分配有了着落\",340,238,\"g\");\nboxNode(730,105,440,58,\"付出了\",\"r\");\nnote(\"多一个要训的价值模型\",950,190,\"r\");\nnote(\"多几个超参数（GAE 那几个）\",950,238,\"r\");\nnote(\"而且价值函数<b>自己也会估错</b>\",640,352,\"r\");\nsetCap(\"下一集：在这个基础上，还要再限制每一步迈多大。\");",
+    "narration": "收尾时把账算清楚。\n\n<b>拿到的</b>：方差更小、训练更稳更快；信用分配有了着落。\n\n<b>付出的</b>：\n· 多一个<b>要训练的价值模型</b>（显存、算力、以及它自己的训练难题）。\n· 多几个<b>超参数</b>——GAE 里至少有两个，第八集会专门抱怨这件事。\n\n⚠ 还有一条讲者没展开、但很要紧的：<b>价值函数自己也是估出来的，它也会估错。</b>\n\n顺着第五集那条线想：奖励模型是个不完美的代理，<b>现在又叠了一个不完美的基线估计</b>。优势 = 不准的奖励 − 不准的预期。\n\n<b>这就是为什么 PPO 这条路公认难调——误差源不止一个，而且它们会互相放大。</b>\n\n⚠ 也正是这一点，解释了下一讲的 <b>GRPO</b> 为什么会出现：<em>它干脆不训价值函数，而是用「同一个问题采样一组回答，拿组内平均当基线」</em>。<b>基线还在，但那个要训的模型没了。</b>讲者说下一讲会讲它。"
+   }
+  ],
+  "sum": {
+   "h": "要最大化的不是奖励，是<b>优势</b>",
+   "k": "优势 = <b>这次比「预期」好多少</b>。预期由<b>价值函数</b>给出：它吃「提示词 + 已生成的一部分」，预测「照当前策略写完最终能拿多少奖励」，而且是 <b>token 级</b>的。",
+   "m": "绝对奖励混淆了「这题好不好答」与「这次答得好不好」—— 直接用它会让模型学会<b>多答简单题</b>。减去基线<b>不改变梯度的期望，只降低方差</b>，训练更稳更快。而 token 级的价值函数正是<b>信用分配</b>的解法。",
+   "w": "<s>误解</s>：「奖励高就该强化」。简单题随手 0.8、难题拼命 0.5，按绝对值强化就<b>奖励了偷懒</b>。",
+   "e": "代价：价值头是<b>回归</b>头，要与策略<b>一起训</b> —— 这是 PPO 变重的主要来源；GAE 的细节讲者明说<b>超出本课范围</b>。⚠ 而且<b>价值函数自己也会估错</b>，误差源从一个变成两个，这正是 PPO 难调的原因，也是下一讲 <b>GRPO 干脆不训价值函数</b>的动机。"
+  },
+  "quiz": {
+   "t": "PPO 里把「奖励」换成「优势」，主要解决什么问题？",
+   "o": [
+    "让奖励模型不再需要人工标注数据",
+    "消除策略偏离参考模型带来的奖励黑客",
+    "绝对奖励会奖励「题目本身好答」，减去基线后信号方差更小、训练更稳",
+    "把整段级的奖励变成可以反向传播的可导量"
+   ],
+   "a": 2,
+   "w": "绝对分数里混着「这题好不好答」和「这次答得好不好」——简单题随手 0.8、难题拼命 0.5，按绝对值强化会让模型<b>学会挑简单的答</b>。减去基线后信号有正有负、集中在 0 附近，<b>不改变梯度期望但降低方差</b>（讲者：it reduces the variance of these estimates）。<s>「不再需要人工标注」</s>奖励模型照样要人标的偏好数据。<s>「消除奖励黑客」</s>那是 <b>KL 惩罚</b>的职责，而且只是缓解。<s>「变成可导量」</s>奖励本来就不参与反向传播——它是通过策略梯度进入更新的，可导性不是这里的问题。"
+  }
+ },
+ {
+  "kp": 7,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 3837,
+    "cap": "还得限制每一步迈多大",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"KL 惩罚管的是\",\"y\");\nnote(\"别离<b>起点</b>（SFT 模型）太远\",340,190,\"y\");\nboxNode(730,105,440,58,\"PPO-Clip 管的是\",\"g\");\nnote(\"别离<b>上一轮</b>太远\",950,190,\"g\");\nnote(\"两个不同的参照物 —— 这点极易混\",640,300,\"r\");\nnote(\"一个管总位移，一个管单步步长\",640,358,\"y\");\nsetCap(\"讲者 63:57。两种变体，实践中常<b>混着用</b>。\");",
+    "narration": "第五集那根绳子拴的是「离起点多远」。这一集再加一根，拴的是<b>「这一步迈多大」</b>。\n\n⚠ 这两件事<b>极易混淆</b>，先分清：\n· <b>KL 惩罚</b>：参照物是 <b>SFT 模型</b>（整个 RL 阶段的起点，全程冻结）。管的是<em>总位移</em>。\n· <b>PPO-Clip</b>：参照物是<b>上一轮迭代的策略</b>。管的是<em>单步步长</em>。\n\n讲者在这里专门强调了一遍：when we say \"old\", <b>it's not the SFT model. It's the model at the previous iteration during the RL stage.</b>\n\n<b>为什么单步也要限制？</b>因为 RL 是 on-policy 的——<em>你是在用当前策略生成的样本来更新当前策略</em>。一步迈太大，新策略和采样时的策略差太远，<b>那批样本就不再代表新策略了</b>，估计全部失效。\n\n讲者也说了：实践中人们常<b>把两者混着用</b>——there are many different formulations of what the loss can be。"
+   },
+   {
+    "beat": "wrong",
+    "t": 3900,
+    "cap": "「公式里那个 r 不就是奖励吗」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"L 里面那个 r(θ)，就是前面说的奖励吧\",\"毕竟 reward 一直用 r 表示\");\nsetCap(\"<s>不是</s>。它是<b>新旧策略的概率比</b> —— 讲者说这点当初也把他绕晕了。\");",
+    "narration": "讲 PPO-Clip 的公式之前，讲者先打了两个预防针，<b>因为这两点当初把他自己也绕晕了</b>。\n\n<b>第一个：公式里的 r(θ) 不是奖励。</b>\n\n讲者：this is <b>not</b> the reward model. Typically, people use r to say the reward. But here, it's not the reward. <b>It's actually the ratio in the probabilities between our policy and the policy from the previous step</b>, denoted π_θ_old。\n\n也就是：<b>r(θ) = π_θ(a|s) / π_θ_old(a|s)</b>——<em>同一个动作，在新策略下的概率除以在旧策略下的概率</em>。\n\n· r = 1：<b>没变</b>。\n· r &gt; 1：新策略<b>更想</b>这么做。\n· r 接近 0：新策略<b>几乎不这么做了</b>。\n\n<b>第二个预防针</b>：公式写成 L = …，但 <b>it's actually not something we want to minimize, something that we want to maximize</b>。<em>人们习惯把目标函数叫 loss，但这个要最大化。</em>\n\n⚠ <b>两个记号陷阱都来自「约定俗成的符号被挪用」。</b>读论文时这类坑比数学本身更常绊人。"
+   },
+   {
+    "beat": "setup",
+    "t": 3970,
+    "cap": "优势为正：想推高，但别推太高",
+    "draw_js": "clearScene();setEq(null);setBig(null);\ncurve([[180,330],[420,255],[660,180],[760,180],[1060,180]],\"fit\");\nnote(\"横轴：比值 r\",640,392,\"b\");\nnote(\"纵轴：目标函数 L\",150,150,\"b\");\nnote(\"A > 0：L 随 r 线性上升…\",400,120,\"g\");\nnote(\"…但过了 1+ε 就<b>削平</b>\",930,120,\"r\");\nnote(\"推高没有奖励了 ⇒ 优化器失去继续推的动力\",640,355,\"y\");\nsetCap(\"优势为正 = 这个输出值得强化。\");",
+    "narration": "先看<b>优势为正</b>的情形——这个输出比预期好，<b>我们想让模型以后更常这么做</b>。\n\n「更常这么做」= <b>把这个动作的概率推高</b> = <b>让 r 变大</b>。\n\n目标函数 L 在这里是 <i>r × A</i>，A 是正的常数，所以 <b>L 随 r 线性上升</b>——优化器自然会去推高 r。\n\n<b>但过了 1 + ε 之后，曲线被削平。</b>\n\n讲者的解释：we want to maximize L, so we go towards increasing r, <b>but we don't want to increase r too much</b>。\n\n<b>削平的效果很巧妙</b>：一旦 r 超过 1+ε，<em>再推高也不会让 L 增加了</em>。优化器是逐利的——没有收益，它就<b>自动失去了继续推的动力</b>。\n\n⚠ <b>这是一个很漂亮的设计：不是硬加一个约束条件，而是让目标函数本身在越界后变平。</b>约束是通过「无利可图」实现的，不是通过「禁止」。"
+   },
+   {
+    "beat": "body",
+    "t": 4040,
+    "cap": "优势为负：想压低，但别压太狠",
+    "draw_js": "clearScene();setEq(null);setBig(null);\ncurve([[180,180],[480,180],[620,250],[860,330],[1060,395]],\"fit\");\nnote(\"横轴：比值 r\",640,392,\"b\");\nnote(\"A < 0：想让 r <b>变小</b>\",350,135,\"r\");\nnote(\"但低于 1−ε 也<b>削平</b>\",350,185,\"y\");\nnote(\"压到 0 等于说「永远别这么做」—— 太武断\",870,150,\"r\");\nsetCap(\"方向反了，但道理是同一个：<b>越界之后无利可图</b>。\");",
+    "narration": "<b>优势为负</b>的情形：这个输出比预期差，<b>我们想让模型少这么做</b>。\n\n讲者：in order to maximize L, what we want is to actually <b>decrease the probability</b> of just generating what we generated。因为 A 是负数，<em>r 越小，r × A 越大</em>。\n\n所以优化器会把 r 往下压。<b>但低于 1 − ε 之后，同样被削平</b>——压得再狠也没有额外收益。\n\n<b>为什么不能压到底？</b>讲者的话是 we don't want it to be much smaller, we don't want too big of an update。展开说：\n\n<b>把一个动作的概率压到接近 0，等于断言「以后永远别这么做」。而你的依据只是一次采样、一个不完美的奖励模型、一个也会估错的价值函数。</b>\n\n<em>证据远不足以支撑这么强的结论。</em>\n\n⚠ 把两镜合起来看，PPO-Clip 的全部思想就一句话：<b>信号的方向可以信，但信号的强度不可信——所以按方向走，但限制步幅。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 4110,
+    "cap": "ε 和 β：两个旋钮，两根绳子",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"ε（PPO-Clip）\",\"g\");\nnote(\"单步能迈多大\",340,190,\"g\");\nnote(\"参照：<b>上一轮</b>的策略\",340,238,\"g\");\nboxNode(730,105,440,58,\"β（KL 惩罚）\",\"y\");\nnote(\"总共能跑多远\",950,190,\"y\");\nnote(\"参照：<b>SFT 模型</b>（冻结）\",950,238,\"y\");\nnote(\"实践中常常<b>两个一起用</b>\",640,352,\"r\");\nsetCap(\"讲者：people sometimes <b>mix the two</b>。\");",
+    "narration": "现在把两根绳子并排放：\n\n· <b>ε</b>（来自 PPO-Clip）：<b>单步</b>能迈多大。参照物是<b>上一轮</b>的策略。\n· <b>β</b>（来自 KL 惩罚）：<b>总共</b>能跑多远。参照物是<b>冻结的 SFT 模型</b>。\n\n<b>它们管的是不同的东西，所以不能互相替代</b>：\n· 只有 ε：每步都很小，但<em>一万步之后照样能跑到天边</em>。\n· 只有 β：总位移被控住，但<em>单步仍可能迈得很大而把训练搞崩</em>。\n\n讲者说实践中 people sometimes <b>mix the two</b>——两个都用。\n\n⚠ 他还顺带澄清了一个历史细节：PPO 原论文是 2017 年的，<b>那时还没有 LLM</b>，所以论文里 KL 的参照物和今天 LLM 场景下的用法并不一致。<em>「同一个算法名字在不同年代指的东西会漂移」</em>——读文献时要注意。\n\n<b>而这两个旋钮，加上 GAE 的那几个，正是下一集要抱怨的那张超参数清单。</b>"
+   },
+   {
+    "beat": "refute",
+    "t": 4170,
+    "cap": "⚠ 这个公式本身没有被证明是对的",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"它是什么\",\"g\");\nnote(\"一个<b>启发式</b>：越界就削平\",340,190,\"g\");\nnote(\"工程上很好用，广泛验证过\",340,238,\"g\");\nboxNode(730,105,440,58,\"它不是什么\",\"r\");\nnote(\"不是从某个原理推导出来的\",950,190,\"r\");\nnote(\"ε 该取多少，<b>只能试</b>\",950,238,\"r\");\nnote(\"讲者：PPO 只是<b>其中一个</b>算法，变体很多\",640,352,\"y\");\nsetCap(\"下一集：这么多零件，还有没有更省事的路。\");",
+    "narration": "最后要把 PPO-Clip 的性质说准。\n\n<b>它是一个启发式，不是一个定理。</b>\n\n「在 1±ε 之外把目标函数削平」这个做法，<b>并不是从某个原理推导出来的</b>——它是一个被发现在实践中很管用的构造。ε 该取多少，<em>没有理论能告诉你</em>，只能试。\n\n对比一下你已经见过的：\n· <b>Bradley-Terry 的损失</b>：从最大似然<em>推导</em>出来的。\n· <b>KL 的非负性</b>：由 Jensen 不等式<em>保证</em>。\n· <b>PPO-Clip</b>：<em>构造</em>出来的，好用就留下了。\n\n<b>三种东西的可靠程度不同，不该被同等对待。</b>\n\n讲者自己也把 PPO 放回了它该在的位置：<b>PPO is just one algorithm that has been very popular. And even within PPO, there's been many variants. And nowadays, there are many other RL algorithms being used.</b>\n\n他点了 <b>GRPO</b> 的名字，说下一讲会讲，还给了 DeepSeekMath 那篇论文。\n\n<b>下一集先算一笔账：这套东西到底有多重。</b>"
+   }
+  ],
+  "sum": {
+   "h": "PPO-Clip：按方向走，但限制步幅",
+   "k": "⚠ 公式里的 <b>r(θ) 不是奖励</b>，是<b>新旧策略对同一动作的概率比</b>；而且「旧」指<b>上一轮迭代</b>，不是 SFT 模型。优势为正就推高 r、为负就压低 r，<b>但越过 1±ε 之后目标函数被削平</b>。",
+   "m": "削平的妙处是<b>靠「无利可图」实现约束</b>，而不是硬加禁止条件。之所以要限制单步：RL 是 <b>on-policy</b> 的，一步迈太大，采样时那批样本就不再代表新策略了。",
+   "w": "<s>记号陷阱两个</s>：① r 不是 reward 是 ratio；② 写成 <b>L=</b> 的东西其实要<b>最大化</b>。讲者说这两点当初也把他绕晕了。",
+   "e": "<b>ε 管单步（参照上一轮）、β 管总位移（参照冻结的 SFT 模型）</b>，不能互相替代，实践中常混用。⚠ PPO-Clip 是<b>启发式不是定理</b> —— 对比 Bradley-Terry 损失（推导得来）与 KL 非负（Jensen 保证），三者可靠程度不同。"
+  },
+  "quiz": {
+   "t": "PPO-Clip 公式里的 r(θ) 指的是什么？",
+   "o": [
+    "奖励模型给出的分数",
+    "新策略与上一轮旧策略对同一动作的概率之比",
+    "当前策略与冻结 SFT 模型之间的 KL 散度",
+    "优势函数相对于价值函数的归一化比值"
+   ],
+   "a": 1,
+   "w": "讲者专门警告过这个记号陷阱：<b>this is not the reward model</b>，r(θ) = π_θ(a|s) / π_θ_old(a|s)，而且「old」指的是 <b>RL 阶段上一轮迭代</b>的策略，不是 SFT 模型。r=1 表示没变，r>1 表示新策略更想这么做。<s>「奖励分数」</s>正是要避开的误读——人们习惯用 r 表示 reward。<s>「与 SFT 模型的 KL」</s>那是<b>另一根绳子</b>（β 那项），参照物和管的事都不同：一个管总位移，一个管单步。<s>「优势/价值的比值」</s>没有这个量。"
+  }
+ },
+ {
+  "kp": 8,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 4380,
+    "cap": "数一数要同时伺候几个模型",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,240,54,\"策略\",\"g\");\nnote(\"要训\",230,180,\"g\");\nboxNode(390,105,240,54,\"价值函数\",\"y\");\nnote(\"要训\",510,180,\"y\");\nboxNode(670,105,240,54,\"奖励模型\",\"b\");\nnote(\"已训好，要推理\",790,180,\"b\");\nboxNode(950,105,210,54,\"参考模型\",\"r\");\nnote(\"冻结，要推理\",1055,180,\"r\");\nnote(\"<b>四个</b> —— 全都要在显存里\",640,290,\"r\");\nnote(\"而且每一轮还要先让策略<b>生成</b>一批样本\",640,358,\"r\");\nsetCap(\"讲者：<b>it's a lot of models</b>。\");",
+    "narration": "前几集把 RLHF 拼齐了。这一集先算账。\n\n<b>跑一次 PPO，要同时伺候四个模型：</b>\n\n① <b>策略</b>——正在训的那个 LLM。\n② <b>价值函数</b>——第六集加的，<em>也要训</em>。\n③ <b>奖励模型</b>——第四集训好的，每步要用它打分。\n④ <b>参考模型</b>——冻结的 SFT 模型，用来算 KL。\n\n讲者的评语就一句：<b>so it's a lot of models</b>。\n\n⚠ 而且这还没算上 on-policy 的那笔开销：<b>每一轮更新之前，都要先让策略真的生成一批回答</b>——<em>训练过程里一直在做推理</em>。\n\n<b>这一集就是在问：这么重，有没有别的走法。</b>"
+   },
+   {
+    "beat": "wrong",
+    "t": 4440,
+    "cap": "「重是重，调好一次不就行了」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"辛苦一次，调好了就一劳永逸\",\"反正只训一次\");\nsetCap(\"<s>问题是你很难知道「调好了」</s> —— 监控指标本身就不可靠。\");",
+    "narration": "「重」听起来只是成本问题，忍一忍就过去了。<b>但真正的麻烦不是重，是难以收敛到一个你有把握的状态。</b>\n\n讲者列了五条：\n\n① <b>两阶段依赖</b>：先训奖励模型，再训策略。<em>你做完第二步才发现第一步有问题，就得全部重来。</em>\n\n② <b>超参数太多</b>：β（KL）、ε（Clip）、GAE 里至少两个……而且 <b>if you need to retrain, then you need to do everything again</b>。\n\n③ <b>不稳定</b>：限制迭代幅度能缓解，<em>但有时不够</em>。\n\n④ <b>监控指标不可靠</b>——这条最要命。你只能盯<b>平均奖励</b>，而讲者说 <b>this is not the best way necessarily</b>。对比预训练和 SFT 阶段那个交叉熵，<em>它真的在告诉你模型学得怎么样</em>。\n\n<b>而平均奖励恰恰就是那个你正在优化、而且知道它不可信的代理。</b>（第五集的结论在这里回来了。）\n\n⑤ <b>还要强制探索</b>：每次生成都差不多，就学不到什么该做什么不该做。"
+   },
+   {
+    "beat": "setup",
+    "t": 4500,
+    "cap": "另一条路：干脆不训了",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(390,105,500,54,\"提示词\",\"b\");\narrow(500,159,250,209,\"sm\",0);\narrow(620,159,640,209,\"sm\",0);\narrow(740,159,1030,209,\"sm\",0);\nboxNode(110,213,280,54,\"回答 1  → 0.8\",\"g\");\nboxNode(500,213,280,54,\"回答 2  → −2\",\"r\");\nboxNode(890,213,280,54,\"回答 3  → 0.3\",\"y\");\nnote(\"用<b>奖励模型</b>给每个打分，返回最高的那个\",640,320,\"y\");\nnote(\"模型<b>一个参数都没改</b>\",640,375,\"g\");\nsetCap(\"<b>Best-of-N</b>（BoN）。适合「有奖励模型但不想做 RL」的人。\");",
+    "narration": "既然训练这么麻烦，<b>能不能不训？</b>\n\n<b>Best-of-N</b>（BoN）的做法简单到有点取巧：\n\n① 拿 SFT 模型，<b>对同一个提示词生成 N 个回答</b>（靠正温度产生差异）。\n② 用<b>奖励模型</b>给每个打分。\n③ <b>返回分数最高的那个。</b>\n\n讲者的例子：三个回答分别得 0.8、−2、0.3，<em>返回第一个</em>。\n\n<b>关键在于：模型的权重一个都没动。</b>你只是在用奖励模型做<b>筛选</b>，而不是用它做<b>训练</b>。\n\n⚠ 讲者顺带回答了一个学生的问题，很有意思：<b>BoN 完全不在乎奖励分数的尺度</b>。因为你只取最大值，<em>任何单调的缩放都不改变谁是第一</em>。<b>尺度只在它进入损失函数时才要紧</b>——而那是 RL 的事。\n\n<b>所以 BoN 对奖励模型的要求，比 RL 低得多。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 4560,
+    "cap": "成本没消失，它搬到了推理侧",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"训练侧\",\"g\");\nnote(\"零 —— 什么都不用训\",340,190,\"g\");\nboxNode(730,105,440,58,\"推理侧\",\"r\");\nnote(\"每个请求都要生成 <b>N 次</b>\",950,190,\"r\");\nnote(\"每个请求都要跑 N 次奖励模型\",950,238,\"r\");\nnote(\"讲者：you are <b>pushing all the work to the inference stage</b>\",640,352,\"r\");\nsetCap(\"学生答出了这一点：「你要查询模型很多次」。\");",
+    "narration": "讲者又把问题抛给了学生：<b>这个办法有什么毛病？</b>\n\n第一个学生答「如果模型本身就差，那选出来的也差」。讲者认可，但说<em>只要生成得够多、温度够高，总会有些多样性</em>。（后来另一个学生再问「要是所有回答都烂呢」，讲者承认这是真实的顾虑：<b>your model needs to be at least a little bit good</b>。）\n\n然后有人答到了点子上：<b>你要反复查询模型。</b>\n\n讲者确认：<b>you indeed skip the RL training, but you're basically pushing all the work to your inference stage. And this is just making everything so super costly.</b>\n\n<b>成本没有消失，它换了地方——从一次性的训练，变成了每个请求都要付的推理。</b>\n\n⚠ 讲者给的决策方法很实在：<b>先评估你的推理流量有多大、训练成本有多高，再决定走哪条</b>。\n· 流量小、迭代快 → <b>BoN 划算</b>。\n· 流量大 → <em>每个请求都乘以 N，这笔账会非常难看</em>。\n\n<b>「一次性成本 vs 每次都付的成本」，是这类选择里最该先算的一笔账。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 4620,
+    "cap": "就算算力无限，它也不免费",
+    "draw_js": "clearScene();setEq(null);setBig(null);\ncurve([[180,330],[320,230],[460,185],[600,230],[740,300],[880,345],[1020,365]],\"fit\");\nnote(\"单次生成的延迟分布\",360,140,\"b\");\ncurve([[400,345],[540,290],[680,220],[820,195],[960,240],[1080,300]],\"fit g\");\nnote(\"取 N 个里的<b>最大值</b>：整条分布<b>右移</b>\",860,140,\"r\");\nnote(\"你得等最慢的那一路\",640,392,\"y\");\nsetCap(\"讲者的思想实验：假设钱无限，它还是比单次慢。\");",
+    "narration": "这一镜是 Shervine 提的一个思想实验，很值得学。\n\n<b>假设你有无限的钱和算力，N 次生成全部并行——那 BoN 是不是就免费了？</b>\n\n<b>不是。</b>\n\n理由：<b>你必须等到全部 N 个都生成完，才能比较和挑选。</b>所以总延迟 = <b>N 次生成里最慢的那一次</b>。\n\n而生成延迟本身是有分布的，不是一个定值。<b>N 个独立样本的最大值，其分布会整体右移</b>——N 越大，移得越多。\n\n讲者：if you look at the <b>probability distribution of the max of N answers, it will tend to be shifted to the right</b>. So even with infinite money, infinite compute, <b>you still have to wait more than you would have on a single pass.</b>\n\n⚠ <b>这是一个很普遍的道理，值得记住：并行化能消除「总工作量」的开销，但消除不了「取最大值」带来的延迟代价。</b>任何「跑 N 份取最好」的方案都逃不掉——<em>包括第三讲的 self-consistency</em>。"
+   },
+   {
+    "beat": "refute",
+    "t": 4680,
+    "cap": "但它没解决「怎么训」这个问题",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"BoN 做到了\",\"g\");\nnote(\"用奖励模型<b>改善输出</b>\",340,190,\"g\");\nnote(\"不用碰 RL\",340,238,\"g\");\nboxNode(730,105,440,58,\"⚠ 没做到\",\"r\");\nnote(\"模型本身<b>一点没变好</b>\",950,190,\"r\");\nnote(\"关掉 BoN，它还是原来那样\",950,238,\"r\");\nnote(\"想要「模型自己就变好」，还得回到训练\",640,352,\"y\");\nsetCap(\"下一集：既然想训，有没有不用 RL 的训法。\");",
+    "narration": "最后把 BoN 的位置摆正。\n\n<b>BoN 不是偏好微调的替代品，它是一种推理期的筛选策略。</b>\n\n· 它<b>做到了</b>：用上奖励模型里的信息，让<em>给用户的那个回答</em>更好。\n· 它<b>没做到</b>：模型本身<em>一点都没变好</em>。关掉 BoN，它还是原来那个模型。\n\n<b>两者的差别在很多场景下很要紧</b>：\n· 要把模型<b>蒸馏</b>给更小的模型？没得蒸——能力不在权重里。\n· 要<b>部署到端侧</b>、只能跑一次推理？BoN 用不上。\n· 要把这个模型当<b>下一阶段的起点</b>？起点还是原来那个。\n\n⚠ 不过有一条很实用的用法讲者没明说，但顺理成章：<b>用 BoN 生成的「最好回答」，反过来可以当作 SFT 的训练数据</b>——这样改进就真的落进权重里了。\n\n<b>所以问题又回来了：如果我确实想训，有没有不用扛那四个模型的训法？</b>\n\n<b>有。而且讲者在第一集就预告过：\"later on in 10 minutes, we will see a supervised way of doing what we did with RL\"。</b>"
+   }
+  ],
+  "sum": {
+   "h": "PPO 太重，Best-of-N 是一条不训练的路",
+   "k": "PPO 要同时伺候<b>四个模型</b>（策略 · 价值函数 · 奖励模型 · 冻结参考模型），还要每轮先生成。<b>BoN</b>：不训练，生成 N 个用奖励模型挑最好的 —— <b>权重一个都不动</b>。",
+   "m": "RL 的真正麻烦不是重，是<b>难以知道何时调好了</b>：两阶段依赖、超参数多（β/ε/GAE）、不稳定、<b>监控指标只有平均奖励</b>（而它正是那个你明知不可信的代理）、还要强制探索。BoN 则把成本<b>全推到推理侧</b>。",
+   "w": "<s>误解</s>：「算力无限的话 BoN 就免费」。你必须等<b>最慢的那一路</b>，而 <b>N 个样本最大值的延迟分布会整体右移</b> —— 任何「跑 N 份取最好」的方案都逃不掉（包括 self-consistency）。",
+   "e": "⚠ <b>BoN 不是偏好微调的替代品</b>：模型本身一点没变好，关掉就恢复原样 —— 没法蒸馏、没法端侧、没法当下一阶段起点。顺带：BoN <b>不在乎奖励分数的尺度</b>（只取最大值），尺度只在进入损失函数时才要紧。"
+  },
+  "quiz": {
+   "t": "即便算力无限、N 个回答完全并行生成，Best-of-N 相比单次生成仍有什么代价？",
+   "o": [
+    "需要额外的显存来同时保存 N 份 KV cache",
+    "奖励模型的打分无法并行，必须串行进行",
+    "必须等最慢的那一路，而 N 个样本最大值的延迟分布会整体右移",
+    "并行生成会降低每一路的采样多样性"
+   ],
+   "a": 2,
+   "w": "必须<b>全部生成完</b>才能比较挑选，所以总延迟 = N 次里最慢的那次；而生成延迟本身有分布，<b>N 个独立样本的最大值其分布整体右移</b>，N 越大移得越多。讲者：even with infinite compute, <b>you still have to wait more than a single pass</b>。<s>「显存」</s>题目已假设算力无限。<s>「打分不能并行」</s>N 次打分彼此独立，完全可以并行。<s>「降低多样性」</s>多样性来自采样温度，与是否并行无关。"
+  }
+ },
+ {
+  "kp": 9,
+  "shots": [
+   {
+    "beat": "hook",
+    "t": 5214,
+    "cap": "论文标题就是答案",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,120,1020,66,\"Your Language Model Is Secretly a Reward Model\",\"y\");\nnote(\"如果语言模型<b>本身</b>就隐含着一个奖励模型…\",640,260,\"y\");\nnote(\"…那还需要<b>单独训</b>一个奖励模型吗？\",640,318,\"g\");\nsetCap(\"<b>DPO</b> = Direct Preference Optimization（直接偏好优化）。\");",
+    "narration": "最后一集。<b>DPO</b> = Direct Preference Optimization。\n\n讲者先不给公式，而是给了论文的标题——<b>因为标题就是全部要点</b>：\n\n<b>Your Language Model Is Secretly a Reward Model.</b>\n（你的语言模型，其实偷偷就是一个奖励模型。）\n\n讲者解释这个标题：<b>the reward placeholder that you could identify from this loss function is expressed as a function of your policy</b>——当你把「等价的奖励」写出来时，<em>发现它就是你的模型本身</em>。\n\n如果这是真的，那整条 RLHF 流水线上最大的一块——<b>那个单独训练的奖励模型</b>——<em>就是多余的</em>。\n\n<b>而它确实是真的，下面三镜把推导走一遍。</b>"
+   },
+   {
+    "beat": "wrong",
+    "t": 5270,
+    "cap": "「那一定是做了什么近似」",
+    "draw_js": "clearScene();setEq(null);\nsetBig(\"省掉一整个模型，总得付出点什么吧\",\"哪有这种好事\");\nsetCap(\"<s>没有近似</s>。讲者：<b>all these steps have no extra assumptions</b>。\");",
+    "narration": "直觉上，省掉一整个模型总该付出点什么——<b>做了什么近似、加了什么假设</b>。\n\n<b>推导本身没有。</b>讲者在讲完每一步之后专门强调：\n\n<b>all these steps have no extra assumptions. It's just a bunch of derivations that was done.</b>\n\n<b>它是从 PPO 的目标函数出发，纯代数变形得到的。</b>\n\n⚠ 但这不意味着 DPO 和 PPO 等价——<b>代价在别的地方</b>，而且很实在。第五、六镜会说清楚。\n\n<b>先看这个「纯代数」的推导怎么走，因为它是本讲最漂亮的一段。</b>"
+   },
+   {
+    "beat": "setup",
+    "t": 5340,
+    "cap": "第一步：解出最优策略",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,110,460,60,\"PPO 的目标\",\"b\");\nnote(\"最大化奖励 − β x KL\",340,198,\"b\");\narrow(574,140,700,140,\"sm\",0);\nboxNode(720,110,440,60,\"直接解它\",\"g\");\nnote(\"得到最优策略 pi*，写成 r 的函数\",940,198,\"g\");\nnote(\"中间那个 Z 只是个<b>归一化</b>的分母，没有新东西\",640,310,\"y\");\nnote(\"⚠ 注意方向：先解出<b>答案</b>，再回头反推\",640,362,\"r\");\nsetCap(\"讲者：it <b>wrote down this formula and then solves what would be the optimal solution</b>。\");",
+    "narration": "推导的第一步很反常规，而且正是精彩之处。\n\n<b>通常我们拿着目标函数去做梯度下降，一步步逼近最优解。DPO 这篇反过来——直接把那个最优解解出来。</b>\n\n从第五集那个 PPO 目标出发：<b>最大化（奖励 − β × KL）</b>。这是一个带 KL 约束的优化问题，<em>它有闭式解</em>。\n\n解出来的最优策略 π*，<b>可以写成奖励 r 的函数</b>——形式大致是 π* ∝ π_ref · exp(r/β)：<em>参考模型的分布，被奖励按指数重新加权</em>。\n\n讲者提到式子里有个 <b>Z</b>（配分函数），并澄清：<b>it's not something that is new. It's a function of the terms that were already in there.</b>——<em>只是个归一化分母，不引入新东西</em>。\n\n⚠ <b>请记住这个方向：先写下答案的样子，再回头看它告诉了我们什么。</b>下一镜就是「回头」。"
+   },
+   {
+    "beat": "body",
+    "t": 5410,
+    "cap": "第二步：把等式倒过来",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(130,110,440,60,\"已有：pi* = f(r)\",\"b\");\nnote(\"最优策略由奖励决定\",350,198,\"b\");\narrow(580,140,700,140,\"r\",0);\nboxNode(720,110,440,60,\"倒过来：r = g(pi*)\",\"g\");\nnote(\"<b>奖励可以用策略表示出来</b>\",940,198,\"g\");\nnote(\"讲者：nothing too fancy —— 就是移项\",640,310,\"y\");\nnote(\"但这一步是整个方法的<b>枢纽</b>\",640,362,\"r\");\nsetCap(\"「Your language model is secretly a reward model」说的就是这个等式。\");",
+    "narration": "第二步在数学上毫不起眼，讲者自己都说 <b>it's just rearranging terms between these two expressions. Nothing too fancy.</b>\n\n<b>但它是整个方法的枢纽。</b>\n\n上一镜得到 <b>π* = f(r)</b>——最优策略由奖励决定。现在<b>把它倒过来解</b>：\n\n<b>r = g(π*)</b>——<em>奖励可以用最优策略表示出来。</em>\n\n大致形式是 <b>r = β · log(π*/π_ref) + 常数</b>。\n\n<b>这个等式就是论文标题的字面含义</b>：你根本不需要一个单独的奖励模型，因为<b>任何一个策略，都隐含地定义了一个奖励</b>——<em>它对某个回答的概率，相对参考模型提高了多少（取对数再乘 β）</em>。\n\n⚠ <b>这个思路值得单独记住：当 A 由 B 决定，而你手上的数据是关于 A 的，那就把关系倒过来，用 A 去表达 B，然后把 B 从式子里消掉。</b>\n\n<b>最后一步就是「消掉」。</b>"
+   },
+   {
+    "beat": "body",
+    "t": 5480,
+    "cap": "第三步：代回去，奖励就消失了",
+    "draw_js": "clearScene();setBig(null);setCap(null);\nsetEq(\"$$\\\\mathcal{L}_{DPO}=-\\,\\\\mathbb{E}\\\\Big[\\\\log\\\\sigma\\\\Big(\\\\beta\\\\log\\\\frac{\\\\pi_\\\\theta(y_w)}{\\\\pi_{ref}(y_w)}-\\\\beta\\\\log\\\\frac{\\\\pi_\\\\theta(y_l)}{\\\\pi_{ref}(y_l)}\\\\Big)\\\\Big]$$\",\"top\");\nnote(\"形状和第四集那个奖励模型损失<b>一模一样</b>\",640,330,\"y\");\nnote(\"只是括号里的 r，被换成了策略的对数比\",640,382,\"g\");\nsetCap(\"把 r = g(π) 代进 Bradley-Terry —— <b>r 整个消掉了</b>。\");",
+    "narration": "第三步：<b>把 r = g(π) 代回第四集那个 Bradley-Terry 公式。</b>\n\n回忆一下，那里是 <b>P(y_w 胜 y_l) = σ(r_w − r_l)</b>。现在把两个 r 都换成策略的表达式——<b>于是 r 整个消失了</b>，式子里只剩下 <b>π_θ</b>、<b>π_ref</b> 和 <b>β</b>。\n\n再照第四集同样的办法（最大似然 → 取对数 → 加负号）变成损失，就得到了 <b>DPO 的损失函数</b>。\n\n⚠ <b>请对照第四集那个奖励模型的损失——形状一模一样</b>：都是 −E[log σ(赢家项 − 输家项)]。<em>唯一的变化是括号里的「奖励」被换成了「策略相对参考模型的对数概率比」。</em>\n\n讲者的说法：you plug in things, you have <b>no more rewards, just a function of the other parameters</b>。\n\n<b>直观上这个损失在做什么？</b>很清楚：<b>提高赢家回答的概率、压低输家回答的概率——但两者都是相对参考模型来衡量的</b>。<em>KL 那根绳子没有消失，它被编织进了这个式子本身。</em>\n\nβ 和 PPO 里那个是同一个，讲者给的量级是 <b>约 0.1</b>。"
+   },
+   {
+    "beat": "refute",
+    "t": 5550,
+    "cap": "⚠ 但结论不是「DPO 更好」",
+    "draw_js": "clearScene();setEq(null);setBig(null);\nboxNode(110,105,460,58,\"DPO 赢在\",\"g\");\nnote(\"四个模型 → <b>两个</b>\",340,190,\"g\");\nnote(\"纯监督，没有 RL 那套麻烦\",340,238,\"g\");\nboxNode(730,105,440,58,\"⚠ PPO 仍然赢在\",\"r\");\nnote(\"讲者：<b>overall, PPO performs better than DPO</b>\",950,190,\"r\");\nnote(\"DPO 的软肋：<b>分布漂移</b>\",950,238,\"r\");\nnote(\"想省事用 DPO；想榨干性能且懂 RL 用 PPO\",640,352,\"y\");\nsetCap(\"别被「越新越简洁越好」的叙事带偏。\");",
+    "narration": "最后这一镜是整讲最重要的纠偏。\n\n<b>DPO 赢的是简洁</b>：模型从四个降到<b>两个</b>（只剩 π_θ 和冻结的 π_ref，<em>价值函数和奖励模型都没了</em>），而且是纯监督训练，没有 on-policy 生成、没有探索问题、没有那堆 RL 超参数。\n\n<b>但讲者给的结论是：overall, PPO performs better than DPO.</b>\n\n代价在哪？<b>分布漂移</b>（distribution shift）。\n\n讲者解释得很准：DPO 直接吃现成的偏好数据，<b>而这些数据不一定是你当前模型会生成的东西</b>。对比 PPO——它是 <b>on-policy</b> 的，<em>每一轮都在自己刚生成的东西上学习</em>，不存在这个错位。\n\n<b>这正好是第三集那个 on-policy / off-policy 的区别在结果上的体现。</b>DPO 用掉的便宜，正是从这里来的。\n\n讲者给的缓解办法也很实在：<b>先在偏好数据上做一遍 SFT</b>，或者<em>自己生成再评分</em>——but that is yet another cost that you would need to pay。\n\n⚠ <b>最后的实务建议值得原样记住</b>：<b>想快速拿到不错的结果，用 DPO；是 RL 专家、要榨干每一分性能，用 PPO。</b>而 PPO is <b>very hard to tune right</b>。"
+   }
+  ],
+  "sum": {
+   "h": "DPO：把奖励模型从公式里<b>代数消掉</b>",
+   "k": "三步纯代数：① 直接<b>解出</b> PPO 目标的最优策略 π* = f(r)；② <b>倒过来</b>得 r = g(π*)；③ 代回 <b>Bradley-Terry</b> —— r 整个消失，只剩 π_θ、π_ref 和 β（约 0.1）。模型从<b>四个降到两个</b>。",
+   "m": "枢纽是第二步：<b>任何策略都隐含地定义了一个奖励</b>（它相对参考模型把某个回答的概率提高了多少）—— 这就是论文标题 <b>Your Language Model Is Secretly a Reward Model</b> 的字面含义。得到的损失与第四集奖励模型的损失<b>形状完全相同</b>，只是 r 被换成了策略的对数概率比。",
+   "w": "<s>误解</s>：「省掉一整个模型，一定做了近似」。讲者：<b>all these steps have no extra assumptions</b> —— 推导是纯代数的。代价在别处。",
+   "e": "⚠ <b>结论不是「DPO 更好」</b>：讲者说 <b>overall, PPO performs better</b>。DPO 的软肋是<b>分布漂移</b> —— 它吃现成的偏好数据（off-policy），而那些数据不一定是当前模型会生成的；PPO 是 on-policy，没有这个错位。<b>想省事用 DPO，想榨干性能且懂 RL 用 PPO。</b>"
+  },
+  "quiz": {
+   "t": "DPO 是怎么做到不需要单独训练奖励模型的？",
+   "o": [
+    "它用一个小模型近似奖励函数，从而省去大的奖励模型",
+    "它从 PPO 目标解出最优策略，反解出奖励关于策略的表达式，再代回 Bradley-Terry 把奖励消掉",
+    "它假设所有回答的奖励服从均匀分布，于是奖励项可以忽略",
+    "它把奖励模型与策略共享参数，因此两者合并成一个"
+   ],
+   "a": 1,
+   "w": "三步纯代数：解出 PPO 目标的最优策略 π* = f(r) → 倒过来得 r = g(π*) → 把它代回 Bradley-Terry，<b>r 整个消失</b>，只剩策略相对参考模型的对数概率比。讲者强调 <b>all these steps have no extra assumptions</b>。<s>「小模型近似」</s>没有任何近似模型。<s>「假设均匀分布」</s>没有引入任何分布假设。<s>「共享参数合并」</s>不是参数共享，而是<b>奖励这个量从公式里被消元了</b> —— 这正是论文标题「你的语言模型其实偷偷是个奖励模型」的含义。"
+  }
+ }
+]
