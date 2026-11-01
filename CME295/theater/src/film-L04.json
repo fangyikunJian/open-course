@@ -1,0 +1,29 @@
+{
+ "file": "L04-LLM训练.html",
+ "html_title": "CME295 L04 · LLM 训练 · 放映厅",
+ "title": "CME295 · Lecture 4 · 80 GB 的墙，和绕过它的五种办法",
+ "subtitle": "%d 个知识点 · 讲义 p8–127 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "https://www.youtube.com/watch?v=VlA_jt_3Qc4&t=",
+ "prelude_js": "// 内容权威：讲稿 corpus/transcripts/L4.txt（106 分 57 秒）\n//   + 官方讲义 fall25-cme295-lecture4.pdf（128 页）\n// https://cme295.stanford.edu/slides/fall25-cme295-lecture4.pdf\n// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。\n//\n// 时间码用 scratchpad 的定位器从 L4_timed.txt 的 190 个锚点插值得到。\n// 逐条核过的原话与数字：\n//   [13:52] ⚠ 两个记号容易混：**FLOPs** = 浮点运算**次数**（算量），\n//           **FLOPS** = 每秒浮点运算**次数**（算速）。讲者：有论文会把两者写混，\n//           「contextualizing this notation with respect to the sentence that it is in」\n//   [12:xx] GPT-3 训练用了 3000 亿 token；Llama 3 用了 15 万亿 token\n//   [14:xx] 训练一个 LLM 约 10^25 FLOPs；粗略地 FLOPs ~ O(参数量 x token 数)\n//   [16:59] Scaling Laws（2020）：算力、数据、模型三者越大越好；\n//           大模型还更 sample efficient（同样 token 数下表现更好）\n//   [19:35] **Chinchilla**：固定算力下有最优配比，约 **token 数 ≈ 20 倍参数量**；\n//           按这把尺子，GPT-3（1750 亿参数 / 3000 亿 token）是 **undertrained**\n//   [24:xx] 预训练的代价：**至少数百万美元**，可到数千万甚至上亿；还有生态成本\n//   [25:xx] **knowledge cutoff date**：基座模型无法自己知道截止日之后的事；\n//           事后注入知识「there's not a clean way to change the weights\n//           in a way that does not penalize some parts」\n//   [26:23] 训练要存四样：**激活、梯度、权重、优化器状态**（Adam 的一阶二阶矩）\n//   [29:xx] H100 的显存是 **80 GB** —— 墙就在这里\n//   [31:15] **数据并行**：切 batch，每卡一份完整模型；梯度求平均 ⇒ **通信代价**\n//   [33:59] **ZeRO**（Zero Redundancy Optimization）：把优化器状态/梯度/参数\n//           依次**分片**，ZeRO 1/2/3；省显存，但通信更多\n//   [35:52] **模型并行**：专家并行 · 张量并行 · 流水线并行\n//   [38:38] **FlashAttention**（2022，Stanford）：GPU 有两种内存 ——\n//           [39:17] **HBM** 几十 GB、几 TB/s；[39:30] **SRAM** 几十 MB、几十 TB/s（快约 10 倍）\n//           瓶颈是 HBM 的来回读写，不是算术。办法是 **tiling**：切块送进 SRAM 端到端算完再写回。\n//           关键恒等式：整块的 softmax 可由各子块的 softmax 加一个缩放因子拼回来。\n//           ⚠ 它是 **exact** 的，不做任何近似。\n//   [53:14] **量化**：改数的精度。浮点由符号/指数/尾数三段构成；\n//           FP32 → FP16 省一半显存；H100 上精度越低算速越快（FP64 只有 34 TFLOPS）\n//   [56:07] **混合精度训练**：权重存 FP32，前向/反向用 FP16，**权重更新仍在 FP32**。\n//           讲者给的直觉：数据本身有噪声，小数点后那些位没那么有用；\n//           但权重要高精度，否则**量化误差会累积**\n//   [63:15] 基座模型问「能不能把泰迪熊放洗衣机」会**接着往下编**，不会回答 ——\n//           它学的是下一词预测，不是当助手\n//   [65:38] **SFT**（supervised fine-tuning）：成对的输入输出；\n//           ⚠ **不在输入上算损失**（不做 teacher forcing），从输入之后才开始\n//   [69:11] **instruction tuning** 是 SFT 的子类：把模型「graduate」成助手\n//   [91:14] 评测除基准外还有 **arena**（真人对战打分）\n//   [97:59] **LoRA**：W0 冻住，只训练低秩的 B·A；W 的维度是百/千量级，\n//           而秩 **r 通常取 O(10)**（常见取 4）\n//   [99:48] prefix tuning 与 adapters 另有其法，课上不展开\n//   [100:xx] 换一组 A、B 就是换一个任务\n//   [101:xx] 原论文只在**注意力**矩阵上加 LoRA；后来发现 **FFN 那边收益更大**，\n//            今天两处都加，但大头在 FFN\n//   [102:xx] 两条经验（讲者坦承**没有好的理论解释**）：学习率要**高约 10 倍**；\n//            **batch 开大反而变差**\n//   [105:20] **QLoRA**：把冻住的 W0 量化成 **NF4**（假设权重服从正态，按**分位数**切而非等宽），\n//            A、B 仍用 BF16；还做**双重量化**（把量化常数本身再量化一次）。\n//            省了约 16 倍显存，双重量化再省一点点。\n//\n// ⚠ 本片**没有**讲：评测基准的细节（p97–102）、mid-training、\n//   数据合成与 SFT 数据配比（p89–96）、FlashAttention 2/3。",
+ "kp_names": {
+  "1": "1 · <b>FLOPs</b> 还是 <b>FLOPS</b>：两个记号差一个「每秒」　<small>讲义 p14–19</small>",
+  "2": "2 · <b>Chinchilla</b>：算力固定时，模型别做太大　<small>讲义 p20–23</small>",
+  "3": "3 · 训练到底要存什么：<b>80 GB 的墙</b>　<small>讲义 p29–39</small>",
+  "4": "4 · <b>ZeRO</b> 与模型并行：省显存，付通信　<small>讲义 p40–44</small>",
+  "5": "5 · <b>FlashAttention</b>：瓶颈不是算，是搬　<small>讲义 p45–71</small>",
+  "6": "6 · <b>混合精度</b>：哪些数可以不那么精确　<small>讲义 p72–81</small>",
+  "7": "7 · <b>SFT</b>：基座模型不会回答问题，它会接着编　<small>讲义 p83–96</small>",
+  "8": "8 · <b>LoRA</b>：冻住大矩阵，只训一个低秩的补丁　<small>讲义 p106–116</small>",
+  "9": "9 · <b>QLoRA</b>：连冻住的那份也压成 4 位　<small>讲义 p117–127</small>"
+ },
+ "kp_base": { "1": 832, "2": 1175, "3": 1583, "4": 2039, "5": 2318, "6": 3194, "7": 3795, "8": 5879, "9": 6240 },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"CME295 · Lecture 4\",\"LLM training\",\n  \"讲义 128 页 · 讲稿 106 分 57 秒 · 本片取 9 条主线\");",
+  "narration": "前三讲讲的是模型<b>长什么样</b>。这一讲换个问题：<b>这些权重是怎么来的？</b>\n\n整讲由一个很物理的事实统领：<b>一张 H100 只有 80 GB 显存</b>，而你要训的模型有几千亿参数，还要同时存住激活、梯度和优化器状态。\n\n本片九集分四段：\n\n· <i>要花多少</i>（2 集）：FLOPs 与 FLOPS 两个记号的区别，以及 <b>Chinchilla</b> 那条「数据约为参数 20 倍」的配比——按它衡量，<b>GPT-3 是训练不足的</b>。\n· <i>怎么装得下</i>（3 集）：数据并行 → ZeRO 分片 → 模型并行，以及 <b>FlashAttention</b>。⚠ FlashAttention 这一集有个贯穿全讲的洞见：<b>瓶颈是搬运不是计算</b>——和上一讲推理那边一模一样。\n· <i>数要多精确</i>（1 集）：混合精度。\n· <i>怎么让它变得有用</i>（3 集）：<b>SFT</b>，以及 LoRA / QLoRA 这两种「只训一小部分」的办法。\n\n第七集有个很好的演示：<b>基座模型根本不会回答你的问题，它会接着往下编。</b>"
+ },
+ "closing": {
+  "t": 6430,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"CME295 · Lecture 4\",\"权重有了，但它还不懂好坏\",\n  \"下一讲：偏好微调 —— 怎么告诉它「这个回答更好」\");",
+  "narration": "九集收束成两句话。\n\n<b>第一句：这一讲所有的工程，都是在同一堵墙前找路。</b>墙就是 80 GB。\n· 装不下 batch → <b>数据并行</b>（代价：通信）\n· 每卡都存一份重复的 → <b>ZeRO 分片</b>（代价：更多通信）\n· 单层都装不下 → <b>模型并行</b>\n· 注意力中间结果太大 → <b>FlashAttention</b>（它甚至不是省显存，是省<em>搬运</em>）\n· 数本身太占地方 → <b>混合精度</b>、<b>NF4</b>\n· 微调还要再存一份梯度和优化器状态 → <b>LoRA</b>、<b>QLoRA</b>\n\n<b>第二句：这一讲和上一讲共享同一个洞见——瓶颈在搬运，不在算术。</b>FlashAttention 和上一讲的投机解码，一个在训练侧一个在推理侧，但诊断完全相同。<em>认出这一点，比记住任何一个技巧都值。</em>\n\n⚠ 两处讲者明确留白，别当成已解决：\n① LoRA 的两条经验（学习率要高 10 倍、batch 开大反而更差），他坦承 <b>I don't have a good theoretical explanation</b>，只给了猜测。\n② 知识截止之后怎么<b>注入</b>新知识——「there's not a clean way to change the weights in a way that does not penalize some parts」，<b>这是个很难的开放问题</b>。\n\n下一讲：模型现在会回答问题了，但它不知道<b>哪个回答更好</b>。"
+ }
+}

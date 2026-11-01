@@ -1,0 +1,1650 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME295 L04 · LLM 训练 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"CME295 · Lecture 4 · 80 GB 的墙，和绕过它的五种办法",
+  subtitle:"9 个知识点 · 讲义 p8–127 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=VlA_jt_3Qc4&t="
+};
+
+
+// 内容权威：讲稿 corpus/transcripts/L4.txt（106 分 57 秒）
+//   + 官方讲义 fall25-cme295-lecture4.pdf（128 页）
+// https://cme295.stanford.edu/slides/fall25-cme295-lecture4.pdf
+// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。
+//
+// 时间码用 scratchpad 的定位器从 L4_timed.txt 的 190 个锚点插值得到。
+// 逐条核过的原话与数字：
+//   [13:52] ⚠ 两个记号容易混：**FLOPs** = 浮点运算**次数**（算量），
+//           **FLOPS** = 每秒浮点运算**次数**（算速）。讲者：有论文会把两者写混，
+//           「contextualizing this notation with respect to the sentence that it is in」
+//   [12:xx] GPT-3 训练用了 3000 亿 token；Llama 3 用了 15 万亿 token
+//   [14:xx] 训练一个 LLM 约 10^25 FLOPs；粗略地 FLOPs ~ O(参数量 x token 数)
+//   [16:59] Scaling Laws（2020）：算力、数据、模型三者越大越好；
+//           大模型还更 sample efficient（同样 token 数下表现更好）
+//   [19:35] **Chinchilla**：固定算力下有最优配比，约 **token 数 ≈ 20 倍参数量**；
+//           按这把尺子，GPT-3（1750 亿参数 / 3000 亿 token）是 **undertrained**
+//   [24:xx] 预训练的代价：**至少数百万美元**，可到数千万甚至上亿；还有生态成本
+//   [25:xx] **knowledge cutoff date**：基座模型无法自己知道截止日之后的事；
+//           事后注入知识「there's not a clean way to change the weights
+//           in a way that does not penalize some parts」
+//   [26:23] 训练要存四样：**激活、梯度、权重、优化器状态**（Adam 的一阶二阶矩）
+//   [29:xx] H100 的显存是 **80 GB** —— 墙就在这里
+//   [31:15] **数据并行**：切 batch，每卡一份完整模型；梯度求平均 ⇒ **通信代价**
+//   [33:59] **ZeRO**（Zero Redundancy Optimization）：把优化器状态/梯度/参数
+//           依次**分片**，ZeRO 1/2/3；省显存，但通信更多
+//   [35:52] **模型并行**：专家并行 · 张量并行 · 流水线并行
+//   [38:38] **FlashAttention**（2022，Stanford）：GPU 有两种内存 ——
+//           [39:17] **HBM** 几十 GB、几 TB/s；[39:30] **SRAM** 几十 MB、几十 TB/s（快约 10 倍）
+//           瓶颈是 HBM 的来回读写，不是算术。办法是 **tiling**：切块送进 SRAM 端到端算完再写回。
+//           关键恒等式：整块的 softmax 可由各子块的 softmax 加一个缩放因子拼回来。
+//           ⚠ 它是 **exact** 的，不做任何近似。
+//   [53:14] **量化**：改数的精度。浮点由符号/指数/尾数三段构成；
+//           FP32 → FP16 省一半显存；H100 上精度越低算速越快（FP64 只有 34 TFLOPS）
+//   [56:07] **混合精度训练**：权重存 FP32，前向/反向用 FP16，**权重更新仍在 FP32**。
+//           讲者给的直觉：数据本身有噪声，小数点后那些位没那么有用；
+//           但权重要高精度，否则**量化误差会累积**
+//   [63:15] 基座模型问「能不能把泰迪熊放洗衣机」会**接着往下编**，不会回答 ——
+//           它学的是下一词预测，不是当助手
+//   [65:38] **SFT**（supervised fine-tuning）：成对的输入输出；
+//           ⚠ **不在输入上算损失**（不做 teacher forcing），从输入之后才开始
+//   [69:11] **instruction tuning** 是 SFT 的子类：把模型「graduate」成助手
+//   [91:14] 评测除基准外还有 **arena**（真人对战打分）
+//   [97:59] **LoRA**：W0 冻住，只训练低秩的 B·A；W 的维度是百/千量级，
+//           而秩 **r 通常取 O(10)**（常见取 4）
+//   [99:48] prefix tuning 与 adapters 另有其法，课上不展开
+//   [100:xx] 换一组 A、B 就是换一个任务
+//   [101:xx] 原论文只在**注意力**矩阵上加 LoRA；后来发现 **FFN 那边收益更大**，
+//            今天两处都加，但大头在 FFN
+//   [102:xx] 两条经验（讲者坦承**没有好的理论解释**）：学习率要**高约 10 倍**；
+//            **batch 开大反而变差**
+//   [105:20] **QLoRA**：把冻住的 W0 量化成 **NF4**（假设权重服从正态，按**分位数**切而非等宽），
+//            A、B 仍用 BF16；还做**双重量化**（把量化常数本身再量化一次）。
+//            省了约 16 倍显存，双重量化再省一点点。
+//
+// ⚠ 本片**没有**讲：评测基准的细节（p97–102）、mid-training、
+//   数据合成与 SFT 数据配比（p89–96）、FlashAttention 2/3。
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("CME295 · Lecture 4","LLM training",
+      "讲义 128 页 · 讲稿 106 分 57 秒 · 本片取 9 条主线");
+    },"前三讲讲的是模型<b>长什么样</b>。这一讲换个问题：<b>这些权重是怎么来的？</b>  整讲由一个很物理的事实统领：<b>一张 H100 只有 80 GB 显存</b>，而你要训的模型有几千亿参数，还要同时存住激活、梯度和优化器状态。  本片九集分四段：  · <i>要花多少</i>（2 集）：FLOPs 与 FLOPS 两个记号的区别，以及 <b>Chinchilla</b> 那条「数据约为参数 20 倍」的配比——按它衡量，<b>GPT-3 是训练不足的</b>。 · <i>怎么装得下</i>（3 集）：数据并行 → ZeRO 分片 → 模型并行，以及 <b>FlashAttention</b>。⚠ FlashAttention 这一集有个贯穿全讲的洞见：<b>瓶颈是搬运不是计算</b>——和上一讲推理那边一模一样。 · <i>数要多精确</i>（1 集）：混合精度。 · <i>怎么让它变得有用</i>（3 集）：<b>SFT</b>，以及 LoRA / QLoRA 这两种「只训一小部分」的办法。  第七集有个很好的演示：<b>基座模型根本不会回答你的问题，它会接着往下编。</b>");
+});
+
+KP("1 · <b>FLOPs</b> 还是 <b>FLOPS</b>：两个记号差一个「每秒」　<small>讲义 p14–19</small>",function(){
+  /* 钩子 */
+  S(832,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,460,60,"FLOPs","y");
+      note("浮点运算的<b>次数</b> —— 一件事有多大",340,195,"y");
+      note("训练一个 LLM 约 10^25",340,243,"y");
+      boxNode(740,110,440,60,"FLOPS","g");
+      note("每秒浮点运算次数 —— 硬件有多快",960,195,"g");
+      note("GPU 规格表上写的是这个",960,243,"g");
+      note("讲者：有论文会把两者写混，<b>要靠上下文判断</b>",640,352,"r");
+      setCap("讲者 13:52。全大写的那个是<b>速度</b>，另一个是<b>工作量</b>。");
+    },"这一讲通篇在算账，所以先把两个长得几乎一样的记号分清。  · <b>FLOPs</b>（小写 s）= <i>floating point operations</i>，浮点运算的<b>次数</b>。它衡量<b>一件事有多大</b>。讲者给的量级：训练一个 LLM 大约 <b>10²⁵ FLOPs</b>。 · <b>FLOPS</b>（全大写）= <i>floating point operations per second</i>，<b>每秒</b>多少次。它衡量<b>硬件有多快</b>。GPU 规格表上印的就是它。  打个比方：FLOPs 是「这段路有多长」，FLOPS 是「车能跑多快」。<b>路长 ÷ 车速 = 要开多久</b>——这就是训练时间的估法。  ⚠ 讲者特意提醒：<b>有些论文会把两者写混</b>。他的建议是 contextualizing this notation with respect to <b>the sentence that it is in</b>——<em>看上下文，别只看大小写</em>。");
+  /* 错误答案 */
+  S(844,function(){
+      clearScene();setEq(null);
+      setBig("模型多大，算量就多大","数一数参数不就行了");
+      setCap("<s>漏了一半</s>。它是<b>参数量 x token 数</b>的量级，不是只看参数。");
+    },"一个很常见的简化：拿参数量当算量的代理，说「这是个 700 亿的模型，所以很贵」。  <b>漏了关键的另一半。</b>讲者给的粗略关系是：  <b>FLOPs ~ O(参数量 × token 数)</b>  也就是说，<b>训练成本是两个数的乘积</b>。一个 700 亿参数的模型，训 1000 亿 token 和训 15 万亿 token，<em>差 150 倍</em>。  他也说明了为什么没有通用公式：<b>还跟架构有关</b>。比如 <i>MoE</i> 模型——上一讲讲过，每个 token 只过一小份专家，所以同等总参数下 requiring less compute compared to dense LLMs。  <b>这正好印证上一讲那组概念：决定成本的是激活参数，不是总参数。</b>  下一镜看这两个数在现实里是多大。");
+  /* 铺陈 */
+  S(856,function(){
+      clearScene();setEq(null);setBig(null);
+      note("训练用的 token 数 —— 方块长度按实际比例画",640,112,"y");
+      note("GPT-3 (2020)",180,185,"b");
+      boxNode(300,165,20,44,"","b");
+      note("3000 亿",400,195,"b");
+      note("Llama 3 (2024)",180,285,"g");
+      boxNode(300,265,860,44,"15 万亿","g");
+      note("四年，<b>50 倍</b> —— 左边那一小条就是当年最大的模型之一",640,382,"r");
+    },"先看数据这一侧，因为它的增长比模型本身更猛。  · <b>GPT-3</b>（2020）：<b>3000 亿</b> token。 · <b>Llama 3</b>（2024）：<b>15 万亿</b> token。  <b>四年，50 倍。</b>  请把这个对比记住，因为下一集的 Chinchilla 会告诉你：<b>GPT-3 的问题恰恰不是模型太小，而是数据太少</b>。  ⚠ 另外注意「token 数」不等于「文本量」。15 万亿 token 大致相当于<b>整个可公开获取的高质量互联网文本</b>——这条路的尽头已经隐约可见了，这也是今天合成数据那么热的原因。<em>不过这一点讲者没展开。</em>");
+  /* 主体 */
+  S(868,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,110,420,60,"讲者说：至少数百万美元","r");
+      note("「when I say millions of dollars, it is minimum」",340,200,"r");
+      note("可以到数千万，甚至上亿",340,248,"r");
+      boxNode(730,110,440,60,"还不止钱","y");
+      note("时间很长",950,200,"y");
+      note("生态成本现在也会被写进论文",950,248,"y");
+      note("⚠ 这是<b>一次性</b>的、不可回滚的开销",640,352,"r");
+      setCap("所以这一讲剩下的部分，全是在想办法让它便宜一点。");
+    },"再看钱这一侧。讲者的说法很直白：  <b>when I say millions of dollars, it's minimum.</b> I think it can even cost <b>tens of millions</b> of dollars or sometimes <b>hundreds of millions</b>。  另外两项代价： · <b>时间</b>——一次预训练跑几周到几个月。 · <b>生态成本</b>——people have been mindful of the impact on the environment，现在论文里会专门报这一项。  ⚠ 最要命的性质是：<b>这是一次性的、不可回滚的开销</b>。超参数设错了、配比配错了，你不能「再调一下重跑」——那是又一个几千万。  <b>正因为重跑不起，才必须在开跑之前就把配比算对。</b>下一集的 Chinchilla 回答的就是这个问题。");
+  /* 主体 */
+  S(880,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"knowledge cutoff date（知识截止日期）","y");
+      note("模型对这一天之后发生的事，<b>自己无从知道</b>",640,205,"y");
+      note("模型卡上都会写这一行",640,258,"b");
+      note("事后往权重里塞新知识：<b>至今没有干净的办法</b>",640,352,"r");
+      setCap("讲者：GPT-5 的模型卡写着截止到 9 月 30 日。");
+    },"预训练还有一条和算力无关的限制：  <b>knowledge cutoff date</b>（知识截止日期）。模型学到的东西，只能到<b>语料截止的那一天</b>为止。那之后发生的事，<em>它自己无从知道</em>。  讲者让大家去看模型卡：OpenAI、Google 的页面上<b>都有这一行</b>。他举例说 GPT-5 写的是 9 月 30 日，所以可以推断预训练大约在那时完成。  ⚠ 更重要的是他接下来说的话。有没有办法事后把新知识<b>注入</b>进去？  <b>there's not a clean way to change the weights in a way that does not penalize some parts.</b>  翻译：你想加一条新知识，但改权重总会<b>连带损害别的地方</b>。讲者的评价是 <b>this is a very hard problem</b>——<em>一个真正的开放问题</em>。  <b>这也正是后面 RAG 那条路线存在的理由：既然改不动权重，那就在推理时把新信息<em>喂进上下文</em>。</b>");
+  /* 反驳 */
+  S(892,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(150,110,420,60,"目标：预测下一个词","b");
+      arrow(574,140,700,140,"sm",0);
+      boxNode(720,110,440,60,"完美做到这件事的办法之一","r");
+      note("把训练语料原样背下来",940,205,"r");
+      note("讲者点的名字：<b>plagiarism</b>（抄袭）",640,300,"r");
+      note("这不是 bug，是目标函数<b>允许</b>的解",640,358,"y");
+      setCap("预测下一个词这个目标，并不排斥「逐字复述」。");
+    },"这一集最后一条，讲者只用一句话带过，但它值得单独想清楚。  模型的训练目标是<b>预测下一个词</b>。现在问：有什么办法能把这个目标做到完美？  <b>把训练语料一字不差地背下来。</b>  讲者说：there's this question of <b>what if it just generates something that it has seen at training time? So what we call plagiarism. So there's always a risk.</b>  ⚠ 关键在于——<b>这不是一个实现上的 bug，而是目标函数本身允许的解</b>。我们希望模型「学会语言的规律」，但目标函数从没写过这个要求；它只要求下一个词猜得准，而<em>逐字背诵</em>在这个尺度上是满分。  模型之所以大体上没有退化成背诵机，是因为参数量相对语料量不够、而且训练时见每条数据的次数有限——<b>是这些约束在逼它去泛化，不是目标函数</b>。  <b>「目标函数没有禁止的，模型就可能去做」——这个思路在整门课里会反复出现。</b>");
+  SUM(832,1,{h:"先把账算清楚：两个记号、两个数、三条代价",
+    k:"<b>FLOPs</b>（小写）是运算<b>次数</b>（训一个 LLM 约 10²⁵），<b>FLOPS</b>（全大写）是每秒次数、即硬件速度。粗略地 <b>FLOPs ~ O(参数量 × token 数)</b>。",
+    m:"成本是<b>两个数的乘积</b>，不是只看参数量；而且与架构有关（MoE 因为只激活一小份而更便宜 —— 正是上一讲「激活参数」那组概念）。",
+    w:"<s>误解</s>：「模型多大，算量就多大」。GPT-3 用 3000 亿 token，Llama 3 用 <b>15 万亿</b> —— 四年 50 倍，同样的模型差 50 倍的钱。",
+    e:"三条代价：① 钱，讲者说<b>数百万美元是下限</b>，可到上亿，而且<b>一次性不可回滚</b>；② <b>knowledge cutoff</b>，事后注入知识「没有干净的办法」，这是 RAG 存在的理由；③ ⚠ <b>逐字背诵是目标函数允许的解</b>（plagiarism），防住它的是参数/数据比例，不是目标本身。"});
+  QUIZ(832,1,{t:"「FLOPs」与「FLOPS」的区别是什么？",
+    o:["前者指训练，后者指推理","前者是浮点运算的总次数（工作量），后者是每秒运算次数（硬件速度）","前者只统计乘法，后者统计所有运算","两者完全等价，只是不同论文的书写习惯"],
+    a:1,
+    w:"<b>FLOPs</b> = floating point operations，衡量<em>一件事有多大</em>（训一个 LLM 约 10²⁵）；<b>FLOPS</b> = 每秒多少次，衡量<em>硬件有多快</em>（GPU 规格表上的那个）。路长 ÷ 车速 = 要开多久。<s>「训练 vs 推理」</s>两者都可用于任一阶段。<s>「只统计乘法」</s>两者都统计全部浮点运算。<s>「完全等价」</s>确实有论文把两者写混——讲者正因此提醒要<b>看上下文判断</b>——但它们本身<em>不是</em>一回事。"});
+});
+
+KP("2 · <b>Chinchilla</b>：算力固定时，模型别做太大　<small>讲义 p20–23</small>",function(){
+  /* 钩子 */
+  S(1175,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,350],[340,290],[500,245],[660,210],[820,185],[1060,160]],"fit");
+      note("算力越多 → 损失越低",640,112,"g");
+      note("数据越多、模型越大，也都是同一个方向",640,392,"g");
+      setCap("《Scaling Laws for Neural Language Models》（2020）。");
+    },"2020 年那篇《Scaling Laws for Neural Language Models》做了一堆实验，结论非常简单也非常有力：  <b>算力越多、数据越多、模型越大——下一词预测就越准。</b>而且这三条关系都很平滑、可外推。  还有一条讲者特意提到的推论：<b>大模型更 sample efficient</b>。意思是 for an equal amount of tokens that is processed, you will have a better performance with a bigger model——<em>吃同样多的数据，大模型学到的更多</em>。  于是从 2019 到 2024，整个行业就是在 <b>people just building things that were bigger and bigger</b>。  <b>但这条规律只回答了「要不要更大」，没回答「钱有限时该怎么花」。</b>而钱总是有限的。");
+  /* 错误答案 */
+  S(1187,function(){
+      clearScene();setEq(null);
+      setBig("预算就这么多，全砸在参数量上","既然大模型更 sample efficient");
+      setCap("<s>这正是 2020–2022 年走的弯路</s>。GPT-3 就是这么来的。");
+    },"既然大模型学得更有效率，那在固定预算下，<b>把模型做到预算允许的最大，不就对了？</b>  这个推理<b>看起来</b>完全顺理成章，而且它真的主导了那几年。GPT-3 做到 1750 亿参数，就是这个思路的产物。  错在哪里？错在把「sample efficient」用错了地方。  <b>「吃同样多数据时大模型更好」</b>——这句话的前提是<em>数据量固定</em>。但真实的约束不是数据量固定，是<b>算力固定</b>。而算力 ≈ 参数量 × token 数，所以——  <b>参数每多一份，能吃的数据就少一份。</b>  <em>这是一个此消彼长的权衡，不是单调的「越大越好」。</em>而既然两者都被同一个预算绑着，就必然存在一个最优配比。下一镜看怎么找它。");
+  /* 铺陈 */
+  S(1199,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,200],[280,260],[400,310],[520,330],[640,322],[760,290],[880,240],[1000,185]],"fit");
+      note("横轴：模型大小（算力固定）",640,392,"b");
+      note("纵轴：训完的损失（越低越好）",160,150,"b");
+      note("太小：装不下规律",300,160,"r");
+      note("太大：数据不够喂",960,160,"r");
+      note("中间有个<b>甜点</b>",640,370,"g");
+      setCap("每条曲线是一个算力档位。实验方法本身很干净。");
+    },"Chinchilla 那篇的做法很干净，值得学：  <b>固定一个算力预算</b>（画面上一条曲线就是一个档位），然后在这个预算内<b>扫不同的模型大小</b>——模型做大，能喂的数据就相应变少。把每个组合都训完，看最终的损失。  结果是一条<b>U 形曲线</b>： · <b>模型太小</b>：数据喂得再多也装不下那么多规律，<em>容量受限</em>。 · <b>模型太大</b>：参数吃掉了预算，数据量不够，<em>每个参数都没被训够</em>。 · <b>中间有一个最低点</b>——这就是在这个预算下的最优配比。  讲者：what they saw was that <b>there was always a sweet spot</b>。  <b>注意这是实验性的发现，不是理论推导。</b>然后他们在多个算力档位上重复，看这些甜点连起来是什么关系。");
+  /* 主体 */
+  S(1211,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\text{token 数}\\;\\approx\\;20\\times\\text{参数量}$$","top");
+      note("这就是常说的「Chinchilla 定律」",640,330,"y");
+      note("70 亿参数 → 约 1400 亿 token",640,385,"g");
+      setCap("讲者：按这个配比花算力，才叫「optimal」。");
+    },"把各个算力档位的甜点连起来，得到一个惊人简洁的关系：  <b>训练 token 数 ≈ 20 × 参数量</b>  讲者的表述：if you have an amount of training set size that's <b>about 20 times the model size</b>, then you're spending your compute in an <b>optimal</b> way。  算起来很方便：70 亿参数的模型，大约该配 <b>1400 亿</b> token；700 亿参数，该配 <b>1.4 万亿</b>。  ⚠ 两个提醒： · <b>这是「算力最优」，不是「模型最好」。</b>它回答的是「固定预算怎么花最划算」，而不是「怎么做出最强的模型」。 · 讲者澄清了一个课堂提问：这个结论<b>基本不随架构变化</b>——everyone agrees that LLMs are transformer-based decoder-only models，so everyone uses the same model。");
+  /* 主体 */
+  S(1223,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,460,60,"GPT-3 实际","r");
+      note("1750 亿参数 · 3000 亿 token",340,196,"r");
+      note("比值约 <b>1.7</b>",340,244,"r");
+      boxNode(730,110,440,60,"Chinchilla 认为该是","g");
+      note("1750 亿参数 → 约 3.5 万亿 token",950,196,"g");
+      note("比值 <b>20</b>",950,244,"g");
+      note("差了<b>十倍以上</b>的数据",640,352,"y");
+      setCap("讲者原话：GPT-3 按这个标准是 <b>really undertrained</b>。");
+    },"现在用这把尺子去量 GPT-3，结论相当刺眼。  · <b>实际</b>：1750 亿参数，3000 亿 token。比值约 <b>1.7</b>。 · <b>Chinchilla 建议</b>：1750 亿参数应该配约 <b>3.5 万亿</b> token。比值 <b>20</b>。  <b>数据少了十倍以上。</b>讲者的评语是：this one is, quote unquote, <b>really undertrained</b>。  这件事改变了整个行业的方向。回头看第一集那个 50 倍的数据增长——<b>它不是因为大家有了更多数据，而是因为大家意识到之前的模型都没吃饱</b>。  ⚠ 还有个更实际的后果：<b>同样的性能，可以用小得多的模型达成</b>——只要多喂数据。而<em>小模型推理起来便宜得多</em>。这就是为什么后来 70 亿、130 亿参数的模型能做得那么好。  <b>Chinchilla 真正的影响，是把行业从「堆参数」拉回了「堆数据」。</b>");
+  /* 反驳 */
+  S(1235,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"Chinchilla 优化的是","y");
+      note("<b>训练</b>算力的性价比",340,190,"y");
+      note("它完全没考虑推理",340,238,"r");
+      boxNode(730,105,440,58,"现实里","g");
+      note("一个模型训一次，<b>推理无数次</b>",950,190,"g");
+      note("所以值得「过度训练」小模型",950,238,"g");
+      note("Llama 3 的 8B：比值约 <b>1800</b>，远超 20",640,352,"r");
+      setCap("讲者自己也说：各家会<b>用自己的数据重做一遍</b>这个实验。");
+    },"最后必须反驳一下上一镜——否则你会带着一个过期的结论离开。  <b>Chinchilla 优化的是「训练算力的性价比」，它的目标函数里完全没有推理。</b>  但现实是：<b>一个模型只训一次，之后要推理几十亿次</b>。既然推理成本由模型大小决定，那么——<em>把一个小模型「过度训练」（喂远超 20 倍的数据），虽然训练不划算，但推理便宜太多，总账是赚的。</em>  看实际数字：Llama 3 的 8B 模型用了 15 万亿 token，<b>比值约 1800</b>——是 Chinchilla 建议的<em>九十倍</em>。  这不是说 Chinchilla 错了，而是<b>它回答的问题和今天大家关心的问题不是同一个</b>。  讲者自己也给了这个线索：各家<b>会用自己的设定重做一遍</b>这个实验。他举了 Llama 3 的例子——论文里有一整节在论证 405B 这个数字是怎么来的，做法是<b>在小模型、小数据上拟合关系，再外推</b>。  ⚠ <b>读 scaling law 类结论时，第一个该问的是「它优化的目标函数里有什么、没有什么」。</b>");
+  SUM(1175,2,{h:"Chinchilla：算力固定时，模型别做太大",
+    k:"固定算力扫模型大小，损失呈 <b>U 形</b>，甜点处 <b>token 数 ≈ 20 × 参数量</b>。按这把尺子，GPT-3（1750 亿参数 / 3000 亿 token，比值 1.7）是 <b>really undertrained</b>。",
+    m:"因为算力 ≈ 参数量 × token 数，<b>参数每多一份，能吃的数据就少一份</b> —— 这是此消彼长，不是单调的「越大越好」。它把行业从「堆参数」拉回了「堆数据」。",
+    w:"<s>误解</s>：「大模型更 sample efficient，所以预算全砸参数」。那句话的前提是<b>数据量固定</b>，而真实约束是<b>算力固定</b> —— 换了约束，结论就反了。",
+    e:"⚠ <b>它的前提今天已不成立</b>：Chinchilla 只优化<b>训练</b>性价比，目标里没有推理。而模型训一次、推理无数次，所以值得把小模型<b>过度训练</b> —— Llama 3 的 8B 比值约 <b>1800</b>，是建议值的九十倍。"});
+  QUIZ(1175,2,{t:"为什么今天许多模型的「token 数 / 参数量」远超 Chinchilla 建议的 20？",
+    o:["后来发现 Chinchilla 的实验有统计错误","因为模型训练一次但要推理无数次，而推理成本由模型大小决定","因为新的优化器让大数据量下的训练更稳定","因为高质量数据变多了，必须全部用上"],
+    a:1,
+    w:"Chinchilla 优化的是<b>训练算力的性价比</b>，它的目标函数里<em>完全没有推理</em>。而现实中模型训一次、推理几十亿次，推理成本由<b>模型大小</b>决定——于是把小模型「过度训练」虽然训练阶段不划算，总账却是赚的（Llama 3 的 8B 比值约 1800）。<s>「统计错误」</s>没有这回事，它的实验结论在自己的问题设定内是成立的。<s>「新优化器」</s>与这个权衡无关。<s>「数据变多必须用上」</s>因果反了：是先有了「值得多喂」的动机，才去扩数据；而且数据多也不强制你全用。"});
+});
+
+KP("3 · 训练到底要存什么：<b>80 GB 的墙</b>　<small>讲义 p29–39</small>",function(){
+  /* 钩子 */
+  S(1583,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(340,110,600,70,"NVIDIA H100 · 显存 80 GB","r");
+      note("而你要训的模型有几千亿参数",640,230,"y");
+      note("光是参数本身，FP32 下 1000 亿就是 400 GB",640,285,"r");
+      note("而且参数<b>只是要存的四样东西之一</b>",640,362,"r");
+      setCap("讲者：memory is <b>not unlimited</b>。这一集先把要存的东西数清楚。");
+    },"前两集算的是钱和时间。这一集换一个更物理的约束：<b>显存</b>。  讲者把 H100 的规格表放出来，指着其中一行：<b>GPU memory，80 GB</b>。他的评语是：it's quite large ... <b>which is not a lot</b>。  做个最粗的估算：1000 亿参数，每个参数 FP32 占 4 字节，<b>光参数就要 400 GB</b>——已经是五张 H100 了。  而参数<b>只是要存的四样东西之一</b>。  下面三镜先把这四样数清楚，因为<b>这一讲后面所有的技巧，都是在针对其中某一样下手</b>。数不清这四样，后面的优化就只能死记。");
+  /* 错误答案 */
+  S(1595,function(){
+      clearScene();setEq(null);
+      setBig("显存里装的不就是权重吗","模型多大，就占多少");
+      setCap("<s>权重往往是最小的那一份</s>。另外三样加起来要大得多。");
+    },"最自然的假设：显存里装的就是模型。模型多大，占多少。  <b>错得很远。</b>训练时权重常常是四样里<em>最小</em>的一份。  要存的四样：  ① <b>权重</b>本身。 ② <b>激活</b>（activations）——前向过程中每一层的中间结果。 ③ <b>梯度</b>——每个参数一个，所以和权重<em>一样大</em>。 ④ <b>优化器状态</b>——用 Adam 的话，每个参数还要存<em>两个</em>额外的量。  光是 ②③④ 就让需求翻了好几倍。下面两镜分别看激活和优化器状态——它们各有一套讲者点明的变量。");
+  /* 铺陈 */
+  S(1607,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,300,56,"模型大小","b");
+      note("层数越多，中间结果越多",260,192,"b");
+      boxNode(490,110,300,56,"batch 大小","y");
+      note("batch 翻倍，激活翻倍",640,192,"y");
+      boxNode(870,110,300,56,"上下文长度","r");
+      note("注意力是 <b>O(n^2)</b>",1020,192,"r");
+      note("⚠ 第三项不是线性的 —— 上下文翻倍，这一块变四倍",640,300,"r");
+      setCap("前向算出来的每层中间值，反向要用，所以必须留着。");
+    },"<b>激活</b>是前向过程中每一层算出来的中间结果。为什么要存？因为<b>反向传播要用到它们</b>来算梯度。  讲者列了三个决定它大小的量：  · <b>模型大小</b>——层数越多，要存的中间结果越多。 · <b>batch 大小</b>——batch 里每个样本都有自己的一套激活，<em>线性增长</em>。 · <b>上下文长度</b>——注意力是 <b>O(n²)</b>，所以<em>上下文翻倍，这一块变四倍</em>。  ⚠ 第三项的非线性是关键。<b>为什么训长上下文那么贵？根子就在这里。</b>  这三个量里，<b>batch 是唯一可以随便调的</b>——这正是下一镜数据并行的切入点。模型大小和上下文长度都是你想要的东西，不能为了省显存而牺牲。");
+  /* 主体 */
+  S(1619,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,240,54,"权重 W","b");
+      boxNode(390,105,240,54,"梯度 g","y");
+      boxNode(670,105,240,54,"一阶矩 m","r");
+      boxNode(950,105,210,54,"二阶矩 v","r");
+      note("每一份都和参数量<b>一样大</b>",640,200,"y");
+      note("用 Adam：光这四项就是参数量的 <b>4 倍</b>",640,258,"r");
+      note("混合精度下还要额外留一份 FP32 主权重",640,358,"y");
+      setCap("Adam 存的是梯度的滑动平均，和梯度平方的滑动平均。");
+    },"第四样：<b>优化器状态</b>。  讲者问了一句「听过 Adam 吗」，然后解释：Adam 除了梯度之外，还要维护<b>一阶矩</b>和<b>二阶矩</b>——分别是<i>梯度的滑动平均</i>和<i>梯度平方的滑动平均</i>。  关键在于：<b>这两个量，每个参数各有一份</b>。所以它们各自都和整个模型<em>一样大</em>。  把账摆开： · 权重：1 份 · 梯度：1 份 · 一阶矩：1 份 · 二阶矩：1 份  <b>用 Adam，光这四项就是参数量的 4 倍。</b>再加上激活，还有第六集会讲的混合精度要额外留一份 FP32 主权重——<em>实际需求通常是参数量的十几倍</em>。  <b>所以 1000 亿参数的模型，需要的是好几 TB 显存，而不是 400 GB。</b>一张 80 GB 的卡，差着两个数量级。");
+  /* 主体 */
+  S(1631,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,280,56,"GPU 1：模型副本","b");
+      note("batch 的前 1/4",250,185,"b");
+      boxNode(420,105,280,56,"GPU 2：模型副本","b");
+      note("第 2 个 1/4",560,185,"b");
+      boxNode(730,105,280,56,"GPU 3：模型副本","b");
+      note("第 3 个 1/4",870,185,"b");
+      boxNode(1040,105,130,56,"...","b");
+      arrow(250,225,640,280,"sm",0);
+      arrow(560,225,640,280,"sm",0);
+      arrow(870,225,640,280,"sm",0);
+      boxNode(440,284,400,54,"梯度求平均，再统一更新","g");
+      setCap("<b>数据并行</b>（DP）。它治的是上一镜那三项里的 <b>batch</b>。");
+    },"第一招叫<b>数据并行</b>（data parallelism，DP）。  做法：<b>把一个 batch 切成几份，每张卡算一份</b>。前向、反向各自独立做完，然后——学生问了个好问题：<b>梯度怎么办？</b>  讲者：the gradient is just <b>the average of the gradients</b>。各卡之间通信一次，把梯度聚合起来求平均，再统一更新。  ⚠ 请对照上一镜：<b>它只缓解了「batch 大小」那一项</b>。模型大小、上下文长度带来的激活，以及权重/梯度/优化器状态，<em>一点没少</em>。  讲者当场反问全场：<b>这是万能解吗？</b>学生答出了第一个坑，他补了第二个：  ① <b>每张卡仍要装下一整份模型</b>——模型本身装不下的话，这招完全无效。 ② <b>通信代价</b>：you need to somehow communicate between your GPUs ... <b>your training is going to be slower</b>。  <b>这两条正好是下一集两种办法各自要解决的。</b>");
+  /* 反驳 */
+  S(1643,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,240,54,"GPU 1","b");
+      boxNode(390,105,240,54,"GPU 2","b");
+      boxNode(670,105,240,54,"GPU 3","b");
+      boxNode(950,105,210,54,"GPU 4","b");
+      note("参数：四份完全一样",640,195,"r");
+      note("梯度（聚合后）：四份完全一样",640,243,"r");
+      note("优化器状态：四份完全一样",640,291,"r");
+      note("<b>数据并行省了算，但没省存</b>",640,368,"y");
+      setCap("看出这个冗余，就能想到下一招：把它们<b>切开分着存</b>。");
+    },"这一集最后一步，是看出数据并行留下的那个<b>结构性浪费</b>。  画面上四张卡，每张都存着：<b>一份完整的参数、一份完整的（聚合后的）梯度、一份完整的优化器状态</b>。  <b>它们的内容完全相同。</b>  讲者的说法：people have realized that there's actually <b>a lot of duplication</b>。  换句话说——<b>数据并行把「算」分摊了，但「存」一点也没分摊</b>。四张卡的显存，装的是同一套东西的四个副本。  一旦这么看，办法就是明摆着的：<b>既然四份一样，为什么不切成四块，每张卡只存一块，要用的时候再去取？</b>  <em>这就是下一集 ZeRO 的全部思路。</em>而代价也可以预判——<b>要用时得去取，就是更多通信</b>。  <b>这一集最该带走的方法论：看优化方案时，先问「它省的是算，还是存」。</b>两者经常被混为一谈，而它们的瓶颈完全不同。");
+  SUM(1583,3,{h:"训练要存四样，而一张卡只有 80 GB",
+    k:"<b>权重 · 激活 · 梯度 · 优化器状态</b>。用 Adam 时后三项各与参数量同样大，<b>光这四项就是参数量的 4 倍</b>，加上激活通常到十几倍。H100 只有 80 GB。",
+    m:"激活随三件事涨：模型大小、batch 大小、<b>上下文长度（O(n²)，非线性）</b>。<b>数据并行</b>切 batch，只治了其中的 batch 那一项，梯度靠通信求平均。",
+    w:"<s>误解</s>：「显存里装的就是权重」。权重往往是四样里<b>最小</b>的一份。另：数据并行<b>要求每张卡都装得下整个模型</b>，模型本身装不下时它完全无效。",
+    e:"⚠ 数据并行留下一个结构性浪费：<b>每张卡存的参数/梯度/优化器状态内容完全相同</b> —— 它分摊了「算」，没分摊「存」。<b>看优化方案先问：它省的是算，还是存？</b>"});
+  QUIZ(1583,3,{t:"训练时显存里占得最多的通常不是权重，而是因为还要存哪些东西？",
+    o:["只有梯度，优化器状态可以即时重算","激活、梯度和优化器状态，其中 Adam 的一阶/二阶矩各与参数量同样大","KV cache 和注意力矩阵","训练数据本身必须全部驻留显存"],
+    a:1,
+    w:"四样东西：<b>权重、激活、梯度、优化器状态</b>。Adam 要维护梯度的滑动平均（一阶矩）与梯度平方的滑动平均（二阶矩），<em>每个参数各一份</em>，所以这四项合计就是参数量的 <b>4 倍</b>，再加激活通常到十几倍。<s>「优化器状态可即时重算」</s>不行——它们是跨步累积的历史，重算需要全部历史梯度。<s>「KV cache」</s>是<b>推理</b>期的概念，讲者明确说训练用 teacher forcing，KV cache 根本不出现。<s>「训练数据全部驻留」</s>数据是分批流式读入的。"});
+});
+
+KP("4 · <b>ZeRO</b> 与模型并行：省显存，付通信　<small>讲义 p40–44</small>",function(){
+  /* 钩子 */
+  S(2039,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,240,54,"GPU 1","g");
+      note("只存 1/4",230,180,"g");
+      boxNode(390,105,240,54,"GPU 2","g");
+      note("只存 1/4",510,180,"g");
+      boxNode(670,105,240,54,"GPU 3","g");
+      note("只存 1/4",790,180,"g");
+      boxNode(950,105,210,54,"GPU 4","g");
+      note("只存 1/4",1055,180,"g");
+      note("要用别人那一块时，临时去取",640,270,"y");
+      note("<b>ZeRO</b> = Zero Redundancy Optimization（零冗余优化）",640,355,"y");
+      setCap("讲者 33:59。思路就是上一集结尾那个推论。");
+    },"上一集最后看出了那个冗余：<b>数据并行下，每张卡都存着一模一样的参数、梯度和优化器状态</b>。  <b>ZeRO</b>（Zero Redundancy Optimization，零冗余优化）做的就是明摆着的那件事：  <b>把这些量切开（shard/partition），每张卡只存其中一块。</b>要用到别人那一块时，临时去取。  讲者：the idea here is <b>how about we shard, we partition those quantities across GPUs?</b>  关键在于它<b>不改变数学</b>——算出来的结果和不分片完全一样，只是把存放位置重排了。<em>这是纯粹的存储重构，不是近似。</em>  下面看它怎么分三步走。");
+  /* 错误答案 */
+  S(2051,function(){
+      clearScene();setEq(null);
+      setBig("参数、梯度、优化器状态，全部切开","既然都是冗余的，一次切干净");
+      setCap("可以，但<b>要分三档</b> —— 切得越多，通信越贵。");
+    },"既然都是冗余，为什么不一次全切干净？  <b>可以，而且那就是 ZeRO 3。</b>但 ZeRO 之所以分成 1、2、3 三档，是因为<b>切得越多，通信就越贵</b>，而通信直接拖慢训练。  三档是按<b>「省的显存 / 付的通信」性价比从高到低</b>排的：  · <b>ZeRO 1</b>：只切<b>优化器状态</b>。 · <b>ZeRO 2</b>：再切<b>梯度</b>。 · <b>ZeRO 3</b>：再切<b>参数</b>本身。  ⚠ 这个顺序<b>不是随便排的</b>，下一镜讲为什么优化器状态排第一。  讲者对怎么选的说法很实在：取决于 <b>how sensitive you are to training time</b>、模型多大、以及你是不是根本就存得下。<em>没有一个普遍最优档。</em>");
+  /* 铺陈 */
+  S(2063,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,460,58,"优化器状态","g");
+      note("占得最多（Adam 两份）",340,195,"g");
+      note("而且<b>只在更新那一步用一次</b>",340,243,"g");
+      boxNode(730,110,440,58,"参数","r");
+      note("占得少一些",950,195,"r");
+      note("但<b>前向反向每一层都要用</b>",950,243,"r");
+      note("⇒ 先切「占得多、用得少」的那个",640,352,"y");
+      setCap("这个排序标准，适用于所有「切开分存」类的优化。");
+    },"为什么优化器状态排第一？讲者没展开，但理由很干净，而且是个<b>通用的判据</b>：  看两个维度——<b>占多少</b>，和<b>多频繁被用到</b>。  · <b>优化器状态</b>：Adam 两份，<em>占得最多</em>；但它<b>只在权重更新那一步用一次</b>，一个训练步里就碰一回。 · <b>参数</b>：占得相对少；但<b>前向和反向的每一层都要用到</b>，一个训练步里碰几百回。  <b>切开分存的代价是「用的时候要去取」。所以该优先切「占得多、用得少」的。</b>  优化器状态正好两头都占优，于是排第一——<em>省得最多，而额外通信最少</em>。参数排最后，因为切了它，<b>每一层的前向都要先把别人那块取过来</b>。  ⚠ <b>这个「占多少 × 用多频繁」的判据值得记住</b>，上一讲 KV cache 那条线、以及下面的模型并行，用的都是同一把尺子。");
+  /* 主体 */
+  S(2075,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,320,56,"专家并行","g");
+      note("MoE 的专家分到不同卡",270,185,"g");
+      boxNode(480,105,320,56,"张量并行","y");
+      note("一次大矩阵乘法切开算",640,185,"y");
+      boxNode(850,105,320,56,"流水线并行","b");
+      note("第 1-3 层一张卡，4-6 层另一张",1010,185,"b");
+      note("⚠ 这三种切的是<b>计算</b>，不只是存储",640,300,"r");
+      note("讲者：no need to know the details，知道有这几类就够",640,358,"y");
+      setCap("<b>模型并行</b>：把一次前向的运算本身拆到多张卡上。");
+    },"ZeRO 仍属于数据并行那一族——<b>它重排的是存储，每张卡还是在算完整的前向</b>。  另一条路叫<b>模型并行</b>：<b>把一次前向的计算本身拆开</b>。讲者说他不想把这讲成一份目录，所以只点了三种值得知道的：  · <b>专家并行</b>：MoE 的专家本来就彼此独立，<b>一张卡放一个（或几个）专家</b>。上一讲那个架构在这里收到了一个意外的红利。 · <b>张量并行</b>：一次大矩阵乘法<b>按行/列切开</b>，几张卡各算一块再拼。 · <b>流水线并行</b>：<b>按层切</b>——一张卡负责第 1–3 层，另一张负责 4–6 层，数据像流水线一样穿过去。  讲者的态度很实际：<b>no need to know the details on there</b>，知道有这么几类、大致是怎么回事就够了。  ⚠ 注意它和 ZeRO 的区别：<b>ZeRO 省的是存，模型并行拆的是算</b>——又是上一集那把尺子。");
+  /* 主体 */
+  S(2087,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"省下的：每卡显存","g");
+      note("数据并行 → ZeRO → 模型并行",340,190,"g");
+      note("一路往下，显存越省越多",340,238,"g");
+      boxNode(730,105,440,58,"付出的：卡间通信","r");
+      note("聚合梯度 · 取回分片 · 传递中间结果",950,190,"r");
+      note("<b>训练会变慢</b>",950,238,"r");
+      note("讲者两次强调 communication cost",640,352,"y");
+      setCap("没有白来的显存。<b>每一招都在把显存压力换成带宽压力。</b>");
+    },"把这两集连起来，有个贯穿始终的账单：<b>通信</b>。  讲者在数据并行那里就提过：you have an additional cost, which is called <b>communication cost</b> ... <b>your training is going to be slower</b>。到 ZeRO 又说一遍：you're going to have <b>even more communication costs</b>。  把三招摆开看： · <b>数据并行</b>：每步要<b>聚合梯度</b>。 · <b>ZeRO</b>：还要<b>去别的卡取回分片</b>，切得越深取得越频繁。 · <b>模型并行</b>：每一层算完都要<b>把中间结果传给下一张卡</b>。  <b>共同点：每一招都在把「显存压力」换成「带宽压力」。</b>  ⚠ 所以这些技术的实际效果<b>强烈依赖硬件互联</b>——同一台机器内有 NVLink，跨机器只有网络，差一个数量级。<em>同一套并行策略在两种集群上可能一个很划算、一个完全不划算。</em>讲者没展开，但这是实践中最先撞到的问题。");
+  /* 反驳 */
+  S(2099,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"本集解决的","g");
+      note("显存装不下 → 分到多张卡",340,190,"g");
+      boxNode(730,105,440,58,"⚠ 没解决的","r");
+      note("<b>单张卡内部</b>，数据搬进搬出也很慢",950,190,"r");
+      note("切再多卡，这一项一点不变",950,238,"r");
+      note("下一集：GPU 里面其实有两种内存",640,355,"y");
+      setCap("诊断换了：不是「装不下」，是「<b>搬不动</b>」。");
+    },"这一集和上一集解决的都是同一个病：<b>装不下</b>。办法是把东西摊到更多卡上。  但有一类开销，<b>加多少张卡都治不了</b>：  <b>单张卡内部，把数据从显存搬进计算单元这件事本身就很慢。</b>  你把模型切成 100 份放到 100 张卡上，每张卡<em>自己那一份</em>的搬运开销一点没变。<b>这是一个每张卡内部的问题，横向扩展对它完全无效。</b>  ⚠ 请注意这里发生的<b>诊断切换</b>：前两集问的是「<i>够不够放</i>」，下一集问的是「<i>搬得够不够快</i>」。  而上一讲结尾那句话，正好在这里再次出现——<b>瓶颈是搬运，不是算术</b>。上一讲说的是推理，这一讲说的是训练，<em>而且它们指向同一个硬件事实</em>。  <b>下一集：GPU 里其实有两种内存，一大一小、一慢一快。FlashAttention 做的全部事情，就是在它们之间重新安排数据的流向。</b>");
+  SUM(2039,4,{h:"ZeRO 省存，模型并行拆算 —— 代价都是通信",
+    k:"<b>ZeRO</b> 把优化器状态/梯度/参数依次<b>分片</b>（ZeRO 1/2/3），消除数据并行留下的重复副本；<b>模型并行</b>则拆计算：专家并行 · 张量并行 · 流水线并行。",
+    m:"ZeRO 的分档顺序遵循一把通用的尺子：<b>优先切「占得多、用得少」的</b> —— 优化器状态占最多却只在更新时用一次，参数占得少却每层都要用，所以一个排第一、一个排最后。",
+    w:"<s>误解</s>：「既然都冗余，一次全切干净」。<b>切得越深，通信越频繁</b>，训练越慢。怎么选取决于你对训练时间多敏感、模型多大。",
+    e:"⚠ 每一招都在把<b>显存压力换成带宽压力</b>，所以实际收益<b>强烈依赖硬件互联</b>（机内 NVLink vs 跨机网络差一个量级）。而且这些全都治不了<b>单卡内部的搬运开销</b> —— 那是下一集的病。"});
+  QUIZ(2039,4,{t:"ZeRO 为什么从「优化器状态」开始分片，而把「参数」放在最后？",
+    o:["因为优化器状态占得最多，却只在权重更新那一步用一次","因为优化器状态与模型结构无关，切分实现最简单","因为参数必须保持连续存储，技术上无法切分","因为梯度和参数在数值上耦合，必须一起切"],
+    a:0,
+    w:"分片的代价是「<b>用的时候要去取</b>」，所以判据是<b>占多少 × 用多频繁</b>：优化器状态（Adam 两份）占得最多，但一个训练步只在更新时碰一次；参数占得相对少，却<em>前向反向每一层都要用</em>，切了它每层都得先取回来。<s>「实现最简单」</s>工程难度不是分档依据。<s>「参数无法切分」</s>ZeRO 3 切的正是参数。<s>「梯度与参数耦合必须一起切」</s>不成立——ZeRO 2 就只切梯度不切参数。"});
+});
+
+KP("5 · <b>FlashAttention</b>：瓶颈不是算，是搬　<small>讲义 p45–71</small>",function(){
+  /* 钩子 */
+  S(2318,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,470,62,"HBM","b");
+      note("几十 GB · 几 TB/s",345,198,"b");
+      note("规格表上那个「显存」就是它",345,246,"b");
+      boxNode(740,110,440,62,"SRAM","g");
+      note("几十 MB · 几十 TB/s",960,198,"g");
+      note("在芯片上，紧挨着计算单元",960,246,"g");
+      note("<b>容量差三个量级，速度差约十倍</b>",640,355,"y");
+      setCap("讲者 39:17 / 39:30。FlashAttention 的全部文章都做在这组对比上。");
+    },"<b>FlashAttention</b>，2022 年在斯坦福做出来的。要讲它，得先知道 GPU 内部有<b>两种</b>内存。  · <b>HBM</b>：<i>big but relatively slow</i>。几十 GB，带宽几 TB/s。<b>规格表上那个「80 GB 显存」说的就是它。</b> · <b>SRAM</b>：<i>fast but much, much smaller</i>。只有几十 MB，但带宽几十 TB/s，<b>快约十倍</b>。它在芯片上，紧挨着计算单元。  <b>容量差了三个数量级，速度差十倍。</b>  这组对比就是全部文章所在。前两集假设「显存就是一块均匀的空间」，而真相是：<b>它分层，而且层与层之间的搬运有代价</b>。  ⚠ 讲者在这里先定了调子：FlashAttention 是 <b>exact</b> 的——we're <b>not making any approximations</b>。它和上一讲那些滑窗、稀疏注意力<em>完全不是一回事</em>。");
+  /* 错误答案 */
+  S(2330,function(){
+      clearScene();setEq(null);
+      setBig("注意力慢，当然是因为运算量大","n 平方嘛，算都算不完");
+      setCap("<s>不是</s>。GPU 算得飞快，时间花在<b>等数据</b>上。");
+    },"被问到「注意力为什么慢」，几乎所有人的第一反应都是 <b>O(n²)</b>——运算量太大。  <b>对于 FlashAttention 要解决的那个问题，这个诊断是错的。</b>  讲者的原话：<b>a GPU is very, very fast, but then you spend a lot of time just loading your matrices from the memory</b>。  也就是说——<b>算术单元大部分时间在闲着等数据从 HBM 搬过来</b>。真正的瓶颈是 <b>a lot of data transfer, which actually becomes the bottleneck</b>。  ⚠ 请注意这和上一讲结尾完全是同一句话。上一讲说<em>推理</em>是 memory bound 的，这一讲说<em>训练里的注意力</em>也是。<b>同一个硬件事实，在两端各出现一次。</b>  既然诊断变了，药方也就跟着变：<b>要减少的不是运算次数，而是 HBM 的来回读写次数。</b>");
+  /* 铺陈 */
+  S(2342,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,200,48,"读 Q,K","b");
+      arrow(314,124,366,124,"sm",0);
+      boxNode(370,100,180,48,"算 S","y");
+      arrow(554,124,606,124,"sm",0);
+      boxNode(610,100,200,48,"写回 S","r");
+      arrow(814,124,866,124,"sm",0);
+      boxNode(870,100,200,48,"再读 S","r");
+      boxNode(110,180,200,48,"算 softmax","y");
+      arrow(314,204,366,204,"sm",0);
+      boxNode(370,180,200,48,"写回 P","r");
+      arrow(574,204,626,204,"sm",0);
+      boxNode(630,180,200,48,"再读 P,V","r");
+      arrow(834,204,886,204,"sm",0);
+      boxNode(890,180,180,48,"算 O 写回","r");
+      note("红色的每一步都是 HBM 的读或写 —— 而那是慢的那一块",640,300,"r");
+      note("中间矩阵 S 和 P 都是 n x n，<b>非常大</b>",640,358,"y");
+      setCap("讲义 p50–58 把这八步一步一步画了出来。");
+    },"先看不优化会怎么走。讲义用八页纸一步步画了这个过程：  ① 从 HBM <b>读</b> Q、K ② 算 S = QKᵀ ③ 把 S <b>写回</b> HBM ④ 从 HBM <b>读</b> S ⑤ 算 softmax 得到 P ⑥ 把 P <b>写回</b> HBM ⑦ 从 HBM <b>读</b> P 和 V ⑧ 算 O = PV，<b>写回</b> HBM  讲者的总结：<b>there's a lot of read and write to the HBM</b>。  ⚠ 而且被搬来搬去的 S 和 P 都是 <b>n × n</b> 的大矩阵——序列 8000 的话，一个矩阵就是 6400 万个数。  <b>为什么非得写回去再读出来？</b>讲者指出了那个看似无法绕开的理由：  <b>softmax 是按行归一化的</b>，每一行都要<em>先知道整行的和</em>才能算。so in a sense, you need that computation to happen first before you do your softmax。  <b>看上去，你必须先把整个 S 算完。</b>下一镜拆掉这个「看上去」。");
+  /* 主体 */
+  S(2354,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,110,440,60,"整块的 softmax","y");
+      note("= 各子块各自算 softmax",640,215,"g");
+      note("再乘一个<b>缩放因子</b>修正",640,265,"g");
+      boxNode(730,110,440,60,"子块 S1 … Sn","g");
+      note("理由：softmax 分母是整行共享的那个和",640,358,"y");
+      setCap("讲者：<b>this is the core trick</b>。整个方法都架在它上面。");
+    },"上一镜那个「必须先算完整行」的结论，有一个漏洞。  <b>核心恒等式</b>：把一行切成若干子块 S₁…Sₙ，那么<b>整行的 softmax，等于各子块各自算 softmax、再乘上一个缩放因子</b>。  讲者的解释非常朴素，而且一句就说清了：<b>just look at the softmax formula, it's exponential of something over some quantity, which is shared across the row</b>。  也就是说——softmax 的分子是逐元素的指数，<b>分母是整行共享的那个和</b>。既然只有分母需要全行信息，那就<b>先按子块算，边算边把分母累积起来，最后统一修正</b>。  讲者：<b>this is the core trick.</b>  ⚠ 这个结构值得单独记住：<b>一个看似「必须全局」的操作，被拆成了「局部计算 + 一个可累积的修正量」。</b>这类改写在系统优化里反复出现，而且往往是整个方法成立的唯一支点。  <b>有了它，就再也不需要把整个 n×n 矩阵物化出来了。</b>");
+  /* 主体 */
+  S(2366,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,56,"HBM 读一次","b");
+      arrow(364,133,436,133,"sm",0);
+      boxNode(440,105,300,56,"SRAM 里端到端算完","g");
+      note("算 S → softmax → 乘 V，全程不出芯片",590,195,"g");
+      arrow(744,133,816,133,"sm",0);
+      boxNode(820,105,280,56,"HBM 写一次","b");
+      note("中间的 S 和 P <b>从未被完整写出来过</b>",640,290,"y");
+      note("省的不是算术，是<b>搬运次数</b>",640,358,"r");
+      setCap("方法的名字叫 <b>tiling</b>（分块）。");
+    },"把恒等式用起来，流程就重排成了这样：  <b>把 Q、K、V 切成小块</b>，小到能塞进那几十 MB 的 SRAM。然后对每一块：  <b>从 HBM 读进来 → 在 SRAM 里把 S、softmax、乘 V 全部算完 → 结果写回 HBM。</b>  讲者：it takes small blocks that it sends to the SRAM, <b>so that it gets computed from end to end before being sent back to the HBM</b>。这个方法叫 <b>tiling</b>。  最关键的后果：<b>那两个 n×n 的中间矩阵 S 和 P，从来没有被完整地写出来过</b>。它们只以小块的形式在 SRAM 里短暂存在。  所以 FlashAttention 同时拿到了两样东西： · <b>快</b>：HBM 的读写次数大幅下降。 · <b>省显存</b>：不需要为 n×n 的中间矩阵分配空间——<em>这让更长的上下文成为可能</em>。  ⚠ 再强调一次：<b>算术运算的次数一次都没少，仍然是 O(n²)。</b>变的只是数据的流向。");
+  /* 反驳 */
+  S(2378,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"上一讲：滑窗 / 稀疏注意力","y");
+      note("改变了谁能看见谁",340,190,"y");
+      note("结果<b>和原来不一样</b>（近似）",340,238,"r");
+      boxNode(730,105,440,58,"FlashAttention","g");
+      note("只改数据的流向",950,190,"g");
+      note("结果<b>逐比特等同</b>（精确）",950,238,"g");
+      note("⚠ 所以它可以无脑用，不需要评估掉点",640,355,"r");
+      setCap("讲者反复强调的 <b>exact</b>，指的就是这件事。");
+    },"这一集最该带走、也最容易混的一条。  <b>FlashAttention 不是一种注意力的近似。</b>讲者在开头就定了调：what do I mean by exact way? ... <b>we're not making any approximations to the computation</b>。  对照上一讲的滑窗和稀疏注意力： · <b>滑窗 / 稀疏</b>：<em>改变了谁能看见谁</em>，算出来的结果和完整注意力<b>不一样</b>。用它就得评估掉多少点。 · <b>FlashAttention</b>：<em>只改数据在两级内存之间的流向</em>，算出来的结果<b>逐比特等同</b>于朴素实现。  <b>这个区别有非常实际的后果：FlashAttention 可以无脑开，不需要任何质量评估；而滑窗必须权衡。</b>  ⚠ 讲者还提到有 FlashAttention <b>2 和 3</b>，但他的定位很准：these are more <b>adaptation of these methods to the current infra</b>——<em>每代新 GPU 的强弱项不同，所以这类优化要跟着重调</em>。  <b>这也说明了这类工作的性质：它不是一劳永逸的算法改进，而是绑在具体硬件上、需要持续重做的工程。</b>");
+  SUM(2318,5,{h:"FlashAttention：瓶颈是搬运，不是算术",
+    k:"GPU 有两级内存：<b>HBM</b>（几十 GB，几 TB/s）与 <b>SRAM</b>（几十 MB，快约十倍）。朴素实现把 n×n 的中间矩阵在 HBM 来回读写三趟；<b>tiling</b> 把数据切块送进 SRAM <b>端到端算完再写回</b>。",
+    m:"支点是一个恒等式：<b>整行的 softmax = 各子块的 softmax × 一个缩放因子</b>（因为分母是整行共享的那个和）。于是那两个 n×n 矩阵<b>从未被完整物化过</b> —— 既省搬运又省显存。",
+    w:"<s>误解</s>：「注意力慢是因为 O(n²) 运算量大」。讲者：GPU 算得飞快，时间花在<b>等数据从 HBM 搬过来</b>。运算次数一次没少，变的只是数据流向。",
+    e:"⚠ <b>它是 exact 的，不是近似</b> —— 结果逐比特等同于朴素实现，所以可以无脑开、无需评估掉点；而上一讲的滑窗/稀疏<b>改变了谁能看见谁</b>，必须权衡。FlashAttention 2/3 是<b>针对新硬件的重调</b>，不是算法改进。"});
+  QUIZ(2318,5,{t:"FlashAttention 加速的根本机制是什么？",
+    o:["用稀疏模式跳过大部分注意力计算","把中间矩阵的精度降到 FP16 以减少计算量","通过分块让中间结果留在 SRAM 内算完，大幅减少 HBM 的读写次数","把注意力计算分配到多张 GPU 上并行"],
+    a:2,
+    w:"瓶颈不是算术而是<b>数据在 HBM 与计算单元之间的搬运</b>；tiling 把数据切成能装进 SRAM 的小块，<b>端到端算完再写回</b>，于是 n×n 的中间矩阵 S、P <em>从未被完整物化</em>。运算次数<b>一次都没少</b>。<s>「稀疏跳过」</s>那是<b>近似</b>方法，而 FlashAttention 讲者反复强调是 <b>exact</b> 的、结果逐比特等同。<s>「降精度」</s>是混合精度那一集的事，与此无关。<s>「多 GPU 并行」</s>是上一集的内容；FlashAttention 治的恰恰是<b>单卡内部</b>、加多少卡都治不了的那部分。"});
+});
+
+KP("6 · <b>混合精度</b>：哪些数可以不那么精确　<small>讲义 p72–81</small>",function(){
+  /* 钩子 */
+  S(3194,function(){
+      clearScene();setEq(null);setBig(null);
+      setBig("1.2015432…","一个权重，到底需要几位小数？");
+      setCap("能砍精度，就能同时省<b>显存</b>和<b>时间</b> —— 这是量化的全部动机。");
+    },"前三集都在把东西摊到更多卡上、或者重排数据的流向。这一集换一个更朴素的问题：  <b>每一个数，真的需要那么高的精度吗？</b>  讲者的提问方式很直白：do you really need to know that much precision after the decimal point to be able to do a good job? <b>Can you just cut your precision in some way to save on memory but keep the same performance?</b>  这就是<b>量化</b>（quantization）——<em>把一个数的精度从一种格式转成另一种</em>。  而它的收益是双份的：<b>既省显存，又跑得更快</b>。第三镜会看到为什么「更快」是真的。  先得知道一个浮点数里到底装了什么。");
+  /* 错误答案 */
+  S(3206,function(){
+      clearScene();setEq(null);
+      setBig("FP32 砍成 FP16，不就等于砍掉一半精度？","听起来损失很大");
+      setCap("<s>「精度」是两件事</s>：能表示<b>多大</b>的数，和能表示<b>多细</b>的数。");
+    },"一个笼统的直觉：32 位砍成 16 位，精度就少一半，模型当然会变差。  这个说法太粗，因为<b>浮点数里的「精度」其实是两件独立的事</b>。  一个浮点数由三段组成： · <b>符号位</b>（1 位）——正还是负。 · <b>指数位</b>——决定<b>能表示多大/多小的数</b>（动态范围）。 · <b>尾数位</b>（mantissa）——讲者说它是 <b>how granular your number is</b>，决定<b>能分辨多细的差别</b>。  <b>砍位数时，砍指数和砍尾数的后果完全不同</b>： · 指数位不够 → 大数会<b>溢出</b>、小数直接变成 0。这是<em>灾难性</em>的。 · 尾数位不够 → 只是<b>没那么精细</b>。这往往<em>可以接受</em>。  下一镜看实际的格式表，这个区分立刻就有用了。");
+  /* 铺陈 */
+  S(3218,function(){
+      clearScene();setEq(null);setBig(null);
+      matrix({rows:4,cols:4,cw:200,ch:52,x:240,y:120,
+      cell:function(i,j){
+      var t=[["格式","总位数","指数位","尾数位"],
+      ["FP32","32","8","23"],
+      ["FP16","16","5","10"],
+      ["BF16","16","8","7"]];
+      return t[i][j];},
+      hl:function(i,j){return i===0?"y":(i===3&&j===2?"g":"");},
+      label:"浮点表示的三段"});
+      note("⚠ BF16 的指数位和 FP32 一样多 —— 范围保住了，细度让出去",640,370,"g");
+      setCap("讲者给的表（讲义 p74）。注意最后一行为什么被单独做出来。");
+    },"讲者给了一张常见格式的表，这里挑三行最该知道的：  · <b>FP32</b>：8 位指数 + 23 位尾数。标准的单精度。 · <b>FP16</b>：5 位指数 + 10 位尾数。位数减半，<b>但指数位也减了</b>。 · <b>BF16</b>（brain float 16）：<b>8 位指数</b> + 7 位尾数。  ⚠ 对照上一镜的区分，<b>BF16 的设计意图一目了然</b>：  它的<b>指数位和 FP32 一模一样</b>——<em>动态范围完全保住</em>，不会溢出、不会下溢成 0。代价是尾数只剩 7 位，<em>精细度大幅下降</em>。  <b>这是一个刻意的取舍：深度学习宁可要「范围」，不那么在乎「细度」。</b>因为梯度的量级跨度极大，而每一步的更新方向本来就只需要大致对。  <b>这就是为什么训练里 BF16 比 FP16 更常用</b>——它直接消掉了 FP16 最麻烦的溢出问题。<em>（这一层讲者没展开，是从他给的表里能读出来的。）</em>");
+  /* 主体 */
+  S(3230,function(){
+      clearScene();setEq(null);setBig(null);
+      fillBars({max:70,vals:[34,67],x:420,y:330,w:440,h:200,
+      label:function(i){return ["FP64","FP32"][i];},
+      cls:function(i){return i===0?"r":"g";}});
+      note("H100 规格表上的算速（TFLOPS）",640,112,"y");
+      note("精度降一档，速度<b>翻一倍</b>；再往下还有更快的档",640,382,"g");
+    },"<b>看什么：</b>两根柱子长出来。盯住它们的高度比 —— 精度减半，算速正好翻倍，这不是巧合。　—— 省显存只是一半的收益。讲者把 H100 的规格表又调出来，指着另外一组数字：  <b>算速是按精度分档标的。</b>  · <b>FP64</b>：34 TFLOPS · <b>FP32</b>：约 67 TFLOPS（<b>翻倍</b>） · 再往下的 FP16 / BF16 / FP8 还要更快  讲者：if you're using FP64, which is this super granular way, you only have 34 teraFLOPs ... but if you're using FP32, which is half of it, <b>you can double your compute speed</b>。  <b>所以低精度是一笔双赢：同样的显存能装更多，同样的时间能算更多。</b>  ⚠ 这里还藏着第五集那条线：<b>位数少了，要搬的字节也少了</b>。在一个 memory bound 的系统里，这往往比算速本身更值钱。  <b>既然好处这么大，为什么不干脆全用低精度？</b>下一镜。");
+  /* 主体 */
+  S(3242,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"权重的主副本：FP32","g");
+      note("更新累加在这里",340,190,"g");
+      boxNode(730,105,440,58,"前向 / 反向：FP16","y");
+      note("激活、梯度都用低精度算",950,190,"y");
+      arrow(950,250,340,250,"r",40);
+      boxNode(340,300,600,54,"权重更新：仍然在 FP32 上做","g");
+      setCap("讲者 56:07：省了显存、跑得更快，而<b>性能几乎没退化</b>。");
+    },"<b>混合精度训练</b>的做法是把两者分开对待：  · <b>权重保留一份 FP32 的主副本。</b> · <b>前向和反向的所有运算用 FP16</b>（激活、梯度都是低精度）。 · <b>权重更新回到 FP32 上做。</b>  讲者：the authors realized that the performance was <b>not degraded too much</b>, but then you had a lot of savings on memory and it was running faster。  <b>为什么偏偏权重要保高精度？</b>讲者给了一个很好的直觉：  ① <b>前向那一侧本来就有噪声</b>——you're performing that on a set of data, but that set of data <b>can be noisy in itself</b>，所以小数点后那些位没那么有用。而梯度只是指示「该往哪个方向走」，<em>不需要特别精确</em>。  ② <b>权重那一侧会累积</b>——it's much more important to keep your weights in high precision <b>in order to not accumulate errors due to quantization</b>。  <b>关键词是「累积」</b>：每一步的更新往往比权重本身小好几个数量级。在低精度下，<em>一个太小的更新加上去会被直接舍掉，等于没更新</em>。几万步下来，这个损失是致命的。");
+  /* 反驳 */
+  S(3254,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"课上讲的是一个<b>高层思路</b>","y");
+      note("权重高精度 · 运算低精度",340,190,"y");
+      boxNode(730,105,440,58,"⚠ 实际怎么配","r");
+      note("「there are always some variations」",950,190,"r");
+      note("有些层比别的层更敏感",950,238,"r");
+      note("讲者：论文很多，没有一个通用答案",640,352,"y");
+      setCap("把它当成一个<b>方向</b>，不是一份可以照抄的配方。");
+    },"最后保留一下。课堂上有人问：<b>这招是对所有层的所有权重都用，还是只对一部分？</b>  讲者的回答很坦率：  <b>there has been a lot of papers on that. And the answer is there are some variations to it ... some parts may be more important than others.</b> This strategy is <b>a little bit a high level idea</b>, but there are always some variations from setup to setup。  也就是说——<b>「权重高精度、运算低精度」是方向，不是配方。</b>具体哪些张量、哪些层能降到多低，<em>没有通用答案</em>，各家各调。  ⚠ 这一点值得推广到整门课：<b>很多听起来像「标准做法」的东西，其实是一族做法的总称</b>。记住它的<em>动机和约束</em>（范围 vs 细度、累积 vs 单次），比记住某一组具体配置有用得多——因为配置会随硬件和模型一起变，而动机不会。  <b>下一集换一个完全不同的话题：模型训好了，但它还不会回答问题。</b>");
+  SUM(3194,6,{h:"混合精度：权重要准，运算可以糙",
+    k:"浮点数分<b>符号 / 指数 / 尾数</b>三段：指数决定<b>范围</b>，尾数决定<b>细度</b>。混合精度把<b>权重主副本留在 FP32</b>，前向反向用 FP16，<b>更新仍在 FP32 上做</b>。",
+    m:"前向那侧<b>数据本身就有噪声</b>、梯度只需指明方向，所以糙一点无妨；权重那侧会<b>累积量化误差</b> —— 每步更新常比权重小几个量级，低精度下会被直接舍掉，等于没更新。",
+    w:"<s>误解</s>：「位数砍一半，精度就差一半」。<b>砍指数和砍尾数后果完全不同</b>：指数不够会溢出/下溢成 0（灾难），尾数不够只是不够细（可接受）。BF16 正是<b>保住 FP32 的 8 位指数、牺牲尾数</b>。",
+    e:"低精度是双赢：省显存、<b>算速翻倍</b>（H100 上 FP64 34 TFLOPS → FP32 约 67），还少搬字节。⚠ 但<b>哪些层能降到多低没有通用答案</b> —— 讲者：这只是 a high level idea，各家各调。"});
+  QUIZ(3194,6,{t:"混合精度训练中，为什么权重的主副本要保留在 FP32？",
+    o:["因为低精度下权重会溢出为无穷大","因为 FP32 的矩阵乘法在 GPU 上更快","因为每步更新常比权重小几个量级，低精度下会被舍掉，误差会跨步累积","因为优化器只支持 FP32 输入"],
+    a:2,
+    w:"讲者的理由是「<b>不让量化误差累积</b>」：权重更新往往比权重本身小好几个数量级，在低精度下<em>加上去会被直接舍掉，等于没更新</em>，几万步下来是致命的。而前向那一侧数据本身就有噪声、梯度只需指明方向，糙一点无妨。<s>「溢出为无穷」</s>溢出是<b>指数位</b>不够的问题（BF16 正是为此保住 8 位指数），不是保留 FP32 主副本的理由。<s>「FP32 更快」</s>反了——H100 上精度越低算速越快。<s>「优化器只支持 FP32」</s>没有这种限制。"});
+});
+
+KP("7 · <b>SFT</b>：基座模型不会回答问题，它会接着编　<small>讲义 p83–96</small>",function(){
+  /* 钩子 */
+  S(3795,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,110,1020,58,"「我能把泰迪熊放进洗衣机吗？」","b");
+      arrow(640,170,640,224,"sm",0);
+      boxNode(240,228,800,58,"「……泰迪熊通常由涤纶和棉填充……」","r");
+      note("它没有回答你，它在<b>续写</b>",640,330,"r");
+      note("因为它学的就是「下一个词最可能是什么」",640,385,"y");
+      setCap("讲者 63:15 当堂让学生猜输出，有人答「可能是另一个问题」。");
+    },"前六集训出了一个模型。这一集问：<b>它现在能用了吗？</b>  讲者用了一个很具体的演示。问基座模型：<b>「我能把泰迪熊放进洗衣机吗？」</b>  他让全场猜会得到什么。有学生答：<b>可能是另一个问题</b>。讲者说这是个很好的猜测。  而幻灯片上给的例子，是模型开始<b>谈论泰迪熊是用什么材料做的</b>——因为语料里「泰迪熊」和「洗」附近常出现材质的讨论。  <b>它没有回答你，它在续写。</b>  讲者点破了原因：<b>it has been trained on next token prediction, not being an assistant or someone that is helpful to you</b>。  然后他问全场：<b>Are you happy with it?</b> 全场答 No。  <b>这一集就是在补上「预测下一个词」和「当一个有用的助手」之间那道缝。</b>");
+  /* 错误答案 */
+  S(3807,function(){
+      clearScene();setEq(null);
+      setBig("再多训点数据、再做大一点就好了","能力不够而已");
+      setCap("<s>不是能力问题，是<b>目标</b>问题</s>。它做的正是你训它做的事。");
+    },"一个很常见的误判：这是能力不足，<b>模型再大一点、数据再多一点就会好</b>。  <b>不会。</b>因为它根本没有做错任何事——<b>它完美地执行了你给的目标</b>。  回到第一集那条线：目标函数是<b>预测下一个词</b>。在真实语料里，一个问句后面<em>最可能</em>跟着什么？常常是另一个问句（FAQ 列表）、或者相关话题的继续展开。<b>模型给出的，正是统计上最合理的续写。</b>  <b>「回答问题」这件事，从来没有出现在训练目标里。</b>  ⚠ 把模型做大，只会让它<b>更擅长续写</b>——它会把那个不相干的续写编得更流畅、更像真的。<em>这反而更糟。</em>  <b>所以要改的不是规模，是目标。</b>而这正是第一集那条「目标函数没有禁止的，模型就可能去做」的另一面：<b>目标函数没有要求的，模型也不会去做。</b>");
+  /* 铺陈 */
+  S(3819,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"预训练","b");
+      note("海量原始文本 · 自监督",340,190,"b");
+      note("学「语言长什么样」",340,238,"b");
+      boxNode(730,105,440,58,"SFT（监督微调）","g");
+      note("成对的 输入 → 输出 · 要人标",950,190,"g");
+      note("学「该怎么回应」",950,238,"g");
+      note("supervised = 需要标签；finetuning = 从预训练权重接着训",640,352,"y");
+      setCap("讲者 65:38。注意它<b>不是从头训</b>，是接着预训练的权重往下走。");
+    },"补缝的办法叫 <b>SFT</b>（supervised fine-tuning，监督微调）。  讲者把名字拆开解释，两半各有含义： · <b>supervised</b>（监督）：<b>需要标签</b>——具体说是<b>成对的输入和输出</b>。这和预训练那种「拿原始文本自监督」完全不同，<em>这批数据要人来造</em>。 · <b>finetuning</b>（微调）：<b>从预训练的权重接着训</b>，refining the weights that have been already trained——不是从随机初始化开始。  两个阶段的分工很清楚： · <b>预训练</b>学的是<i>语言长什么样</i>，用的是整个互联网。 · <b>SFT</b> 学的是<i>面对一个请求该怎么回应</i>，用的是精心准备的问答对。  ⚠ 讲者特别指出一件事：<b>目标函数其实是同一个</b>（还是预测下一个词）。<em>但有一处关键的改动</em>——下一镜。");
+  /* 主体 */
+  S(3831,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,120,500,62,"「我能把泰迪熊放进洗衣机吗？」","b");
+      note("输入：<b>不算损失</b>",360,215,"b");
+      note("它是条件，不是要学的东西",360,263,"b");
+      boxNode(680,120,480,62,"「可以，但建议装进洗衣袋……」","g");
+      note("输出：<b>从这里才开始算损失</b>",920,215,"g");
+      note("模型要学的是这一段",920,263,"g");
+      note("不这么做，模型会学会<b>复述你的问题</b>",640,358,"r");
+      setCap("学生当场确认了这一点：「我们不在输入上算损失」—— 对。");
+    },"这是这一集技术上最该记住的一条，而且很容易被忽略。  预训练时，整段文本的<b>每一个位置</b>都要预测下一个词、都计入损失。  <b>SFT 不是这样。</b>讲者说得很清楚：  <b>the input is not a location where you would predict the next token. You would not do teacher forcing on it</b>, but rather start from this input and then predict the next token onwards。  也就是说——<b>输入（用户的问题）只作为条件存在，不计入损失；损失从输出的第一个 token 才开始算。</b>  课堂上有学生直接确认了这件事，讲者答 that's right。  <b>为什么必须这样？</b>讲者的理由很形象：<b>I don't want the model to parrot what I say</b>——如果在输入上也算损失，模型就会把<em>「学会复述用户的问题」</em>也当成任务的一部分。  ⚠ <b>这是一个只在实现层面才看得见的细节，但它决定了微调出来的是助手还是复读机。</b>");
+  /* 主体 */
+  S(3843,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(340,105,600,58,"instruction tuning（指令微调）","g");
+      note("是 SFT 的一个<b>子类</b>",640,190,"g");
+      boxNode(110,250,230,52,"写故事","b");
+      boxNode(360,250,230,52,"写诗","b");
+      boxNode(610,250,230,52,"列清单","b");
+      boxNode(860,250,230,52,"做解释","b");
+      note("每一类都备好「指令 + 标准答案」",640,355,"y");
+      setCap("讲者 69:11：目标是把模型 <b>graduate</b> 成一个有用的助手。");
+    },"SFT 有两种用法，讲者分得很清楚：  ① <b>调到你自己的任务上</b>——比如垃圾邮件识别、情感抽取。 ② <b>调成一个通用助手</b>——这个子类叫 <b>instruction tuning</b>（指令微调）。  讲者用了一个很好的词：目标是把模型 <b>graduate</b>（毕业）成 a helpful assistant。  数据长什么样？按<b>用户可能提的请求类型</b>分门别类，每类都备好「指令 + 标准答案」：<i>写故事、写诗、列清单、做解释</i>……讲者统称 <b>assistant dialogues</b>。  ⚠ 这些答案<b>最初全部是人写的</b>——讲者说 you had <b>expert linguists</b> 来写那些既流畅又有帮助的回答。  <b>而现在变了</b>：既然已经有一批很强的模型存在，these days you can use these already trained LLMs 来生成训练数据。  <b>这是一个值得注意的转向：助手能力一旦存在于某个模型里，就可以被「蒸馏」出来传给下一个。</b>第一代的人工成本是一次性的。");
+  /* 反驳 */
+  S(3855,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"SFT 教会了什么","g");
+      note("回答的<b>格式</b>与<b>口吻</b>",340,190,"g");
+      note("「该把它当成请求来回应」",340,238,"g");
+      boxNode(730,105,440,58,"⚠ 没教会什么","r");
+      note("哪个回答<b>更好</b>",950,190,"r");
+      note("它只见过「一个正确答案」",950,238,"r");
+      note("损失只问「有多像标准答案」，从不问「好不好」",640,352,"y");
+      setCap("这正是下一讲<b>偏好微调</b>存在的理由。");
+    },"最后看 SFT 的边界——这决定了下一讲为什么必须存在。  <b>SFT 的损失函数问的是：你生成的，和那条标准答案有多像？</b>  于是它能教会的是： · 遇到请求该<b>回应</b>而不是续写； · 回答的<b>格式、长度、口吻</b>； · 特定任务上该输出什么结构。  <b>但它教不会「哪个回答更好」。</b>因为训练里每个问题<em>只有一个</em>标准答案，模型从未见过两个答案被<b>比较</b>。  而现实中，一个问题往往有很多个都合理的答案，它们在有用程度、安全性、简洁度上有高下之分。<b>这种高下，没法写成「唯一的标准答案」。</b>  ⚠ 讲者还提到 SFT 的另外两个实际难处：<b>very high-quality data needed</b>，而且评价好坏本身就难——他展示了 LMArena 那种<b>让真人投票打分</b>的榜单，说它的价值是 <b>puts a number on vibes</b>（给「感觉」一个数字）。  <b>下一讲：既然「好」只能靠比较来定义，那就直接拿比较来训。</b>");
+  SUM(3795,7,{h:"SFT：基座模型不会回答问题，它会接着编",
+    k:"问基座模型「能把泰迪熊放洗衣机吗」，它会<b>续写</b>而不是回答 —— 它学的是下一词预测，不是当助手。<b>SFT</b> 用成对的「输入 → 输出」接着预训练的权重往下训；其子类 <b>instruction tuning</b> 把模型「graduate」成助手。",
+    m:"⚠ 关键实现细节：<b>不在输入上算损失</b>（不做 teacher forcing），从输出的第一个 token 才开始 —— 否则模型会学会<b>复述你的问题</b>。目标函数仍是预测下一个词，改的只是在哪儿算损失。",
+    w:"<s>误解</s>：「续写是能力不够，做大就好了」。它<b>完美执行了你给的目标</b>；做大只会让不相干的续写更流畅。<b>要改的是目标，不是规模。</b>",
+    e:"SFT 教会<b>格式与口吻</b>，教不会<b>哪个回答更好</b> —— 它的损失只问「有多像那条标准答案」，而训练里每个问题只有<b>一个</b>答案，模型从未见过两个答案被比较。<b>这就是下一讲偏好微调的理由。</b>"});
+  QUIZ(3795,7,{t:"SFT 训练时，为什么不在用户输入那一段上计算损失？",
+    o:["因为输入段的 token 数量不固定，无法对齐","为了避免模型学会复述用户的问题，而不是回应它","因为输入段在推理时不会出现","为了节省反向传播的计算量"],
+    a:1,
+    w:"讲者的原话：<b>I don't want the model to parrot what I say</b> —— 输入只作为<em>条件</em>存在，损失从输出的第一个 token 才开始算。若在输入上也算损失，「学会复述用户的问题」就成了任务的一部分。<s>「长度不固定」</s>长度本来就不固定，靠 mask 处理，不是理由。<s>「推理时不出现」</s>恰恰相反——推理时用户输入<b>一定会出现</b>，它正是生成的条件。<s>「节省计算」</s>是顺带的微小好处，不是设计动机。"});
+});
+
+KP("8 · <b>LoRA</b>：冻住大矩阵，只训一个低秩的补丁　<small>讲义 p106–116</small>",function(){
+  /* 钩子 */
+  S(5879,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"全量微调：每个参数都要更新","r");
+      note("梯度：和模型一样大",400,205,"r");
+      note("优化器状态：两份，各和模型一样大",400,253,"r");
+      note("而且<b>每个任务一份新权重</b>",900,230,"r");
+      setCap("第三集那笔账在微调时原样重现 —— 这一集想办法把它砍掉。");
+    },"SFT 解决了「会不会回答」，但带来一个很实际的问题：<b>它也很贵</b>。  回到第三集那笔账：全量微调要更新每一个参数，于是<b>梯度、优化器状态一样都不能少</b>，显存需求和预训练同一个量级。  还有第二个麻烦，而且在实践中更烦人：<b>每个任务都得存一份完整的新权重</b>。十个任务，十份几百 GB 的模型。  <b>LoRA</b> 同时解决了这两件事。讲者的定位：it's <b>widely used</b>, and it <b>saves a lot of compute</b>。  它的切入点很妙——不是去压缩什么，而是<b>对「微调到底改变了什么」做了一个假设</b>。");
+  /* 错误答案 */
+  S(5891,function(){
+      clearScene();setEq(null);
+      setBig("冻住前面的层，只训练最后几层","经典的迁移学习就是这么做的");
+      setCap("可以，但<b>表达能力被限死在最后几层</b>。LoRA 换了个切法。");
+    },"省微调成本的老办法：<b>冻住前面的层，只训最后几层</b>。这在计算机视觉的迁移学习里用了很多年。  它确实省，但代价很直接：<b>你能调整的东西被限制在最后几层里</b>。模型的前中段<em>一点都动不了</em>，而很多任务需要的恰恰是中间表示的调整。  <b>LoRA 换了一个完全不同的切法</b>：  不是「<b>哪些层</b>可以改」，而是「<b>每一层可以改多少</b>」。  它让<b>所有</b>被选中的层都参与微调，但<b>限制每一层的改动必须是「低秩」的</b>。  ⚠ 这个转向值得留意：<b>从「按位置限制」变成「按形状限制」</b>。下一镜看「低秩」是什么意思，以及为什么它省得那么狠。");
+  /* 铺陈 */
+  S(5903,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$W = W_0 + B\,A$$","top");
+      note("W0 冻住，一个参数都不动",640,322,"b");
+      note("只训 B 和 A —— 它们中间那一维是 r",640,374,"g");
+      setCap("讲者 97:59：<b>W0 is frozen</b>，要调的只有 B 和 A。");
+    },"<b>LoRA</b> = Low-Rank Adaptation（低秩适配）。  做法：把微调后的权重写成 <b>W = W₀ + B·A</b>。  · <b>W₀</b> 是预训练权重，<b>冻住</b>，一个参数都不动。 · <b>B·A</b> 是那个「改动量」，而它被<b>强制写成两个瘦矩阵的乘积</b>。  关键在尺寸。假设 W 是 d×d： · <b>B</b> 是 d×r · <b>A</b> 是 r×d · 中间那个 <b>r</b> 就是「秩」  讲者给的量级对比非常直观：<b>W 的维度是百到千量级，而 r 通常只有 O(10)</b>——他说常见取值是 <b>4</b>。  算一下：d=1000 时，全量微调要训 <b>100 万</b> 个参数；LoRA 取 r=4，只训 <b>8000</b> 个。  <b>两个数量级以上。</b>  ⚠ 讲者也提了另外两种办法——<b>prefix tuning</b> 和 <b>adapters</b>，但他说 they're <b>less commonly used</b>，所以不展开。");
+  /* 主体 */
+  S(5915,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(390,105,500,58,"W0（共用的大模型，只存一份）","b");
+      arrow(500,163,300,215,"sm",0);
+      arrow(640,163,640,215,"sm",0);
+      arrow(780,163,980,215,"sm",0);
+      boxNode(170,219,260,54,"A,B 垃圾邮件","g");
+      boxNode(510,219,260,54,"A,B 情感","y");
+      boxNode(850,219,260,54,"A,B 摘要","r");
+      note("每个任务只多存几 MB，不是几百 GB",640,330,"g");
+      note("要换任务，<b>换掉这一小块就行</b>",640,382,"y");
+      setCap("这是 LoRA 在工程上最被看重的性质。");
+    },"省显存只是一半。<b>LoRA 真正改变工程形态的，是另一个性质。</b>  既然 W₀ 冻着不动，那么<b>一个任务的全部「个性」，就完整地装在那一对 A、B 里</b>。  讲者：A and B is going to be <b>a characterization of your task of interest</b>。垃圾邮件识别一对、情感抽取一对，<em>互不干扰</em>。  于是部署形态变成： · <b>大模型 W₀ 只存一份</b>，所有任务共用。 · <b>每个任务只多存一对 A、B</b>——几 MB，不是几百 GB。 · <b>换任务 = 换掉那一小块</b>，底座不动。  <b>这就是讲义上那句「swap matrices = swap tasks」。</b>  ⚠ 还有个推论讲者没说但很实用：既然 B·A 可以<b>直接加回 W₀</b>，<em>推理时完全不增加延迟</em>——这是 adapters 那类方法做不到的（它们要额外插一层）。");
+  /* 主体 */
+  S(5927,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"原论文","y");
+      note("只加在<b>注意力</b>的投影矩阵上",340,190,"y");
+      boxNode(730,105,440,58,"后来发现","g");
+      note("<b>FFN</b> 那边收益大得多",950,190,"g");
+      note("今天两处都加，但大头在 FFN",950,238,"g");
+      note("⚠ 和第二讲 MoE 的结论一致：参数都堆在 FFN 里",640,352,"r");
+      setCap("讲者说这是几周前一篇博客细究出来的。");
+    },"一个很有意思的细节：<b>LoRA 该加在哪些矩阵上，答案变过。</b>  · <b>原论文</b>：只在<b>注意力</b>的投影矩阵上加。 · <b>后来</b>：讲者说 people realized that it might <b>not be the place where it has the most positive impact</b>，而几周前的一篇博客细究之后发现——<b>加在 FFN 上收益最大</b>。 · <b>今天</b>：两处都加，<b>但大头在 FFN</b>。  ⚠ 请把这个结论和第二讲那个 MoE 的提问对上：<b>专家该放哪一层？FFN，因为参数都堆在那儿。</b>  <b>两件完全不同的事，给出了同一个答案。</b>原因也相同：FFN 的参数量比注意力大一个量级以上，所以不管你是想「把它稀疏化」还是「给它一个低秩补丁」，<em>那里都是杠杆最长的地方</em>。  <b>认出这种跨主题的重合，比分别记住两个结论牢固得多。</b>");
+  /* 反驳 */
+  S(5939,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"学习率要高约 10 倍","y");
+      note("猜测：秩很小，要探索的空间窄",340,190,"y");
+      boxNode(730,105,440,58,"batch 开大反而更差","r");
+      note("猜测：两矩阵乘积的训练动力学不同",950,190,"r");
+      note("讲者：<b>I do not have a good theoretical explanation</b>",640,300,"r");
+      note("「more empirical observations that have been emitted」",640,355,"y");
+      setCap("把它们当成<b>要记的事实</b>，不是推得出来的结论。");
+    },"最后两条，讲者称之为 <b>fun facts</b>，而且处理得很诚实——值得照搬他的态度。  ① <b>用 LoRA 微调时，学习率要调高，典型是全量微调的 10 倍。</b> ② <b>batch size 开大反而效果更差</b>——这和几乎所有深度学习的常识相反。  讲者对两条都给了猜测： · 第一条可能和<b>秩很小</b>有关——given the regions of space that it needs to explore, you need a higher learning rate。 · 第二条的假设是 <b>the training dynamic of products of matrices is different than a full matrix</b>——<em>两个矩阵相乘的优化行为，和直接优化一个矩阵不一样</em>。  但他明确说了：<b>I don't have a good theoretical explanation to give you for each of them. It's more empirical observations.</b>  ⚠ <b>这是本片推荐你学的那种态度</b>：把说得清的和说不清的分开摆，<em>别用一个听起来合理的故事把窟窿糊上</em>。这两条你照做就行，但要知道它们目前只是经验。  （另一个实务问题——秩 r 怎么选？讲者说可以网格搜，但通常<b>直接取个常用值如 4 就够了</b>，因为<em>第一步那个数量级的下降已经拿到了大部分收益</em>。）");
+  SUM(5879,8,{h:"LoRA：冻住大矩阵，只训一个低秩的补丁",
+    k:"<b>W = W₀ + B·A</b>，W₀ 冻住，只训 d×r 的 B 与 r×d 的 A。W 的维度是百/千量级，而<b>秩 r 通常只有 O(10)</b>（常取 4）—— 可训参数少两个数量级以上。",
+    m:"切法从「<b>哪些层</b>能改」换成「<b>每层能改多少</b>」。因为 W₀ 不动，<b>一个任务的全部个性都装在那对 A、B 里</b>：大模型只存一份，换任务只换几 MB；而且 B·A 可<b>直接加回 W₀</b>，推理零额外延迟。",
+    w:"<s>老办法</s>：「只微调最后几层」—— 能省，但<b>表达能力被限死在最后几层</b>，模型前中段完全动不了。",
+    e:"加在哪儿：原论文只加注意力，后来发现 <b>FFN 收益大得多</b> —— 与第二讲「MoE 该放 FFN」同一个原因（参数都堆在那）。⚠ 两条经验讲者<b>坦承解释不了</b>：学习率要高约 10 倍、<b>batch 开大反而更差</b>。"});
+  QUIZ(5879,8,{t:"LoRA 相比「只微调最后几层」，关键的不同在哪？",
+    o:["它冻结的参数更多，所以更省显存","它限制的是每层改动的秩，而不是限制哪些层可以改","它不需要反向传播，因此训练更快","它把改动存成稀疏矩阵，所以体积更小"],
+    a:1,
+    w:"「只微调最后几层」是<b>按位置限制</b>——前中段完全动不了；LoRA 是<b>按形状限制</b>——所有被选中的层都能改，但每层的改动必须写成 <b>B·A</b> 这个低秩形式。这让模型各处都能被调整，同时可训参数少两个数量级。<s>「冻得更多所以更省」</s>省的来源是<b>低秩分解</b>，不是冻结比例。<s>「不需要反向传播」</s>仍然要反传，只是只对 A、B 求梯度。<s>「稀疏矩阵」</s>B 和 A 都是<b>稠密</b>的瘦矩阵，低秩 ≠ 稀疏。"});
+});
+
+KP("9 · <b>QLoRA</b>：连冻住的那份也压成 4 位　<small>讲义 p117–127</small>",function(){
+  /* 钩子 */
+  S(6240,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,62,"W0：冻住了，但还在显存里","r");
+      note("不训练它，不代表不用存它",640,210,"r");
+      note("前向每一层都要读它",640,258,"r");
+      boxNode(390,310,500,54,"B, A：小到可以忽略","g");
+      setCap("LoRA 省掉了梯度和优化器状态，<b>但没省掉权重本身</b>。");
+    },"LoRA 把可训参数砍了两个数量级，于是<b>梯度和优化器状态</b>几乎不占地方了。  但回到第三集那四样东西——<b>还剩一样没动：权重本身</b>。  W₀ 虽然冻住了，<b>它还得完整地待在显存里</b>，因为前向传播每一层都要读它。一个 700 亿参数的模型，光 W₀ 在 FP16 下就是 <b>140 GB</b>。  <b>这时候第六集那一招就该上场了：既然这些权重不再需要被更新，它们的精度还需要那么高吗？</b>  <em>这就是 QLoRA。</em>");
+  /* 错误答案 */
+  S(6252,function(){
+      clearScene();setEq(null);setBig(null);
+      note("等宽切：把取值范围平均分成 16 份",640,118,"r");
+      fillBars({max:1,vals:[0.04,0.09,0.2,0.45,0.9,0.45,0.2,0.09,0.04],x:300,y:330,w:680,h:200,
+      label:function(i){return "";},cls:function(i){return i===4?"y":"b";}});
+      note("权重其实是<b>钟形</b>分布的 —— 中间挤成一团，两边几乎没有",640,382,"r");
+    },"<b>看什么：</b>柱子长出来后看整体形状：绝大部分权重挤在中间很窄的一段里，两侧几乎是空的。等宽切会把大量刻度浪费在空的地方。　—— 最直接的量化办法：<b>把权重的取值范围平均切成 16 份</b>（4 位能表示 16 个值），每个权重归到最近的那一档。  <b>这很浪费。</b>看画面上权重的真实分布——<b>它是钟形的</b>，绝大部分值挤在中间很窄的一段，两侧几乎是空的。  等宽切的后果：<b>两边那些几乎没有权重的区间，白白占掉了好几个刻度</b>；而中间密集的地方，<em>刻度不够用</em>，大量不同的权重被压到同一个值上。  <b>十六个刻度，用在了错误的地方。</b>  ⇒ 该按<b>权重实际的分布</b>来切，而不是按取值范围平均切。下一镜。");
+  /* 铺陈 */
+  S(6264,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"等宽切","r");
+      note("每一档的<b>宽度</b>相同",340,190,"r");
+      note("中间不够用，两边浪费",340,238,"r");
+      boxNode(730,105,440,58,"NF4：按分位数切","g");
+      note("每一档里的<b>权重个数</b>大致相同",950,190,"g");
+      note("中间切得密，两边切得疏",950,238,"g");
+      note("前提：假设权重服从<b>正态分布</b>",640,352,"y");
+      setCap("讲者 106:10：NF4 = <b>4-bit NormalFloat</b>。");
+    },"<b>NF4</b>（4-bit NormalFloat）的做法，讲者说得很准：  <b>it assumes that the weights are distributed normally, and it splits the space into quantiles rather than buckets of fixed size, which puts about the same amount of number of values into each.</b>  翻译： · <b>假设权重服从正态分布</b>（这个假设对神经网络权重大体成立）。 · <b>按分位数切</b>，而不是按等宽切。 · 结果是<b>每一档里落进来的权重个数大致相同</b>——中间密集处切得细，两边稀疏处切得粗。  讲者的总结：<b>it optimizes the bits that you use for encoding</b>——<em>同样 16 个刻度，用在了该用的地方</em>。  于是 QLoRA 的配方成形： · <b>W₀ 量化成 NF4</b>（冻着，反正不更新）。 · <b>A 和 B 保持 BF16</b>（要训练，精度不能降——正是第六集那条「权重要准」）。");
+  /* 主体 */
+  S(6276,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"第一次量化","g");
+      note("权重 → NF4",340,190,"g");
+      note("顺带产生一批<b>量化常数</b>",340,238,"y");
+      boxNode(730,105,440,58,"第二次量化","y");
+      note("把那些常数<b>再量化一次</b>",950,190,"y");
+      note("讲者：又省了一点，但不多",950,238,"b");
+      note("⚠ 要记的是这个<b>思路</b>，不是省的那点量",640,352,"r");
+      setCap("<b>double quantization</b>（双重量化）。");
+    },"还有一个小而有趣的招。  量化不是简单地把数截断——<b>你得记住怎么还原</b>。所以每一小组权重都会产生一批<b>量化常数</b>（缩放因子之类），它们本身也要存。  QLoRA 的作者注意到：<b>这些常数本身也占地方，那就把它们再量化一次。</b>这叫 <b>double quantization</b>（双重量化）。  讲者对收益的评价很诚实： · 主量化省了约 <b>16 倍</b>显存。 · 双重量化 gave some extra savings <b>but not that much</b>。  ⚠ 所以要带走的不是那个数字，而是<b>思路</b>：  <b>当你为了省某样东西而引入了一套元数据，别忘了那套元数据本身也要占地方。</b>  <em>这个「元数据也有成本」的意识，在系统设计里到处都用得上</em>——比如上一讲 PagedAttention 那张「token 位置 → 块」的映射表，同样是一笔不能忽略的开销。");
+  /* 主体 */
+  S(6288,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,250,52,"权重 W0","g");
+      note("NF4，约省 16 倍",235,175,"g");
+      boxNode(390,100,250,52,"梯度","g");
+      note("只对 A、B 有",515,175,"g");
+      boxNode(670,100,250,52,"优化器状态","g");
+      note("只对 A、B 有",795,175,"g");
+      boxNode(950,100,210,52,"激活","y");
+      note("⚠ 没省",1055,175,"r");
+      note("四样里<b>砍掉了三样</b> —— 于是单卡也能微调大模型",640,290,"g");
+      note("但激活仍随 batch 与上下文长度涨",640,352,"y");
+      setCap("第三集那张清单，到这里终于被逐项处理完了。");
+    },"把这一讲收束一下。第三集列了训练要存的<b>四样东西</b>，现在逐项对账：  · <b>权重</b>：QLoRA 用 NF4 压缩，<b>约省 16 倍</b>。 · <b>梯度</b>：LoRA 之后只对 A、B 存在，<b>几乎归零</b>。 · <b>优化器状态</b>：同上，<b>几乎归零</b>。 · <b>激活</b>：⚠ <b>一点没省。</b>  <b>四样砍掉三样</b>，这就是为什么 QLoRA 能让一张消费级显卡微调几十亿参数的模型——那是这套组合出现之前完全不可想象的事。  ⚠ 但第四样<b>仍然是约束</b>：激活随 <b>batch 大小</b>和<b>上下文长度（O(n²)）</b>增长。所以即便用了 QLoRA，<em>你还是不能开很大的 batch、也不能训很长的上下文</em>。  <b>这就是为什么这一讲前半那些并行与 FlashAttention 并没有被取代</b>——它们治的是另外那一样。");
+  /* 反驳 */
+  S(6300,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"省下了","g");
+      note("显存：约 16 倍",340,190,"g");
+      note("于是「训得起」",340,238,"g");
+      boxNode(730,105,440,58,"⚠ 没省，甚至更慢","r");
+      note("每次前向都要把 NF4 <b>解回</b>去算",950,190,"r");
+      note("多了一道解量化的开销",950,238,"r");
+      note("它改变的是<b>可行性</b>，不是速度",640,352,"y");
+      setCap("第三集那把尺子最后用一次：<b>省的是算，还是存？</b>");
+    },"最后一条，也是把第三集那把尺子最后用一次。  <b>QLoRA 省的是显存，不是时间。</b>  权重以 NF4 存着，但<b>计算不能在 4 位上做</b>——每次前向用到某块权重时，都要先<b>解量化</b>回到 BF16 再算。<em>这是额外的开销</em>。  所以 QLoRA 的真实效果是： · <b>改变了可行性</b>——原本根本装不下的模型，现在装得下了。 · <b>没有改变速度</b>，甚至因为多了解量化这一步而<em>略慢一些</em>。  <b>「原本做不到的事现在做得到」和「原本慢的事现在快了」是两种完全不同的收益</b>，而它们经常被混在一起宣传。  整讲九集到此。再回顾一次那把尺子——<b>看任何一个优化，先问它省的是「算」还是「存」</b>： · <b>省存</b>：ZeRO、LoRA、QLoRA、混合精度 · <b>省算</b>：模型并行（拆算） · <b>省搬运</b>：FlashAttention  <b>三类的瓶颈完全不同，不能互相替代——这就是为什么它们今天全都在被同时使用。</b>");
+  SUM(6240,9,{h:"QLoRA：连冻住的那一份也压成 4 位",
+    k:"LoRA 之后仍要完整存着 <b>W₀</b>。QLoRA 把它量化成 <b>NF4</b>（4-bit NormalFloat），A、B 仍用 BF16；再加一层 <b>double quantization</b> 把量化常数本身也量化。合计约省 <b>16 倍</b>显存。",
+    m:"NF4 <b>假设权重服从正态分布，按分位数切而非等宽切</b> —— 每一档里的权重个数大致相同，中间密处切得细、两边疏处切得粗，<b>同样 16 个刻度用在该用的地方</b>。",
+    w:"<s>误解</s>：「4 位量化就是把取值范围平均切 16 份」。权重是<b>钟形</b>分布的，等宽切会<b>把刻度浪费在几乎没有权重的两侧</b>，而中间密集处刻度不够用。",
+    e:"⚠ 它省的是<b>显存不是时间</b> —— 每次前向都要把 NF4 <b>解回</b> BF16 再算，反而略慢。它改变的是<b>可行性</b>。另：四样里只砍掉三样，<b>激活一点没省</b>，所以 batch 和上下文长度仍受限。"});
+  QUIZ(6240,9,{t:"NF4 相比普通的 4 位等宽量化，关键改进是什么？",
+    o:["它用 4 位指数而不是 4 位尾数","它按分位数划分，使每一档里落入的权重个数大致相同","它只量化绝对值较大的权重，小权重保持原精度","它把每个权重单独缩放，因此不需要量化常数"],
+    a:1,
+    w:"权重近似服从<b>正态分布</b>，挤在中间一段。等宽切会把刻度浪费在几乎没有权重的两侧；NF4 <b>按分位数切</b>，每档里的权重个数大致相同——中间密处切得细、两边疏处切得粗，讲者：it <b>optimizes the bits that you use for encoding</b>。<s>「4 位指数」</s>NF4 不是普通浮点格式，它是一张按分位数定出的码表。<s>「只量化大权重」</s>没有这种区分，<em>全部</em>冻结权重都被量化。<s>「不需要量化常数」</s>正相反——常数不仅存在，QLoRA 还专门<b>再量化它们一次</b>（double quantization）。"});
+});
+
+KP("完",function(){
+  S(6430,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("CME295 · Lecture 4","权重有了，但它还不懂好坏",
+      "下一讲：偏好微调 —— 怎么告诉它「这个回答更好」");
+    },"九集收束成两句话。  <b>第一句：这一讲所有的工程，都是在同一堵墙前找路。</b>墙就是 80 GB。 · 装不下 batch → <b>数据并行</b>（代价：通信） · 每卡都存一份重复的 → <b>ZeRO 分片</b>（代价：更多通信） · 单层都装不下 → <b>模型并行</b> · 注意力中间结果太大 → <b>FlashAttention</b>（它甚至不是省显存，是省<em>搬运</em>） · 数本身太占地方 → <b>混合精度</b>、<b>NF4</b> · 微调还要再存一份梯度和优化器状态 → <b>LoRA</b>、<b>QLoRA</b>  <b>第二句：这一讲和上一讲共享同一个洞见——瓶颈在搬运，不在算术。</b>FlashAttention 和上一讲的投机解码，一个在训练侧一个在推理侧，但诊断完全相同。<em>认出这一点，比记住任何一个技巧都值。</em>  ⚠ 两处讲者明确留白，别当成已解决： ① LoRA 的两条经验（学习率要高 10 倍、batch 开大反而更差），他坦承 <b>I don't have a good theoretical explanation</b>，只给了猜测。 ② 知识截止之后怎么<b>注入</b>新知识——「there's not a clean way to change the weights in a way that does not penalize some parts」，<b>这是个很难的开放问题</b>。  下一讲：模型现在会回答问题了，但它不知道<b>哪个回答更好</b>。");
+});
+window.__startProjector(CFG);
+})();
+</script>
