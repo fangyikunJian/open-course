@@ -882,15 +882,29 @@ var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
     sweepGrid=E.sweepGrid,reveal=E.reveal;
 var CFG={
   title:"CME295 · Lecture 1 · 瓶颈不在记性，在「必须逐级传递」",
-  subtitle:"3 个知识点 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  subtitle:"3 个知识点 · 讲义 p55–87 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
   video:"https://www.youtube.com/watch?v=Ub3GoFaUcds&t="
 };
 
 
 // 本片的内容权威：讲稿 corpus/transcripts/L1.txt（101 分 33 秒）
-//   + 官方 VIP cheatsheet corpus/slides/cheatsheet-en.pdf 第 1 页（MIT 许可）
-// ⚠ 这门课**没有公开讲义**（材料在 Canvas 内），所以与 CS234 的做法不同：
-//   每一镜指回的是**讲稿时间码**，不是页码。点标题栏的时间可跳到视频该处。
+//   + 官方讲义 fall25-cme295-lecture1.pdf（135 页）
+//
+// ⚠⚠ **更正（2026-11-01）**：本片初版写的是「这门课没有公开讲义，材料在 Canvas 内」。
+//   **那是错的。** 当时只看了课程站首页（首页只列 syllabus / cheatsheet / FAQ），
+//   没点进 syllabus —— 讲义链接就在 syllabus 每一行的 [slides] 里，9 份全公开：
+//       https://cme295.stanford.edu/slides/fall25-cme295-lecture<N>.pdf
+//   ⚠ syllabus 默认显示 **2026** 那一届，与本片的 2025 讲稿不是同一套（顺序都重排过），
+//     2025 版要走 /syllabus/2025/。
+//
+// 本片的镜头**同时**给讲稿时间码与讲义页码。对应关系：
+//     kp1 → 讲义 p55–64（RNNs / LSTM / Summary of main methods）
+//     kp2 → 讲义 p65–78（History of attention → Q,K,V → 矩阵形式）
+//     kp3 → 讲义 p77–78 与 p87（Efficient computations / Multi-head attention）
+//
+// ⚠ 讲义响应头带 **X-Frame-Options: SAMEORIGIN**，所以它**不能**被嵌进
+//   github.io 的 iframe（下载不受限，受限的只是「放进框里显示」）。
+//   ⇒ 这门课走不了 course.json 的 pdf_remote 那条路。详见 CME295/来源.md。
 //
 // 逐条核过的原话（都在 L1.txt 里可搜到）：
 //   [59:09] 「the meaning of the sentence is basically solely encapsulated into this hidden state」
@@ -918,10 +932,10 @@ KP("开场",function(){
       clearScene();setEq(null);setBig(null);setCap(null);
       setTitle("CME295 · Lecture 1","Transformer",
       "Afshine &amp; Shervine Amidi · Autumn 2025 · 本片只取第 59–93 分钟那条主线");
-    },"这一讲有 101 分钟，前面一大半是课程介绍、监督学习回顾和词嵌入。  本片只取<b>第 59 到 93 分钟</b>那条主线——它是一条很干净的因果链：  <b>RNN 把整句话的意思压进一个隐状态 ⇒ 远处的词记不住 ⇒ 有人加了个记忆槽（LSTM）⇒ 还是不行 ⇒ 于是干脆不逐级传了，直接连。</b>  ⚠ 这门课<b>没有公开讲义</b>（材料在 Canvas 里），所以本片和 CS234 那些不一样：每一镜指回的是<b>讲稿的时间码</b>，不是页码。顶栏的时间可以点，直接跳到视频那一处。  另外三件本片<b>不</b>讲：编码器/解码器的整体架构、交叉注意力、分词器。讲稿 80 分钟之后有，但那是另一集的量。");
+    },"这一讲有 101 分钟，前面一大半是课程介绍、监督学习回顾和词嵌入。  本片只取<b>第 59 到 93 分钟</b>那条主线——它是一条很干净的因果链：  <b>RNN 把整句话的意思压进一个隐状态 ⇒ 远处的词记不住 ⇒ 有人加了个记忆槽（LSTM）⇒ 还是不行 ⇒ 于是干脆不逐级传了，直接连。</b>  本片每一镜<b>同时</b>给讲稿时间码与讲义页码。顶栏的时间可以点，直接跳到视频那一处；讲义是公开的，见 <i>cme295.stanford.edu/syllabus/2025/</i> 每行的 [slides]。  ⚠ <b>更正</b>：本片初版写的是「这门课没有公开讲义」—— 那是错的，我当时只看了课程站首页、没点进 syllabus。9 份讲义全部公开，合计 1205 页。  另外三件本片<b>不</b>讲：编码器/解码器的整体架构、交叉注意力、分词器。讲稿 80 分钟之后有，但那是另一集的量。");
 });
 
-KP("1 · 把一句话压进<b>一个</b>向量，远处的词就记不住了",function(){
+KP("1 · 把一句话压进<b>一个</b>向量，远处的词就记不住了　<small>讲义 p55–64</small>",function(){
   /* 钩子 */
   S(3549,function(){
       clearScene();setBig(null);setEq(null);
@@ -999,7 +1013,7 @@ KP("1 · 把一句话压进<b>一个</b>向量，远处的词就记不住了",fu
     w:"长距离依赖要靠梯度从结尾传回开头，路径有多长就要连乘多少项，于是随距离<b>指数</b>衰减。容量类的改动（开大维度、加 cell state）提高的是<em>每一级</em>的保真度，<b>级数一个也没少</b>，指数形式原样保留——这正是讲者说 LSTM <b>was not perfect either</b> 的含义。<s>「前向太慢」</s>是工程成本，不是学不会的原因。<s>「词嵌入维度」</s>限制的是输入表示，与沿时间的连乘无关。<s>「参数共享」</s>是 RNN 的设计特征（也确实让各级雅可比相似），但共享本身不是病因：就算每步各用一套参数，逐级传递带来的连乘照样存在。"});
 });
 
-KP("2 · 直连：<b>用别的词</b>来表达这个词",function(){
+KP("2 · 直连：<b>用别的词</b>来表达这个词　<small>讲义 p65–78</small>",function(){
   /* 钩子 */
   S(4020,function(){
       clearScene();setBig(null);setEq(null);
@@ -1082,7 +1096,7 @@ KP("2 · 直连：<b>用别的词</b>来表达这个词",function(){
     w:"自注意力中三者<b>来自同一个序列、同一个位置的同一个 x</b>（这正是「自」的含义）；它们数值上分开，是因为各自乘了一个<em>不同的可学矩阵</em>，而这三个矩阵由梯度下降训练出来——讲者强调它们 <b>are learned</b>。<s>「取自不同的词」</s>搞反了：每个词都有自己的一整套 Q、K、V。<s>「Q 来自当前词、K/V 来自上一层」</s>描述的是<b>交叉注意力</b>（Q 来自解码器、K/V 来自编码器），不是自注意力。<s>「同一个矩阵加位置编码」</s>把位置编码张冠李戴了：它补的是全连接丢掉的词序，与 Q/K/V 为何不同无关。"});
 });
 
-KP("3 · 那个 <b>√d_k</b> 和「多头」到底在干什么",function(){
+KP("3 · 那个 <b>√d_k</b> 和「多头」到底在干什么　<small>讲义 p77–78 · p87</small>",function(){
   /* 钩子 */
   S(5499,function(){
       clearScene();setBig(null);setCap(null);
