@@ -1,0 +1,1652 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME295 L09 · 前沿与收尾 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"CME295 · Lecture 9 · Transformer 借给了别人，也从别人那里借",
+  subtitle:"9 个知识点 · 讲义 p43–128 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=Q86qzJ1K1Ss&t="
+};
+
+
+// 内容权威：讲稿 corpus/transcripts/L9.txt（111 分 04 秒）
+//   + 官方讲义 fall25-cme295-lecture9.pdf（128 页）
+// https://cme295.stanford.edu/slides/fall25-cme295-lecture9.pdf
+// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。
+//
+// ⚠ 这一讲的**前 48 分钟是全课回顾**（讲义 p3–41），逐讲把 L1–L8 过了一遍。
+//   本片**跳过那一段** —— 看过前八部片子的人不需要再听一遍，
+//   而且回顾的内容在那八部里讲得更细。本片取**第 48 分钟之后**的前沿部分。
+//
+// 时间码用 scratchpad 的定位器从 L9_timed.txt 的 208 个锚点插值得到。
+// 逐条核过的要点：
+//   [53:17] **ViT**：把图像切成 **patch**，每个 patch 投影成一个向量当 token，
+//           加位置信息，送进**编码器**（因为分类任务要的是表示，这和 BERT 同理），
+//           最后取 **[CLS]** 的表示去投影到类别。
+//   [54:36] ⚠ 最漂亮的一条：CNN 的滑窗设计是一种**归纳偏置**，人们本以为
+//           视觉任务需要它；而 ViT 的归纳偏置**低得多**（让所有 patch 互相 attend）。
+//           结论是：**数据足够多时，低归纳偏置的模型反而更强**。
+//   [59:16] **VLM** 两种接法：① **把图像 token 和文本 token 一起喂进去**
+//           （更常见，LLaVA 是例子）② **让图像在交叉注意力层介入**
+//           （Llama 3 的做法，**较少见**）。
+//   [64:48] **自回归（ARM）** 的局限：⚠ 讲者特意澄清 ——
+//           **不能并行的是推理，训练是能并行的**（因果掩码让整句一次过）。
+//   [70:46] 图像扩散的直觉：从**噪声**出发去噪。为什么从噪声？因为逐像素自回归
+//           不可行、高斯分布性质好、噪声好采样、而且**带来随机性**。
+//           讲者引了**米开朗基罗**：「雕像本已在石料之中，我只是凿掉多余的部分。」
+//   [74:06] 文本扩散的关键对应：⚠ **噪声之于图像，就是 mask token 之于文本**。
+//           前向过程 = 逐步遮住更多 token；反向过程 = 学会把它们揭开。
+//   [75:50] **MDM**（Masked Diffusion Model），也叫 **DLLM**。
+//           讲者说记号还没定下来，将来可能变。
+//   [77:xx] ⚠ 为什么对文本也说得通：讲者的类比是**写演讲稿** ——
+//           你不会一个字一个字线性地写，而是**先列提纲、再逐段细化**。
+//           扩散就是这种**由粗到精**的过程。
+//   [78:xx] 关键优势：前向次数从「有多少 token」变成「**扩散多少步**」，
+//           而步数是你定的，**通常远少于输出长度** —— 有基准说快约 **10 倍**。
+//   [81:16] 另一个优势：**fill in the middle**（补中间）这类任务天然更合适，
+//           因为它能**从多个方向**看输入。
+//   [82:xx] ⚠ 现状：性能**一度不及前沿的自回归模型**，但在追上来；
+//           而且「推理链怎么适配扩散」这类工作还在做。
+//   [85:55] **DeepSeek OCR** 的启发：它真正展示的不是 OCR 更好了，而是
+//           **可以用很少的视觉 token 重建出文本 token** —— 说明图像 patch
+//           作为表示**信息密度很高**；有人据此argue「分词器本来就不是最好的工具」。
+//   [87:xx] **RoPE 可以推广成 2D** 用在图文混合的架构里。
+//   [89:25] 基础研究仍在动：**优化器**（Adam 的地位被 Kimi K2 的 **Muon/MuonClip** 挑战）·
+//           **归一化**（post→pre，LayerNorm→RMSNorm）· **注意力变体**（每篇论文各选各的）·
+//           **激活函数**（ReLU → GELU 一类）· **MoE 与否** · 层数/头数……
+//           ⚠ 讲者的总结：**none of this is set in stone**。
+//   [94:19] **数据的困境**：早期能爬到「确定是人写的」互联网；现在搜索结果里
+//           可能 **80% 是 LLM 生成的**。⚠ **model collapse**：
+//           LLM 生成的文本**多样性更低**，拿它训练会让数据分布漂移、学到的东西变少。
+//           对策：**数据清洗/策展**，以及新出现的 **mid-training**（预训练与微调之间，
+//           规模仍大但质量更高）。
+//   [96:12] 下一个前沿：从「**best performance**」转向「**best quality/cost**」⇒
+//           **SLM**（小语言模型）。讲者提到有服务商**连最高档订阅都在亏钱**。
+//   [97:02] **硬件**：GPU 擅长的是矩阵乘法，但 Transformer 的需求不止于此
+//           （qkᵀ 那部分很贵，FlashAttention 正是为此）。有篇论文做了
+//           **模拟存内计算**的概念验证：把运算变成硬件输入输出的**副产品**，
+//           延迟与能耗都有明显改善。
+//   [107:09] 开放挑战：**能不能持续学习**（权重训完就固定了，RAG 和工具只是绕开）·
+//            ⚠ **幻觉**：讲者给这个词打了引号 —— 「模型被训练来预测下一个 token，
+//            而不是把陈述映射到事实，所以**幻觉在某种意义上是核心设计选择**」·
+//            个性化 · 可解释性 · 安全。
+//   [109:xx] 怎么跟进：arXiv · NeurIPS 等会议 · ⚠ **读论文配套的代码库** ·
+//            HuggingFace trending papers · X/Twitter · YouTube（Yannic Kilcher、
+//            Andrej Karpathy）· 公司博客 · 以及本课的 **VIP cheatsheet**（会按年更新）。
+//
+// ⚠ 本片**没有**讲：前 48 分钟的全课回顾（见本系列前八部）、
+//   扩散的数学推导、LLaDA 等具体论文的细节、客服场景那段闲谈。
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("CME295 · Lecture 9","Current trends",
+      "讲义 128 页 · 讲稿 111 分 04 秒 · 本片取第 48 分钟之后");
+    },"最后一讲。  ⚠ <b>这一讲的前 48 分钟是全课回顾</b>，逐讲把 L1 到 L8 过了一遍。<b>本片跳过那一段</b>——<em>你如果看过前八部，那些内容在那里讲得更细；如果没看过，回去看那八部比听十分钟的摘要有用得多。</em>  <b>本片取第 48 分钟之后的部分，主题可以概括成一句话：</b>  <b>Transformer 借给了别的领域，也从别的领域借了回来。</b>  · <i>借出去</i>（2 集）：<b>ViT</b> 把图像切成 patch 当 token。⚠ 这一集里有本片最漂亮的一条洞察——<em>关于「归纳偏置」</em>。 · <i>借回来</i>（4 集）：图像那边的<b>扩散</b>被搬到了文本上。关键的对应是：<b>噪声之于图像，就是 mask 之于文本</b>。 · <i>还在动的</i>（3 集）：⚠ 讲者在这里非常坦率——<b>优化器、归一化、激活函数、注意力变体……none of this is set in stone</b>。还有一个麻烦的新问题：<b>互联网正在被 LLM 生成的文本填满</b>。  最后一集是收尾：<b>开放挑战，以及怎么继续跟下去。</b>");
+});
+
+KP("1 · <b>ViT</b>：把图像切块当 token　<small>讲义 p43–62</small>",function(){
+  /* 钩子 */
+  S(3060,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"自注意力算的是：一堆向量之间谁和谁相关","y");
+      note("第一讲以来，这些向量一直代表<b>文本 token</b>",640,205,"b");
+      note("但公式里<b>没有任何地方</b>要求它们是文本",640,262,"g");
+      boxNode(390,320,500,50,"那换成图像的一小块呢？","g");
+      setCap("整个「借出去」的故事，起点就是这个观察。");
+    },"最后这部分从一个很朴素的观察开始。  <b>自注意力做的事是：给一堆向量，算出谁和谁相关，然后加权求和。</b>  讲者：right now, we have only used text tokens. <b>But text tokens, they're actually vectors.</b>  ⚠ <b>而这个公式里，没有任何一处要求这些向量必须代表文本。</b>  <em>第一讲讲 Q/K/V 时说的是「用别的词来表达这个词」，但「词」这个限定是我们加的，不是机制要求的。</em>  <b>于是问题变成：如果这些向量代表的是图像的一小块呢？</b>  <b>这一集和下一集讲「借出去」——Transformer 怎么被搬到视觉领域。而这一集里有本片最值得记住的一条洞察。</b>");
+  /* 错误答案 */
+  S(3072,function(){
+      clearScene();setEq(null);
+      setBig("视觉任务当然该用 CNN","滑动窗口看图，本来就更符合视觉的性质");
+      setCap("<s>这正是当时的共识</s> —— 而 ViT 推翻了它，理由很深。");
+    },"<b>2020 年之前，视觉任务用卷积网络（CNN）是毫无争议的共识。</b>  而且这个共识有很好的理由。讲者解释得很清楚：  <b>CNN 的设计让你以一种滑动的方式去看图像——很像人实际看图的方式。</b><em>它假设「相邻的像素更相关」「同一个特征在图像不同位置都该被识别」。</em>  <b>这类「我们事先告诉模型该怎么看」的设计，有个专门的名字：归纳偏置（inductive bias）。</b>  <b>人们的假设是：视觉任务需要这种偏置。</b>讲者：people had hypothesized that such an inductive bias would actually <b>make sense for something like a vision task</b>。  <b>听起来完全合理。而下一镜会看到它为什么被推翻——以及推翻它的理由，比结论本身重要得多。</b>");
+  /* 铺陈 */
+  S(3084,function(){
+      clearScene();setEq(null);setBig(null);
+      matrix({rows:3,cols:3,cw:70,ch:62,x:150,y:110,
+      cell:function(i,j){return "块";},
+      hl:function(i,j){return "b";},
+      label:"把图像切成固定大小的 patch"});
+      arrow(380,200,480,200,"sm",0);
+      boxNode(500,172,300,56,"每块投影成一个向量","y");
+      arrow(804,200,904,200,"sm",0);
+      boxNode(920,172,240,56,"当 token 用","g");
+      note("再加位置信息 —— 和第二讲那条线完全一样",640,320,"y");
+      setCap("2020 年的 <b>ViT</b>（An Image is Worth 16x16 Words）。");
+    },"<b>ViT</b>（Vision Transformer）的做法，和你前八讲学的东西严丝合缝：  ① <b>把图像切成固定大小的 patch</b>（比如 16×16 像素）。 ② <b>每个 patch 投影成一个向量</b>——<em>patch 由像素组成，每个像素有 RGB 三个值，拉平之后过一个线性层压到目标维度</em>。 ③ <b>加上位置信息</b>——<em>和第二讲那整条线一样，因为自注意力不知道哪块在哪</em>。 ④ 前面再加一个 <b>[CLS]</b> token。  <b>然后送进编码器。</b>  ⚠ <b>为什么是编码器而不是解码器？</b>讲者的理由和第二讲 BERT 那一集完全一致：<b>图像分类要的是「表示」，不是「生成」</b>。而编码器正是产生好表示的那一半。  <b>最后取 [CLS] 的输出，投影到类别上。</b>讲者说取 [CLS] 一是约定，二是因为<em>它经过自注意力和所有 patch 交互过，它「什么都看过了」</em>——<b>和第二讲说的一模一样。</b>");
+  /* 主体 */
+  S(3096,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,350],[340,320],[500,280],[660,235],[820,195],[1040,165]],"fit g");
+      note("ViT：数据越多涨得越猛",900,130,"g");
+      curve([[180,300],[360,265],[540,245],[720,235],[900,232],[1060,230]],"fit");
+      note("CNN：早早就平了",380,210,"b");
+      note("横轴：训练数据量",640,392,"b");
+      setCap("讲者：<b>if you train on a lot of image data, you outperform CNN</b>。");
+    },"<b>ViT 那篇论文的结果：在足够多的图像数据上训练，它超过了传统的卷积网络。</b>  <b>但关键在「足够多」这三个字，而曲线的形状才是真正的信息：</b>  · <b>数据较少时</b>，CNN 更好——<em>因为它的归纳偏置替它省掉了「从数据里学出这些规律」的功夫</em>。 · <b>数据足够多时</b>，ViT 反超，<em>而且继续往上涨</em>。  <b>为什么？</b>因为归纳偏置是一把双刃剑：  <b>它既是「免费的先验知识」，也是「写死的限制」。</b>  <em>CNN 的滑窗假设在数据少时是帮助，但它也让模型学不到那些不符合这个假设的模式。而 ViT 让所有 patch 互相 attend——归纳偏置低得多，起步慢，但上限高。</em>  讲者：what this paper showed was <b>if you give your model enough data, then it will actually learn how to classify your images</b>。");
+  /* 主体 */
+  S(3108,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"CNN 的滑窗","b");
+      note("→ ViT 的全连接",280,170,"g");
+      boxNode(480,100,340,52,"RNN 的逐级传递","b");
+      note("→ 自注意力的直连",650,170,"g");
+      boxNode(850,100,310,52,"人写的推理链","b");
+      note("→ 可验证奖励自己长",1005,170,"g");
+      note("共同形状：<b>去掉一个人为的结构假设 + 给够数据和算力</b>",640,290,"y");
+      note("每一次都是<b>低偏置的那个赢</b>",640,355,"r");
+      setCap("⚠ 但前提是「数据和算力够」—— 这个前提不总是成立。");
+    },"<b>这一镜是本片最值得带走的一条，因为它把整门课串起来了。</b>  「<b>去掉人为的结构假设，给够数据，让模型自己学</b>」——<b>这个模式在这门课里反复出现：</b>  · <b>第一讲</b>：RNN <em>假设信息必须逐级传递</em> → 自注意力<b>去掉这个假设</b>，让所有词直连。 · <b>这一集</b>：CNN <em>假设视觉特征是局部的、平移不变的</em> → ViT <b>去掉这个假设</b>。 · <b>第六讲</b>：<em>假设推理必须由人示范</em> → 可验证奖励<b>去掉这个假设</b>，让能力自己长出来。  <b>三次，同一个形状，而且每次都是低归纳偏置的那个赢。</b>  ⚠ <b>但千万别把它读成「结构假设总是坏的」。</b>  <b>每一次胜利都附带同一个前提：数据和算力要够。</b>数据不够时，<em>归纳偏置恰恰是最值钱的东西</em>——这也是为什么小数据场景里 CNN 仍然好用。  <b>所以这条规律的正确读法是：当数据和算力变得极大时，天平会倒向低偏置的那一边。</b>");
+  /* 反驳 */
+  S(3120,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"讲者说的是","g");
+      note("它从机器翻译 → 其他文本任务",340,195,"g");
+      note("→ 视觉、推荐、语音……",340,243,"g");
+      boxNode(730,105,440,58,"⚠ 他没说的","r");
+      note("它在每个领域都最好",950,195,"r");
+      note("它是终点",950,243,"r");
+      note("第八集会看到：连它自己的零件都还在被换",640,352,"y");
+      setCap("讲者的建议：<b>keep an open mind for non-text applications</b>。");
+    },"这一集最后，讲者给了一个很克制的总结，<b>值得照搬他的分寸</b>：  <b>transformers was an architecture that performed very well for machine translation. But then it proved to perform very well for other text-related tasks. And it was then reused in a bunch of other domains, which also proved to be quite successful.</b>  他还列了其他领域：<b>图像生成</b>（<em>你可能听过「扩散 Transformer」——那些模型的内核也是自注意力</em>）、<b>推荐</b>、<b>语音</b>，而且说这<b>不是一个穷举的清单</b>。  ⚠ <b>但请注意他说的和没说的：</b> · 他说的是<b>「被成功复用到很多领域」</b>。 · 他<b>没说</b>「它在每个领域都是最好的」，更没说「它是终点」。  <em>第八集你会看到，连 Transformer 自己的零件——优化器、归一化、激活函数——都还在被不断替换，讲者的原话是 none of this is set in stone。</em>  他给的建议很实在：<b>keep an open mind for non-text related transformer applications</b>——<em>这门课讲的是文本，但你学到的东西不止于文本。</em>");
+  SUM(3060,1,{h:"ViT：把图像切块当 token，而赢的理由是「归纳偏置低」",
+    k:"把图像切成固定大小的 <b>patch</b>，每块投影成向量当 token，加位置信息、加 <b>[CLS]</b>，送进<b>编码器</b>（分类要表示不要生成，与第二讲 BERT 同理），最后取 [CLS] 的输出投影到类别。",
+    m:"⚠ 核心洞察：CNN 的滑窗是一种<b>归纳偏置</b>（事先告诉模型该怎么看），人们本以为视觉需要它；而 ViT 的偏置<b>低得多</b>。结果是<b>数据不够时 CNN 更好，数据足够多时 ViT 反超且上限更高</b> —— 归纳偏置既是免费先验，<b>也是写死的限制</b>。",
+    w:"起点是一个朴素观察：<b>自注意力算的是向量之间的关系，公式里没有任何地方要求它们是文本</b>。「词」这个限定是我们加的。",
+    e:"⚠ 这个「<b>去掉人为的结构假设 + 给够数据</b>」的模式在本课出现了三次（RNN→自注意力、CNN→ViT、人写推理链→可验证奖励），<b>每次都是低偏置的赢</b>。但别误读：<b>每次胜利都附带「数据和算力要够」这个前提</b>，数据少时归纳偏置恰恰最值钱。"});
+  QUIZ(3060,1,{t:"ViT 超过 CNN 的关键条件是什么？",
+    o:["使用了更深的网络层数","把图像切成 patch 后参数量大幅下降","采用了专门为图像设计的二维位置编码","训练数据足够多 —— 它的归纳偏置更低，起步慢但上限高"],
+    a:3,
+    w:"CNN 的滑窗是一种<b>归纳偏置</b>，它替模型省掉了「从数据里学出局部性」的功夫，所以<b>数据少时更好</b>；ViT 让所有 patch 互相 attend，偏置低得多，<b>起步慢但上限高</b>。讲者：<b>if you give your model enough data, then it will actually learn how to classify your images</b>。<s>「更深」</s>不是论文的结论。<s>「参数量下降」</s>ViT 的参数量通常更大。<s>「二维位置编码」</s>ViT 用的是常规位置嵌入；2D RoPE 是<b>后来</b>在图文混合架构里的扩展（第七集）。"});
+});
+
+KP("2 · <b>VLM</b>：图文一起进，还是走交叉注意力　<small>讲义 p63–69</small>",function(){
+  /* 钩子 */
+  S(3420,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,110,440,58,"一张图","b");
+      boxNode(710,110,440,58,"一句话：这只熊有多可爱？","g");
+      arrow(350,170,560,230,"sm",0);
+      arrow(930,170,720,230,"sm",0);
+      boxNode(440,234,400,56,"同一个模型","y");
+      note("两种模态要在同一个序列里被处理",640,330,"y");
+      setCap("<b>VLM</b> = Vision Language Model。");
+    },"上一集解决了「让 Transformer 理解图像」。<b>这一集更进一步：让一个模型同时处理图和文字。</b>  <b>场景你很熟悉</b>：打开 ChatGPT，传一张图，然后问它问题。  <b>技术上的难点在于：两种模态要在同一个序列里被处理。</b>  <em>文本那边你已经很清楚了——分词、嵌入、送进解码器。图像那边，上一集给了办法——切 patch、投影成向量。</em>  <b>问题是：这两串向量怎么合到一起？</b>  讲者给了两种做法，<b>而它们的差别正好对应第一讲那张架构图的两个位置</b>。");
+  /* 错误答案 */
+  S(3432,function(){
+      clearScene();setEq(null);
+      setBig("处理两种模态，总得有个专门的新架构","文本和图像差别那么大");
+      setCap("<s>最常见的做法恰恰是「什么都不改」</s> —— 直接当成更多 token。");
+    },"直觉上，<b>处理两种性质完全不同的输入，总该有个专门的设计。</b>  <b>而最常用的做法恰恰相反：什么架构都不改。</b>  <em>既然图像已经被编码成了一串向量，而解码器吃的本来就是一串向量——那就把它们接在文本 token 前面，一起喂进去。</em>  <b>模型照常自回归地生成回答，完全不知道（也不需要知道）前面那几十个向量来自一张图。</b>  ⚠ <b>这是上一集那条洞察的直接延伸：自注意力不在乎向量代表什么。</b>  <em>而「不用改架构」带来的好处极大：你可以直接复用现成的 LLM、现成的训练代码、现成的推理栈。</em>  <b>下一镜看这个做法的细节，以及另一条少有人走的路。</b>");
+  /* 铺陈 */
+  S(3444,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,280,54,"图像","b");
+      arrow(394,132,466,132,"sm",0);
+      boxNode(470,105,260,54,"图像编码器","y");
+      arrow(734,132,806,132,"sm",0);
+      boxNode(810,105,350,54,"一串「图像 token」","g");
+      boxNode(110,230,420,54,"文本 token","b");
+      arrow(534,257,606,257,"sm",0);
+      boxNode(620,230,540,54,"拼在一起 → 照常送进解码器","g");
+      note("开放权重的 <b>LLaVA</b> 就是这么做的",640,370,"y");
+      setCap("讲者：<b>the first one is the most common one</b>。");
+    },"<b>方法一：把图像编码成 token，和文本 token 拼在一起，整串送进解码器。</b>  讲者：you just feed everything as input — the image tokens as input, the text tokens as inputs。模型需要某种方式<b>知道哪些是图像 token、哪些是文本 token</b>，然后 <b>let it generate an answer in a decoder-only, autoregressive fashion exactly like you would do it</b>。  <b>他点名了一个开放权重的例子：LLaVA</b>——<em>图像那边有个编码器产出 token，和文本 token 拼接，送进 LLM</em>。  ⚠ <b>这个方案的优雅之处在于它几乎没有「新东西」：</b> · 图像编码器 ≈ <em>上一集的 ViT</em> · 拼接 ≈ <em>字符串拼接</em> · 生成 ≈ <em>第三讲那套，一字不改</em>  <b>整个多模态能力，是用已有零件组装出来的。</b>  讲者明确说这是<b>最常见的做法</b>，<em>而且很多模型都是这么设计的</em>。");
+  /* 主体 */
+  S(3456,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,420,54,"文本 token","b");
+      arrow(320,159,320,209,"sm",0);
+      boxNode(110,213,420,54,"解码器","g");
+      boxNode(730,105,440,54,"图像表示","y");
+      arrow(950,159,560,230,"r",30);
+      note("图像<b>不进输入序列</b>",950,210,"y");
+      note("而是在<b>交叉注意力层</b>介入",950,258,"y");
+      note("Llama 3 用的是这一种 —— 但<b>较少见</b>",640,352,"r");
+      setCap("第一讲那个「消失了的交叉注意力层」，在这里回来了。");
+    },"<b>方法二：图像不进输入序列，而是在交叉注意力层介入。</b>  ⚠ <b>这一下接回了第三讲第一集那个细节</b>：  <em>原始 Transformer 的解码器有三部分——掩码自注意力、交叉注意力、FFN。而 decoder-only 的 LLM 把交叉注意力那层整个去掉了，因为没有编码器可读。</em>  <b>方法二等于把它请了回来：图像编码器的输出扮演原来「编码器」的角色，解码器通过交叉注意力去读它。</b>  讲者说 <b>Llama 3</b> 的论文里用的就是这个，<b>但这种做法 typically less common</b>。  ⚠ <b>为什么较少见？讲者没说，但从前面几讲可以推出来：</b>  <em>方法二要改架构、要加新的层、要改训练代码；而方法一什么都不用改。在一个「能复用就复用」的领域里，这个差别往往就决定了胜负。</em>  <b>——这和第二讲「Pre-Norm 赢在哪」、第六讲「GRPO 赢在哪」是同一类判断：工程上的简洁，常常比理论上的优雅更有决定性。</b>");
+  /* 主体 */
+  S(3468,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"要新造的","y");
+      note("一个图像编码器（上一集的 ViT）",340,195,"y");
+      note("一个投影层，把它对齐到文本的维度",340,243,"y");
+      boxNode(730,105,440,58,"原样复用的","g");
+      note("整个 LLM · 整套训练流程",950,195,"g");
+      note("整套推理优化（KV cache、投机解码…）",950,243,"g");
+      note("<b>多模态的大部分，是把已有零件接起来</b>",640,352,"g");
+      setCap("这也解释了为什么这个能力普及得这么快。");
+    },"把账算一下，<b>这一集真正的要点就清楚了</b>：  <b>要新造的</b>： · 一个<b>图像编码器</b>——<em>上一集的 ViT</em>。 · 一个<b>投影层</b>——<em>把图像 token 的维度对齐到文本嵌入的维度</em>。  <b>原样复用的</b>： · <b>整个 LLM</b>——<em>预训练、SFT、偏好微调全都不用重做</em>。 · <b>整套推理优化</b>——<em>KV cache、GQA、投机解码，全都还能用，因为它们都作用在「一串 token」这个抽象上</em>。  ⚠ <b>这解释了一件你大概注意到了的事：为什么多模态能力在很短的时间里就成了标配。</b>  <em>它不需要一个新范式，只需要在已有的流水线前面加一个转换器。</em>  <b>而这也印证了第一集那条洞察的价值：当你发现一个机制其实不依赖它当初的应用场景时，整片新领域就打开了。</b>");
+  /* 反驳 */
+  S(3480,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"工程上","g");
+      note("接口对齐了，流程跑通了",340,195,"g");
+      boxNode(730,105,440,58,"⚠ 但别推论出","r");
+      note("它「看」图的方式和「读」字一样可靠",950,195,"r");
+      note("图像 token 远比文字稀疏、也更难对齐",950,243,"r");
+      note("第七集会看到：这个对齐本身还在被研究",640,352,"y");
+      setCap("能拼起来，和拼得好，是两件事。");
+    },"最后压一下这一集的乐观。  <b>「架构上能接起来」并不等于「两种模态被同等地理解了」。</b>  ⚠ <b>几个值得留意的地方：</b> · <b>图像 token 的信息密度和文字完全不同。</b>一张图可能被编码成几百个 token，<em>而它们之间的「语义边界」远不如词那么清晰</em>。 · <b>那个投影层做的「对齐」是学出来的</b>，<em>而对齐得好不好，直接决定模型能不能真的「看懂」</em>。 · <b>训练数据的性质也不同</b>——<em>图文配对的数据，远不如纯文本那么多、那么干净</em>。  <b>所以实践中多模态模型常有一类特有的毛病：图里明明有的东西它看不见，或者它「看见」了图里没有的东西。</b>  ⚠ <b>而第七集会看到一个相关的有趣结果（DeepSeek OCR）：图像 patch 作为表示，信息密度其实高得惊人。</b>  <em>也就是说——这个方向的理解还在变化中，现在的做法未必是最终形态。</em>");
+  SUM(3420,2,{h:"VLM：两种接法，而常用的那种什么都不改",
+    k:"<b>方法一（最常见）</b>：图像编码成 token，<b>和文本 token 拼在一起</b>整串送进解码器，照常自回归生成（LLaVA 是例子）。<b>方法二（较少见）</b>：图像<b>不进输入序列</b>，在<b>交叉注意力层</b>介入（Llama 3 的做法）。",
+    m:"方法二等于把第三讲里<b>那个「消失了的交叉注意力层」请了回来</b>。它较少见的原因可以推出来：<b>方法一什么架构都不用改</b> —— 这和「Pre-Norm 赢在哪」「GRPO 赢在哪」是同一类判断，<b>工程上的简洁常比理论上的优雅更有决定性</b>。",
+    w:"<s>直觉</s>：「两种模态差别那么大，总得有个新架构」。<b>恰恰相反</b> —— 自注意力不在乎向量代表什么（上一集那条洞察的直接延伸）。",
+    e:"要新造的只有<b>图像编码器 + 一个投影层</b>；<b>整个 LLM 与整套推理优化原样复用</b>（KV cache、GQA、投机解码都作用在「一串 token」这个抽象上）—— 这解释了多模态为何普及得这么快。⚠ 但<b>接得上 ≠ 理解得一样好</b>：图像 token 信息密度不同、对齐是学出来的、图文配对数据远不如纯文本多而干净。"});
+  QUIZ(3420,2,{t:"目前最常用的视觉语言模型（VLM）做法是什么？",
+    o:["让图像表示在交叉注意力层与文本交互，不进入输入序列","用两个独立模型分别处理图文，最后融合它们的输出","把图像编码成 token，与文本 token 拼接后整串送进解码器","把图像转成文字描述后再交给纯文本 LLM"],
+    a:2,
+    w:"讲者说 <b>the first one is the most common one</b>：图像经编码器变成一串 token，和文本 token 拼接，<b>照常自回归生成</b>（LLaVA 是例子）。它的优势是<b>架构一点不用改</b>，整个 LLM 与推理优化原样复用。<s>「交叉注意力」</s>那是<b>方法二</b>（Llama 3 的做法），讲者明说 <b>typically less common</b>。<s>「两个模型融合输出」</s>没有这种主流做法，而且那样两种模态就无法在同一个注意力里交互。<s>「转成文字描述」</s>那会丢掉大量视觉信息，也不是讲者讲的两种方法之一。"});
+});
+
+KP("3 · 自回归的天花板：<b>推理不能并行</b>　<small>讲义 p71–81</small>",function(){
+  /* 钩子 */
+  S(3888,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,200,50,"token 1","b");
+      arrow(314,135,366,135,"sm",0);
+      boxNode(370,110,200,50,"token 2","b");
+      arrow(574,135,626,135,"sm",0);
+      boxNode(630,110,200,50,"token 3","b");
+      arrow(834,135,886,135,"sm",0);
+      boxNode(890,110,200,50,"…","b");
+      note("前八讲都默认了这件事：<b>一个接一个地往下写</b>",640,250,"y");
+      note("这个范式有名字：<b>ARM</b>（autoregressive model）",640,330,"g");
+      setCap("「借回来」那部分，从质疑这个前提开始。");
+    },"前面两集讲「借出去」。<b>从这一集开始讲「借回来」——而起点是质疑一个前八讲都没质疑过的前提。</b>  <b>我们一直默认：模型一个 token 一个 token 地往下生成。</b>给定目前为止的内容，预测下一个；把它接上去，再预测下一个；直到吐出结束符。  <b>这个范式叫自回归（autoregressive），讲者说现在人们给它起了个缩写：ARM。</b>  ⚠ <b>第三讲第一集说过它带来的后果：训练能并行，生成只能串行。</b>而当时的处理方式是<em>接受这个事实，然后在它的约束下优化</em>——KV cache、投机解码、MTP，全都是如此。  <b>这一集问的是另一个问题：这个前提本身，能不能换掉？</b>");
+  /* 错误答案 */
+  S(3900,function(){
+      clearScene();setEq(null);
+      setBig("Transformer 的生成本来就是串行的","这是架构决定的，没办法");
+      setCap("<s>要分清是哪一半</s>：⚠ <b>训练是能并行的</b>，不能并行的只有推理。");
+    },"一个很常见的混淆，<b>讲者在这里特意澄清了</b>：  <b>I just want to emphasize on the fact that it's at inference time that I'm saying. Training time, you can actually parallelize that quite well.</b>  <b>为什么训练能并行？</b>回到第三讲第一集：<em>训练时整句话一次性送进去，靠因果掩码保证每个位置只用到左边的信息——于是一次前向就同时产生了序列里每个位置的预测。</em>  <b>而推理时做不到</b>，因为<em>第 i+1 个词要等第 i 个词真的生成出来</em>。  ⚠ <b>这个区分很重要，因为它说明问题不在 Transformer 架构，而在「自回归」这个生成范式。</b>  <em>架构是中性的——同一个 Transformer，训练时并行得很好。是「必须按顺序产生输出」这个要求让推理变成串行的。</em>  <b>所以要提速，该换的不是架构，是范式。</b>");
+  /* 铺陈 */
+  S(3912,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"文本：一个一个往下写","b");
+      note("因为句子天然是线性的",340,195,"b");
+      boxNode(730,105,440,58,"图像：不可能逐像素写","r");
+      note("一张图有上百万个像素",950,195,"r");
+      note("而且像素之间<b>没有自然的先后顺序</b>",950,243,"r");
+      note("⇒ 图像那边<b>从一开始就没法用自回归</b>",640,352,"y");
+      setCap("被逼出来的办法，正好是文本这边想借的。");
+    },"要找替代范式，<b>讲者带我们去看图像生成那边——因为那边从一开始就没有自回归这个选项。</b>  <b>为什么？</b>讲者给的理由很实在：<b>if you were to predict the pixels one at a time, it's just not tractable because there are many pixels in an image</b>。  <em>一张图有上百万个像素。逐个生成，一张图要跑上百万次前向——完全不可行。</em>  ⚠ <b>还有一个更根本的原因，讲者没明说但很关键：像素之间没有自然的先后顺序。</b>  <em>文本是线性的，「下一个词」是个有意义的概念；而一张图，你从左上角开始还是从中心开始？没有理由选任何一个。</em>  <b>所以图像生成必须用一种「一次性产出整体，然后逐步精修」的办法。</b>  <b>而这正是文本这边想要的东西。</b>");
+  /* 主体 */
+  S(3924,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,250,56,"噪声","r");
+      arrow(364,138,436,138,"sm",0);
+      boxNode(440,110,250,56,"去噪一步","y");
+      arrow(694,138,766,138,"sm",0);
+      boxNode(770,110,250,56,"再去噪","y");
+      arrow(1024,138,1096,138,"sm",0);
+      boxNode(1030,110,130,56,"图","g");
+      note("为什么是噪声：好采样 · 分布性质好 · <b>带来随机性</b>",640,255,"y");
+      note("随机性是必须的 —— 你不想每次生成同一张图",640,310,"g");
+      setCap("两步训练：<b>正向逐步加噪</b>，反向学会<b>预测该去掉什么</b>。");
+    },"<b>扩散模型的做法：从一团噪声出发，一步步把它变成图像。</b>  <b>为什么偏偏从噪声开始？</b>讲者列了几条理由： · <b>噪声很好采样</b>——<em>高斯分布，要多少有多少</em>。 · <b>数学性质好</b>——<em>高斯分布有很多便利的性质</em>。 · ⚠ <b>它带来随机性</b>——<em>you don't necessarily want to always produce the same image</em>。  <b>第三条值得想一下</b>：<em>生成任务需要多样性（第三讲那一集讲过），而自回归是靠采样提供随机性的。扩散则把随机性放在了起点——不同的初始噪声给出不同的结果。</em>  <b>训练分两步：</b> ① <b>正向过程</b>：拿干净图像，<b>逐步加噪</b>，直到变成纯噪声。 ② <b>反向过程</b>：<b>学会预测「该去掉哪些噪声」</b>，从而一步步还原。  <em>注意正向过程不需要学——它是人为定义的；要学的只有反向那一半。</em>");
+  /* 主体 */
+  S(3936,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,110,900,70,"「雕像本已在石料之中。在我动手之前它就在那里。","y");
+      boxNode(190,186,900,60,"我只需凿掉多余的部分。」","y");
+      note("石料 = 噪声　·　雕像 = 目标分布",640,300,"g");
+      note("雕刻家不是「造」出雕像，而是<b>决定去掉什么</b>",640,358,"g");
+      setCap("讲者引的原话。这个比喻比公式好记得多。");
+    },"讲者在这里引了<b>米开朗基罗</b>的一句话，<b>而这个比喻值得完整记住</b>：  <b>「雕像本已在石料之中。在我动手之前它就在那里。我只需凿掉多余的部分。」</b>  <b>对应关系：</b> · <b>石料</b> = <em>初始的噪声</em> · <b>雕像</b> = <em>目标的数据分布</em> · <b>凿掉多余的部分</b> = <em>学会预测该去掉什么</em>  ⚠ 讲者还提了一个很贴切的细节：<b>每块石料都不一样</b>（<em>rocks are different from one another, they always have things that are unique to them</em>），<em>而雕刻家关注的始终是「该去掉什么」</em>。  <b>这正好对应「不同的初始噪声 → 不同的生成结果」。</b>  <b>为什么这个比喻有用？</b>因为它把扩散的思维方式说清楚了：<b>不是「从无到有地构建」，而是「从过剩中做减法」。</b>  <em>——而这和自回归那种「一个字一个字往下写」是完全不同的心智模型。</em>");
+  /* 反驳 */
+  S(3948,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"图像：<b>连续</b>","g");
+      note("像素值可以是 128.3，可以加一点点噪声",340,195,"g");
+      boxNode(730,105,440,58,"文本：<b>离散</b>","r");
+      note("token 是「猫」或「狗」，中间没有东西",950,195,"r");
+      note("「给 token 加一点噪声」<b>没有意义</b>",950,243,"r");
+      note("讲者：<b>that distinction matters</b>",640,352,"y");
+      setCap("下一集：人们怎么绕过这个硬差别。");
+    },"这一集最后点出那个<b>关键障碍</b>，它也是下一集的全部内容。  讲者在讲扩散之前就先提醒了：<b>the key issue with this is that text is discrete, whereas images are continuous. And we're going to see why that distinction matters.</b>  <b>差别有多硬？</b>  · <b>图像是连续的</b>：一个像素值是 128，<em>你可以把它变成 128.3，再变成 129.7</em>。「加一点点噪声」是一个有意义的操作，<b>而且可以连续地调节强度</b>。  · <b>文本是离散的</b>：一个 token 是「猫」或者是「狗」，<em>中间没有「70% 的猫」这种东西</em>。  <b>「给一个 token 加一点点噪声」这句话，字面上就没有意义。</b>  ⚠ <b>而扩散的整个框架建立在「可以连续地加噪、再连续地去噪」之上。</b>  <b>所以要把扩散搬到文本上，第一件事不是改公式，而是先回答：在文本世界里，什么东西扮演「噪声」的角色？</b>");
+  SUM(3888,3,{h:"质疑一个前提：生成一定要一个字一个字来吗",
+    k:"自回归（<b>ARM</b>）是前八讲默认的范式。⚠ 讲者特意澄清：<b>不能并行的是推理，训练是能并行的</b>（因果掩码让整句一次过）—— 所以问题<b>不在架构，在生成范式</b>。",
+    m:"图像那边<b>从一开始就没有自回归这个选项</b>（上百万像素逐个生成不可行，而且像素之间<b>没有自然的先后顺序</b>），被逼出来的办法是<b>扩散</b>：从噪声出发，学会「该去掉什么」。正向加噪是<b>人为定义</b>的，要学的只有反向。",
+    w:"为什么从噪声开始：好采样、分布性质好、而且<b>带来随机性</b>（不同初始噪声 → 不同结果）。米开朗基罗那个比喻：<b>石料=噪声、雕像=目标分布、凿掉多余=学会去噪</b> —— 不是「从无到有构建」，而是<b>从过剩中做减法</b>。",
+    e:"⚠ 搬到文本上有个硬障碍：<b>图像连续、文本离散</b>。像素可以从 128 变成 128.3，而 token 只能是「猫」或「狗」，<b>中间没有东西</b> —— 「给 token 加一点噪声」字面上没有意义。<b>所以第一件事是回答：文本世界里什么扮演噪声？</b>"});
+  QUIZ(3888,3,{t:"关于自回归（ARM）的并行性，讲者特意澄清了什么？",
+    o:["不能并行的只有推理；训练时整句一次送入，靠因果掩码可以并行","训练和推理都无法并行，这是因果掩码的限制","训练无法并行，但推理可以通过批处理并行","两者都能并行，瓶颈其实在显存带宽"],
+    a:0,
+    w:"训练时整句一次性送入，<b>因果掩码保证每个位置只用左边的信息</b>，于是一次前向就同时产生了每个位置的预测——<b>训练并行得很好</b>。推理不行，因为第 i+1 个词要等第 i 个真的生成出来。⚠ 这个区分说明<b>问题不在 Transformer 架构，而在「自回归」这个生成范式</b>——所以要提速该换的是范式。<s>「都无法并行」</s>讲者正是为纠正这个误解才澄清的。<s>「训练无法并行」</s>说反了。<s>「两者都能并行」</s>推理的串行是范式决定的，批处理只是同时跑多个请求，不改变单个序列内的串行。"});
+});
+
+KP("4 · 图像扩散：<b>从噪声里凿出来</b>　<small>讲义 p83–89</small>",function(){
+  /* 钩子 */
+  S(4200,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,58,"扩散需要一种「逐步破坏、再逐步恢复」的操作","y");
+      note("图像：加噪声 —— 可以连续调强度",640,205,"g");
+      note("文本：？",640,262,"r");
+      boxNode(390,320,500,50,"找一个离散版本的「破坏」","g");
+      setCap("答案很朴素，而且你第二讲就见过它。");
+    },"上一集卡在「文本是离散的，没法加噪声」。  <b>但退一步看，扩散真正需要的不是「噪声」这个具体的东西，而是一种操作：能逐步破坏信息，而且这个破坏可以被逐步恢复。</b>  <b>那在文本世界里，什么操作符合这个描述？</b>  ⚠ <b>答案你第二讲就见过了，而且当时它还是另一个模型的核心。</b>  <em>提示：BERT 的预训练任务。</em>");
+  /* 错误答案 */
+  S(4212,function(){
+      clearScene();setEq(null);
+      setBig("token 是离散的，但<b>嵌入</b>是连续的","那就在嵌入向量上加高斯噪声");
+      setCap("有人这么试过 —— 但<b>主流走的是另一条路</b>，而且更干净。");
+    },"一个技术上说得通的想法：<b>token 本身是离散的，但它的嵌入向量是连续的——那就在嵌入空间里加噪声。</b>  <b>这确实是一条被尝试过的路线</b>（<em>讲者没提，但研究上有</em>）。  <b>但它有个别扭的地方</b>：你最后还是要把带噪的连续向量<em>映回</em>到某个具体的 token 上，<b>而这个「映回」的步骤是额外的、不自然的</b>。<em>嵌入空间里相近的两个点，可能对应完全不同的词。</em>  ⚠ <b>而主流走的那条路更干净：不要在连续空间里绕，直接定义一个离散的「破坏」操作。</b>  <b>而最自然的离散破坏，就是——把这个 token 盖住。</b>");
+  /* 铺陈 */
+  S(4224,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,440,58,"图像：逐步加噪声","b");
+      note("最后变成一团纯噪声",350,195,"b");
+      boxNode(710,105,440,58,"文本：逐步遮住 token","g");
+      note("最后变成一串全是 [MASK]",930,195,"g");
+      note("反向：学会<b>把它们揭开</b>",640,290,"y");
+      note("讲者：<b>noise is to images what the mask token is to text</b>",640,358,"r");
+      setCap("第二讲 BERT 的掩码预测，在这里被重新发现了。");
+    },"<b>关键的对应，讲者说得非常干净：</b>  <b>noise is to images what the mask token is to text.</b> （<em>噪声之于图像，就是 mask token 之于文本。</em>）  他给了理由：<b>mask is just a way for us to not have the information coming from one part of the sequence</b>——<em>遮住一个 token，就是把那部分信息拿掉，这正是「加噪」在做的事</em>。  <b>于是扩散的两步照搬过来：</b> · <b>正向过程</b>：<em>逐步遮住越来越多的 token</em>，直到整个序列全是 [MASK]。 · <b>反向过程</b>：<b>学会把 [MASK] 揭开</b>，还原出原来的句子。  ⚠ <b>请注意第二讲那一集在这里回来了：BERT 的预训练任务 MLM，就是「遮住 15% 的 token 让模型猜」。</b>  <em>当时它是一个用来学表示的代理任务。现在同一个操作被重新解释成了「扩散的正向过程」——而且目标从「学表示」变成了「生成」。</em>  <b>同一个机制，换一个框架，变成了另一种东西。</b>");
+  /* 主体 */
+  S(4236,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,250,54,"提示词","b");
+      boxNode(390,105,180,54,"MASK","r");
+      boxNode(590,105,180,54,"MASK","r");
+      boxNode(790,105,180,54,"MASK","r");
+      boxNode(990,105,170,54,"MASK","r");
+      arrow(640,165,640,215,"sm",0);
+      boxNode(390,219,180,54,"今天","g");
+      boxNode(590,219,180,54,"MASK","r");
+      boxNode(790,219,180,54,"很好","g");
+      boxNode(990,219,170,54,"MASK","r");
+      note("一轮揭开<b>一批</b>，不是一个 —— 而且<b>不按顺序</b>",640,330,"y");
+      note("<b>MDM</b>（Masked Diffusion Model），也叫 <b>DLLM</b>",640,385,"g");
+      setCap("讲者说记号还没定下来，将来可能变。");
+    },"<b>推理时是这样的：</b>  ① 给定提示词，<b>答案那部分一开始全是 [MASK]</b>。 ② 模型<b>一轮揭开一批</b>——<em>它对每个位置都给出预测，但只「确定下来」其中它最有把握的那些</em>。 ③ 拿着部分揭开的序列，<b>再来一轮</b>。 ④ 直到全部揭开。  ⚠ <b>两个和自回归根本不同的地方：</b> · <b>一轮处理多个位置</b>，不是一个。 · <b>不按从左到右的顺序</b>——<em>它可能先定下句末的词，再回头填中间的</em>。  <b>讲者给了名字</b>：<b>MDM</b>（Masked Diffusion Model）。他还说你也会看到 <b>DLLM</b>（diffusion-based LLM）这个写法，并坦率地提醒：<b>notations are still not very well defined, so it may change in the future</b>。  ⚠ <b>这个提醒本身值得记：一个方向还在用词不统一的时候，说明它很新，结论也可能变。</b>");
+  /* 主体 */
+  S(4248,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"自回归像","b");
+      note("一个字一个字<b>线性地</b>写下去",340,195,"b");
+      boxNode(730,105,440,58,"扩散像","g");
+      note("先列提纲 → 再逐段细化",950,195,"g");
+      note("由<b>粗</b>到<b>精</b>，而不是由<b>前</b>到<b>后</b>",950,243,"g");
+      note("讲者：我一开始也觉得这对文本说不通 —— 直到这么想",640,352,"y");
+      setCap("这个类比解决的是「直觉上接受不了」这件事。");
+    },"<b>讲者在这里做了一件很好的教学处理：他先承认自己也卡住过。</b>  <b>in case you're having trouble with the intuition — so I also had trouble in the beginning. Why would it make sense for text to be solved in a diffusion manner? Because typically, when you write, you write one word at a time.</b>  <b>然后他给了那个化解困惑的类比：</b>  <b>假设你要写一篇演讲稿。你不会从第一个字开始线性地往下写。你会先列个大纲——我先讲这个，然后讲那个，最后收尾——然后再逐段填充细节。</b>  <b>扩散就是这种工作方式：由粗到精的逐步细化（coarse-to-fine refinement）。</b>  ⚠ <b>关键的转念在这里：「一个字一个字写」是输出的形式，不是思考的形式。</b>  <em>我们最终把文字线性地写在纸上，但构思的过程从来不是线性的。扩散模型做的，更接近后者。</em>  <b>而这也解释了下一集那个「补中间」为什么是它的强项。</b>");
+  /* 反驳 */
+  S(4260,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"BERT 的 MLM","b");
+      note("遮 <b>15%</b>，一次性猜回来",340,195,"b");
+      note("目的是<b>学表示</b>，不生成",340,243,"r");
+      boxNode(730,105,440,58,"MDM","g");
+      note("遮到 <b>100%</b>，<b>多轮</b>逐步揭开",950,195,"g");
+      note("目的就是<b>生成</b>",950,243,"g");
+      note("同一个操作，<b>完全不同的用法与目标</b>",640,352,"y");
+      setCap("别因为都用 mask 就把两者等同起来。");
+    },"最后澄清一个很容易产生的误会，<b>因为两者表面上太像了</b>。  <b>MDM 不是「BERT 的改良版」。</b>  <b>三个关键差别：</b>  ① <b>遮的比例</b>：BERT 遮 <b>15%</b>（第二讲那个数字）；MDM 的正向过程要一路遮到 <b>100%</b>——<em>因为生成时必须从「什么都没有」开始</em>。  ② <b>轮数</b>：BERT <b>一次性</b>把被遮的词猜回来；MDM 是<b>多轮</b>逐步揭开，<em>每轮都基于上一轮已确定的内容</em>。  ③ <b>目的</b>：BERT 的 MLM 是<b>代理任务</b>——<em>它存在的意义是让模型学到好的表示，猜词本身没人在乎</em>；MDM 的揭开过程<b>就是最终产物</b>。  ⚠ <b>第②点是技术上最本质的：BERT 没法生成，正是因为它一次性输出所有位置，各位置之间无法互相协调。</b>  <em>而 MDM 的多轮机制恰恰解决了这一点——先定下的词成为后面那些词的条件。</em>  <b>同一个 mask 操作，在不同的框架里是完全不同的东西。</b>");
+  SUM(4200,4,{h:"mask 之于文本，就是噪声之于图像",
+    k:"讲者的对应：<b>noise is to images what the mask token is to text</b>。正向过程 = <b>逐步遮住更多 token</b> 直到全是 [MASK]；反向过程 = <b>学会把它们揭开</b>。模型叫 <b>MDM</b>（也写作 DLLM），⚠ 讲者说<b>记号还没定下来</b>。",
+    m:"推理时从全 [MASK] 开始，<b>一轮揭开一批、而且不按顺序</b>。为什么对文本说得通 —— 讲者的类比是<b>写演讲稿</b>：你不会线性地一个字往下写，而是<b>先列提纲再逐段细化</b>。<b>「一个字一个字写」是输出的形式，不是思考的形式。</b>",
+    w:"<s>另一条路</s>：「token 离散但嵌入连续，在嵌入上加噪声」。技术上说得通，但<b>最后还要把带噪向量映回具体 token</b>，这一步不自然 —— 主流走的是直接定义离散的破坏操作。",
+    e:"⚠ <b>MDM 不是「更好的 BERT」</b>，三个差别：① BERT 遮 15%，MDM 遮到 <b>100%</b> ② BERT <b>一次性</b>猜回，MDM <b>多轮</b>逐步揭开 ③ BERT 的 MLM 是<b>代理任务</b>（目的是学表示），MDM 的揭开<b>就是最终产物</b>。第②点最本质：<b>BERT 不能生成正因为各位置无法互相协调</b>。"});
+  QUIZ(4200,4,{t:"把扩散搬到文本上，关键的概念对应是什么？",
+    o:["图像的像素对应文本的字符","图像的分辨率对应文本的上下文长度","图像的噪声对应文本的 mask token","图像的通道数对应文本的嵌入维度"],
+    a:2,
+    w:"讲者的原话：<b>noise is to images what the mask token is to text</b>。理由是 <b>mask is just a way for us to not have the information coming from one part of the sequence</b>——遮住一个 token 就是把那部分信息拿掉，正是「加噪」在做的事。于是正向过程 = 逐步遮住更多 token，反向过程 = 学会揭开。⚠ 第二讲 BERT 的 MLM 在这里被<b>重新解释</b>成了扩散的正向过程。<s>其余三项</s>都只是表面的类比，<b>无法支撑「逐步破坏再逐步恢复」这个扩散所需的操作</b>。"});
+});
+
+KP("5 · 文本扩散：<b>mask 就是噪声</b>　<small>讲义 p90–94</small>",function(){
+  /* 钩子 */
+  S(4446,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"自回归","b");
+      note("要生成 500 个 token",340,195,"b");
+      note("就要 <b>500 次</b>前向",340,243,"r");
+      boxNode(730,105,440,58,"扩散","g");
+      note("要跑多少<b>扩散步</b>",950,195,"g");
+      note("而步数<b>由你定</b>，通常远少于 500",950,243,"g");
+      note("有基准说快约 <b>10 倍</b>",640,352,"y");
+      setCap("这是它最核心的卖点。");
+    },"上一集讲了机制，<b>这一集讲它到底值不值。</b>  <b>核心优势只有一句话：</b>  讲者：previously you had to do <b>as many forward passes as there are tokens to predict</b>. But here for diffusion, you only need to do <b>as many passes as there are steps in your diffusion process</b>, and the number of steps <b>is something you can fix</b>.  <b>生成 500 个 token，自回归要跑 500 次前向；扩散跑的次数等于扩散步数，而步数是你定的。</b>  <b>而且他给了这个权衡的形状</b>：<em>步数越多质量越高，但通常远少于输出长度</em>。  <b>有基准报出约 10 倍的加速。</b>  ⚠ <b>注意这是一个全新的旋钮：你可以在「质量」和「速度」之间连续地选位置，而自回归没有这个自由度——它的前向次数被输出长度钉死了。</b>");
+  /* 错误答案 */
+  S(4458,function(){
+      clearScene();setEq(null);
+      setBig("快 10 倍，那还用自回归干什么","赶紧全换了吧");
+      setCap("<s>性能曾经跟不上</s> —— 讲者的措辞很谨慎，值得照抄。");
+    },"快 10 倍听起来已经可以定胜负了。<b>但讲者的措辞相当谨慎，值得完整看一遍：</b>  <b>these models, they look great. What I mentioned to you looks great. But the performance was not on par with the current frontier models, at least for some time. But it's something that may change.</b>  <b>拆开看他说了什么：</b> · <b>「性能一度不及前沿模型」</b>——<em>这是过去式</em>。 · <b>「至少有一段时间是这样」</b>——<em>限定了时间范围</em>。 · <b>「这可能会变」</b>——<em>不下定论</em>。  然后他给了证据：<b>他提到的那些论文正在发布「追上自回归模型」的性能数字</b>——so there is some promise in there。  ⚠ <b>这种措辞方式本身值得学：对一个正在变化的方向，既说清楚当前状态，也不假装知道结局。</b>  <b>下面看它的另一个优势，以及还缺什么。</b>");
+  /* 铺陈 */
+  S(4470,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,330,56,"前面的代码","g");
+      boxNode(470,110,340,56,"？？？","r");
+      boxNode(840,110,320,56,"后面的代码","g");
+      note("自回归：只能从左往右，<b>看不见后面</b>",640,230,"b");
+      note("扩散：<b>两边都看得见</b>，天然适合",640,290,"g");
+      note("这类任务有名字：<b>fill in the middle</b>",640,358,"y");
+      setCap("而这正是写代码时最常见的情形。");
+    },"<b>第二个优势和速度无关，是能力上的。</b>  讲者提到一类任务：<b>fill in the middle</b>（补中间）——<em>你有一段代码，中间缺了一块，要把它补上</em>。  <b>自回归在这里很别扭</b>：它的机制是「<em>根据左边预测右边</em>」，<b>而这个任务的关键信息恰恰在右边</b>。<em>（实践中有各种技巧绕开，但都是绕）</em>  <b>而扩散天然就合适</b>。讲者：diffusion models are typically better formulated for these kinds of tasks because they can <b>consider input from multiple directions</b>。  ⚠ <b>原因在上一集：它的生成不按从左到右的顺序，每一轮每个位置都能看到当前已确定的全部内容——包括右边的。</b>  <b>而「补中间」正是写代码时最常见的情形</b>——<em>你很少从头写到尾，更多是在已有代码里插入和修改</em>。  <b>讲者也特意点了编程这个场景：代码任务往往要调好几次模型，而用户就在那儿等着，低延迟差别很大。</b>");
+  /* 主体 */
+  S(4482,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"为自回归设计的","y");
+      note("KV cache · 投机解码 · 推理链",340,195,"y");
+      note("都假设了「一个接一个往下生成」",340,243,"r");
+      boxNode(730,105,440,58,"在扩散上","r");
+      note("得重新想一遍怎么做",950,195,"r");
+      note("讲者：that is what people are working on",950,243,"g");
+      note("⚠ 一个新范式的真实成本，<b>远不止换掉核心算法</b>",640,352,"r");
+      setCap("生态的厚度，本身就是一种优势。");
+    },"讲者提到了另一条正在做的工作线，<b>而它揭示了换范式的真实成本</b>：  <b>the other line of work is just to adapt all the techniques that people have come up with. Like for instance, reasoning chains — how do you adapt that for diffusion? There are so many techniques that are intrinsically better suited for autoregressive kinds of models that can be adapted for that.</b>  ⚠ <b>想一下前八讲里有多少东西默认了自回归：</b> · <b>KV cache</b>（第三讲）——<em>缓存历史 K、V，前提是「历史是固定的、只往后加」</em>。 · <b>投机解码</b>（第三讲）——<em>小模型猜后面几个词，前提是「按顺序往下走」</em>。 · <b>推理链</b>（第三、六讲）——<em>先写思考再写答案，这个「先后」在扩散里是什么意思？</em> · <b>pass@k、温度采样</b>……  <b>这些全都要重新想一遍。</b>  ⚠ <b>这是一个很重要的、容易被低估的观察：一个新范式要赢，不只是核心算法更好，它还得把整个生态重建一遍。</b>  <em>而现有范式积累的那些技巧，本身就是它的护城河。</em>");
+  /* 主体 */
+  S(4494,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"借出去","g");
+      note("Transformer → 视觉（ViT）",340,195,"g");
+      note("Transformer → 图像生成（扩散 Transformer）",340,243,"g");
+      boxNode(730,105,440,58,"借回来","y");
+      note("扩散 → 文本（MDM）",950,195,"y");
+      note("两个方向<b>同时在发生</b>",640,330,"r");
+      setCap("讲者：things we saw could be used in other domains, <b>and vice versa</b>。");
+    },"讲者在结束这一段时做了一个总结，<b>而它是本片的主题句</b>：  <b>what we saw was that things we saw in this class could be used in other domains — for instance, the vision transformer. But we also saw that things from other domains could also be used in the text world. And that's what we saw with diffusion LLMs.</b>  <b>两个方向同时在发生：</b> · <b>借出去</b>：Transformer → 视觉（<em>ViT</em>）、图像生成（<em>扩散 Transformer——注意那些模型的内核也是自注意力</em>）、推荐、语音。 · <b>借回来</b>：扩散 → 文本（<em>MDM</em>）。  ⚠ <b>而第七集会看到更细的互借：DeepSeek OCR 的视觉 token、2D 版的 RoPE。</b>  <b>这件事对「怎么学这个领域」有直接的含义：</b>  <em>如果你只盯着 LLM 的论文，你会错过那些即将被借过来的东西。而当它们被借过来时，你会觉得它「突然出现」——其实它在隔壁已经成熟很久了。</em>");
+  /* 反驳 */
+  S(4506,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"已经确定的","g");
+      note("机制说得通 · 速度优势是真的",340,195,"g");
+      note("补中间这类任务确实更合适",340,243,"g");
+      boxNode(730,105,440,58,"⚠ 还不确定的","r");
+      note("性能能不能完全追平",950,195,"r");
+      note("生态能不能补齐",950,243,"r");
+      note("讲者：<b>a very trendy and hot direction that potentially has a lot of promise</b>",640,352,"y");
+      setCap("「potentially」那个词是他自己加的。");
+    },"最后把这个方向的状态说准。  讲者对它的整体评价是：<b>a very trendy and hot direction that potentially has a lot of promise</b>。  ⚠ <b>注意 potentially 这个词是他自己加的限定。</b>  <b>已经确定的</b>： · 机制说得通（<em>mask 就是噪声</em>）。 · 速度优势是真的（<em>前向次数与输出长度解耦</em>）。 · 补中间这类任务确实更合适。  <b>还不确定的</b>： · <b>性能能不能完全追平前沿的自回归模型</b>——<em>在追，但还没到</em>。 · <b>生态能不能补齐</b>——<em>推理链、各种推理优化都要重做</em>。  ⚠ 他还给了一个时间线，很说明问题：<b>第一篇论文大约在 2020 年代初就有了，但「只是现在人们才开始让它真正работать」</b>（<em>it's only now that people are starting to have this really work</em>）。  <b>——一个想法从提出到可用，隔了四五年。这个节奏值得记住：看到一个新方向时，它可能既不像宣传的那么近，也不像怀疑者说的那么远。</b>");
+  SUM(4446,5,{h:"扩散 LLM 快在哪，以及还缺什么",
+    k:"核心优势：<b>前向次数从「有多少 token」变成「跑多少扩散步」</b>，而步数<b>由你定</b>，通常远少于输出长度 —— 有基准报约 <b>10 倍</b>加速。第二个优势：<b>fill in the middle</b>（补中间）天然更合适，因为它<b>两边都看得见</b>。",
+    m:"⚠ 换范式的真实成本<b>远不止换核心算法</b>：KV cache、投机解码、推理链、采样策略<b>全都默认了自回归</b>，都要重新想一遍。<b>现有范式积累的技巧本身就是它的护城河。</b>",
+    w:"<s>别急着下结论</s>：讲者的措辞很谨慎 —— 性能「<b>曾经</b>不及前沿模型，<b>至少有一段时间</b>，但<b>这可能会变</b>」；现在那些论文正在发布追平的数字。",
+    e:"这一段的主题句：<b>things we saw could be used in other domains, and vice versa</b> —— 借出去（Transformer→视觉/图像生成）与借回来（扩散→文本）<b>同时在发生</b>。⚠ 时间线很说明问题：<b>第一篇论文在 2020 年代初，而「现在才开始真正能用」</b> —— 一个想法从提出到可用隔了四五年。"});
+  QUIZ(4446,5,{t:"扩散 LLM 相比自回归模型的核心速度优势来自哪里？",
+    o:["它的模型参数量更小，单次前向更快","它可以把多个请求合并成一个批次处理","它不需要 KV cache，因此省去了显存读写","前向次数等于扩散步数，而步数由你设定，通常远少于输出 token 数"],
+    a:3,
+    w:"自回归要跑<b>和 token 数一样多</b>的前向；扩散跑的次数等于<b>扩散步数</b>，而讲者明说 <b>the number of steps is something you can fix</b>，且通常远少于输出长度——有基准报约 10 倍。⚠ 这还给了一个<b>自回归没有的旋钮</b>：在质量和速度之间连续选位置。<s>「参数量更小」</s>与范式无关。<s>「批处理」</s>自回归同样可以批处理。<s>「不需要 KV cache」</s>方向反了——<b>KV cache 是自回归的优化手段</b>，扩散用不上它反而是需要重新设计优化的地方。"});
+});
+
+KP("6 · 扩散 LLM 快在哪，以及现在到哪了　<small>讲义 p95–98</small>",function(){
+  /* 钩子 */
+  S(4770,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"大件的借用","g");
+      note("Transformer → 视觉 · 扩散 → 文本",340,195,"g");
+      boxNode(730,105,440,58,"零件级的借用","y");
+      note("输入表示 · 位置编码 · 训练技巧",950,195,"y");
+      note("这一集讲后者 —— 它们更不起眼，但同样有启发",640,330,"g");
+      setCap("讲者用的词是 <b>cross-pollination</b>（互相授粉）。");
+    },"前几集讲的是<b>整个范式</b>的借用。这一集讲更细的一层：<b>零件级的互相借鉴。</b>  讲者用的词是 <b>cross-pollination</b>（互相授粉），<em>而且他举的例子都很具体</em>。  <b>先补一个方向上的事实</b>：图像那边传统上用卷积，而这些论文发现<b>把卷积换成 Transformer 效果更好</b>——<em>所以现在那些最新的图像扩散模型，内核用的都是 Transformer</em>。  <b>也就是说：扩散这个框架被借到了文本，而 Transformer 这个架构被借到了图像——两件事同时发生在同一对领域之间。</b>  <b>这一集看三个更细的例子，其中第一个尤其有意思——它可能动摇一个你从第一讲起就默认的东西。</b>");
+  /* 错误答案 */
+  S(4782,function(){
+      clearScene();setEq(null);
+      setBig("OCR 就是把扫描件转成文字","那是个很老的、很窄的任务");
+      setCap("<s>那篇论文真正展示的不是 OCR</s> —— 它展示的是<b>表示的密度</b>。");
+    },"讲者提到了一篇<b>刚出来不久</b>的论文：<b>DeepSeek OCR</b>。  <b>而他立刻说：别被名字骗了。</b>  OCR（光学字符识别）听起来是个很老很窄的任务——<em>把扫描的图片变成文字</em>。  <b>但讲者指出：contrary to what the name suggests, that paper doesn't boast some improvements on the OCR task itself.</b>  <b>它真正展示的是另一件事</b>，而且那件事对 LLM 的基础假设有冲击。  ⚠ <b>这本身是个值得学的阅读习惯：一篇论文的标题说的是它做了什么实验，而它的价值常常在于那个实验顺带证明了什么。</b>");
+  /* 铺陈 */
+  S(4794,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,440,58,"很少的<b>视觉</b> token","g");
+      arrow(554,139,660,139,"sm",0);
+      boxNode(680,110,480,58,"能重建出<b>多得多</b>的文本 token","y");
+      note("也就是说：图像 patch 作为表示，<b>装得下很多东西</b>",640,250,"g");
+      note("有人据此 argue：<b>分词器本来就不是最好的工具</b>",640,330,"r");
+      setCap("⚠ 这动摇的是第一讲就默认下来的东西。");
+    },"<b>那篇论文真正展示的是：可以用很少的视觉 token，重建出多得多的文本 token。</b>  讲者：it showed that you could learn some function that reconstructs text tokens based on vision tokens — <b>and not only on vision tokens, on very few vision tokens</b>. So it showed that <b>the representation power of patches of images as tokens was very strong</b>.  ⚠ <b>想清楚这意味着什么：</b>  <em>一段文字，如果渲染成图片再切成 patch，所需要的 token 数可能远少于把它分词之后的 token 数。而信息并没有丢——因为能重建回来。</em>  <b>于是有人据此提出了一个很大胆的论点，讲者转述了它：</b>  <b>tokenizers are not the best tool anyway.</b>  他给的例子很具体：<b>emoji 这类东西，用文本 token 表示要占掉很多个，而在图像 patch 里它就是一小块。</b>  ⚠ <b>分词是第一讲就被当作前提接受下来的东西。而这篇论文提示：它可能不是必需的。</b>");
+  /* 主体 */
+  S(4806,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"第二讲的 RoPE","b");
+      note("一维：token 在序列里的位置",340,195,"b");
+      boxNode(730,105,440,58,"2D RoPE","g");
+      note("二维：patch 在图像里的 (行, 列)",950,195,"g");
+      note("图文混合时，两种 token 的位置要能<b>统一表达</b>",640,300,"y");
+      note("同一个数学工具，换个维度继续用",640,358,"g");
+      setCap("第二讲那四集，在这里有了一个意外的续集。");
+    },"第二个例子：<b>RoPE 被推广到了二维。</b>  <em>回忆第二讲第四集：RoPE 把 q 和 k 各自旋转一个由位置决定的角度，于是点积只依赖相对距离。那里的「位置」是一维的——token 在序列里的第几个。</em>  <b>而图像的 patch 有两个坐标：第几行、第几列。</b>  讲者：in the case of images or even multi-modal settings where you have both text and image within the architecture, <b>you're able to adapt that trick by reformulating it in 2D</b>。  <em>他说那张图展示了怎么在两个维度上分配 RoPE 的位置，以及怎么安排文本 token 的位置，使得相对位置的计算仍然说得通。</em>  ⚠ <b>这个例子的启发在于：RoPE 的核心不是「一维序列」，而是「用旋转把位置编码成相对关系」。</b>  <em>一旦看清这一点，推广到二维甚至更高维就是自然的。</em>  <b>而这正是第二讲那四集花那么多时间推导它的价值——理解了机制，才知道它能被推广到哪里。</b>");
+  /* 主体 */
+  S(4818,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"只盯 LLM 论文","r");
+      note("新东西会「突然出现」",340,195,"r");
+      note("而它在隔壁可能已经成熟很久了",340,243,"r");
+      boxNode(730,105,440,58,"知道隔壁在做什么","g");
+      note("能看出哪些东西<b>即将被借过来</b>",950,195,"g");
+      note("扩散从 2020 年代初到现在才可用 —— 窗口很长",640,352,"y");
+      setCap("讲者：<b>keep an open mind</b>。这不是客套话。");
+    },"<b>把这几集的事实合起来，对「怎么跟这个领域」有一个很实际的推论。</b>  <b>如果你只读 LLM 的论文，那些被借过来的东西对你来说会是「突然出现」的。</b>  <em>而事实上它们在隔壁可能已经成熟了很多年。扩散就是个例子——讲者说第一篇论文在 2020 年代初就有了，而「现在才开始真正能用」。</em>  <b>这中间隔了四五年的窗口。</b>在那个窗口里，<em>知道图像那边在做什么的人，比只读 LLM 论文的人早很多就看到了这条路</em>。  ⚠ <b>所以讲者那句 keep an open mind for non-text applications 不是客套话</b>，<em>它是一个关于「信息从哪里来」的实际建议</em>。  <b>而反过来也成立：这门课教给你的东西（注意力、位置编码、归一化、RL 微调），在视觉、语音、推荐里同样用得上。</b>  <em>你学的不是「LLM 的技术」，是「序列建模的技术」。</em>");
+  /* 反驳 */
+  S(4830,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"确实在发生的","g");
+      note("架构、输入表示、技巧在互相迁移",340,195,"g");
+      boxNode(730,105,440,58,"⚠ 不成立的推论","r");
+      note("「所有模态最终会用同一套东西」",950,195,"r");
+      note("每次迁移都要<b>重新适配</b>（2D RoPE 就是例子）",950,243,"r");
+      note("能迁移的是<b>机制</b>，不是<b>具体实现</b>",640,352,"y");
+      setCap("下一集：连 Transformer 自己的零件都还在被换。");
+    },"最后压一下这一集的叙事。  <b>「各个模态在互相借鉴」是事实。但不要据此推论「所有模态最终会收敛到同一套东西」。</b>  ⚠ <b>看一下每次借用实际发生了什么：</b> · 扩散<b>不能</b>直接用在文本上——<em>必须先把噪声换成 mask（第四集）</em>。 · RoPE <b>不能</b>直接用在图像上——<em>必须重新表述成二维（这一集）</em>。 · Transformer 用在图像上<b>需要</b>先定义 patch 和投影（第一集）。  <b>每一次迁移，都要针对新模态的性质做实质性的改造。</b>  ⚠ <b>所以能迁移的是「机制」，不是「具体实现」。</b>  <em>「用旋转编码相对位置」可以迁移；「这个具体的一维 RoPE 公式」不行。「逐步破坏再逐步恢复」可以迁移；「加高斯噪声」不行。</em>  <b>而这恰恰说明了为什么要理解机制，而不只是记住做法——记住做法的人没法完成迁移。</b>  <b>下一集会看到更极端的：连 Transformer 自己内部的零件，都还在被不断替换。</b>");
+  SUM(4770,6,{h:"零件级的互相借用：OCR、2D RoPE",
+    k:"讲者用的词是 <b>cross-pollination</b>。图像那边<b>把卷积换成 Transformer</b> 效果更好（现在的图像扩散模型内核都是 Transformer）；而扩散被借到文本 —— <b>两件事同时发生在同一对领域之间</b>。",
+    m:"⚠ <b>DeepSeek OCR</b> 真正展示的不是 OCR 更好了，而是<b>可以用很少的视觉 token 重建出多得多的文本 token</b> —— 图像 patch 作为表示<b>信息密度极高</b>。有人据此 argue <b>tokenizers are not the best tool anyway</b>（emoji 就是例子），<b>而分词是第一讲就默认下来的前提</b>。",
+    w:"<b>2D RoPE</b>：第二讲那个一维的 RoPE 被<b>重新表述成二维</b>（patch 的行列坐标），用在图文混合架构里。它的核心不是「一维序列」，而是<b>用旋转把位置编码成相对关系</b> —— 看清这一点，推广就是自然的。",
+    e:"对「怎么学」的推论：<b>只盯 LLM 论文，新东西会「突然出现」</b>，而它在隔壁可能已成熟多年（扩散隔了四五年）。⚠ 但别读成「万物归一」：每次迁移都要<b>实质改造</b>（噪声→mask、1D→2D RoPE）。<b>能迁移的是机制，不是具体实现</b> —— 这正是要理解机制而非记住做法的理由。"});
+  QUIZ(4770,6,{t:"讲者提到 DeepSeek OCR，主要是为了说明什么？",
+    o:["光学字符识别的准确率有了显著提升","OCR 任务可以完全替代文本分词器在生产中的作用","很少的视觉 token 就能重建出多得多的文本 token，说明图像 patch 的表示密度很高","视觉编码器可以直接复用文本模型的词表"],
+    a:2,
+    w:"讲者明说 <b>contrary to what the name suggests, that paper doesn't boast improvements on the OCR task itself</b>；它展示的是 <b>the representation power of patches of images as tokens was very strong</b>——用<b>很少</b>的视觉 token 就能重建出文本。有人据此 argue「tokenizers are not the best tool anyway」。<s>「准确率提升」</s>正是讲者否认的那一点。<s>「完全替代分词器」</s>讲者转述的是一个<b>论点</b>，不是已成立的结论。<s>「复用词表」</s>视觉 token 与文本词表是两套东西。"});
+});
+
+KP("7 · <b>互相借</b>：OCR、2D RoPE，以及还没定下来的那些　<small>讲义 p100–108</small>",function(){
+  /* 钩子 */
+  S(5130,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,250,50,"优化器","y");
+      boxNode(390,100,250,50,"归一化","y");
+      boxNode(670,100,250,50,"激活函数","y");
+      boxNode(950,100,210,50,"注意力变体","y");
+      boxNode(390,170,500,50,"层数 · 头数 · 要不要 MoE","y");
+      note("这些你都以为「已经定了」",640,270,"b");
+      note("讲者：<b>none of this is set in stone</b>",640,348,"r");
+      setCap("前八讲把它们当常识用。这一集说：它们都还在被改。");
+    },"前八讲里，有一堆东西是被当作<b>既定事实</b>用的：<em>用 Adam 优化器、用 Pre-Norm + RMSNorm、用某种 ReLU 类激活、注意力用 GQA……</em>  <b>这一集讲者说：这些全都还在动。</b>  他的措辞很直接：<b>the ongoing research for transformers is very much alive and people are still figuring out all the details that we're working with today.</b>  <b>逐项看他点到的：</b> · <b>优化器</b> · <b>归一化</b>（<em>位置和类型都在变</em>） · <b>注意力变体</b> · <b>激活函数</b> · <b>要不要 MoE、多少层、多少头、FFN 多宽</b>  <b>他对每一项的结论是同一句：still up for debate、not set in stone、research is still ongoing。</b>  ⚠ <b>这一集的价值不在于记住哪个新方法，而在于校准你对「这个领域有多确定」的判断。</b>");
+  /* 错误答案 */
+  S(5142,function(){
+      clearScene();setEq(null);
+      setBig("Adam 用了快十年了，这个总不会变","它是最基础的那一层");
+      setCap("<s>正在被挑战</s>：Kimi K2 的 <b>Muon / MuonClip</b>。");
+    },"<b>如果说有什么应该已经定下来，那大概是优化器。</b>  <em>Adam 从 2014 年开始就是默认选择，第四讲讲显存时你还算过它的一阶矩和二阶矩。它几乎是整个深度学习的地基。</em>  <b>而讲者说它正在被挑战：</b>  <b>you might be familiar with the Adam optimizer and its update rule, which has been popular for quite some time. And it seems that state is being challenged with newer papers.</b>  他点名了 <b>Kimi K2</b> 那篇论文里的新优化器 <b>Muon</b>，以及它的新版本 <b>MuonClip</b>，并说后者 <b>seems to be a potential candidate for this optimizer to become the new standard</b>。  ⚠ <b>注意他的措辞：seems to be a potential candidate</b>——<em>三重限定，没下断言</em>。  <b>但光是「Adam 可能被换掉」这件事本身，就足以说明这个领域的地基有多新。</b>  <em>讲者的总结：so this field, even as basic as it can be, is still developing.</em>");
+  /* 铺陈 */
+  S(5154,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"位置变过","y");
+      note("Post-Norm → <b>Pre-Norm</b>",340,195,"y");
+      boxNode(730,105,440,58,"类型也变过","g");
+      note("LayerNorm → <b>RMSNorm</b>",950,195,"g");
+      note("第二讲第五集讲的就是这两次变化",640,300,"b");
+      note("⚠ 而讲者说：<b>理论还没定下来</b>",640,358,"r");
+      setCap("你已经学过一次「它变了」。这里是「它还会变」。");
+    },"<b>归一化这一项，你已经亲眼见过它变了。</b>  <em>第二讲第五集讲的正是这件事：原论文用的是 Post-Norm + LayerNorm，现在用的是 Pre-Norm + RMSNorm。位置变了，类型也变了。</em>  <b>而讲者在这里补了一句关键的话：</b>  <b>so the theory behind it is not set just yet.</b>  ⚠ <b>请体会这句话的分量：</b>  <em>我们知道 Pre-Norm 比 Post-Norm 好用，知道 RMSNorm 参数更少而效果相当——但「为什么」这件事，理论上还没说清楚。</em>  <b>也就是说：这是一个经验先行、理论滞后的领域。</b>  ⚠ 而这正好解释了第二讲第五集那个诚实的标注：<em>当时我说「梯度/残差通路那套解释是补的，讲者只说了『换了位置』这个事实」</em>——<b>讲者之所以只说事实，很可能正是因为理论本身还没定论。</b>  <b>不乱给解释，是一种专业素养。</b>");
+  /* 主体 */
+  S(5166,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"注意力","y");
+      note("MHA / GQA / MQA / 滑窗……",340,195,"y");
+      note("⚠ 同一个模型里<b>不同层可以用不同的</b>",340,243,"r");
+      boxNode(730,105,440,58,"激活函数","g");
+      note("传统深度学习：ReLU 一统天下",950,195,"b");
+      note("LLM 这边：GELU 一类，<b>还在出新的</b>",950,243,"g");
+      note("讲者：<b>not a fixed design, every paper adopts their own</b>",640,352,"y");
+      setCap("这解释了为什么读不同论文时配置总对不上。");
+    },"<b>注意力</b>：讲者说现在的 LLM 论文里 <b>not a fixed design. Rather every paper adopts their own technique.</b>  ⚠ 而且他点了一个更细的事实：<b>sometimes you see one kind of attention used at a given layer, but then it switches</b>——<em>同一个模型里，不同层可以用不同的注意力变体</em>。  <em>（第二讲第六集那个「有的层局部、有的层全局，交错着来」就是这件事。）</em>  <b>激活函数</b>：传统深度学习里 <b>ReLU</b> 几乎一统天下——<em>简单，好用</em>。而 LLM 这边转向了「<b>类 ReLU 但不是 ReLU</b>」的那一族，讲者点了 <b>GELU</b>（Gaussian Error Linear Unit），并说 <b>the research there is still ongoing，新的激活函数时不时还会出现</b>。  ⚠ <b>这解释了一件读论文时常遇到的困惑：为什么每篇论文的配置都对不上？</b>  <em>因为确实没有标准配置。每个团队都在自己的约束下做选择，而这些选择大多没有理论依据，是试出来的。</em>  <b>所以看到一个陌生的配置时，该问的不是「谁对」，而是「它在什么约束下做了这个选择」。</b>");
+  /* 主体 */
+  S(5178,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"Transformer 是最好的架构吗？","y");
+      note("讲者的回答：<b>it is not clear</b>",640,215,"r");
+      note("而且这本身就是一个<b>研究方向</b>",640,268,"g");
+      boxNode(290,320,700,50,"未来的突破可能来自<b>重新设计架构</b>","g");
+      setCap("连这门课的主角，都没有被当作终点。");
+    },"最后这一条最彻底。讲者说：  <b>even taking a step back on the very architecture we've been using all along — is it the best one? It's not clear. So that itself is an area of research. And future breakthroughs might come from redesigning this architecture.</b>  ⚠ <b>这门课叫《Transformers &amp; Large Language Models》，而讲者在最后一讲说：Transformer 未必是最好的架构，而且重新设计它本身就是一个研究方向。</b>  <b>这个态度值得学。</b>  <em>一门课讲了九周某个东西，很容易把它当成天经地义。而讲者在结尾主动拆掉了这个假设。</em>  ⚠ <b>对照第一讲：Transformer 之所以出现，正是因为有人问了「RNN 的逐级传递是必须的吗」。</b>  <em>那个问题在当时同样是在质疑一个「天经地义」的东西。</em>  <b>所以下一次突破如果来自「Transformer 的某个前提其实不必要」，那它和第一讲的故事会是同一个形状。</b>");
+  /* 反驳 */
+  S(5190,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"会变的","y");
+      note("具体的优化器 · 激活函数 · 配置",340,195,"y");
+      boxNode(730,105,440,58,"不太会变的","g");
+      note("<b>为什么需要</b>归一化、位置、注意力",950,195,"g");
+      note("那些<b>约束</b>和<b>权衡</b>",950,243,"g");
+      note("学机制，而不是学配置 —— 这是本片的方法论",640,352,"r");
+      setCap("下一集换个话题：数据这边出了个新麻烦。");
+    },"这一集可能让人产生一种虚无感：<b>既然什么都在变，那学这些有什么用？</b>  <b>要分清哪些在变、哪些不变。</b>  <b>会变的</b>：<em>具体用哪个优化器、哪个激活函数、多少层、GQA 的组数</em>——<b>这些是配置</b>。  <b>不太会变的</b>： · <b>为什么需要归一化</b>——<em>激活值的量级会漂，下一层不好学</em>。这个问题不会消失。 · <b>为什么需要位置信息</b>——<em>直连丢了词序</em>。只要还用自注意力，这就成立。 · <b>为什么要在「表达能力」和「成本」之间权衡</b>——<em>这是永恒的</em>。  ⚠ <b>而且这一讲第六集刚说过：能迁移的是机制，不是实现。</b>  <em>如果你记的是「用 RMSNorm」，那换成别的归一化你就不知道该怎么办；如果你理解的是「归一化在治什么病」，那你能判断任何一个新方案。</em>  <b>这也正是本系列每一集都要讲「为什么」而不只是「是什么」的原因。</b>");
+  SUM(5130,7,{h:"连地基都还在动：none of this is set in stone",
+    k:"讲者逐项点名：<b>优化器</b>（Adam 被 Kimi K2 的 <b>Muon/MuonClip</b> 挑战）· <b>归一化</b>（位置与类型都变过，而<b>理论还没定</b>）· <b>注意力变体</b>（每篇论文各选各的，<b>同一模型不同层还能用不同的</b>）· <b>激活函数</b>（ReLU → GELU 一类，仍在出新）· 层数/头数/MoE 与否。",
+    m:"⚠ 最彻底的一条：<b>Transformer 是不是最好的架构？讲者答 it is not clear</b>，而且重新设计它本身就是研究方向。这与第一讲同构 —— <b>Transformer 的出现，正是因为有人质疑了「逐级传递是必须的」这个天经地义</b>。",
+    w:"归一化那条暴露了这个领域的性质：我们知道 Pre-Norm 和 RMSNorm 更好用，<b>但「为什么」理论上还没说清</b> —— <b>经验先行、理论滞后</b>。（这也解释了第二讲讲者为何只陈述事实、不给解释。）",
+    e:"⚠ 「还在变」<b>不等于</b>「不用学」：<b>会变的是配置</b>（用哪个优化器/激活/组数），<b>不变的是机制</b>（为什么需要归一化、位置、权衡）。<b>记配置的人没法应对变化，理解机制的人能判断任何新方案</b> —— 这也是上一集「能迁移的是机制不是实现」的同一条。"});
+  QUIZ(5130,7,{t:"讲者说「none of this is set in stone」，最彻底的一条体现在哪里？",
+    o:["注意力变体没有统一标准，每篇论文各选各的","Adam 优化器正被 Muon/MuonClip 这类新方法挑战","激活函数从 ReLU 转向了 GELU 一类且仍在出新","他说 Transformer 架构本身是不是最好的「it is not clear」，重新设计它就是一个研究方向"],
+    a:3,
+    w:"前三项都是<b>零件级</b>的不确定；而讲者在最后一讲说<b>这门课的主角本身</b>未必是最好的架构——<b>is it the best one? It's not clear. That itself is an area of research, and future breakthroughs might come from redesigning this architecture.</b> ⚠ 这与第一讲同构：Transformer 的出现正是因为有人质疑了「逐级传递是必须的」这个天经地义。<s>其余三项</s>都是真的，但它们质疑的是<b>零件</b>，不是<b>整个框架</b>。"});
+});
+
+KP("8 · 数据被自己污染了：<b>模型坍缩</b>　<small>讲义 p109–115</small>",function(){
+  /* 钩子 */
+  S(5520,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"早期的互联网","g");
+      note("爬下来的东西<b>确定是人写的</b>",340,195,"g");
+      boxNode(730,105,440,58,"现在","r");
+      note("讲者：搜索结果里可能 <b>80% 是 LLM 生成的</b>",950,195,"r");
+      note("而下一代模型要在这上面训练",640,320,"r");
+      setCap("第四讲那个「数据是预训练的燃料」，燃料本身变了。");
+    },"换个话题。<b>这一集讲一个新出现的、而且相当棘手的问题。</b>  <b>早期训练 LLM 有一个现在看来很奢侈的条件：你爬下来的互联网文本，确定是人写的。</b>讲者：you could scrape the internet and hope for a lot of data that was <b>for sure human generated</b>。  <em>虽然格式上未必「高质量」，但它确实出自人手。</em>  <b>现在不一样了。</b>讲者说得很直白：<b>you type anything you want in your favorite search browser. Chances are the first results are 80% LLM generated.</b>  ⚠ <b>想清楚这个循环：模型在互联网上训练 → 模型生成的内容填满互联网 → 下一代模型在这些内容上训练。</b>  <b>这会出什么问题？下面两镜。</b>");
+  /* 错误答案 */
+  S(5532,function(){
+      clearScene();setEq(null);
+      setBig("LLM 写的东西通顺、少错别字","拿来训练好像也没什么不好");
+      setCap("<s>问题不在单条质量，在<b>分布</b></s> —— LLM 生成的文本<b>多样性更低</b>。");
+    },"一个很自然的辩护：<b>LLM 写的东西通顺、结构清楚、错别字少，质量未必比随手写的网页差。</b>  <b>这个辩护看错了地方。</b>  ⚠ <b>问题不在单条文本的质量，在整批数据的分布。</b>  讲者引的那篇论文给出了关键：<b>LLM generated text is typically less diverse.</b>  <em>想想第三讲那些采样策略——top-k、top-p、温度。它们做的事全都是「切掉长尾」。模型生成时系统性地避开低概率的说法、罕见的表达、不寻常的句式。</em>  <b>每一条单看都很好。但把它们合起来，整个分布比人类写的窄得多。</b>  <b>而模型是在学分布，不是在学单条句子。</b>  ⇒ <b>于是后果是：模型学到的分布越来越窄，一代比一代窄。</b>");
+  /* 铺陈 */
+  S(5544,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,180],[300,250],[420,330],[540,360],[660,330],[780,250],[900,180],[1060,160]],"fit");
+      note("第一代：学人类写的，分布很宽",300,140,"g");
+      curve([[420,360],[520,290],[620,240],[720,290],[820,360]],"fit g");
+      note("后一代：学上一代生成的，<b>窄了一圈</b>",900,250,"r");
+      note("讲者引的那篇论文：<b>model collapse</b>",640,392,"r");
+      setCap("它不是「变笨」，是<b>分布塌缩</b>。");
+    },"这个现象有名字：<b>model collapse</b>（模型坍缩）。  讲者的转述：LLM generated text is typically less diverse. <b>So the data distribution that you would see at training time changes, and it leads to less meaningful learning at training time.</b>  <b>机制是逐代累积的：</b> ① 第一代模型学人类写的文本，<em>学到一个相对完整的分布</em>。 ② 它生成的文本<b>只覆盖这个分布中间那一块</b>（因为采样时切掉了尾部）。 ③ 第二代在这些文本上训练，<b>学到的分布就是那一块</b>。 ④ 它再生成，<b>又窄一圈</b>……  ⚠ <b>关键是要理解这不是「模型变笨」，而是「分布塌缩」。</b>  <em>模型在它学到的那个窄分布上可能表现得非常好——流利、自信、不出错。而它丢掉的，是那些罕见但重要的东西：边缘案例、少数语言、不寻常的表达方式、真正新的想法。</em>  <b>而丢掉的东西，正因为罕见，所以也最难被评测发现。</b>");
+  /* 主体 */
+  S(5556,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"过去","y");
+      note("爬全网 → 直接做下一词预测",340,195,"y");
+      boxNode(730,105,440,58,"现在","g");
+      note("<b>数据策展</b>：挑、洗、配比",950,195,"g");
+      note("已经有公司专门做这件事",950,243,"g");
+      note("新出现的阶段：<b>mid-training</b>",640,320,"r");
+      note("在预训练与微调之间 —— 规模仍大，但<b>质量更高</b>",640,375,"y");
+      setCap("讲者：<b>the picture is not all grim</b>。");
+    },"<b>讲者的态度不是悲观的</b>：<b>are we doomed? Maybe not.</b>  <b>他给了两个正在发生的变化：</b>  ① <b>数据策展（data curation）。</b>过去是 <em>scrape the whole internet and train next token prediction on it</em>；现在<b>越来越多的工作在挑选、清洗、配比数据集</b>——<em>而且已经有公司专门做这件事</em>。  ② <b>mid-training 这个新阶段。</b>讲者：in the past you had pre-training and then fine-tuning. <b>Now you have pre-training, mid-training, and fine-tuning.</b> 而 mid-training 的特点是 <b>still trains on a large corpus of data, but higher quality</b>。  ⚠ <b>注意这个阶段的位置很说明问题</b>：<em>它在「量大但脏」的预训练和「量小但精」的微调之间，补上了「量大且较精」这一档</em>。  <b>讲者的结论：I would say the picture is not all grim, but it's just that we need to do more work in order to have meaningful data at hand.</b>  <em>——不是没救，是要多花功夫。</em>");
+  /* 主体 */
+  S(5568,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"过去几年","y");
+      note("focus on <b>best performance</b>",340,195,"y");
+      note("大家都在刷同一批基准",340,243,"y");
+      boxNode(730,105,440,58,"接下来","g");
+      note("focus on <b>best quality / cost</b>",950,195,"g");
+      note("⇒ <b>SLM</b>（小语言模型）",950,243,"g");
+      note("讲者提到：有服务商<b>连最高档订阅都在亏钱</b>",640,352,"r");
+      setCap("第八讲那条帕累托前沿，在这里有了第二条边界。");
+    },"<b>讲者接着讲了他认为的下一个方向，而论据很实际。</b>  <b>过去几年的研究重心是「best performance」</b>——<em>大家盯着同一批基准，每次都想刷得更高。这很自然，因为你想要更强的模型</em>。  <b>但他提了一个假设性的问题：假如我们在乎的用例都被解决了呢？那之后呢？</b>  <b>他的判断：重心会转向「best quality/cost」</b>——<em>同样的质量，怎么做得更便宜</em>。于是出现了越来越小的模型，<b>文献里叫 SLM（small language models）</b>。  ⚠ <b>而他给的经济学论据很有说服力：</b>  <b>you hear sometimes LLM providers say that they lose money even on the highest tier plans.</b>  <em>连最贵的订阅都在亏钱——这说明推理成本的压力是真实的、迫在眉睫的，而不是一个理论上的优化方向。</em>  ⚠ <b>对照第八讲第九集那条帕累托前沿：之前大家都在「性能」那一个维度上竞争，现在「性能/成本」这条边界成了新战场。</b>");
+  /* 反驳 */
+  S(5580,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"GPU 擅长的","y");
+      note("<b>矩阵乘法</b>",340,195,"y");
+      note("但 Transformer 的需求不止于此",340,243,"r");
+      boxNode(730,105,440,58,"一个概念验证","g");
+      note("<b>模拟存内计算</b>：把运算做成硬件的<b>副产品</b>",950,190,"g");
+      note("延迟和能耗都有明显改善",950,238,"g");
+      note("⚠ 这门课一直把硬件当固定条件 —— 它其实也是变量",640,330,"r");
+      setCap("FlashAttention 那些折腾，根子在「硬件不是为它设计的」。");
+    },"最后一条，讲者说这是<b>这门课完全没碰过的一层：硬件</b>。  <b>他的论点很有启发性：GPU 擅长的是矩阵乘法，而我们一直在用它训练这些模型——但 Transformer 的需求不止于矩阵乘法。</b>  <em>他举的例子正是第四讲那个：qkᵀ 那部分很贵，而 FlashAttention 的全部工作，是在「不要在显存之间搬太多数据」这个约束下重新安排计算——哪怕要重算一些东西。</em>  ⚠ <b>讲者点破了这件事的本质：那么多工夫花在「优化显存里的数据流向」上，说明硬件架构和你要解决的问题并不匹配。</b>  <b>然后他提到一篇今年九月的论文：模拟存内计算（analog in-memory computing）。</b>  <em>思路是把这些运算直接编码进硬件：以模拟信号作为输入输出，利用电路本身的物理性质（他提到基尔霍夫定律那一类）让「加法」成为读出结果时的副产品，而不是一次需要执行的运算。</em>  <b>模拟结果显示延迟和能耗都有明显改善</b>——<em>讲者说这不意外，因为 you don't need to do the computations yourself, you just get them as a side effect of your hardware</em>。  ⚠ <b>这一讲的所有内容都在说同一件事：你以为固定的东西，很多其实是变量。</b>");
+  SUM(5520,8,{h:"数据被自己污染了，而前沿正在转向成本",
+    k:"早期能爬到「<b>确定是人写的</b>」互联网；现在讲者说搜索结果里可能 <b>80% 是 LLM 生成的</b>。后果是 <b>model collapse</b>：LLM 生成的文本<b>多样性更低</b>，拿它训练会让学到的分布一代比一代窄。",
+    m:"⚠ 关键是<b>问题不在单条质量，在分布</b>：第三讲那些采样策略（top-k/top-p/温度）做的全是「切掉长尾」，于是生成的文本系统性地避开罕见表达。而<b>模型学的是分布，不是单条句子</b>。丢掉的恰恰是罕见但重要的东西 —— <b>也最难被评测发现</b>。",
+    w:"对策不是没有：从「爬全网」转向<b>数据策展</b>，以及新出现的 <b>mid-training</b>（预训练与微调之间，<b>规模仍大但质量更高</b>）。讲者：<b>the picture is not all grim</b>，只是要多花功夫。",
+    e:"下一个前沿：从 <b>best performance</b> 转向 <b>best quality/cost</b> ⇒ <b>SLM</b>。论据很实际 —— <b>有服务商连最高档订阅都在亏钱</b>。⚠ 连硬件也是变量：GPU 擅长矩阵乘法而 Transformer 需求不止于此（FlashAttention 的折腾正说明不匹配），已有<b>模拟存内计算</b>的概念验证把运算变成硬件的<b>副产品</b>。"});
+  QUIZ(5520,8,{t:"「model collapse」指的是什么问题？",
+    o:["模型参数在长时间训练后发散，损失不再下降","多个模型合并时权重相互抵消，性能坍塌","模型在长上下文下注意力权重坍缩为 one-hot","用 LLM 生成的文本训练新模型，会因为生成文本多样性更低而使学到的分布一代比一代窄"],
+    a:3,
+    w:"讲者引的论文指出 <b>LLM generated text is typically less diverse</b>，于是训练时看到的<b>数据分布发生改变</b>，学到的东西变少。机制是逐代累积的：采样策略（top-k/top-p/温度）系统性切掉长尾 → 生成文本只覆盖分布中段 → 下一代学到的就是那一段 → 再窄一圈。⚠ 关键：<b>不是「变笨」，是「分布塌缩」</b>，丢掉的是罕见但重要的东西。<s>「发散」</s>是优化问题，与数据来源无关。<s>「权重抵消」</s>没有这回事。<s>「注意力 one-hot」</s>那是第一讲 √d_k 要防的 softmax 饱和，是另一回事。"});
+});
+
+KP("9 · 开放挑战，以及<b>怎么继续跟下去</b>　<small>讲义 p116–127</small>",function(){
+  /* 钩子 */
+  S(6240,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"权重在训练结束那一刻就固定了","r");
+      note("第四讲：知识截止日期",640,215,"y");
+      note("第七讲：RAG 和工具<b>只是绕开</b>它",640,268,"y");
+      boxNode(290,320,700,50,"能不能有一个<b>持续学习</b>的系统？","g");
+      setCap("讲者：<b>I think that is an open question</b>。");
+    },"最后一集是开放挑战和收尾。  <b>第一个挑战，是这门课从第四讲起就一直绕着走的那个：</b>  <b>模型的权重在训练结束那一刻就固定了，之后再也不变。</b>  <em>第四讲说过知识截止日期，以及「事后注入知识没有干净的办法」。第七讲的 RAG 和工具调用，本质上是在推理时把新信息喂进上下文——它们绕开了问题，没有解决问题。</em>  <b>讲者把真正的问题提了出来：</b>  <b>could we think of a system that learns continuously? I think that is an open question.</b>  ⚠ <b>注意这里的难点不是技术细节，而是一个根本矛盾：你希望它学会新东西，同时不破坏已经学会的东西。</b>  <em>而第四讲那句话——「没有干净的办法改权重而不损害别的部分」——说的正是这个矛盾还没解决。</em>");
+  /* 错误答案 */
+  S(6252,function(){
+      clearScene();setEq(null);
+      setBig("幻觉就是模型没训好","再多训训、再对齐对齐就能解决");
+      setCap("⚠ 讲者给「幻觉」这个词<b>打了引号</b> —— 而理由很根本。");
+    },"第二个挑战是<b>幻觉</b>。而讲者在提它的时候做了一件很有意思的事：  <b>他给这个词打了引号，并解释了为什么。</b>  <b>there is a topic of \"hallucinations\" which I put into quotation marks, because I'm not sure if it's fair to say that the LLM hallucinates — just because we've trained the LLM to predict the next token by nature, not map statements to facts. So hallucinating is, in some sense, a core design choice of these LLMs.</b>  ⚠ <b>把这段话读准，它很重要：</b>  <b>我们训练模型做的事是「预测下一个 token」，而不是「把陈述映射到事实」。</b>  <em>模型从来没有被要求说真话——它被要求的是说出「统计上最像下文的话」。大多数时候这两件事重合，于是看起来它在说真话；不重合时，它照样流畅地往下说。</em>  <b>所以「幻觉」不是故障，是目标函数的直接后果。</b>  ⚠ <b>这是第四讲第一集那条的最终形态：目标函数没有要求的，模型不会去做。</b>");
+  /* 铺陈 */
+  S(6264,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,250,50,"持续学习","r");
+      boxNode(390,100,250,50,"「幻觉」","r");
+      boxNode(670,100,250,50,"个性化","r");
+      boxNode(950,100,210,50,"可解释性","r");
+      boxNode(390,170,500,50,"安全　（讲者：the list goes on）","r");
+      note("⚠ 一个很好的试金石：<b>AI 客服到底好不好用</b>",640,275,"y");
+      note("讲者自己：一听到 AI 客服就想赶紧转人工",640,330,"b");
+      setCap("他说这正说明这个问题空间有多难。");
+    },"讲者列的挑战清单：<b>持续学习 · 「幻觉」· 个性化 · 可解释性 · 安全</b>，<em>然后他说 the list goes on</em>。  ⚠ <b>但他给了一个很好的试金石，而且很诚实：</b>  <b>他说自己每次打客服电话，一听到是 AI 助手，就「快快快，我要转人工」。</b>  <b>然后他指出这说明了什么：</b>  <b>it shows how hard this space is, because a human has way more dimensions of value that an LLM could bring — empathy, groundedness. There are some things that you and we perceive as things that make sense, even though they're not in our system prompts.</b>  ⚠ <b>最后半句是关键：「即便它们不在系统提示词里」。</b>  <em>人类客服知道什么时候该打破流程、什么时候该先共情再解决问题、什么时候一句「我明白这很让人恼火」比正确答案更重要。这些从来没有人写进规则，但人就是知道。</em>  <b>而这正是第八讲那条「规则覆盖不全」的终极版本：有些维度你根本写不出来。</b>");
+  /* 主体 */
+  S(6276,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,250,50,"arXiv","g");
+      boxNode(390,100,250,50,"NeurIPS 等会议","g");
+      boxNode(670,100,250,50,"HF trending","g");
+      boxNode(950,100,210,50,"X / Twitter","g");
+      boxNode(250,170,340,50,"YouTube","g");
+      boxNode(630,170,400,50,"公司博客 · 本课 cheatsheet","g");
+      note("⚠ 讲者特别强调的一条：<b>去读论文配套的代码库</b>",640,290,"r");
+      note("「it is very insightful to learn the concepts」",640,348,"y");
+      setCap("他提了两个名字：Yannic Kilcher、Andrej Karpathy。");
+    },"讲者花了一段讲<b>怎么保持跟进</b>，而且给得很具体：  · <b>arXiv</b>——<em>最新的论文都在那儿</em>。 · <b>NeurIPS 这类会议</b>——<em>会筛出一批值得看的</em>。 · ⚠ <b>读论文配套的代码库</b>——他特别强调了这一条：<b>it's now commonplace to just provide the implementation of what you're proposing. And I think it's very insightful to learn the concepts.</b> · <b>HuggingFace trending papers</b>——<em>他说它接替了以前的 Papers with Code</em>。 · <b>X / Twitter</b>——<em>社区讨论很活跃</em>。 · <b>YouTube</b>——他点了两个名字：<b>Yannic Kilcher</b>（<em>据他说是第一个详细讲解 Transformer 论文的 YouTuber</em>）和 <b>Andrej Karpathy</b>（<em>讲者称他是 one of the best educators out there</em>）。 · <b>公司博客</b>。 · <b>本课的 VIP cheatsheet</b>——<em>他们会按年更新，而且和各地专家合作出了多语言版本</em>。  ⚠ <b>「读代码」那一条值得单独记：论文写的是「我们做了什么」，代码写的是「到底怎么做的」——而两者之间常常差着一堆没写进论文的细节。</b>");
+  /* 主体 */
+  S(6288,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(190,110,900,60,"课上有同学一边听，一边拿 LLM 查相关概念","g");
+      note("讲者说这<b>很聪明</b>",640,215,"g");
+      note("因为「及时的反馈回路」对学习极其有用",640,268,"y");
+      boxNode(290,320,700,50,"「现在是学东西的好时候」","g");
+      setCap("他说比十年前好得多。");
+    },"讲者在结尾提了一个他在课堂上观察到的现象，<b>而且他很赞成</b>：  <b>有同学在听课时，一边听一边拿 ChatGPT 查相关的概念。</b>  他的评价：<b>I think it's very smart to do that, because brainstorming the concepts that you learn is great for actually grasping the concepts of interest. And getting that early feedback loop is very useful for learning.</b>  ⚠ <b>关键词是「及时的反馈回路」。</b>  <em>以前你听课时产生一个疑问，要么举手问（有社交成本，而且会打断），要么记下来回去查（大概率忘了）。现在那个疑问可以在三十秒内被解决，而且解决在你还记得上下文的时候。</em>  <b>讲者的结论很直接：I have a lot of hopes regarding how great of a time it is for you to learn, as opposed to maybe having a nice time maybe 10 years ago.</b>  <em>——现在是学东西的好时候，比十年前好得多。</em>  <b>而这句话对你看这部片子同样成立：有疑问就去问，别攒着。</b>");
+  /* 反驳 */
+  S(6300,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"它能替你做的","g");
+      note("生成 · 检索 · 解释 · 起草",340,195,"g");
+      note("而且越来越便宜",340,243,"g");
+      boxNode(730,105,440,58,"它替不了你的","r");
+      note("判断这东西<b>对不对</b>、<b>好不好</b>",950,195,"r");
+      note("而这<b>恰恰需要你懂基础</b>",950,243,"r");
+      boxNode(290,320,700,50,"「生成代码很便宜，判断代码对不对才是难的」","y");
+      setCap("第七讲那句话，是整门课最好的结语。");
+    },"最后一镜，把第七讲结尾那句话请回来作结，<b>因为它是整门课最好的结语</b>：  <b>Generating code is cheap, but judging whether a code is correct, and does the right thing — this is the hard part.</b>  <b>而讲者当时紧跟的那句提醒更要紧：</b>  <b>please make sure to learn the foundations of code, know how to code right, because your taste is going to matter most from now on.</b>  ⚠ <b>把这个结构推广开，它适用于这门课的每一个主题：</b>  · <em>生成一个 RAG 系统很容易，判断「检索到底好不好」要你懂第八讲那四个指标。</em> · <em>调一次偏好微调很容易，判断「奖励黑客有没有发生」要你懂第五讲。</em> · <em>复述「用 RMSNorm」很容易，判断「换一个归一化行不行」要你懂它在治什么病。</em>  <b>整门课教的那些机制，价值不在于让你能造出这些东西——而在于让你能判断别人造的东西对不对。</b>  <b>而当「造」变得越来越便宜时，「判断」就是剩下的那件值钱的事。</b>  <em>九讲到此。</em>");
+  SUM(6240,9,{h:"开放挑战，以及为什么判断力最值钱",
+    k:"挑战清单：<b>持续学习</b>（权重训完就固定，RAG 和工具<b>只是绕开</b>）· <b>「幻觉」</b> · 个性化 · 可解释性 · 安全。跟进渠道：arXiv · 会议 · ⚠ <b>读论文配套的代码库</b> · HF trending papers · X · YouTube（Yannic Kilcher、Andrej Karpathy）· 公司博客 · 本课 cheatsheet。",
+    m:"⚠ 讲者给「幻觉」<b>打了引号</b>，理由很根本：<b>我们训练模型预测下一个 token，而不是把陈述映射到事实</b> —— 所以幻觉 <b>in some sense is a core design choice</b>，是目标函数的直接后果，不是故障。",
+    w:"他给的试金石很诚实：<b>AI 客服好不好用</b>。他自己一听到就想转人工，而这说明<b>人有更多维度的价值</b> —— 共情、分寸，<b>「即便它们不在系统提示词里」</b>。这是「规则覆盖不全」的终极版本：<b>有些维度你根本写不出来</b>。",
+    e:"整门课的结语：<b>生成代码很便宜，判断代码对不对才是难的</b> —— 而这<b>恰恰需要你懂基础</b>。推广开：造一个 RAG 容易，判断检索好不好要懂指标；跑一次偏好微调容易，判断有没有奖励黑客要懂机制。<b>当「造」变便宜时，「判断」就是剩下的那件值钱的事。</b>"});
+  QUIZ(6240,9,{t:"讲者为什么给「幻觉」这个词打引号？",
+    o:["因为这个词在学界还没有公认的定义","因为模型被训练来预测下一个 token、而非把陈述映射到事实，所以幻觉是目标函数的直接后果","因为大多数所谓幻觉其实是检索环节出的错","因为幻觉只在低温度采样时才会出现"],
+    a:1,
+    w:"讲者的原话：<b>I'm not sure if it's fair to say that the LLM hallucinates — just because we've trained the LLM to predict the next token by nature, not map statements to facts. So hallucinating is, in some sense, a core design choice.</b> 模型从未被要求说真话，它被要求说「统计上最像下文的话」。⚠ 这是「<b>目标函数没有要求的，模型不会去做</b>」的最终形态。<s>「没有公认定义」</s>不是他给的理由。<s>「检索出错」</s>那只是 RAG 场景下的一类，基座模型没有检索也会幻觉。<s>「低温度才出现」</s>与温度无关。"});
+});
+
+KP("完",function(){
+  S(6640,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("CME295","九讲到此",
+      "Afshine &amp; Shervine Amidi · Autumn 2025");
+    },"整门课到这里结束了。把九讲压成一条线：  <b>RNN 把句意压进一个向量 ⇒ 远处记不住 ⇒ 直连（Transformer）⇒ 丢了词序，补上位置 ⇒ 只留解码器就是 LLM ⇒ 预训练给它知识 ⇒ SFT 让它会回答 ⇒ 偏好微调让它答得好 ⇒ RL 让它先想清楚 ⇒ 工具让它够得着外面 ⇒ 评测告诉你它到底行不行。</b>  ⚠ 而有几条贯穿始终的东西，比任何单个技术都值得带走：  ① <b>瓶颈常常在搬运，不在计算。</b>（FlashAttention、KV cache、投机解码，三处同一个诊断） ② <b>你优化的那个东西，和你真正想要的，从来不是同一个。</b>（奖励黑客、别优化代理、古德哈特——三次同一个形状） ③ <b>赢的方案往往不是单点更强的那个，而是最能吃下规模的那个。</b>（下一词预测、decoder-only、可验证奖励） ④ <b>规则没覆盖的维度，优化就会往那里漂。</b>（路由坍缩、输出变长、语言混杂）  讲者最后那句话，适合放在这里作结：  <b>生成代码很便宜，判断代码对不对才是难的部分。</b>  ⚠ 这句话对这门课同样成立：<em>把这些概念说一遍很容易，判断一个新方法是不是真的更好、它的前提在你这儿成不成立——那才是难的。</em>  <b>而这正是「判断力」这件事，为什么从现在起更值钱。</b>");
+});
+window.__startProjector(CFG);
+})();
+</script>
