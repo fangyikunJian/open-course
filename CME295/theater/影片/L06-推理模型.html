@@ -1,0 +1,1639 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME295 L06 · 推理模型 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"CME295 · Lecture 6 · 没有推理过程可学，那就用奖励逼它自己长出来",
+  subtitle:"9 个知识点 · 讲义 p16–147 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:"https://www.youtube.com/watch?v=k5Fh-UgTuCo&t="
+};
+
+
+// 内容权威：讲稿 corpus/transcripts/L6.txt（106 分 59 秒）
+//   + 官方讲义 fall25-cme295-lecture6.pdf（148 页）
+// https://cme295.stanford.edu/slides/fall25-cme295-lecture6.pdf
+// ⚠ 讲义带 X-Frame-Options: SAMEORIGIN，不能内嵌，只能外链。详见 CME295/来源.md。
+//
+// 时间码用 scratchpad 的定位器从 L6_timed.txt 的 193 个锚点插值得到。
+// 逐条核过的要点：
+//   [13:18] 推理 = 解决问题的能力；核心做法仍是「先说推理过程再给答案」（第三讲的 CoT）
+//   [20:56] **推理 token 是要向用户计费的** —— 这是后面一切「控制思考量」工作的动机
+//   [32:23] **pass@k** = k 次尝试里至少一次成功的概率。讲者当堂推了估计量：
+//           先生成 n 个、其中 c 个正确，再问「从 n 里抽 k 个至少一个对」的概率。
+//           用「至少一个 = 1 − 全错」这个技巧 + **无放回抽样** ⇒
+//           pass@k = 1 − C(n−c, k) / C(n, k)。k=1 时退化成正确率。
+//           ⚠ 与上一讲 **Best-of-N** 的关系：同一个形状，只是这里的「打分」是
+//           **确定性可验证**的，不需要奖励模型。
+//   [36:xx] **温度与 pass@k**：T=0 时再多采样也不涨（没有多样性）；T 太大又会伤正确率。
+//           所以论文里总要写明温度 —— 讲者说这是看基准结果时该留意的事。
+//   [37:xx] **Cons@k**（consensus at k）= 出现次数最多的那个答案，就是第三讲的自洽。
+//   [38:xx] 为什么用 RL 而不是 SFT 来教推理，三条理由：
+//           ① **没有现成的推理链**，而从头写极难；
+//           ② **模型的推理方式可能和人不一样**，人写的未必是最好的教材；
+//           ③ 这类任务**天然有可验证的奖励**（代码跑测试、数学对答案）。
+//   [34:44] 两个奖励：① 查 think 标签在不在（格式）② 查答案对不对（可验证）
+//   [44:xx] 控制思考量：**动态预算**（先用分类器判断难易，讲者说这仍是 open problem）·
+//           **上下文感知**（上下文窗口有限，不能无限想）· **budget forcing**（S1 论文：
+//           插入「wait」逼它继续想，或「时间到了，我的答案是」逼它停）·
+//           **连续思维**（让思考不在 token 空间而在隐表示空间，active area of research）
+//   [58:54] **GRPO** = Group Relative Policy Optimization。与 PPO 的唯一关键差别在
+//           **怎么算优势**：不训价值函数，而是**同一提示词采样 g 个回答，
+//           用组内奖励的均值与标准差把自己的奖励标准化**。
+//           ⚠ 讲者的解释：PPO 是 2017 年的、为别的场景设计的；
+//           而且他预告「我们会看到这种标准化方式**可能不是最好的**」。
+//   [77:41] **输出越来越长**：RL 步数一多，回答长度持续增长；前期与性能提升相关，
+//           但**后期性能已经平台了，长度还在涨**。
+//           讲者的解释（他说这是 hypothesizing）：GRPO 损失里有个 **1/|o_i|**，
+//           于是**短输出里的每个 token 权重更大** ⇒ 负优势时，
+//           **短的坏回答被罚得比长的坏回答更狠** ⇒ 模型学会「要错就错得长一点」。
+//           修法：**DAPO**（2025-03）把归一化因子改成所有 token 共用；
+//           **Dr. GRPO** 干脆把这个因子去掉。实测：正确答案的长度不变，
+//           **错误答案的长度明显下降** —— 正是想要的效果。
+//   [84:xx] 另两处调整：标准差那一项**对难题有偏**（难题大多失败，标准差小）；
+//           以及 **ε 上下界取不对称值**（低概率 token 需要更大的上界才动得了）。
+//   [91:25] **R1-Zero 配方**：预训练模型（MoE + MLA + Pre-Norm）→ **直接上 RL**，
+//           **完全跳过 SFT**。结果：推理基准分数确实一路上涨。
+//           ⚠ 但作者检查推理链时发现两个问题：**语言混杂**与**语法错乱** ——
+//           因为从没有过强监督可以依托。
+//   [96:48] **R1 配方**四步：① **cold start**：拿 R1-Zero 生成的 CoT，**让人改写**成
+//           格式与语言规范的版本，做一轮小规模 SFT（量级比别的阶段小几个数量级）
+//           ② RL，奖励里**新增语言一致性奖励**（目标语言 token 的比例）
+//           ③ 更大规模 SFT：推理数据用**拒绝采样**生成（用判官筛掉不完美的），
+//           混入约 20 万条非推理数据，比例约 **3:1**
+//           ④ 最后一轮 RL：推理数据用可验证奖励，非推理数据用 **helpfulness + harmlessness**；
+//           ⚠ **harmlessness 作用在全部 token 上**（思维链本身也要无害），helpfulness 只看最终回答
+//   [103:53] **蒸馏换了做法**：第二讲那种是拟合教师的**概率分布**；这里是让 R1
+//            **生成带思考 token 的完整回答**，再对小模型做 SFT 拟合**整个序列**。
+//            ⚠ 作者发现：**小模型上，蒸馏比直接做 RL 更有效**。
+//
+// ⚠ 本片**没有**讲：具体基准（AIME/Codeforces 等）的细节、GRPO 损失的完整公式、
+//   DeepSeek V3 的架构细节、R1 的完整评测表。
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("CME295 · Lecture 6","LLM reasoning",
+      "讲义 148 页 · 讲稿 106 分 59 秒 · 本片取 9 条主线");
+    },"上一讲把模型调得体面了，但遇到难题它仍然<b>张口就来</b>。这一讲教它<b>先想清楚再说</b>。  核心矛盾在一开始就出现：<b>想教模型推理，但你没有推理过程可以给它学。</b>人类写的解题步骤极少、极贵，而且<em>人的推理方式未必适合模型</em>。  这一讲的答案是：<b>别教了，用奖励逼它自己长出来。</b>  九集分四段： · <i>先把话说清</i>（2 集）：什么算推理模型，以及 <b>pass@k</b> 那个公式是怎么来的。 · <i>怎么长出来</i>（3 集）：为什么是 RL 不是 SFT；怎么控制它别想太多；<b>GRPO</b> 怎么把 PPO 的价值函数砍掉。 · <i>长歪了怎么办</i>（1 集）：⚠ 这一集最值得看——<b>回答越来越长，根子在损失函数里一个不起眼的 1/|o|</b>。 · <i>完整配方</i>（3 集）：R1-Zero、R1，以及推理能力的蒸馏。  ⚠ 全片有个贯穿的财务事实：<b>推理 token 是要向用户收费的。</b>后面一半的工程，动机都在这里。");
+});
+
+KP("1 · 推理模型是什么，以及<b>推理 token 要收费</b>　<small>讲义 p16–30</small>",function(){
+  /* 钩子 */
+  S(798,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(130,105,1020,54,"用户：这道题怎么做？","b");
+      arrow(640,159,640,205,"sm",0);
+      boxNode(190,209,900,56,"Thinking… （折叠起来的一段推理）","y");
+      arrow(640,265,640,311,"sm",0);
+      boxNode(190,315,900,54,"最终答案","g");
+      note("中间那段，就是这一讲的全部内容",640,392,"y");
+      setCap("推理模型 = <b>先把推理过程产生出来，再给答案</b>。");
+    },"打开任何一个推理模型，你会看到和普通 LLM 最明显的差别：<b>回答之前多了一段「Thinking…」</b>，常常是折叠起来的。  讲者给「推理」下的定义很朴素：<b>reasoning = ability to solve a problem</b>，而做法的核心你其实已经见过——  <b>第三讲的思维链（CoT）：先把推理过程写出来，再给答案。</b>  那这一讲还要讲什么？  <b>差别在于：第三讲是用提示词「请求」模型这么做，这一讲是把这个行为训进权重里。</b>  ⚠ 这个区别不小。<em>提示出来的推理，模型随时可能不照做；训进去的推理，是它的默认行为。</em>而「怎么训」正是本讲最难的部分——因为<b>你没有推理过程可以给它学</b>。");
+  /* 错误答案 */
+  S(810,function(){
+      clearScene();setEq(null);
+      setBig("那就让它每次都多想一会儿","反正想得多总比想得少强");
+      setCap("<s>不行</s>：那段思考<b>是按 token 向你收费的</b>。");
+    },"既然想一想能提高正确率，为什么不干脆让它每次都多想一会儿？  讲者在这一讲开头就给了那条约束，而且它是<b>财务上的</b>，不是技术上的：  <b>推理 token 是要向用户计费的。</b>  讲者的说法：<b>reasoning tokens are being charged to you as a user. So you don't want to pay a lot.</b> 从服务商那边看同样如此——<em>it's much better to be more efficient</em>。  ⚠ 请记住这条，因为它是本讲<b>后面一半内容</b>的动机： · 第四集「怎么控制思考量」——为了省钱。 · 第六集「回答越来越长」——之所以被当成严重问题，也是为了省钱。  <b>「让模型多想」这件事，有一个随时间线性增长的账单。所以问题从一开始就不是「能不能多想」，而是「该想多久」。</b>");
+  /* 铺陈 */
+  S(822,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"界面上","y");
+      note("有一段单独的「思考」区",340,190,"y");
+      note("往往可折叠，有时只给摘要",340,238,"y");
+      boxNode(730,105,440,58,"计费上","r");
+      note("账单里有 <b>reasoning tokens</b> 这一项",950,190,"r");
+      note("它不出现在你看到的回答里",950,238,"r");
+      note("⚠ 有的服务商只给你思考的<b>摘要</b>，不给原文",640,352,"r");
+      setCap("讲者用 ChatGPT 的截图和 OpenAI 的计费页说明了这两点。");
+    },"讲者给了两个实际的识别方法：  ① <b>界面上</b>：回答之前有一段独立的「思考」区域，通常可以展开或折叠。  ② <b>计费上</b>：API 的用量里会单独列出 <b>reasoning tokens</b>——<em>这些 token 你看不到，但要付钱</em>。  ⚠ 第二点里藏着一件值得注意的事：<b>有些服务商只给你思考过程的「摘要」，不给原文。</b>  这意味着： · 你<b>付了</b>完整思考的钱。 · 你<b>看不到</b>完整的思考。 · 第三讲说的那个「用推理链来调试」的好处，<em>在这里打了折扣</em>。  <b>这不是技术限制，是产品决策</b>——完整的推理链会暴露模型的能力细节，也可能被用来蒸馏。<em>（这一层讲者没展开，但它正好和第九集的蒸馏对上。）</em>");
+  /* 主体 */
+  S(834,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"代码","g");
+      note("解题 · 修 bug",340,190,"g");
+      note("对错由<b>测试用例</b>判定",340,238,"g");
+      boxNode(730,105,440,58,"数学","g");
+      note("竞赛级难题",950,190,"g");
+      note("对错由<b>标准答案</b>判定",950,238,"g");
+      note("⚠ 共同点：<b>对错是可以机器判定的</b>",640,352,"r");
+      setCap("这个共同点不是巧合 —— 第三集会看到，它是整条路线的前提。");
+    },"推理模型用什么任务来衡量？讲者给了两类：  · <b>代码</b>：解编程题、修 bug。 · <b>数学</b>：竞赛级的难题。  为什么偏偏是这两类？表面的理由是「它们难，需要多步推理」。  <b>但真正的理由是另一条，而且它是本讲的枢纽：</b>  <b>这两类任务的对错，是可以机器判定的。</b>代码跑一遍测试就知道；数学对一下标准答案就知道。<em>不需要人来评判，不需要训一个奖励模型。</em>  ⚠ <b>请把这一点记住。</b>第三集你会看到，<em>正是这个性质让「用 RL 教推理」成为可能</em>——而它也划定了这套方法的边界：<b>写作、建议、设计这类任务没有可验证的对错，所以这一讲的方法搬不过去。</b>");
+  /* 主体 */
+  S(846,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"没有变的","b");
+      note("预训练学到的知识",340,190,"b");
+      note("参数量、架构大体不变",340,238,"b");
+      boxNode(730,105,440,58,"变了的","g");
+      note("愿意<b>花更多 token 去算</b>",950,190,"g");
+      note("会回头检查、换一条路再试",950,238,"g");
+      note("同一个脑子，换了一种<b>用法</b>",640,352,"y");
+      setCap("第三讲那条机制在这里被放大了：<b>每生成一个 token，才多做一次前向</b>。");
+    },"一个容易误解的地方：<b>推理模型并不是「知道得更多」。</b>  它的知识来自同一套预训练，架构也大体相同。变的是<b>它愿意在回答之前花多少计算</b>。  回到第三讲那条机制：<b>模型每生成一个 token，才多做一次前向。</b>要求它直接吐答案，等于只给一次前向的计算量去解一道多步题；让它写出中间步骤，<em>每一步都真的算了一遍，而且写下来的中间结果会进入后续的上下文</em>。  <b>所以推理模型做的事可以概括成：把「一次性答出来」换成「花很多 token 慢慢算」。</b>  ⚠ 这也解释了为什么它会有第四、六集那些毛病——<b>既然「多算」有好处，模型就会倾向于一直算下去</b>，哪怕问题根本不需要。  <em>这个倾向不是 bug，是你给的激励的直接后果。</em>");
+  /* 反驳 */
+  S(858,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"看起来是","g");
+      note("一步步的推导过程",340,190,"g");
+      note("可读、可查、能用来调试",340,238,"g");
+      boxNode(730,105,440,58,"⚠ 但未必是","r");
+      note("它内部真正的计算过程",950,190,"r");
+      note("可能先有答案，再编一套理由",950,238,"r");
+      note("第三讲那条保留，在这里更要紧",640,352,"y");
+      setCap("推理链是好线索，<b>不是可信的执行日志</b>。");
+    },"最后重复第三讲那条保留，因为在这一讲它变得更要紧。  <b>模型写出来的推理链，不保证是它内部真实的计算过程。</b>（研究里叫 <em>unfaithful reasoning</em>。）  它完全可能先「想」到答案，再倒推一套看起来合理的理由。也可能推理链里某一步明显错了，<em>最终答案却是对的</em>。  为什么在这一讲更要紧？因为这一讲要用 RL 来<b>训练</b>这个行为，而第三集你会看到，奖励里有一项是<b>「查 think 标签在不在」</b>。  <b>注意这个奖励的形状：它奖励的是「有推理过程这件事」，不是「推理过程是对的」。</b>  ⚠ 顺着第五讲那条线想：<b>目标函数没有要求的，模型不会去做</b>。既然奖励只检查标签存在、答案正确，那么<em>一段毫无意义但格式正确的思考 + 一个碰巧对的答案，同样拿满分</em>。  <b>推理链是很好的调试线索，但别把它当成模型思维的真实记录。</b>");
+  SUM(798,1,{h:"推理模型：把「一次性答出来」换成「花很多 token 慢慢算」",
+    k:"做法仍是第三讲的 <b>CoT</b>（先推理再答），差别在于<b>它被训进了权重</b>而不是靠提示词请求。衡量它的任务是<b>代码与数学</b>。",
+    m:"它不是知道得更多，而是<b>愿意花更多计算</b> —— 每生成一个 token 才多做一次前向，写出中间步骤等于给了它草稿纸。代码/数学被选中的真正原因是<b>对错可以机器判定</b>，这是第三集那条路线的前提。",
+    w:"<s>误解</s>：「想得越多越好，那就每次都多想」。<b>推理 token 是按量向用户计费的</b> —— 这条财务约束是本讲后半全部工程的动机。",
+    e:"⚠ <b>写出来的推理不等于它真的这么想</b>（unfaithful reasoning）。这在本讲更要紧，因为奖励里那一项只查 <b>think 标签在不在</b>，奖励的是「有推理过程这件事」，不是「推理是对的」。"});
+  QUIZ(798,1,{t:"代码和数学成为推理模型主战场，最关键的原因是什么？",
+    o:["它们的对错可以由机器确定性地判定，于是奖励信号免费且无限","这两类任务的训练数据在互联网上最多","它们的推理链最短，训练成本最低","只有这两类任务能用思维链提示"],
+    a:0,
+    w:"代码跑测试、数学对答案——<b>对错可以机器判定</b>，所以不需要奖励模型、不需要人标，信号是确定性的、免费的、可无限生成的。这正是第三集「用 RL 教推理」能成立的前提，也划定了边界：<em>写作、建议、设计没有可验证的对错，这套方法搬不过去</em>。<s>「数据最多」</s>自然语言文本远多于代码与数学。<s>「推理链最短」</s>恰恰相反，这两类任务的推理链通常最长。<s>「只有它们能用 CoT」</s>CoT 对任何任务都能用，第三讲的例子就是日常问答。"});
+});
+
+KP("2 · <b>pass@k</b>：那个公式为什么长那样　<small>讲义 p39–47</small>",function(){
+  /* 钩子 */
+  S(1943,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"只答一次","b");
+      note("要么对，要么错",340,190,"b");
+      boxNode(730,105,440,58,"允许答 k 次","g");
+      note("只要有一次对就算赢",950,190,"g");
+      note("写代码时，你本来就会试好几版",640,300,"y");
+      note("<b>pass@k</b> = k 次尝试里至少一次成功的概率",640,362,"g");
+      setCap("讲者 32:23。这个指标本身就反映了一种使用方式。");
+    },"推理模型的基准，最常见的指标叫 <b>pass@k</b>。  定义：<b>让模型生成 k 个答案，其中至少有一个通过测试的概率。</b>  为什么要这么定义？讲者问了这个问题，而且答案很实际：  <b>有些场景下，你负担得起多试几次。</b>写代码就是典型——<em>反正能跑测试验证，那多生成几版、取能跑通的那个，完全合理</em>。  讲者还把它和上一讲的 <b>Best-of-N</b> 对上了：<b>形状完全一样，只是这里的「打分」是确定性可验证的，不需要奖励模型。</b>  <b>所以 pass@k 不只是个指标，它描述的是一种真实的用法。</b>  ⚠ 它也意味着：<b>看到 pass@k 的数字时，要问清楚 k 是多少</b>——pass@1 和 pass@100 是完全不同的能力声明。");
+  /* 错误答案 */
+  S(1955,function(){
+      clearScene();setEq(null);
+      setBig("生成 k 个，看有没有对的，重复几轮取平均","这不就估出来了吗");
+      setCap("<s>可以，但方差太大</s> —— 讲者：your estimate can be <b>very noisy</b>。");
+    },"最直接的估法：<b>生成 k 个答案，看有没有对的，重复几轮取平均。</b>  这在数学上没错，<b>但实际不好用</b>。讲者：if you only do this k times, your estimate <b>can be very noisy</b>。  问题在于 k 通常很小（1、5、10），而每一轮的结果只有「成功」或「失败」两种——<b>一轮的信息量太少</b>。讲者举例：<em>纯靠运气，一次可能 5 个里对 3 个，另一次只对 1 个</em>。  要把方差压下去，就得重复很多轮，<b>而每一轮都要真的生成 k 个答案——很贵</b>。  ⇒ 更聪明的办法：<b>生成一批足够大的 n 个样本（比如 n=100），然后用组合数学算出「如果从这 n 个里抽 k 个，至少一个对」的概率。</b>  <b>同一批样本，可以算出任意 k 的 pass@k。</b>下面两镜把这个公式推出来。");
+  /* 铺陈 */
+  S(1967,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"技巧一","g");
+      note("P(至少一个对) = 1 − P(<b>全错</b>)",340,195,"g");
+      note("「至少一个」几乎总是这么算",340,243,"g");
+      boxNode(730,105,440,58,"技巧二","y");
+      note("从 n 个里抽 k 个 = <b>无放回抽样</b>",950,195,"y");
+      note("所以每抽一个，分母都要减一",950,243,"y");
+      note("整个推导就这两件事",640,352,"g");
+      setCap("讲者说他要当堂推一遍，因为「答案看起来不显然」。");
+    },"讲者决定当堂把公式推出来，理由很好：<b>the answer is not necessarily trivial, and I don't want you to be too surprised of how it looks like without knowing where it comes from.</b>  整个推导只用两个技巧：  <b>技巧一：至少一个 = 1 减去全错。</b>直接算「至少一个成功」要分情况（正好一个、正好两个……），很麻烦；而「全部失败」只有一种情况。<em>讲者说这是 a very common trick。</em>  <b>技巧二：从 n 个里抽 k 个，是无放回抽样。</b>抽走一个就少一个，所以每一步的概率的分子分母都要跟着减。  设定：<b>生成 n 个答案，其中 c 个正确，n − c 个错误。</b>问：随机抽 k 个，至少一个正确的概率是多少？  下一镜就是这两步的直接结果。");
+  /* 主体 */
+  S(1979,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$P(\\text{全错})=\\frac{n-c}{n}\\cdot\\frac{n-c-1}{n-1}\\cdots\\frac{n-c-k+1}{n-k+1}$$","top");
+      note("第一个抽到错的：错的有 n−c 个，总共 n 个",640,330,"y");
+      note("第二个：错的少了一个，总数也少了一个",640,382,"g");
+      setCap("这就是无放回抽样的标准写法。");
+    },"按技巧二逐个算：  · 第 1 个抽到错误答案的概率：<b>(n − c) / n</b>——错的有 n−c 个，总共 n 个。 · 第 2 个也错（已知第 1 个错了）：<b>(n − c − 1) / (n − 1)</b>——<em>错的少了一个，总数也少了一个</em>。 · 一直抽到第 k 个：<b>(n − c − k + 1) / (n − k + 1)</b>。  把它们连乘，就是「抽的 k 个全错」的概率。  讲者在这里确认了一句：<b>if you saw that in probability class, it's basically the same as sampling without replacement.</b>  <b>注意这个推导里没有任何技巧性的东西</b>——就是条件概率一步步写下来。下一镜把这串连乘换个写法，它就变成论文里那个样子了。");
+  /* 主体 */
+  S(1991,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$\\mathrm{pass@}k = 1-\\frac{\\binom{n-c}{k}}{\\binom{n}{k}}$$","top");
+      note("那串连乘，用阶乘一合并就成了两个组合数之比",640,330,"y");
+      note("k=1 时化简成「正确的占比」—— 和直觉一致",640,382,"g");
+      setCap("讲者：推它一遍，是因为这公式<b>乍看挺唬人的</b>。");
+    },"上一镜那串连乘，用阶乘表示再合并，就变成两个<b>组合数</b>之比：  <b>pass@k = 1 − C(n−c, k) / C(n, k)</b>  读一遍右边那个分数就全明白了：<b>C(n−c, k) 是「k 个全从错误答案里挑」的方法数，C(n, k) 是「随便挑 k 个」的方法数——两者之比就是全错的概率。</b>  讲者解释他为什么要推：<b>this formula can be a little bit daunting to look at. But it's actually quite natural because it's only using some sampling without replacement considerations.</b>  ⚠ 做个检验：<b>k = 1 时</b>，C(n−c,1)/C(n,1) = (n−c)/n，所以 pass@1 = <b>c/n</b>——<em>就是正确答案的占比</em>。和直觉完全一致。  <b>这个检验习惯值得养成：拿到一个复杂公式，先代入最简单的特例，看它会不会退化成你已经知道的东西。</b>");
+  /* 反驳 */
+  S(2003,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,330],[380,330],[580,330],[780,330],[1020,330]],"fit");
+      note("T = 0：再多采样也不涨（没有多样性）",400,120,"r");
+      curve([[180,340],[380,275],[580,230],[780,200],[1020,185]],"fit g");
+      note("T 适中：k 越大越高",880,165,"g");
+      curve([[180,360],[380,330],[580,320],[780,325],[1020,340]],"fit");
+      note("T 太大：多样性有了，但正确率被拖垮",640,392,"r");
+      setCap("所以论文里<b>必须写明温度</b> —— 否则这个数字没法比较。");
+    },"最后一条，是回答一个学生的提问，而且它直接影响你怎么读论文。  <b>pass@k 严重依赖采样温度。</b>  · <b>T = 0</b>：每次生成都一样，<em>完全没有多样性</em>。于是 pass@10 和 pass@1 <b>一模一样</b>——多采样毫无收益。 · <b>T 适中</b>（讲者说这个例子里大约 0.4 到 0.8）：有多样性，<b>k 越大 pass@k 越高</b>，这才是这个指标该有的样子。 · <b>T 太大</b>（比如 1.2）：多样性是有了，<em>但第三讲说过，低概率的烂 token 也会被抽中</em>，正确率被拖垮。  <b>所以存在一个最优温度，而它是任务相关的。</b>  ⚠ 讲者给的实务提醒：<b>论文里总会写明他们用的温度，看基准结果时要留意这一点。</b>  <em>换句话说：两个 pass@k 数字，如果温度不同，根本不可比。</em>  ⚠ 还有个相关指标：<b>Cons@k</b>（consensus at k）——<em>k 次生成里出现次数最多的那个答案</em>。讲者指出<b>它就是第三讲的自洽</b>。");
+  SUM(1943,2,{h:"pass@k：那个唬人的公式只是无放回抽样",
+    k:"<b>pass@k = k 次尝试里至少一次成功的概率</b>。估计办法：生成 n 个（其中 c 个正确），算「抽 k 个全错」，于是 <b>pass@k = 1 − C(n−c,k)/C(n,k)</b>。k=1 时退化成 c/n，正是正确率。",
+    m:"推导只用两个技巧：<b>「至少一个」= 1 − 「全错」</b>，以及<b>无放回抽样</b>（每抽一个，分子分母都减一）。之所以不直接跑 k 次数一数，是因为<b>方差太大</b> —— 用一批大的 n 可以算出任意 k 的 pass@k。",
+    w:"<s>误解</s>：「pass@k 是模型能力的客观数字」。它<b>严重依赖采样温度</b>：T=0 时多采样毫无收益（pass@10 = pass@1），T 太大又拖垮正确率。<b>温度不同的两个 pass@k 不可比</b>，所以论文必须写明温度。",
+    e:"它与上一讲 <b>Best-of-N</b> 同形，区别是这里的打分<b>确定性可验证</b>、不需要奖励模型。另一个指标 <b>Cons@k</b>（出现最多的那个答案）<b>就是第三讲的自洽</b>。养成习惯：拿到复杂公式先代最简单特例，看它是否退化成已知结论。"});
+  QUIZ(1943,2,{t:"为什么论文报告 pass@k 时必须同时写明采样温度？",
+    o:["因为温度会改变模型的参数量，影响推理成本","因为温度决定了 k 个样本的多样性：T=0 时多采样毫无收益，T 过大又拖垮正确率","因为 pass@k 的公式里含有温度这个变量","因为不同温度下 token 的计费方式不同"],
+    a:1,
+    w:"T=0 时每次生成都一样，<b>pass@10 和 pass@1 完全相同</b>——多采样零收益；T 过大时低概率的烂 token 也会被抽中，正确率被拖垮。所以存在一个任务相关的最优温度，<b>温度不同的两个 pass@k 根本不可比</b>。<s>「改变参数量」</s>温度只影响采样，不碰参数。<s>「公式里含温度」</s>公式只含 n、c、k 三个量。<s>「计费方式」</s>计费按 token 数，与温度无关。"});
+});
+
+KP("3 · 为什么用 <b>RL</b> 而不是 SFT 来教推理　<small>讲义 p49–62</small>",function(){
+  /* 钩子 */
+  S(2280,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"想让模型学会写长推理链","y");
+      arrow(640,170,640,218,"sm",0);
+      boxNode(290,222,700,56,"按惯例：收一批数据，做 SFT","b");
+      note("可是 ——「一批高质量的长推理链」<b>从哪来？</b>",640,330,"r");
+      setCap("这一集是整讲的转折：<b>没有示范可学，怎么办</b>。");
+    },"现在到了这一讲真正的问题。  想让模型学会在回答前写出长推理链，<b>按惯例应该做 SFT</b>——收一批「问题 + 完整推理 + 答案」的数据，让它模仿。  <b>可是这批数据从哪来？</b>  讲者把难处说得很直白：reasoning chains writing is <b>a very tough task</b>, especially for long reasoning chains。要人从头写出一条高质量的、几千 token 的解题推理——<em>慢、贵，而且写不出多少条</em>。  <b>这一集就是在回答：当你没有示范可教时，还能怎么办。</b>  讲者给了三条理由说明「别走 SFT」，而<b>第二条最反直觉</b>。");
+  /* 错误答案 */
+  S(2292,function(){
+      clearScene();setEq(null);
+      setBig("找专家来写推理链，攒一批就能训","贵是贵了点，但总归可行");
+      setCap("<s>就算写得出来，也未必是好教材</s> —— 第二条理由在这里。");
+    },"就算不计成本，硬着头皮雇专家写呢？  讲者的第二条理由，是整集里最值得想的一条：  <b>the way the model reasons may be different from the way we reason. And for that, maybe a human written reasoning may not be the best way to teach the model on how to reason.</b>  <b>人的推理方式，和模型的推理方式，未必是同一回事。</b>  想想人怎么解数学题：我们会跳步、会用直觉、会把显然的中间环节略掉——<em>因为我们的工作记忆和模型完全不同</em>。而模型可能需要把那些「显然」的步骤<b>真的写出来</b>才算得对（回到第一集那条：写出来才等于算过）。  <b>于是「模仿人类的推理」可能恰恰是在教它一种不适合它的方式。</b>  ⚠ 这个观点很有普遍性：<b>当你要教的是「怎么做」而不是「做什么」时，示范可能是有害的——因为示范里包含了示范者特有的、不可迁移的东西。</b>");
+  /* 铺陈 */
+  S(2304,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"上一讲的 RL","y");
+      note("要先训一个<b>奖励模型</b>",340,190,"y");
+      note("要收数万条人标的偏好对",340,238,"r");
+      boxNode(730,105,440,58,"这里","g");
+      note("代码：<b>跑测试</b>就知道",950,190,"g");
+      note("数学：<b>对答案</b>就知道",950,238,"g");
+      note("讲者：<b>no need for a model</b>",640,352,"g");
+      setCap("这条把上一讲最大的那块成本整个去掉了。");
+    },"第三条理由，是让整件事从「困难」变成「可行」的关键。  上一讲的 RLHF 里，最大的一块工程是<b>训一个奖励模型</b>：收数万条人标偏好对、训模型、还要担心它不完美带来的奖励黑客。  <b>而推理任务不需要这些。</b>  · <b>代码</b>：跑单元测试，<em>通过就是通过</em>。 · <b>数学</b>：对一下标准答案，<em>相等就是对</em>。  讲者的评语：you do have a reward signal ... <b>you can do this easily. No need for a model.</b>  <b>这个信号的三个性质都很理想：确定性（不是估计）、免费（不用人标）、无限（有多少题就有多少信号）。</b>  ⚠ 请回想上一讲那条根本约束：<b>奖励模型是一个不完美的代理，所以会被钻空子</b>。而<em>可验证奖励不是代理，它就是目标本身</em>——<b>这一块的奖励黑客问题被从根上去掉了。</b>（但下一镜会看到，另一块没有。）  <b>三条理由合起来：没有教材 + 人写的未必是好教材 + 有现成的奖励信号 ⇒ 那就别教了，用 RL 让它自己长。</b>");
+  /* 主体 */
+  S(2316,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,105,800,56,"think 开始标签 … 推理内容 … think 结束标签","y");
+      arrow(640,161,640,209,"sm",0);
+      boxNode(390,213,500,54,"标签在 → 给分；不在 → 不给","g");
+      note("就这么简单 —— 一个字符串检查",640,310,"g");
+      note("⚠ 它只检查<b>有没有</b>，完全不看内容对不对",640,368,"r");
+      setCap("讲者：check the presence of the think start and end token。");
+    },"既然要用 RL，奖励怎么设计？<b>两个，第一个管格式。</b>  做法简单到有点好笑：<b>在提示词里告诉模型「把思考放进 think 标签里」，然后检查这对标签在不在。</b>在就给分，不在就不给。  <b>这是一个纯粹的字符串检查，不需要任何模型。</b>  ⚠ 但请盯住它的形状：<b>它只检查「有没有推理过程」，完全不检查「推理过程对不对」。</b>  回到第一集那条保留——<em>这个奖励没有要求推理是正确的、是真实的、是有用的</em>。按第五讲那条「目标函数没有要求的，模型不会去做」：  <b>一段语无伦次但格式正确的思考，在这一项上拿满分。</b>  <b>这也正是为什么这个奖励必须和第二个配合使用</b>——<em>单靠它，模型会学会「假装在想」</em>。");
+  /* 主体 */
+  S(2328,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"代码题","g");
+      note("编译 + 跑测试用例",340,190,"g");
+      boxNode(730,105,440,58,"数学题","g");
+      note("与标准答案比对",950,190,"g");
+      note("两个奖励合起来：<b>格式对 + 答案对</b>",640,300,"y");
+      note("就这两条，没有别的 —— 而它<b>真的管用</b>",640,358,"g");
+      setCap("讲者展示了 R1-Zero 的训练曲线：基准分数一路上涨。");
+    },"第二个奖励：<b>答案对不对</b>。代码跑测试，数学对答案。  <b>整套奖励就这两条：格式对 + 答案对。</b>  没有奖励模型，没有人标偏好，<b>没有任何人告诉模型「该怎么想」</b>。  然后讲者放出 R1-Zero 的训练曲线：<b>随着 RL 步数增加，数学基准（AIME）上的分数一路显著上涨。</b>  他的总结：<b>if you incentivize the model to think and produce the right answer, it can actually learn quite meaningfully, only with these two verifiable rewards.</b>  ⚠ <b>请体会这件事有多反常</b>：我们从没告诉过模型什么是好的推理，<em>但只要「有过程」和「结果对」同时被奖励，推理能力就自己长出来了</em>。  <b>这就是本讲标题的含义：没有示范可教，就用奖励逼它自己长。</b>");
+  /* 反驳 */
+  S(2340,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"奖励本身是干净的","g");
+      note("跑不跑得过测试，没有歧义",340,190,"g");
+      boxNode(730,105,440,58,"⚠ 但约束仍然不完整","r");
+      note("没说推理要<b>真实</b>",950,190,"r");
+      note("没说不许<b>越想越长</b>",950,238,"r");
+      note("第六集那个「回答越来越长」就是从这儿来的",640,352,"y");
+      setCap("奖励黑客换了形态，并没有消失。");
+    },"最后纠正一个容易留下的乐观印象。  <b>「可验证奖励」确实解决了上一讲那个问题</b>：奖励模型本身不会估错了——<em>测试跑过就是跑过，没有歧义</em>。  <b>但它没有解决「约束不完整」这件事。</b>  这两条奖励<b>说了什么</b>：要有 think 标签；答案要对。 <b>它们没说什么</b>： · 没说推理过程要<b>真实反映</b>模型的计算。 · 没说不许<b>用单一语言</b>（<em>第七集：R1-Zero 的推理链真的出现了语言混杂</em>）。 · 没说不许<b>越想越长</b>（<em>第六集：输出长度真的失控了</em>）。  ⚠ <b>所以奖励黑客并没有消失，它只是换了形态</b>：从「钻一个不准的奖励模型的空子」，变成「钻一个<em>准确但不完整</em>的规则的空子」。  <b>这是本讲最该带走的一条：规则再精确，只要它没有覆盖你在意的全部维度，优化器就会在没被覆盖的那些维度上自由漂移。</b>");
+  SUM(2280,3,{h:"没有示范可教，就用可验证的奖励让它自己长",
+    k:"不走 SFT 的三条理由：① <b>没有现成的推理链</b>，从头写极难；② <b>模型的推理方式可能和人不一样</b>，人写的未必是好教材；③ 这类任务<b>天然有可验证的奖励</b>。于是只设两个奖励：<b>think 标签在不在</b> + <b>答案对不对</b>。",
+    m:"可验证奖励的三个理想性质：<b>确定性</b>（不是估计）· <b>免费</b>（不用人标）· <b>无限</b>（有多少题就有多少信号）。它不是代理，<b>它就是目标本身</b> —— 上一讲那种「奖励模型估错」的问题被从根上去掉。",
+    w:"<s>误解</s>：「雇人写推理链总归可行」。讲者：<b>人的推理方式与模型的未必相同</b>，人会跳步、用直觉、略掉「显然」的中间环节 —— 而模型可能需要把那些真的写出来才算得对。",
+    e:"⚠ <b>可验证不等于不会被钻空子</b>：这两条规则没说推理要<b>真实</b>、没说要<b>单一语言</b>、没说不许<b>越想越长</b> —— 第六、七集那些毛病全从这儿来。<b>规则再精确，只要覆盖不全，优化器就在没覆盖的维度上自由漂移。</b>"});
+  QUIZ(2280,3,{t:"推理训练用 RL 而不是 SFT，讲者给的三条理由中最「反直觉」的是哪一条？",
+    o:["RL 的训练成本比 SFT 更低","SFT 无法处理超过上下文窗口的长序列","人写的推理链未必是好教材，因为模型的推理方式可能与人不同","RL 不需要标注数据，而 SFT 需要"],
+    a:2,
+    w:"讲者的原话：<b>the way the model reasons may be different from the way we reason</b>，所以人写的推理 <b>may not be the best way to teach the model</b>。人会跳步、用直觉、略掉「显然」的环节——而那些正是模型需要真的写出来才算得对的东西。<s>「RL 成本更低」</s>RL 要反复生成，<b>通常更贵</b>。<s>「上下文窗口」</s>两者面对的窗口限制相同。<s>「RL 不需要标注」</s>这是第三条理由（有可验证奖励），说法也不准确——RL 仍需要带标准答案的题目。"});
+});
+
+KP("4 · 让它<b>别想太多</b>：预算、强制与连续思维　<small>讲义 p63–67</small>",function(){
+  /* 钩子 */
+  S(2640,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"「1+1 等于几？」","b");
+      note("它可能想上 2000 个 token",340,190,"r");
+      note("而你要为这 2000 个付钱",340,238,"r");
+      boxNode(730,105,440,58,"竞赛数学题","g");
+      note("这个确实该多想",950,190,"g");
+      note("讲者：<b>not all prompts are equal</b>",640,352,"y");
+      setCap("奖励只说了「要有思考」，没说「按需思考」。");
+    },"上一集把推理训进去了，<b>紧接着的毛病是它不分场合</b>。  讲者：<b>not all prompts are equal. There are some prompts that do not need the model to think too much.</b>  问「1+1 等于几」，它也可能先想上一大段。而第一集那条约束还在：<b>这些 token 你要付钱。</b>  <b>为什么会这样？</b>回到上一集最后那条：  <b>奖励说的是「要有思考过程」和「答案要对」，从来没说过「简单题要少想」。</b>没被覆盖的维度上，模型自由漂移——<em>而漂移的方向恰好是「想得更多」，因为多想在难题上确实有收益</em>。  <b>这一集讲人们想出的几种办法。⚠ 讲者对其中最主要的那个的评价是：这仍然是个 open problem。</b>");
+  /* 错误答案 */
+  S(2652,function(){
+      clearScene();setEq(null);
+      setBig("规定最多想 500 个 token，超了就截断","简单粗暴但有效");
+      setCap("<s>硬截断会把它切在半路上</s> —— 想到一半被打断，答案可能更糟。");
+    },"最粗暴的办法：<b>设一个硬上限，想到 500 个 token 就强行停。</b>  问题是<b>硬截断不管你想到哪了</b>。模型可能正推到关键一步，被切断之后<em>既没有完整的推理，也没有答案</em>——比不让它想还糟。  还有个更根本的问题：<b>上限该设多少？</b>设小了难题做不出来，设大了简单题照样浪费。<em>而「这道题该想多久」恰恰是你事先不知道的。</em>  ⇒ 所以真正的办法分两类，下面几镜分别看： · <b>事先判断</b>：先看一眼题目，决定给多少预算。 · <b>过程中干预</b>：在生成途中<em>推它一把</em>或<em>叫停</em>。  ⚠ 还有一条讲者提到的硬约束，和省钱无关：<b>上下文窗口是有限的</b>。模型思考时必须 <em>be aware of how much context length is left</em>——<b>想太多会把窗口占满，连答案都写不下。</b>");
+  /* 铺陈 */
+  S(2664,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,180,280,56,"提示词","b");
+      arrow(394,208,466,208,"sm",0);
+      boxNode(470,180,300,56,"一个轻量分类器","y");
+      arrow(774,180,846,140,"sm",0);
+      arrow(774,230,846,275,"sm",0);
+      boxNode(850,112,300,54,"高思考预算","g");
+      boxNode(850,250,300,54,"低思考预算","b");
+      note("⚠ 讲者：<b>this is more of an open problem</b>",640,360,"r");
+      setCap("「<b>动态预算</b>」—— 听起来简单，做起来不简单。");
+    },"第一类办法叫<b>动态预算</b>（dynamic budget）。  思路：<b>在模型开始想之前，先用一个轻量分类器看一眼这道题，判断它属于「需要多想」还是「不需要多想」</b>，再据此分配预算。  讲者：how can we make sure that the model does not <b>overthink on questions that do not need too much thinking</b>。  <b>但他紧接着给了一个很诚实的评价：this is more of an open problem.</b>  ⚠ 为什么难？想想那个分类器要做的事：<b>在还没解题之前，判断这道题有多难。</b>  这本身就是个很深的问题——<em>很多题目看起来简单但解起来很难（反之亦然）</em>。而且如果那个分类器真的能准确判断难度，它<b>本身就已经具备相当的推理能力了</b>。  <b>认出这种「要解决 A 得先解决一个和 A 同样难的 B」的循环，是判断一个方向成不成熟的好方法。</b>");
+  /* 主体 */
+  S(2676,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"想让它继续想","g");
+      note("在中途插入一个「wait」",340,190,"g");
+      note("模型往往就会换一条路再试",340,238,"g");
+      boxNode(730,105,440,58,"想让它停下","r");
+      note("插入「时间到了，我的答案是」",950,190,"r");
+      note("逼它立刻收尾",950,238,"r");
+      note("出处：<b>S1</b> 那篇论文",640,352,"y");
+      setCap("名字叫 <b>budget forcing</b>。手段简单到有点狡猾。");
+    },"第二类办法是在生成<b>过程中</b>动手，讲者说这个术语出自 <b>S1</b> 那篇论文，叫 <b>budget forcing</b>。  手段简单到有点狡猾——<b>往生成流里插 token</b>：  · <b>想让它继续想</b>：插一个 <i>「wait」</i>。讲者指出模型的推理链里本来就常出现 <em>oh wait, wait, I think I found something else</em>，<b>之后往往会换一条路再试</b>。所以人为插入这个词，就是在<em>模仿它自己的「再想想」信号</em>。 · <b>想让它停下</b>：插一句 <i>「时间到了，我的答案是」</i>，逼它立刻收尾。  ⚠ <b>注意这个办法的性质：它完全不碰权重，纯粹在推理时操纵上下文。</b>所以成本极低、可以随时调整——<em>但也说明控制是外加的、不稳固的</em>。  <b>和上一镜对比：动态预算是「事先决定」，budget forcing 是「随时干预」。后者更灵活，但你仍然需要知道「什么时候该插」——那个判断问题并没有消失。</b>");
+  /* 主体 */
+  S(2688,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"现在：思考 = token","b");
+      note("可读、可调试",340,190,"g");
+      note("但受词表限制，而且<b>按个数收费</b>",340,238,"r");
+      boxNode(730,105,440,58,"另一条路：连续思维","y");
+      note("思考发生在<b>隐表示</b>空间",950,190,"y");
+      note("信息更密，但<b>人看不懂了</b>",950,238,"r");
+      note("讲者：very much <b>active area of research</b>",640,352,"y");
+      setCap("第一集那条「推理链可用来调试」，在这条路上会失效。");
+    },"最后一条最激进，而且它把整个前提掀了。  讲者提的问题：<b>models may think on some other space, maybe not in the language space.</b>  也就是说——<b>凭什么思考必须以文字 token 的形式发生？</b>  现在的做法里，模型的每一步思考都要被编码成词表里的某个 token。这<b>既是限制也是开销</b>：<em>受词表能表达的东西限制，而且每个 token 都要收费</em>。  <b>连续思维</b>（continuous thoughts）这条路线的想法是：<b>让「思考 token」不是真的 token，而是隐表示</b>——<em>more meaningful, but also more compressed</em>。  讲者说这是 <b>very much active area of research</b>，他提到有一篇 2024 年的，而且「几天前又看到一篇」。  ⚠ <b>但请注意这条路会付出什么代价。</b>回到第一集和第三讲：<em>推理链的一大价值是人能读、能调试</em>。一旦思考变成隐向量： · <b>你看不懂它在想什么了。</b> · <b>第七集 R1 用来修语言混杂的那种办法也用不了了</b>——<em>隐空间里没有「语言」可言</em>。  <b>效率和可解释性，在这里是直接冲突的。</b>");
+  /* 反驳 */
+  S(2700,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"这一集的办法","y");
+      note("分类器 · 插 token · 换表示空间",340,190,"y");
+      note("都在<b>模型之外</b>动手",340,238,"y");
+      boxNode(730,105,440,58,"⚠ 根子在哪","r");
+      note("奖励函数<b>没有把长度写进去</b>",950,190,"r");
+      note("优化器就在这个维度上自由漂移",950,238,"r");
+      note("下一集：根子其实在损失函数的一个因子里",640,352,"g");
+      setCap("治标和治本，这一集全在治标。");
+    },"收尾时要把这一集的位置摆正。  <b>这一集所有的办法，都是在模型之外动手。</b>  · 动态预算：<em>在模型前面加一个分类器</em>。 · budget forcing：<em>在生成过程中插 token</em>。 · 连续思维：<em>换一种表示形式</em>。  <b>没有一个去动「模型为什么会想太多」这个根因。</b>  根因在上一集已经点明：<b>奖励只说了「要有思考」和「答案要对」，没有对长度做任何约束。</b>于是在长度这个维度上，模型可以自由漂移——<em>而且训练会把它推向「更长」，因为多想在难题上有收益</em>。  ⚠ 真正治本的办法是<b>改训练</b>，而这正是下一集的内容。  <b>而下一集会揭示一件更有意思的事：长度失控的根子，不只是「奖励没约束长度」这么简单——GRPO 的损失函数里有一个不起眼的因子，它在主动奖励「把错误答案写长一点」。</b>  <em>那是一个真正的设计缺陷，而不是约束缺失。</em>");
+  SUM(2640,4,{h:"让它别想太多：三类办法，全是外挂",
+    k:"<b>动态预算</b>（先用分类器判断该想多久）· <b>budget forcing</b>（中途插「wait」逼它继续，或插「时间到了」逼它收尾，出自 S1）· <b>连续思维</b>（让思考发生在隐表示而非 token 空间）。",
+    m:"根因是<b>奖励没有把长度写进去</b> —— 上一集那条「规则覆盖不全，优化器就在没覆盖的维度自由漂移」。除省钱外还有一条硬约束：<b>上下文窗口有限</b>，想太多会占满窗口连答案都写不下。",
+    w:"<s>误解</s>：「设个 token 上限就行」。<b>硬截断会把它切在半路</b>，既无完整推理也无答案；而且「这道题该想多久」恰恰是你事先不知道的。",
+    e:"⚠ <b>动态预算讲者明说仍是 open problem</b> —— 要准确判断难度的那个分类器，本身就得具备相当的推理能力（「要解决 A 得先解决同样难的 B」）。⚠ 连续思维的代价是<b>人看不懂它在想什么了</b>，调试与语言一致性那套手段全部失效。"});
+  QUIZ(2640,4,{t:"「动态预算」为什么被讲者称为 open problem？",
+    o:["因为上下文窗口的长度无法在推理前确定","因为分类器的推理成本高于节省下来的 token 成本","因为不同服务商的计费方式不统一","因为准确判断一道题该想多久，本身就需要相当的推理能力"],
+    a:3,
+    w:"那个「先看一眼题目、判断该分配多少思考预算」的分类器，要做的是<b>在解题之前判断题目有多难</b>——而很多题看起来简单却很难解。如果它真能准确判断，<em>它本身就已经具备相当的推理能力了</em>。这种「要解决 A 得先解决同样难的 B」的循环，是判断方向成熟度的好信号。<s>「窗口无法确定」</s>窗口长度是已知常量。<s>「分类器成本更高」</s>讲者说的是 <b>quick classifier</b>，成本不是障碍。<s>「计费不统一」</s>与难度判断无关。"});
+});
+
+KP("5 · <b>GRPO</b>：拿同组的平均当基线，砍掉价值函数　<small>讲义 p69–94</small>",function(){
+  /* 钩子 */
+  S(3534,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"PPO 的优势怎么来","y");
+      note("训一个<b>价值函数</b>，预测「预期能拿多少」",340,190,"y");
+      note("它要和策略<b>一起训</b> —— 上一讲的大头成本",340,238,"r");
+      boxNode(730,105,440,58,"GRPO 的问法","g");
+      note("「预期」一定要<b>学</b>出来吗？",950,190,"g");
+      note("能不能直接<b>测</b>出来？",950,238,"g");
+      setCap("讲者 58:54。GRPO 与 PPO 的差别<b>只在这一处</b>。");
+    },"上一讲的第六集讲过：PPO 要最大化的是<b>优势</b>——「比预期好多少」。而那个「预期」，是靠<b>训一个价值函数</b>得来的，它必须和策略一起训，是 PPO 最重的那块。  <b>GRPO</b>（Group Relative Policy Optimization）问了一个很简单的问题：  <b>「预期」一定要学出来吗？能不能直接测出来？</b>  讲者把两者的关系说得很清楚：GRPO 和 PPO 的目标<b>完全一样</b>——最大化优势、不许偏离太远（KL 和 clip 都还在）。  <b>唯一的关键差别，是怎么算优势。</b>  ⚠ 这一集只讲这一处差别，<em>因为别的部分你上一讲已经学过了</em>。");
+  /* 错误答案 */
+  S(3546,function(){
+      clearScene();setEq(null);
+      setBig("记录过去所有回答的平均奖励，拿它当预期","省掉价值函数，不用训");
+      setCap("<s>太粗了</s>：简单题和难题的平均混在一起，等于没有基线。");
+    },"想不训价值函数，最省事的办法：<b>把历史上所有回答的平均奖励记下来，拿它当「预期」。</b>  <b>这太粗了。</b>回到上一讲第六集那个例子：简单题随手 0.8，难题拼命 0.5。如果用的是<b>全局</b>平均（比如 0.65），那么——  · 简单题拿 0.8 → <b>优势为正</b>，被强化。 · 难题拿 0.5 → <b>优势为负</b>，被惩罚。  <em>结果和完全不用基线一样糟：仍然在奖励「挑简单的答」。</em>  <b>问题在于：基线必须是「针对这道题的预期」，而不是「所有题的平均」。</b>  价值函数之所以要学，正是因为它要<b>根据具体的提示词和已生成的部分</b>给出预期。  ⇒ <b>那有没有办法既针对这道题，又不用训模型？</b>  <b>有——对同一道题多生成几次，拿这一组的平均。</b>");
+  /* 铺陈 */
+  S(3558,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(440,105,400,54,"一道题（提示词）","b");
+      arrow(540,159,250,209,"sm",0);
+      arrow(600,159,530,209,"sm",0);
+      arrow(680,159,810,209,"sm",0);
+      arrow(740,159,1070,209,"sm",0);
+      boxNode(130,213,240,54,"回答 1 → 0.9","g");
+      boxNode(410,213,240,54,"回答 2 → 0.2","r");
+      boxNode(690,213,240,54,"回答 3 → 0.5","y");
+      boxNode(970,213,200,54,"… 共 g 个","b");
+      note("这一组的<b>平均</b>，就是「这道题的预期」",640,330,"g");
+      note("不用训任何东西 —— 它是<b>当场测出来</b>的",640,385,"y");
+      setCap("名字里的 <b>Group</b> 就是这一组；<b>Relative</b> 就是组内相对。");
+    },"<b>GRPO 的做法：对同一道题，一次生成 g 个回答。</b>  每个回答都拿到自己的奖励。然后——<b>拿这一组奖励的平均值，当作「这道题的预期」。</b>  讲者：we're going to take a completion, compute each reward, and <b>compare it with the average of rewards of completions for that same prompt</b>。  <b>名字里的两个词现在都有了意思</b>： · <b>Group</b>：同一道题的这一组回答。 · <b>Relative</b>：奖励是<em>相对于组内其他回答</em>来衡量的。  <b>关键在于：这个基线是「当场测出来的」，不是「学出来的」。</b>所以——<em>不需要价值函数，不需要 GAE，不需要多一个模型</em>。  ⚠ 实际用的不止减均值，<b>还要除以这组奖励的标准差</b>（也就是做标准化）。讲者给了这个细节，<b>并且当场预告：we will see that it may not be the best way to do it</b>——<em>这个伏笔第六集会收。</em>");
+  /* 主体 */
+  S(3570,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"简单题","b");
+      note("一组回答大多是对的，均值高",340,190,"b");
+      note("再答对一次：优势<b>很小</b>",340,238,"y");
+      boxNode(730,105,440,58,"难题","g");
+      note("一组回答大多是错的，均值低",950,190,"g");
+      note("答对一次：优势<b>很大</b>",950,238,"g");
+      note("「难题上的一次成功」被自动放大",640,352,"g");
+      setCap("上一讲那个「别奖励偷懒」的要求，在这里被自然满足了。");
+    },"这个设计有个很漂亮的性质，<b>它自动解决了上一讲那个「别奖励挑简单题」的问题</b>。  · <b>简单题</b>：一组 g 个回答大多是对的，<b>组内均值很高</b>。你再答对一次——<em>和大家一样，优势接近 0</em>。 · <b>难题</b>：一组回答大多是错的，<b>组内均值很低</b>。你答对一次——<em>比全组都好，优势非常大</em>。  讲者把这个直觉说得很清楚：if you have a <b>very hard problem</b> and you have the correct answer, then you want to make sure you're <b>incentivizing your model to upweight those tokens much more, because if you find a good solution, it's a good solution to a hard problem</b>。  <b>「难题上的一次成功」被自动放大了，而且不需要任何人去标注难度。</b>  ⚠ 这就是「相对」这个设计的全部价值：<b>它把绝对分数里那个「题目本身好不好答」的成分，用同组样本当对照给消掉了。</b>——<em>这其实是实验设计里「对照组」的思路。</em>");
+  /* 主体 */
+  S(3582,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"省下的","g");
+      note("价值函数：不用训、不用存",340,190,"g");
+      note("GAE 那几个超参数：没了",340,238,"g");
+      boxNode(730,105,440,58,"付出的","r");
+      note("每道题要生成 <b>g 次</b>，不是 1 次",950,190,"r");
+      note("g 太小则基线噪声大，太大则贵",950,238,"r");
+      note("又一次：<b>省的是训练，付的是推理</b>",640,352,"y");
+      setCap("这笔交易在推理任务上特别划算 —— 因为奖励是免费的。");
+    },"算一下这笔交易。  <b>省下的</b>： · <b>价值函数</b>——不用训、不用存、不用和策略一起调。这是 PPO 最大的那块。 · <b>GAE 的那几个超参数</b>——上一讲抱怨的清单短了一截。  <b>付出的</b>： · <b>每道题要生成 g 个回答，而不是 1 个。</b> · g 是个新的超参数：<em>太小则组内均值噪声大，太大则生成成本高</em>。  <b>这又是一次「省训练、付推理」的交换</b>——和上一讲的 Best-of-N 同一个形状。  ⚠ <b>但在推理任务上，这笔交易特别划算，原因在上一集</b>：  <b>奖励是可验证的，所以给这 g 个回答打分几乎不花钱</b>（跑个测试而已）。<em>如果还要用奖励模型给每个打分，那 g 倍的成本就要再乘一遍。</em>  <b>所以 GRPO 在推理任务上大行其道，不是偶然——它和「可验证奖励」是天生一对。</b>");
+  /* 反驳 */
+  S(3594,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"它适合","g");
+      note("有<b>可验证奖励</b>的任务",340,190,"g");
+      note("同一题能便宜地采样很多次",340,238,"g");
+      boxNode(730,105,440,58,"⚠ 它不见得适合","r");
+      note("要靠奖励模型打分的任务",950,190,"r");
+      note("（g 倍的奖励模型推理不便宜）",950,238,"r");
+      note("讲者：PPO 是 2017 年的，为<b>别的场景</b>设计的",640,352,"y");
+      setCap("下一集：这个「除以标准差」的细节，会惹出大麻烦。");
+    },"最后把 GRPO 的位置摆正，<b>别读成「新算法打败旧算法」</b>。  讲者自己给的解释很到位：<b>the traditional RL algorithms have been developed before all these LLMs became a thing. PPO was from 2017. So these quantities may make a lot of sense in some setups, but maybe not in the language world.</b>  <b>PPO 的价值函数不是设计失误——在那些「奖励稀疏、不能重复试、一次 episode 很贵」的场景（比如机器人），你根本没法对同一个状态采样 g 次。</b>那时你<em>只能</em>学一个价值函数。  <b>而 LLM 这边恰好相反</b>：同一道题想采样多少次就采样多少次，<em>而且在推理任务上打分几乎免费</em>。<b>GRPO 利用的正是这个新环境带来的便利。</b>  ⚠ 反过来说：<b>在没有可验证奖励的任务上（比如上一讲的偏好微调），GRPO 的优势会小很多</b>——因为 g 倍的奖励模型推理不便宜。  ⚠ 而且讲者留了个伏笔：<b>那个「除以标准差」的标准化方式，it may not be the best way to do it。</b><em>下一集会看到，GRPO 的损失里藏着一个真正的设计缺陷。</em>");
+  SUM(3534,5,{h:"GRPO：基线不用学，当场测一组出来",
+    k:"与 PPO 的目标完全相同（最大化优势、KL 与 clip 都在），<b>唯一差别是怎么算优势</b>：对同一道题采样 <b>g 个</b>回答，用<b>组内奖励的均值与标准差</b>把自己的奖励标准化。<b>不需要价值函数。</b>",
+    m:"名字里 <b>Group</b> 是这一组、<b>Relative</b> 是组内相对。它自动适应难度：简单题组内均值高（再答对优势也小），难题组内均值低（答对一次优势极大）—— <b>用同组样本当对照，把「题目本身好不好答」消掉</b>。",
+    w:"<s>误解</s>：「用历史全局平均当基线就行」。那样简单题仍被奖励、难题仍被惩罚 —— <b>基线必须针对这道题</b>，这正是价值函数非学不可的原因，也是 GRPO 用「同题一组」绕过它的办法。",
+    e:"⚠ <b>它不是「PPO 的改进版」</b>：PPO 的价值函数适合「不能重复试」的场景（机器人）；GRPO 利用的是 LLM 这边<b>可以便宜地重复采样 + 可验证奖励打分几乎免费</b>。没有可验证奖励时，g 倍的奖励模型推理并不便宜。⚠ 讲者预告「除以标准差<b>可能不是最好的做法</b>」。"});
+  QUIZ(3534,5,{t:"GRPO 与 PPO 最关键的差别在哪？",
+    o:["GRPO 不训练价值函数，而是用同一提示词下一组回答的奖励统计量作为基线","GRPO 去掉了 KL 惩罚项，因此训练更自由","GRPO 把奖励模型换成了可验证的规则","GRPO 在 token 级计算优势，而 PPO 在完成级计算"],
+    a:0,
+    w:"两者目标完全相同（最大化优势、不许偏离太远），<b>唯一关键差别是怎么算优势</b>：PPO 要训一个价值函数来预测「预期能拿多少」，GRPO 则对同一道题采样 g 个回答，<b>用组内均值与标准差</b>当基线——<em>基线是测出来的，不是学出来的</em>。<s>「去掉 KL」</s>讲者明说 KL 项还在。<s>「换成可验证规则」</s>那是<b>任务</b>带来的性质，与算法无关；GRPO 也可以配奖励模型用。<s>「token 级 vs 完成级」</s>搞反了——PPO 的<b>价值函数</b>才是 token 级的。"});
+});
+
+KP("6 · 回答越来越长：<b>1/|o| 这个坏激励</b>　<small>讲义 p95–115</small>",function(){
+  /* 钩子 */
+  S(4661,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,350],[340,290],[500,240],[660,205],[820,195],[1060,192]],"fit g");
+      note("性能：涨到一半就平了",880,150,"g");
+      curve([[180,360],[340,320],[500,280],[660,240],[820,200],[1060,150]],"fit");
+      note("长度：一直在涨",380,135,"r");
+      note("横轴：RL 步数",640,392,"b");
+      setCap("讲者：<b>a lot of people have looked at these charts and they are like, OK, there is something going on</b>。");
+    },"这一集是整讲最该细看的一集，因为它展示了<b>一个可以被追溯到具体公式的设计缺陷</b>。  现象：<b>随着 RL 训练推进，模型的回答越来越长。</b>  前期这没问题——<b>长度增长和性能提升是同步的</b>，推理链变得更精细，分数也在涨。  <b>但到了某个阶段，性能曲线平了，长度曲线还在继续往上。</b>  讲者：a lot of people have looked at these charts and they're like, <b>OK, there's something going on.</b>  ⚠ 回到第一集那条约束：<b>这些 token 要收费</b>。性能不再提升而长度持续增长，<em>就是纯粹的浪费</em>。  <b>问题是——为什么会这样？</b>");
+  /* 错误答案 */
+  S(4673,function(){
+      clearScene();setEq(null);
+      setBig("想得多确实有用啊，模型只是学到了这一点","性能平了只是撞到天花板了");
+      setCap("<s>解释不了</s>：如果想得多还有用，<b>性能该继续涨才对</b>。");
+    },"一个听起来合理的解释：<b>模型学到了「想得多有好处」，所以越想越多；性能平了只是能力到顶了。</b>  <b>这解释不通。</b>  如果长度增长真的是因为「多想有用」，那么<b>长度在涨的同时，性能也该继续涨</b>。两条曲线脱钩这件事本身，就说明<em>后期增加的那些长度没有带来任何收益</em>。  <b>模型在做一件对任务无益、但训练过程却在鼓励的事。</b>  ⇒ 这正是「奖励黑客」的标准形态。按第三集那条：<b>规则没覆盖的维度上，优化器会自由漂移</b>。  <b>但这一集更进一步——它要说明的不是「长度没被约束」，而是「损失函数在主动奖励变长」。</b>  <em>那是一个真正的 bug，藏在一个看起来无害的归一化因子里。</em>");
+  /* 铺陈 */
+  S(4685,function(){
+      clearScene();setBig(null);setCap(null);
+      setEq("$$J \\approx \\frac{1}{G}\\sum_{i=1}^{G}\\;\\frac{1}{|o_i|}\\sum_{t=1}^{|o_i|}\\big(\\text{这个 token 的那一项}\\big)$$","top");
+      note("外层：对组内 G 个回答求平均",640,322,"b");
+      note("内层：对这个回答的每个 token 求和，再<b>除以它的长度</b>",640,374,"y");
+      setCap("讲者：把 1/|o_i| 挪到里面去看 —— <b>它是每个 token 的权重</b>。");
+    },"要找出病根，得看 GRPO 的损失函数长什么样。讲者说它 <b>seems like a very complicated formula, but it's not really</b>，于是用大白话拆了一遍：  · <b>最外层</b>：对组内 G 个回答求平均（第五集那个「组」）。 · <b>往里一层</b>：对这个回答的<b>每一个 token</b> 求和。 · <b>每个 token 的那一项</b>：就是上一讲的 PPO-Clip——<em>概率比 × 优势，带截断</em>。 · <b>最右边</b>：KL 惩罚。  <b>关键在那个 1/|o_i|</b>——<em>对第 i 个回答的 token 求和之后，要除以它的长度</em>。  这看起来再自然不过：<b>求和之后除以个数，就是求平均嘛。</b>不这么做的话，长回答光靠 token 多就会主导损失。  ⚠ 但讲者做了一个关键动作：<b>把 1/|o_i| 从外面挪到求和里面去</b>。  <b>挪进去之后，它就不再是「求平均」，而变成了「每个 token 的权重」。</b>下一镜看这个权重带来了什么。");
+  /* 主体 */
+  S(4697,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"短回答（50 个 token）","g");
+      note("每个 token 的权重 = 1/50",340,195,"g");
+      note("<b>大</b>",340,243,"g");
+      boxNode(730,105,440,58,"长回答（2000 个 token）","b");
+      note("每个 token 的权重 = 1/2000",950,195,"b");
+      note("<b>小 40 倍</b>",950,243,"b");
+      note("一个 token 的影响力，取决于<b>它待在多长的回答里</b>",640,352,"y");
+      setCap("讲者：the contribution of a token <b>depends on the output that it is in</b>。");
+    },"把 1/|o_i| 当成权重来看，结论立刻就出来了：  · 一个 token 待在 <b>50 个 token 的短回答</b>里 → 权重 <b>1/50</b>。 · 同样一个 token 待在 <b>2000 个 token 的长回答</b>里 → 权重 <b>1/2000</b>。  <b>相差 40 倍。</b>  讲者的表述：<b>the contribution of a token with respect to the objective function depends on the output that it is in.</b> If the token is in a short sentence, it's going to have a <b>bigger weight</b> than in a longer sentence。  <b>注意这件事本身还不是问题。</b>如果所有回答都被同等对待（有的奖励、有的惩罚），权重大小只影响学习的快慢。  <b>问题出在——奖励和惩罚是不对称地受这个权重影响的。</b>下一镜，这是整集的关键。");
+  /* 主体 */
+  S(4709,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"优势为负（回答是坏的）","r");
+      note("短回答：权重大 → <b>被狠狠压低</b>",340,195,"r");
+      note("长回答：权重小 → 只被轻轻压一下",340,243,"y");
+      boxNode(730,105,440,58,"模型学到了什么","g");
+      note("「要错，就错得<b>长</b>一点」",950,195,"g");
+      note("长的坏回答，代价更小",950,243,"g");
+      note("这是一个<b>真实存在的坏激励</b>，不是约束缺失",640,352,"r");
+      setCap("讲者：you prefer <b>longer bad outputs as opposed to shorter bad outputs</b>。");
+    },"现在把权重和优势的正负合起来看。  <b>当优势为负</b>（这个回答不好，要压低它的概率）： · <b>短的坏回答</b>：每个 token 权重大 → <em>被压得很狠</em>。 · <b>长的坏回答</b>：每个 token 权重小 → <em>只被轻轻压一下</em>。  讲者把这个结论说得很直接：<b>this is a bad incentive, because what you're telling your model is: if you have a short bad sentence, it is worse than if you have a long bad sentence.</b>  翻译成模型学到的策略：<b>「要错，就错得长一点」——因为长的错误代价更小。</b>  <b>于是回答就越来越长。</b>讲者说这是 what people are <b>hypothesizing</b> that is making the output length bigger and bigger。  ⚠ <b>请注意这和第四集那个「约束缺失」的区别</b>： · 第四集：<em>奖励没提长度，所以模型在这个维度上自由漂移</em>。 · 这一集：<b>损失函数在主动、系统性地奖励变长。</b>  <b>后者是真正的设计缺陷，而且它藏在一个看起来最无害的「求平均」里。</b>");
+  /* 反驳 */
+  S(4721,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"DAPO（2025-03）","g");
+      note("把归一化因子改成<b>所有 token 共用一个</b>",340,195,"g");
+      boxNode(730,105,440,58,"Dr. GRPO","y");
+      note("干脆<b>把这个因子去掉</b>",950,195,"y");
+      note("实测：<b>正确</b>答案的长度基本不变",640,300,"g");
+      note("而<b>错误</b>答案的长度明显下降 —— 正是预期的效果",640,355,"r");
+      setCap("诊断对不对，看修完之后变化的是不是<b>你预测的那一部分</b>。");
+    },"既然病根是那个 1/|o_i|，修法就很直接。讲者给了两篇：  · <b>DAPO</b>（2025 年 3 月，他说这篇现在很流行）：<b>把归一化因子改成所有 token 共用一个</b>，于是每个 token 的权重和它所在回答的长度<em>无关</em>了。 · <b>Dr. GRPO</b>（他说名字不确定怎么念）：<b>干脆把这个因子整个去掉。</b>  <b>但真正让人信服的是实测结果的形状</b>，这才是这一集最该学的地方：  修完之后，<b>正确答案的长度基本没变，而错误答案的平均长度明显下降。</b>  ⚠ <b>为什么这个结果如此有说服力？</b>  因为诊断说的就是「<em>坏回答</em>被鼓励写长」。如果修完之后<b>所有</b>回答都变短了，那只说明你压制了长度，<em>并不能证明原来的诊断是对的</em>。而现在<b>只有被诊断为受影响的那一部分变了</b>——  <b>这才是「诊断被验证」，而不只是「症状被压下去」。</b>  ⚠ 讲者还提了另两处调整：<b>标准差那一项对难题有偏</b>（难题大多失败，标准差小）；以及 <b>ε 该取不对称的上下界</b>（低概率 token 需要更大的上界才动得了）。<em>第五集那个伏笔，在这里收了。</em>");
+  SUM(4661,6,{h:"回答越来越长，病根在损失里一个 <b>1/|o|</b>",
+    k:"现象：RL 步数一多，<b>性能已经平台了，长度还在涨</b>。病根是 GRPO 损失里对每个回答除以它的长度 —— 把这个因子挪进求和里看，它就是<b>每个 token 的权重</b>。",
+    m:"短回答里 token 权重大、长回答里小（50 vs 2000，差 40 倍）。<b>当优势为负时，短的坏回答被压得更狠、长的坏回答只被轻轻压</b> —— 于是模型学会「要错就错得长一点」。",
+    w:"<s>误解</s>：「想得多有用，模型只是学到了这点」。<b>两条曲线脱钩本身就否定了它</b> —— 若多想仍有用，性能该继续涨。这与第四集的「约束缺失」不同：<b>这里是损失函数在主动奖励变长</b>，是真正的设计缺陷。",
+    e:"修法：<b>DAPO</b> 把归一化因子改成所有 token 共用；<b>Dr. GRPO</b> 直接去掉。⚠ 实测最有说服力的地方：<b>正确答案长度不变，错误答案长度明显下降</b> —— 只有被诊断为受影响的那部分变了，这叫<b>诊断被验证</b>，不只是症状被压住。"});
+  QUIZ(4661,6,{t:"GRPO 导致输出长度持续增长，讲者给出的机制是什么？",
+    o:["KL 惩罚项会随着序列变长而减弱，使模型敢于偏离更远","损失中按回答长度归一化，使短回答里的 token 权重更大，于是短的坏回答被罚得更狠","可验证奖励只检查最终答案，所以模型用冗长内容填充以避免出错","组内标准差随长度增大，放大了长回答的优势"],
+    a:1,
+    w:"把 <b>1/|o_i|</b> 挪进求和里看，它就是<b>每个 token 的权重</b>：短回答里权重大、长回答里小。<b>优势为负</b>时，短的坏回答被狠狠压低、长的坏回答只被轻轻压——于是模型学会<b>「要错就错得长一点」</b>（讲者：you prefer longer bad outputs as opposed to shorter bad outputs）。<s>「KL 随长度减弱」</s>没有这种机制。<s>「用冗长填充避免出错」</s>这是把现象当成了机制，解释不了为什么<em>只有错误答案</em>变长。<s>「标准差随长度增大」</s>标准差是<b>组内奖励</b>的标准差，与回答长度无关——讲者提到的标准差问题是<b>对难题有偏</b>，是另一回事。"});
+});
+
+KP("7 · <b>R1-Zero</b>：完全跳过 SFT 会怎样　<small>讲义 p117–126</small>",function(){
+  /* 钩子 */
+  S(5485,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,300,58,"预训练模型","b");
+      arrow(414,139,506,139,"sm",0);
+      boxNode(510,110,300,58,"（跳过 SFT）","r");
+      arrow(814,139,906,139,"sm",0);
+      boxNode(910,110,250,58,"直接上 RL","g");
+      note("没有任何监督数据，没有示范，没有人写的推理链",640,250,"y");
+      note("只有两个可验证的奖励",640,305,"g");
+      note("这是一个<b>概念验证</b>：RL 单独能走多远？",640,375,"y");
+      setCap("<b>DeepSeek R1-Zero</b> —— 名字里的 Zero 就是这个意思。");
+    },"前六集讲完了零件。这一集和下一集看它们被装成了什么。  <b>R1-Zero</b> 是一个概念验证，而且问题提得很极端：  <b>如果完全跳过 SFT，只用 RL，能走多远？</b>  起点是一个普通的预训练模型——讲者指出它用了本课讲过的东西：<b>MoE</b>（第三讲）、<b>MLA</b>（第三讲）、<b>Pre-Norm</b>（第二讲）。就是个标准的基座。  然后<b>不做任何对齐、不做任何 SFT</b>，<em>直接上第三集那套 RL</em>。  讲者的措辞：they just start with this pre-trained model ... <b>and it hasn't seen any supervision so far</b>。  <b>没有示范、没有人写的推理链、没有偏好数据。只有「有没有 think 标签」和「答案对不对」。</b>");
+  /* 错误答案 */
+  S(5497,function(){
+      clearScene();setEq(null);
+      setBig("连一条示范都不给，它怎么知道要写 think 标签","总得先教它格式吧");
+      setCap("<s>用提示词告诉它就行</s> —— 模板写在提示词里，<b>不在权重里</b>。");
+    },"一个合理的疑问：<b>模型怎么知道要把思考放进 think 标签里？总得先有示范吧。</b>  <b>不用。用提示词告诉它就行。</b>  讲者说论文里<b>给出了完整的模板</b>，而且 it's a very simple one： · 开头几句设定场景——<em>你是一个助手，正在和用户对话</em>。 · 然后<b>用大白话说明格式要求</b>——想什么都行，但<em>请放进 think 块里</em>；准备好回答时，<em>放进 answer 块里</em>。 · 中间留一个位置替换成具体题目。 · 最后让模型接着写。  <b>关键在于：格式要求是写在提示词里的，不是训进权重里的。</b>而 RL 的那个格式奖励，只是在<em>检查它有没有照做</em>。  ⚠ <b>这是一个很省事的设计</b>：预训练模型已经具备「按指示的格式输出」的基本能力（这也是预训练的副产品），所以<em>格式这件事根本不需要训</em>——只需要在奖励里确认一下。");
+  /* 铺陈 */
+  S(5509,function(){
+      clearScene();setEq(null);setBig(null);
+      curve([[180,350],[330,300],[480,255],[630,215],[780,185],[930,165],[1070,152]],"fit g");
+      note("纵轴：数学基准（AIME）准确率",180,130,"g");
+      note("横轴：RL 步数",640,392,"b");
+      note("没有任何监督，分数一路上涨",640,330,"y");
+      setCap("这是本讲最重要的一张图 —— 它证明了这条路走得通。");
+    },"结果很干净：<b>随着 RL 步数增加，数学基准上的准确率一路显著上涨。</b>  讲者强调了这件事的意义：<b>without any prior supervision</b>, just having these as a reward, increases scores on reasoning-based benchmarks。  <b>请停下来体会这件事有多反常。</b>  在此之前，「教模型做某件事」的标准范式一直是：<b>找一批人类做这件事的示范，让它模仿</b>。整个 SFT 阶段就建立在这个假设上。  <b>R1-Zero 说明：当任务的结果可以被验证时，示范不是必需的。</b>只要你能判断对错，<em>能力可以从随机的尝试中自己长出来</em>。  ⚠ <b>这是本讲的核心论点，也是为什么推理模型是 2024–2025 年最大的转折之一。</b>  <b>但讲者紧接着说：well, not so easy。</b>");
+  /* 主体 */
+  S(5521,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"问题一：语言混杂","r");
+      note("思考过程里几种语言混着来",340,195,"r");
+      boxNode(730,105,440,58,"问题二：语法错乱","r");
+      note("句子本身就不通顺",950,195,"r");
+      note("答案是对的 —— 但<b>过程没法读</b>",640,300,"y");
+      note("第一集那条保留在这儿应验了",640,358,"r");
+      setCap("讲者：作者看推理链时发现了这两类问题。");
+    },"作者去翻模型生成的推理链，发现了两个问题：  ① <b>语言混杂</b>——sometimes it would <b>mix languages</b>，同一段思考里几种语言混着来。 ② <b>语法错乱</b>——句子本身就不通顺。  <b>注意：答案仍然是对的。</b>出问题的只有<em>过程的可读性</em>。  <b>为什么会这样？</b>讲者给的假设很有说服力：because you <b>haven't really seen any strong supervision</b> just before that。模型 gets the opportunity to optimize anything it wants, but it <b>doesn't have a strong supervision signal to anchor on</b>。  ⚠ <b>用第三集那条规则一套就全明白了</b>：  <b>奖励说了「要有 think 标签」和「答案要对」，从来没说过「思考过程要用一种语言、要符合语法」。</b>  <em>没被覆盖的维度上，优化器自由漂移。</em>而这次漂移的方向不是变长，是<b>变得不像人话</b>——因为「像人话」这件事，<em>只有 SFT 才会约束它，而这里没有 SFT</em>。");
+  /* 主体 */
+  S(5533,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"RL 提供的","g");
+      note("把能力推向「答对」这个方向",340,195,"g");
+      boxNode(730,105,440,58,"SFT 提供的","y");
+      note("一个「<b>该长什么样</b>」的锚点",950,195,"y");
+      note("没有锚，优化就会漂到奇怪的地方",950,243,"r");
+      note("两者<b>不是替代关系</b>，是互补的",640,352,"g");
+      setCap("R1-Zero 的价值，一半在证明 RL 行，一半在证明 SFT 不可省。");
+    },"这一镜是对上一镜的提炼，而且它是这一集真正的收获。  <b>R1-Zero 同时证明了两件相反的事：</b>  ① <b>RL 可以单独把「答对」这个能力推上去</b>——不需要示范。 ② <b>但光有 RL，输出会漂到奇怪的地方</b>——因为没有东西在约束「它该长什么样」。  <b>于是 SFT 的作用被看清楚了：它不只是在教能力，它在提供一个锚点。</b>  · <b>RL 负责「往好的方向推」</b>——但好的定义只覆盖了奖励写到的那几个维度。 · <b>SFT 负责「保持在人类能接受的形态里」</b>——它用大量示范，隐式地约束了<em>成千上万个没人会专门写进奖励里的维度</em>：语言、语法、语气、结构……  ⚠ <b>这解释了为什么下一集的 R1 要把 SFT 加回来，而且加在 RL 之前。</b>  <b>先给锚，再优化。</b>");
+  /* 反驳 */
+  S(5545,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"R1-Zero 是","g");
+      note("一个<b>概念验证</b>：证明 RL 单独可行",340,195,"g");
+      boxNode(730,105,440,58,"R1-Zero 不是","r");
+      note("可以拿去用的产品",950,195,"r");
+      note("推理链读不了，稳定性也不够",950,243,"r");
+      note("讲者：a <b>proof of concept</b>，然后才是 full reasoning model",640,352,"y");
+      setCap("下一集：把它暴露的问题一个个补上。");
+    },"最后把 R1-Zero 的位置摆正。  讲者在介绍这两篇时就定了调：<b>respectively, a proof of concept and then a full reasoning model.</b>  <b>R1-Zero 是一个概念验证，不是一个可以用的模型。</b>它要回答的问题是「<em>纯 RL 能不能行</em>」，答案是「能」——<b>这个答案本身就极有价值</b>，因为它推翻了「教能力必须有示范」这个默认假设。  <b>但它作为产品是不合格的</b>：推理链读不下去，输出形态不受控。  ⚠ <b>这种「先做一个极端的、不可用的版本来验证单一变量」的研究方法，值得单独学。</b>  <em>如果 DeepSeek 一上来就做完整的 R1（SFT + RL 混着来），那么「RL 单独能行」这个结论就永远无法被干净地证明——你没法知道能力是哪一半带来的。</em>  <b>Zero 的价值在于它控制了变量。</b>  下一集：把这些问题一个个补上，得到可以用的 R1。");
+  SUM(5485,7,{h:"R1-Zero：完全跳过 SFT，证明纯 RL 可行",
+    k:"起点是普通预训练模型（MoE + MLA + Pre-Norm），<b>不做任何 SFT</b>，直接上两个可验证奖励的 RL。结果：数学基准分数<b>一路上涨</b>。格式要求写在<b>提示词模板</b>里，不需要训。",
+    m:"它推翻了「教能力必须有示范」这个默认假设：<b>当结果可验证时，能力可以从尝试中自己长出来</b>。但也暴露了反面 —— 推理链出现<b>语言混杂与语法错乱</b>，因为 <b>it doesn't have a strong supervision signal to anchor on</b>。",
+    w:"<s>误解</s>：「没有监督它学不会格式」。格式是用<b>提示词模板</b>说明的，奖励只负责检查它有没有照做；预训练模型本来就会按指示的格式输出。",
+    e:"⚠ 它同时证明了两件相反的事，<b>于是看清了 SFT 真正的作用</b>：RL 负责「往好的方向推」（只覆盖奖励写到的维度），SFT 负责<b>提供一个「该长什么样」的锚点</b>，隐式约束成千上万个没人会写进奖励的维度。⚠ Zero 是 <b>proof of concept</b>，不是产品 —— 它的价值在于<b>控制了变量</b>。"});
+  QUIZ(5485,7,{t:"R1-Zero 的推理链出现语言混杂和语法错乱，根本原因是什么？",
+    o:["预训练语料中多语言混杂，RL 把这种倾向放大了","think 标签破坏了模型原本的语言建模能力","完全跳过了 SFT，没有任何监督信号约束输出「该长什么样」","可验证奖励的信号过于稀疏，导致训练不稳定"],
+    a:2,
+    w:"讲者的解释：because you <b>haven't really seen any strong supervision</b>，模型 <b>doesn't have a strong supervision signal to anchor on</b>。按第三集那条规则——奖励只说了「要有 think 标签」和「答案要对」，<b>没说思考要用一种语言、要合语法</b>，于是优化器在这些维度上自由漂移。这也正是 R1 要把 SFT 加回<b>RL 之前</b>的原因。<s>「预训练多语言」</s>预训练模型本身并不会这样混；是缺少约束才漂的。<s>「think 标签破坏能力」</s>标签只是格式标记。<s>「奖励稀疏导致不稳定」</s>不稳定会表现为分数波动，而这里<b>分数一路上涨</b>，坏的只是可读性。"});
+});
+
+KP("8 · <b>R1</b> 的四阶段配方　<small>讲义 p127–141</small>",function(){
+  /* 钩子 */
+  S(5808,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,120,250,54,"① 冷启动 SFT","y");
+      arrow(364,147,406,147,"sm",0);
+      boxNode(410,120,220,54,"② RL","g");
+      arrow(634,147,676,147,"sm",0);
+      boxNode(680,120,250,54,"③ 大规模 SFT","y");
+      arrow(934,147,976,147,"sm",0);
+      boxNode(980,120,180,54,"④ RL","g");
+      note("SFT 与 RL <b>交替</b>进行，各做两轮",640,250,"y");
+      note("每一轮都在补上一轮暴露的问题",640,330,"g");
+      setCap("讲者 96:48。起点仍是 DeepSeek V3 的预训练模型。");
+    },"上一集 R1-Zero 暴露了问题，这一集看怎么补。  <b>R1 的配方是四个阶段，SFT 和 RL 交替各做两轮：</b>  <b>① 冷启动 SFT → ② RL → ③ 大规模 SFT → ④ RL</b>  起点和 R1-Zero 一样，是 DeepSeek V3 的预训练模型（<em>非推理版本</em>）。  ⚠ <b>请注意这个结构本身就是信息。</b>它不是「先 SFT 再 RL」那种两段式，而是<b>交替</b>——<em>每一轮 RL 之后，都再用一轮 SFT 把形态拉回来</em>。  <b>这正是上一集那个结论的工程化：RL 负责推，SFT 负责锚。推一下，锚一下。</b>  下面逐阶段看，每一阶段都在解决一个具体的、前面暴露出来的问题。");
+  /* 错误答案 */
+  S(5820,function(){
+      clearScene();setEq(null);
+      setBig("第一步要 SFT，那推理链还是得人写","绕了一圈，不是回到原点了吗");
+      setCap("<s>不用从头写</s>：让 <b>R1-Zero</b> 先生成，人只负责<b>改</b>。");
+    },"第一阶段要做 SFT，那不就又回到第三集那个「没有推理链可用」的死胡同了吗？  <b>不。关键的一招在这里：</b>  <b>推理链由 R1-Zero 生成，人类只负责改写。</b>  讲者：they generated CoTs during the R1-Zero stage. And these CoTs sometimes had issues. So they <b>used humans to rewrite some of these</b> so that all these CoTs are compliant when it comes to <b>formatting and language consistency</b>。  <b>请体会这个循环有多巧妙：</b> · R1-Zero 证明了纯 RL 能把<b>解题能力</b>训出来。 · 它的问题只在<b>形态</b>（语言、语法），而<em>形态是人很容易修的</em>。 · 于是——<b>用 R1-Zero 产出内容，用人修形态，得到的就是原本「写不出来」的那批 SFT 数据。</b>  ⚠ 这正好对上第三集那条：<b>「从头写推理链极难，但判断/修改容易」——和第五讲「写一首好诗难，比较两首诗容易」是同一个道理。</b>  ⚠ 数量级：讲者说论文没给具体数字，但从措辞看 <b>could have been several orders of magnitude less than other stages</b>——<em>非常少</em>。");
+  /* 铺陈 */
+  S(5832,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,300,56,"答案对不对","g");
+      boxNode(440,105,300,56,"格式对不对","g");
+      boxNode(770,105,390,56,"语言一致性","r");
+      note("前两条：R1-Zero 就有",275,190,"g");
+      note("新增的第三条",965,190,"r");
+      note("做法很朴素：算<b>目标语言 token 的比例</b>",640,300,"y");
+      note("把上一集那个漏掉的维度，<b>写进奖励里</b>",640,362,"g");
+      setCap("规则没覆盖的维度会漂 ⇒ 那就把它覆盖上。");
+    },"第二阶段还是 RL，流程和 R1-Zero 一样。<b>但奖励多了一条。</b>  新增的叫<b>语言一致性奖励</b>（language consistency reward），用来对付上一集那个语言混杂的问题。  做法朴素到让人安心，讲者说是 <b>a very simple heuristic</b>：<em>算输出的推理链里，目标语言的 token 占多大比例</em>。比例越高，奖励越高。  ⚠ <b>这是本讲那条规则的正面运用：</b>  <b>第三集：规则没覆盖的维度，优化器会自由漂移。 第七集：果然漂了（语言混杂）。 这一集：那就把这个维度写进规则里。</b>  <b>整个过程是一次标准的「发现—诊断—修补」循环。</b>  ⚠ 但也要看到这个循环的局限：<b>你只能补你已经发现的问题。</b>还有多少维度没被覆盖、会在什么时候漂出来，<em>事先无从知道</em>。这正是「对齐」这件事难的地方。");
+  /* 主体 */
+  S(5844,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"推理数据","g");
+      note("用当前模型生成，再用判官<b>筛掉不完美的</b>",340,195,"g");
+      note("这叫<b>拒绝采样</b>",340,243,"g");
+      boxNode(730,105,440,58,"非推理数据","y");
+      note("回收 V3 用过的约 <b>20 万</b>条",950,195,"y");
+      note("覆盖指令微调那些常见领域",950,243,"y");
+      note("两者配比约 <b>3 : 1</b>（推理 : 非推理）",640,352,"r");
+      setCap("这一阶段的规模，远大于第一阶段的冷启动。");
+    },"第三阶段是一次<b>大规模</b>的 SFT，而且它的数据来源很有讲究。  <b>推理数据：用拒绝采样生成。</b>拿一批推理题，<b>让当前模型生成回答</b>，然后<b>用判官（LLM 或规则）筛掉不够好的，只留下完美的</b>。  讲者：it's just the fact of <b>filtering out any answers that are not perfect</b>。他也说明了为什么用自动判官：<em>given the scale of the data</em>——人工筛不过来。  <b>非推理数据：直接回收 V3（非推理版本）用过的，约 20 万条</b>，覆盖第四讲指令微调讲过的那些领域。  <b>配比：推理 : 非推理 ≈ 3 : 1。</b>  ⚠ <b>为什么必须掺进非推理数据？</b>因为前两个阶段全在推理上优化，<em>模型会变成一个只会做数学和代码的东西</em>。而用户问的大部分是日常问题。  <b>这是第五讲那条「灾难性遗忘」的直接体现——而这里的解法不是 KL 惩罚，是在数据里把失去的那部分掺回来。</b>");
+  /* 主体 */
+  S(5856,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"推理数据","g");
+      note("还是可验证奖励",340,195,"g");
+      boxNode(730,105,440,58,"非推理数据","y");
+      note("helpfulness + harmlessness",950,195,"y");
+      note("⚠ <b>harmlessness 作用在全部 token 上</b>",640,300,"r");
+      note("—— 包括思考部分；helpfulness 只看最终回答",640,358,"y");
+      setCap("和第五讲那套偏好微调接上了。");
+    },"最后一轮 RL，<b>数据分两类，奖励也分两套</b>：  · <b>推理数据</b>：仍用可验证奖励（答案对不对）。 · <b>非推理数据</b>：用第五讲那套——<b>helpfulness（有用）+ harmlessness（无害）</b>。  ⚠ <b>这里有个很值得注意的实现细节</b>，讲者特意点了出来：  <b>harmlessness 这个奖励作用在「全部输出的 token」上，包括思考部分；而 helpfulness 只看用户最终看到的回答。</b>  <b>为什么要这样分？</b>讲者的理由：<em>you want the chain of thoughts in the think section to be harmless indeed</em>。  <b>也就是说——思考过程本身也要无害，哪怕用户看不到它。</b>  ⚠ <b>这是一个非常好的设计判断，值得想一想。</b>思考部分是模型的「内心活动」，技术上可以不管；但一旦它被日志记录、被调试查看、被某天的产品决定展示出来——<em>内容是有害的就是有害的</em>。  <b>而 helpfulness 只看最终回答，也是对的：思考过程本来就是草稿，要求草稿「有用」反而会逼它写得又长又工整。</b>");
+  /* 反驳 */
+  S(5868,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"看起来像","y");
+      note("四个步骤，一步步往前走",340,195,"y");
+      boxNode(730,105,440,58,"实际是","g");
+      note("RL <b>推</b>一次，SFT <b>锚</b>一次",950,195,"g");
+      note("每一轮都在补上一轮漂出来的问题",950,243,"g");
+      note("⚠ 这个配方是<b>试出来的</b>，不是推导出来的",640,352,"r");
+      setCap("结果：R1 与闭源的推理模型相当。");
+    },"最后看这个配方的性质。  <b>它看起来像一条四步的流水线，但本质是「推—锚—推—锚」的反复拉扯：</b> · <b>RL</b> 把能力往奖励指的方向推——<em>同时在没覆盖的维度上漂</em>。 · <b>SFT</b> 用示范把形态拉回来——<em>同时可能损失一些 RL 刚获得的锐度</em>。  <b>每一轮都在补上一轮暴露的问题</b>： · 冷启动 SFT ← 补 R1-Zero 的可读性问题 · 第一轮 RL 加语言奖励 ← 补语言混杂 · 大规模 SFT 掺非推理数据 ← 补推理训练带来的能力偏科 · 最后一轮 RL 加有用/无害 ← 补第五讲那层对齐  ⚠ <b>最该带走的一句：这个配方是试出来的，不是推导出来的。</b>  <em>没有理论能告诉你该做几轮、每轮多少数据、配比为什么是 3:1。</em>这些数字全部来自实验。  <b>所以读这类「训练配方」的论文时，该记的是每一步解决了什么问题（那是可迁移的），而不是具体的数字（那是这次实验的产物）。</b>  结果：<b>R1 与那些闭源的推理模型相当。</b>");
+  SUM(5808,8,{h:"R1 的四阶段：RL 推一次，SFT 锚一次",
+    k:"<b>① 冷启动 SFT → ② RL → ③ 大规模 SFT → ④ RL</b>。冷启动数据的来源是关键一招：<b>R1-Zero 生成内容，人只改形态</b> —— 把「写不出来」的那批 SFT 数据造了出来，量级比别的阶段<b>小几个数量级</b>。",
+    m:"每一轮都在补上一轮暴露的问题：②加<b>语言一致性奖励</b>（算目标语言 token 比例）补语言混杂；③用<b>拒绝采样</b>造推理数据、掺约 20 万条非推理数据（配比约 <b>3:1</b>）补能力偏科；④推理用可验证奖励、非推理用 <b>helpfulness + harmlessness</b>。",
+    w:"<s>误解</s>：「第一步 SFT，推理链还是得人从头写」。<b>让 R1-Zero 生成，人只负责改</b> —— 又一次「创作难、修改易」。",
+    e:"⚠ 一个很好的设计判断：<b>harmlessness 作用在全部 token（含思考）</b>，因为思考也可能被日志记录或展示；而 <b>helpfulness 只看最终回答</b>，否则会逼草稿写得又长又工整。⚠ <b>这个配方是试出来的不是推导出来的</b> —— 该记的是每步解决了什么问题，不是那些数字。"});
+  QUIZ(5808,8,{t:"R1 的冷启动 SFT 数据是怎么来的？",
+    o:["由人类专家从零撰写高质量推理链","从公开数学题库中抓取已有的解题步骤","用 V3 的指令微调数据直接复用","由 R1-Zero 生成推理链，再让人类改写成格式与语言规范的版本"],
+    a:3,
+    w:"这是整个配方最巧妙的一招：R1-Zero 已经证明<b>纯 RL 能把解题能力训出来</b>，它的毛病只在<b>形态</b>（语言混杂、语法错乱），而形态恰恰是人<em>很容易修</em>的。于是「生成内容 + 人改形态」就造出了原本写不出来的 SFT 数据——又一次「创作难、修改易」。<s>「专家从零写」</s>正是第三集说的那个做不到的事。<s>「抓现成解题步骤」</s>那些步骤是人的推理方式，第三集说过未必适合模型，而且也不含 think 格式。<s>「复用 V3 指令数据」</s>那批约 20 万条非推理数据用在<b>第三阶段</b>，不是冷启动。"});
+});
+
+KP("9 · 推理能力的<b>蒸馏</b>换了一种做法　<small>讲义 p142–147</small>",function(){
+  /* 钩子 */
+  S(6233,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(240,110,800,60,"R1：600B 级别的 MoE","r");
+      note("效果很好 —— 但你跑不起",640,210,"r");
+      boxNode(290,290,700,56,"想要的：小模型，但有大模型的推理能力","g");
+      setCap("老问题，新背景：<b>蒸馏</b>。");
+    },"最后一集。讲者的问题很实际：  <b>let's say you don't have a 600B MoE at your disposal. Let's say you have a smaller model, but you want to have the capabilities of these large reasoning models.</b>  这是个老问题，第二讲讲 DistilBERT 时就出现过，办法叫<b>蒸馏</b>——<em>让小模型（学生）去学大模型（教师）</em>。  <b>但在推理这件事上，蒸馏的做法变了。</b>  这一集看它怎么变，以及一个反直觉的实证结论。");
+  /* 错误答案 */
+  S(6245,function(){
+      clearScene();setEq(null);
+      setBig("让学生去拟合教师输出的概率分布","第二讲讲过的那种蒸馏");
+      setCap("<s>这里用不了</s>：那种做法要求<b>你先有一份固定的文本</b>。");
+    },"第二讲讲过一种蒸馏：<b>学生不去拟合「下一个词是哪个」这个硬标签，而是去拟合教师给出的整个概率分布</b>——<em>软标签里包含了更多信息</em>。  <b>但那种做法在这里用不了，原因讲者点得很准。</b>  回想第二讲那个场景： · 预训练蒸馏：<b>你有一段固定的文本</b>，教师和学生分别在每个位置输出分布，比对。 · SFT 蒸馏：<b>你有固定的「问题—答案」对</b>，同样逐位置比对。  <b>共同前提：那段要拟合的文本是现成的、固定的。</b>  <b>而推理这件事，恰恰没有现成的文本</b>——<em>这正是第三集那个死胡同</em>：你没有推理链可用。  ⇒ 所以要换一种做法。");
+  /* 铺陈 */
+  S(6257,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,110,420,58,"教师（R1）","r");
+      note("生成<b>带 think token 的完整回答</b>",320,198,"r");
+      note("离线做，一次就行",320,246,"y");
+      arrow(534,139,660,139,"sm",0);
+      boxNode(680,110,480,58,"学生（小模型）","g");
+      note("对这些回答做 <b>SFT</b>",920,198,"g");
+      note("拟合<b>整个序列</b>，不是分布",920,246,"g");
+      setCap("讲者：还叫蒸馏，但是<b>另一种口味</b>的蒸馏。");
+    },"新做法分两步，而且第一步就把问题解掉了：  ① <b>让教师模型（R1）生成一批带思考 token 的完整回答。</b>讲者说这是 <b>done offline</b>——<em>一次性做完，之后反复使用</em>。  ② <b>拿这批回答对小模型做 SFT。</b>  <b>关键差别</b>：讲者说得很清楚——<b>instead of fitting a probability distribution over the next token, you just fit the entire sequence</b>。<em>学生要学的是「把教师写的这一整串话复现出来」，包括那段思考。</em>  <b>所以这是「生成数据 + 普通 SFT」，而不是第二讲那种逐位置对齐分布。</b>  ⚠ 请注意这和上一集<b>冷启动数据</b>的思路完全一样：<b>缺数据？那就用一个已经会的模型把数据生成出来。</b>  <em>「模型生成训练数据」这件事，在这一讲里出现了三次：冷启动、拒绝采样、蒸馏。</em>");
+  /* 主体 */
+  S(6269,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"自己做 RL","y");
+      note("从头长出推理能力",340,195,"y");
+      note("小模型上：<b>效果不如蒸馏</b>",340,243,"r");
+      boxNode(730,105,440,58,"从大模型蒸馏","g");
+      note("直接学教师写好的推理链",950,195,"g");
+      note("<b>更有效</b>",950,243,"g");
+      note("讲者：这是作者<b>实测</b>出来的，不是推导",640,352,"r");
+      setCap("结果：蒸馏出的小模型，与同级别的闭源推理模型相当。");
+    },"讲者在最后抛出了一个反直觉的实证结论，<b>这是这一集最值得记住的一条</b>：  他先问：<b>既然 RL 这么有效，为什么不让小模型自己做 RL，非要蒸馏？</b>  <b>答案：作者实测发现，在小模型这个规模上，蒸馏比直接做 RL 更有效。</b>  讲者的原话：the authors have seen that <b>at a smaller size level, distilling the knowledge is more efficient in terms of performance than directly learning from scratch</b>。  ⚠ <b>为什么反直觉？</b>因为本讲前面七集都在论证「RL 能让能力自己长出来」。而这里说：<em>在小模型上，这条路不如直接抄作业</em>。  <b>一个合理的解释（讲者没给，是我补的）：</b>RL 要靠<em>偶尔蒙对</em>才能产生学习信号。<b>如果一个小模型连蒙对的概率都很低，它就几乎收不到任何正反馈</b>——<em>奖励全是 0，没有梯度可用</em>。而蒸馏不依赖这个：<b>教师已经把正确的推理链写在那里了，学生只要模仿。</b>  <b>所以「能力能自己长出来」是有规模门槛的。</b>  结果：蒸馏出的小模型，与 o1-mini 这类同级别的闭源模型<b>表现相当</b>。");
+  /* 主体 */
+  S(6281,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,100,340,52,"冷启动数据","y");
+      note("R1-Zero 生成，人改",280,175,"y");
+      boxNode(480,100,340,52,"第三阶段数据","g");
+      note("模型生成，判官筛",650,175,"g");
+      boxNode(850,100,310,52,"蒸馏数据","b");
+      note("R1 生成，小模型学",1005,175,"b");
+      note("共同点：<b>缺数据，就用会的那个模型造</b>",640,290,"r");
+      note("人只做<b>筛选或修改</b> —— 从不从头创作",640,352,"y");
+      setCap("这是本讲最可迁移的一条工程经验。");
+    },"收尾前把一条贯穿全讲的线索拎出来。  <b>「让模型生成训练数据」这一招，在 R1 的故事里出现了三次：</b>  ① <b>冷启动数据</b>：R1-Zero 生成推理链，<em>人改形态</em>。 ② <b>第三阶段的推理数据</b>：当前模型生成，<em>判官筛掉不完美的</em>（拒绝采样）。 ③ <b>蒸馏数据</b>：R1 生成完整回答，<em>小模型照着学</em>。  <b>三次的共同形状是：缺数据 ⇒ 用一个已经会这件事的模型把数据造出来 ⇒ 人（或另一个模型）只负责筛选或修改。</b>  ⚠ <b>注意人在这个循环里的角色：从不从头创作，只做判断。</b>这和第五讲第一集那条完全一致——<b>评价比创作容易</b>。  <b>而这个循环能启动的前提，是「至少有一个模型已经会了」。</b>R1-Zero 的价值在这里又体现了一次：<em>它是整个循环的第一块砖</em>。");
+  /* 反驳 */
+  S(6293,function(){
+      clearScene();setEq(null);setBig(null);
+      boxNode(110,105,460,58,"这一讲的方法适用于","g");
+      note("代码 · 数学 · 有标准答案的任务",340,195,"g");
+      note("因为<b>对错可以机器判定</b>",340,243,"g");
+      boxNode(730,105,440,58,"⚠ 不能直接搬到","r");
+      note("写作 · 建议 · 设计 · 开放式问答",950,195,"r");
+      note("那里<b>没有可验证的奖励</b>",950,243,"r");
+      note("第一集那条，到这里闭环",640,352,"y");
+      setCap("整讲到此。下一讲：让它去用工具。");
+    },"整讲结束前，把这套方法的<b>边界</b>划清楚，这比记住任何一个技巧都重要。  <b>这一讲的全部成立，依赖一个前提：对错可以被机器判定。</b>  · 可验证奖励（第三集）→ 不需要奖励模型、不会被钻空子、信号无限。 · GRPO（第五集）→ 给一组回答打分几乎免费，所以能便宜地采样 g 次。 · 拒绝采样（第八集）→ 能自动筛掉不完美的回答。 · pass@k（第二集）→ 能数出有几个是对的。  <b>每一环都建立在「能验证」之上。</b>  ⚠ <b>所以：写作、建议、设计、开放式问答这类任务，这套方法搬不过去。</b>那里没有标准答案，<em>你又回到了第五讲那个世界——必须训一个不完美的奖励模型，必须面对奖励黑客</em>。  <b>这也解释了一个常被误解的现象：为什么推理模型在数学和代码上进步神速，而在「写得更好」这件事上进步有限。</b>不是因为后者不重要，<em>是因为后者没有免费的、确定的信号。</em>  下一讲：它会想了，但只能用脑子里那点东西。<b>该让它去用工具、查资料了。</b>");
+  SUM(6233,9,{h:"推理能力的蒸馏：让教师写出来，学生照着学",
+    k:"第二讲那种「拟合教师的概率分布」在这里<b>用不了</b>，因为它要求先有一份固定文本 —— 而推理恰恰没有。新做法：<b>R1 离线生成带 think token 的完整回答，小模型对它做普通 SFT，拟合整个序列</b>。",
+    m:"⚠ 反直觉的实证：<b>在小模型上，蒸馏比直接做 RL 更有效</b>。一个解释是 RL 要靠偶尔蒙对才有学习信号，<b>小模型蒙对概率太低就收不到正反馈</b>；蒸馏不依赖这个。<b>「能力能自己长出来」是有规模门槛的。</b>",
+    w:"<s>误解</s>：「照第二讲那样拟合概率分布」。那种蒸馏的前提是<b>有一份现成的固定文本</b>可逐位置对齐，而推理链正是你缺的东西。",
+    e:"贯穿全讲的一招出现了三次 —— <b>冷启动、拒绝采样、蒸馏</b>：缺数据就用已经会的模型造，<b>人只做筛选或修改，从不从头创作</b>。⚠ 整套方法的边界：<b>一切都建立在「对错可机器判定」之上</b>，所以写作、建议、设计这类任务搬不过去。"});
+  QUIZ(6233,9,{t:"为什么推理模型的蒸馏不沿用第二讲那种「拟合教师概率分布」的做法？",
+    o:["因为那种做法需要一份现成的固定文本来逐位置对齐，而推理链恰恰是缺的东西","因为推理模型的词表与学生模型不同，分布无法对齐","因为概率分布包含的信息量不足以传递推理能力","因为教师模型是 MoE 架构，无法输出完整分布"],
+    a:0,
+    w:"第二讲那种蒸馏的前提是<b>有一段固定文本</b>（预训练语料或 SFT 的问答对），师生在每个位置各出一个分布再比对。而推理训练的死结正是<b>没有现成的推理链</b>——所以要先让教师<b>生成</b>带 think token 的完整回答，再对小模型做普通 SFT <b>拟合整个序列</b>。<s>「词表不同」</s>DeepSeek 的蒸馏目标模型可以共享词表，而且这不是讲者给的理由。<s>「信息量不足」</s>软标签的信息量<em>更大</em>，这正是第二讲用它的原因。<s>「MoE 无法输出分布」</s>MoE 照样输出完整的词表分布。"});
+});
+
+KP("完",function(){
+  S(6400,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("CME295 · Lecture 6","它会想了",
+      "下一讲：让它去用工具、查资料 —— Agentic LLM");
+    },"把九集收成一句：<b>当你没有示范可教时，如果有办法验证结果，就可以用奖励让能力自己长出来。</b>  这条路能成立，全靠一个前提：<b>可验证</b>。代码能跑测试、数学能对答案——<em>所以不需要奖励模型，不需要人标，信号是确定性的、免费的、无限的</em>。  ⚠ 请把这个前提的边界想清楚：<b>写作、建议、设计这类任务没有可验证的奖励</b>，所以这一讲的方法<em>不能直接搬过去</em>。这也是为什么推理模型最先在数学和代码上突破。  三处讲者明确留白： ① <b>动态预算仍是 open problem</b>——怎么判断一个问题值得想多久，没有好答案。 ② <b>长度膨胀的解释是假说</b>——讲者说 people are hypothesizing；DAPO 和 Dr. GRPO 的修法有效，但机制并未定论。 ③ <b>连续思维</b>（让思考发生在隐表示而非 token 空间）是 very much active area of research。  还有一条反直觉的实证值得记住：<b>在小模型上，从大模型蒸馏比直接做 RL 更有效。</b>能力可以被传递，而不必每个模型自己重新长一遍。  下一讲：它会想了，但它只能靠自己脑子里那点东西。<b>该让它去用工具、查资料了。</b>");
+});
+window.__startProjector(CFG);
+})();
+</script>
