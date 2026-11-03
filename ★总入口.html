@@ -299,7 +299,11 @@ footer code{font:11.5px var(--mono)}
      相对路径一律 404。换成 course.json 声明的 canonical 源（data-remote）。
      没声明的课（CS234）保持原样 —— 它在本机仍然能开。 */
   var hn = location.hostname.toLowerCase();
-  var ONLINE = (hn === "github.io" || hn.slice(-11) === ".github.io");
+  // ⚠ 这一行栽过两次，都是靠实测发现的，别再改成「手算长度」那种写法：
+  //    ① slice(-11) 比 ".github.io"（10 个字符）—— 永远不相等，线上静默失效；
+  //    ② lastIndexOf(...) === hn.length - 10 —— localhost / 127.0.0.1 长度
+  //       正好是 9，-1 === -1 成立，本机反被判成线上。
+  var ONLINE = (hn === "github.io" || hn.endsWith(".github.io"));
   if(ONLINE){
     [].forEach.call(document.querySelectorAll("[data-remote]"), function(a){
       a.href = a.getAttribute("data-remote");
