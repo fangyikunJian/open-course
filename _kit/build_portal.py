@@ -37,6 +37,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(HERE, "coursekit"))
 import theme     # noqa: E402
 import _course   # noqa: E402
+# 复用精读那边已经在用的 canonical-PDF 解析，不另写一份
+from build_reader import _remote_pdf   # noqa: E402
 
 # ARTI2001 在另一棵树上。相对 ROOT 的路径 —— 两者同在 G: 盘，所以互链成立。
 ARTI_REL = "../Adelaide COMSC/2026S2/Machine Learning"
@@ -113,7 +115,15 @@ def anchor_of(code):
 
 
 def course_rows(course_dir, cfg_name="course.json"):
-    """扫一门课，返回 [(tag, num_cn, title, kps, [(label, href, color, ok), ...])]。"""
+    """扫一门课，返回 [(tag, num_cn, title, kps, [(label, href, color, ok, remote), ...])]。
+
+    ⚠ `remote` 是**线上**该用的地址。讲义 PDF 在 `corpus/` 里，被 `.gitignore`
+    挡在库外（第三方版权材料），所以本地能开的相对路径**在 GitHub Pages 上一律
+    404** —— 实测过，改版前总入口的 56 条 PDF 链接线上全是 404。精读页早就有
+    解法（course.json 的 `pdf_remote` + 模板按 hostname 切换），这里复用同一份
+    解析，页面上用 `data-remote` 带出去，由 JS 在 github.io 下换掉 href。
+    没声明 `pdf_remote` 的课（CS234）仍旧只有本地路径，行为与从前一致。
+    """
     path = os.path.join(ROOT, course_dir, cfg_name)
     if not os.path.exists(path):
         return []
@@ -124,12 +134,13 @@ def course_rows(course_dir, cfg_name="course.json"):
         for v in co.views():
             rel = co.fill(v["href"], L)
             if rel is None:
-                btns.append((v["label"], None, v.get("color"), False))
+                btns.append((v["label"], None, v.get("color"), False, ""))
                 continue
             full = co.abspath(rel)
             ok = os.path.exists(full)
             href = url(course_dir + "/" + rel) if ok else None
-            btns.append((v["label"], href, v.get("color"), ok))
+            remote = _remote_pdf(co, L) if rel.lower().endswith(".pdf") else ""
+            btns.append((v["label"], href, v.get("color"), ok, remote))
         rows.append((L["tag"], L.get("num_cn", ""), L["title"], L.get("kp") or [], btns))
     return rows
 
@@ -138,7 +149,7 @@ def view_stats(rows):
     """按读法统计完成度 → [(label, color, 有几讲, 共几讲)]，顺序同 course.json。"""
     if not rows:
         return []
-    labels = [(lb, c) for lb, _h, c, _ok in rows[0][4]]
+    labels = [(lb, c) for lb, _h, c, _ok, _rm in rows[0][4]]
     out = []
     for i, (lb, color) in enumerate(labels):
         n = sum(1 for r in rows if r[4][i][3])
@@ -314,6 +325,29 @@ html{color-scheme:light dark;scroll-behavior:smooth}
     set("portal-theme", d?"light":"dark"); paint();
   };
 
+  /* 线上（GitHub Pages）：讲义 PDF 在 corpus/ 里，被 .gitignore 挡在库外，
+     相对路径一律 404。换成 course.json 声明的 canonical 源（data-remote）。
+     没声明的课（CS234）保持原样 —— 它在本机仍然能开。 */
+  var hn = location.hostname.toLowerCase();
+  var ONLINE = (hn === "github.io" || hn.slice(-11) === ".github.io");
+  if(ONLINE){
+    [].forEach.call(document.querySelectorAll("[data-remote]"), function(a){
+      a.href = a.getAttribute("data-remote");
+      a.target = "_blank"; a.rel = "noopener";
+      a.title = "讲义是第三方版权材料，不入库；这里打开的是原站／存档";
+    });
+    /* ARTI2001 在另一棵目录树上，没跟着部署 —— 三个按钮线上必 404，灰掉 */
+    [].forEach.call(document.querySelectorAll(".localonly a.b.on"), function(a){
+      var s=document.createElement("span");
+      s.className="b off"; s.textContent=a.textContent;
+      s.title="这部分只在本机，没有发布到线上";
+      a.parentNode.replaceChild(s,a);
+    });
+    [].forEach.call(document.querySelectorAll(".localonly .kp"), function(e){
+      e.textContent="⚠ 材料在另一棵目录树上，没有发布到线上 —— 在本机打开本页才能用。";
+    });
+  }
+
   /* 纯前端过滤。每一行把可搜的文字预先塞在 data-s 里（已小写）。 */
   var items=[].slice.call(document.querySelectorAll("[data-s]"));
   var secs=[].slice.call(document.querySelectorAll("section"));
@@ -393,10 +427,12 @@ def render_course(c, rows, href):
     for tag, num_cn, ttl, kps, btns in rows:
         s = plain(" ".join(head + [tag, num_cn, ttl] + list(kps))).lower()
         bs = []
-        for label, link, color, ok in btns:
+        for label, link, color, ok, remote in btns:
             if ok:
-                bs.append('<a class="b on" style="background:%s" href="%s">%s</a>'
-                          % (color or "var(--acc)", link, esc(label)))
+                bs.append('<a class="b on" style="background:%s" href="%s"%s>%s</a>'
+                          % (color or "var(--acc)", link,
+                             (' data-remote="%s"' % esc(remote)) if remote else "",
+                             esc(label)))
             else:
                 bs.append('<span class="b off">%s</span>' % esc(label))
         # 知识点里作者写了 <b> 等标记，这里**不转义** —— 转义了会把标签原样印在页面上。
@@ -441,8 +477,13 @@ def main():
         s = plain(" ".join([str(it["n"]), it["title"], it["why"],
                             it["tier"], it.get("dir", "")])).lower()
         st = {"todo": "待开工", "doing": "进行中", "done": "已完成"}.get(it["status"], "")
-        mats = "".join('<a href="%s">%s ↗</a>' % (esc(m["href"]), esc(m["t"]))
-                       for m in it.get("mats", [])[:3])
+        # 相对路径要过 url()：plan.json 里写的是「reinforcement learning/...」，
+        # 带空格，不编码的话某些地方会断。外链原样。
+        mats = "".join(
+            '<a href="%s">%s ↗</a>'
+            % (esc(m["href"] if m["href"].startswith("http") else url(m["href"])),
+               esc(m["t"]))
+            for m in it.get("mats", [])[:3])
         body.append('<div class="card %s" data-s="%s">'
                     '<div class="hd"><div class="big">%d · %s</div>'
                     '<div class="st">%s</div></div>'
@@ -469,11 +510,13 @@ def main():
         ('<a class="b on" style="background:%s" href="%s">%s</a>' % (c, h, esc(lb)))
         if h else ('<span class="b off">%s</span>' % esc(lb))
         for lb, h, c in arti)
+    # ⚠ ARTI2001 在另一棵树上，**没有**跟着部署到 Pages —— 这三条线上是 404。
+    # 标出来由 JS 在 github.io 下灰掉，好过点进去撞 404。
     body.append(
         '<section id="arti"><h2>ARTI2001 机器学习<span class="n">本学期课程</span></h2>'
         '<p class="sub">Adelaide 的课，三个 Module。它有自己的一套总入口与材料清单，'
         '这里只做转接。</p>'
-        '<div class="row" data-s="arti2001 机器学习 课程 m1 m2 m3 考试 复习">'
+        '<div class="row localonly" data-s="arti2001 机器学习 课程 m1 m2 m3 考试 复习">'
         '<div class="tag">课程</div><div class="mid"><div class="ttl">'
         'ARTI2001 全部课程材料</div><div class="kp">官方 PPT · Tutorial 与 Practical · '
         '逐页精读 · 备考包 · 复习放映厅</div></div>'
