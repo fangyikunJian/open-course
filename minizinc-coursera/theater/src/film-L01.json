@@ -1,0 +1,26 @@
+{
+ "file": "L01-MiniZinc入门.html",
+ "html_title": "离散优化建模 L01 · MiniZinc 入门 · 放映厅",
+ "title": "基础篇 ① · 不写「怎么找」，只写「什么算对」",
+ "subtitle": "%d 个知识点 · 对应 Basic Modeling 模块 1 · 坐标给 MiniZinc 手册章节 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "",
+ "prelude_js": "// ══ 本片的内容权威与边界，先说清楚 ══\n//\n// 对应课程：Coursera《Basic Modeling for Discrete Optimization》模块 1\n//   「MiniZinc introduction」（The Chinese University of Hong Kong / University of\n//   Melbourne，Peter J. Stuckey & Jimmy Ho Man Lee）。\n//   官方模块说明点名的应用是：knapsack、graph colouring、production planning、\n//   Cryptarithm —— 本片的例子就按这条真实线索选，不是我另起一套。\n//\n// ⚠⚠ **本片没有照搬课程视频，也没有用课程字幕。** 课程视频在 Coursera 登录墙后，\n//   属于版权材料。片中的中文讲解是**另写的**，技术内容对齐的是**公开的\n//   MiniZinc 手册**（docs.minizinc.dev，与课程同一批作者）。\n//   每一集的坐标写的是**手册章节号**而不是视频时间码 —— 因为没有可公开引用的\n//   时间轴。若日后把课程字幕放到 corpus/transcripts/（已被 .gitignore 挡在库外），\n//   可以再补一层「讲者原话」的坐标。\n//\n// ⚠ MiniZinc 手册的授权是 **CC BY-ND 4.0（禁止演绎）**。所以本片**不翻译、不改写\n//   手册正文**，只把章节号当坐标引用，讲解是独立写的。片中出现的模型代码是\n//   MiniZinc 语言本身的语法（语言结构不受著作权保护），例子取通用教科书题目。\n//\n// ⚠ 片中所有模型都按 MiniZinc 2.x 语法写。`alldifferent` 需要 `include \"globals.mzn\";`。\n",
+ "kp_names": {
+  "1": "1 · 不写「怎么找」，只写<b>什么算对</b>　<small>手册 §2.1.1</small>",
+  "2": "2 · <b>var</b> 这一个词，就是「已知」与「待定」的分界　<small>手册 §2.1.2</small>",
+  "3": "3 · 约束不是赋值，是<b>关系</b>　<small>手册 §2.1.3</small>",
+  "4": "4 · 数组与推导式：把「对所有」写成一行　<small>手册 §2.1.5–2.1.7</small>",
+  "5": "5 · <b>alldifferent</b> 不是语法糖 —— 它带着一个传播器　<small>手册 §2.2 · §4.2</small>",
+  "6": "6 · 模型 → FlatZinc → 求解器，中间那一层是<b>有损</b>的　<small>手册 §2.9 · §3.5</small>"
+ },
+ "kp_base": {"1": 100, "2": 300, "3": 500, "4": 700, "5": 900, "6": 1100},
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"Basic Modeling · 模块 1\",\"MiniZinc 入门\",\n  \"Stuckey &amp; Jimmy Lee · 这一集只讲一件事：把「怎么找」交出去\");",
+  "narration": "这门课的第一个模块叫 MiniZinc introduction，但它真正要你换掉的不是语法，是<b>分工</b>。\n\n你过去写程序解一个组合问题，写的是<i>搜索过程</i>：先试哪个、冲突了怎么退、怎么剪枝。换一个问题，这套过程基本要重写。\n\n这门课教的是另一种写法：你只写<em>什么样的解算对</em>，<b>怎么找</b>交给求解器。模型写完，背包、图着色、排班、字谜，用的是同一台求解器。\n\n六集的顺序是：先把这个分工说清楚（1），再讲模型里唯一的分界线 <b>var</b>（2），然后是初学者最常栽的那个坑 —— 约束不是赋值（3）；接着是把问题写得短的工具（4）；第五集开始出现<b>真正的 CP 思想</b>：全局约束不只是写法更短，它带着一个<i>传播器</i>（5）；最后看模型是怎么被送进求解器的，以及中间那一层为什么会丢东西（6）。\n\n⚠ 说明一句：本片不是课程视频的搬运。课程视频在登录墙后，讲解是另写的，技术内容对齐公开的 MiniZinc 手册，每集标的是<b>手册章节号</b>。"
+ },
+ "closing": {
+  "t": 1300,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"模块 1 讲完了\",\"你现在站在哪里\",\n  \"会写模型 → 下一步是「写得对」和「写得快」是两回事\");",
+  "narration": "回看这六集，入门这一关其实只翻过一道墙：<b>把搜索交出去</b>。\n\n剩下五集都是这道墙的推论 —— <i>var</i> 划出哪些是待定的（2）；约束是关系所以推理可以双向走（3）；推导式让「对所有」写得下（4）；全局约束把一整类结构连同<b>传播器</b>一起交给求解器（5）；而 flattening 这一层会把你写法里的结构<b>丢掉一部分</b>（6）。\n\n⚠ 第 6 集那句「有损」是整门课后面的全部动机：同一个问题，两种写法在数学上等价，求解时间可以差几个数量级。<b>《高级建模》整门课都在处理这件事</b>（调试与改进模型、谓词、调度、装箱、对称与支配），而<b>《求解算法》那门课</b>会把求解器打开给你看 —— 传播器怎么推、冲突了怎么学 nogood、为什么 CP、MIP、局部搜索各有各的地盘。\n\n下一部：基础篇 ②《用集合建模》。"
+ }
+}

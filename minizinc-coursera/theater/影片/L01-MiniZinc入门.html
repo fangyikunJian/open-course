@@ -1,0 +1,1527 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>离散优化建模 L01 · MiniZinc 入门 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"基础篇 ① · 不写「怎么找」，只写「什么算对」",
+  subtitle:"6 个知识点 · 对应 Basic Modeling 模块 1 · 坐标给 MiniZinc 手册章节 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:""
+};
+
+
+// ══ 本片的内容权威与边界，先说清楚 ══
+//
+// 对应课程：Coursera《Basic Modeling for Discrete Optimization》模块 1
+//   「MiniZinc introduction」（The Chinese University of Hong Kong / University of
+//   Melbourne，Peter J. Stuckey & Jimmy Ho Man Lee）。
+//   官方模块说明点名的应用是：knapsack、graph colouring、production planning、
+//   Cryptarithm —— 本片的例子就按这条真实线索选，不是我另起一套。
+//
+// ⚠⚠ **本片没有照搬课程视频，也没有用课程字幕。** 课程视频在 Coursera 登录墙后，
+//   属于版权材料。片中的中文讲解是**另写的**，技术内容对齐的是**公开的
+//   MiniZinc 手册**（docs.minizinc.dev，与课程同一批作者）。
+//   每一集的坐标写的是**手册章节号**而不是视频时间码 —— 因为没有可公开引用的
+//   时间轴。若日后把课程字幕放到 corpus/transcripts/（已被 .gitignore 挡在库外），
+//   可以再补一层「讲者原话」的坐标。
+//
+// ⚠ MiniZinc 手册的授权是 **CC BY-ND 4.0（禁止演绎）**。所以本片**不翻译、不改写
+//   手册正文**，只把章节号当坐标引用，讲解是独立写的。片中出现的模型代码是
+//   MiniZinc 语言本身的语法（语言结构不受著作权保护），例子取通用教科书题目。
+//
+// ⚠ 片中所有模型都按 MiniZinc 2.x 语法写。`alldifferent` 需要 `include "globals.mzn";`。
+
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("Basic Modeling · 模块 1","MiniZinc 入门",
+      "Stuckey &amp; Jimmy Lee · 这一集只讲一件事：把「怎么找」交出去");
+    },"这门课的第一个模块叫 MiniZinc introduction，但它真正要你换掉的不是语法，是<b>分工</b>。  你过去写程序解一个组合问题，写的是<i>搜索过程</i>：先试哪个、冲突了怎么退、怎么剪枝。换一个问题，这套过程基本要重写。  这门课教的是另一种写法：你只写<em>什么样的解算对</em>，<b>怎么找</b>交给求解器。模型写完，背包、图着色、排班、字谜，用的是同一台求解器。  六集的顺序是：先把这个分工说清楚（1），再讲模型里唯一的分界线 <b>var</b>（2），然后是初学者最常栽的那个坑 —— 约束不是赋值（3）；接着是把问题写得短的工具（4）；第五集开始出现<b>真正的 CP 思想</b>：全局约束不只是写法更短，它带着一个<i>传播器</i>（5）；最后看模型是怎么被送进求解器的，以及中间那一层为什么会丢东西（6）。  ⚠ 说明一句：本片不是课程视频的搬运。课程视频在登录墙后，讲解是另写的，技术内容对齐公开的 MiniZinc 手册，每集标的是<b>手册章节号</b>。");
+});
+
+KP("1 · 不写「怎么找」，只写<b>什么算对</b>　<small>手册 §2.1.1</small>",function(){
+  /* 钩子 */
+  S(100,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(300,150,160,150,"WA","");
+      boxNode(460,110,130,110,"NT","");
+      boxNode(460,220,130,130,"SA","");
+      boxNode(590,110,170,120,"Q","");
+      boxNode(590,230,170,70,"NSW","");
+      boxNode(590,300,170,50,"V","");
+      boxNode(800,300,80,50,"T","");
+      note("相邻 = 共一条边",940,200,"","start");
+      note("T 不与任何州相邻",940,330,"","start");
+      setCap("七个州，<b>相邻的两块不能同色</b>。三种颜色够不够？");
+    },"先看一个具体问题，手册 <b>§2.1.1</b> 用的就是它：给澳大利亚的七个州（或领地）上色，<i>共边的两块不能同色</i>，问三种颜色够不够。  这个问题小到可以用眼睛看出答案，但请先想一件事：<b>如果让你写程序解它，你会写什么？</b>  这一问是整门课的入口。你接下来给出的答案，决定了你是在写「搜索」，还是在写「问题」。");
+  /* 错误答案 */
+  S(112,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:21,nodes:[
+      {id:0,parent:null,x:640,y:120,label:"WA"},
+      {id:1,parent:0,x:470,y:200,label:"1",cls:"hl"},
+      {id:2,parent:0,x:640,y:200,label:"2"},
+      {id:3,parent:0,x:810,y:200,label:"3"},
+      {id:4,parent:1,x:390,y:290,label:"1",sub:"冲突"},
+      {id:5,parent:1,x:470,y:290,label:"2"},
+      {id:6,parent:1,x:550,y:290,label:"3"}
+      ]});
+      note("NT 也取 1 → 和 WA 同色 → 回退",390,362,"r");
+      setCap("「按州排个序，逐个试颜色，冲突就回退」—— 想法没错，<s>但你写的是「怎么找」</s>。");
+    },"几乎所有人的第一反应都是：<i>按某个顺序排好这些州，给第一个试颜色 1，再给第二个试，冲突了就回退换一个</i>。  这就是回溯搜索。它<b>是对的</b>，写出来也能跑。  问题在于你写下来的东西是什么：你写的是<s>一套搜索过程</s> —— 先试哪个、怎么判冲突、怎么回退、要不要剪枝。这套过程<b>和「地图着色」这个问题本身没有关系</b>。  证据很直接：把问题换成排课表、换成背包、换成车间调度，这段代码你基本要<b>从头再写一遍</b>。而且你手写的剪枝，多半比不过别人磨了几十年的。");
+  /* 铺陈 */
+  S(124,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,150,290,110,"你写：什么算对","b");
+      boxNode(790,150,290,110,"求解器：怎么找","g");
+      arrow(470,205,790,205,"y");
+      note("模型",630,190,"y");
+      note("变量 · 域 · 约束",325,285,"b");
+      note("搜索 · 传播 · 回跳",935,285,"g");
+      note("这条线左边随问题变，右边几十年没换过",630,340,"");
+      setCap("同一台求解器，解背包、解排班、解字谜 —— <b>换的只有左边</b>。");
+    },"这门课要你做的替换，是把这条竖线<b>往左移</b>。  过去你把「什么算对」和「怎么找」<s>混在一段代码里</s>。现在拆开：左边你写一个<i>模型</i>，只回答「什么样的赋值算一个解」；右边交给求解器。  模型只需要三样东西：<b>决策变量</b>（要定什么）、每个变量的<b>域</b>（能取哪些值）、以及<b>约束</b>（什么组合不算解）。  这个分工的回报不在第一个问题上，在第二个问题上：右边那一整套搜索，是几百个研究者几十年磨出来的，而且<b>你换问题的时候它一个字都不用改</b>。");
+  /* 主体 */
+  S(136,function(){
+      clearScene();setBig(null);setEq(null);
+      var L=[
+      ["int: nc = 3;","y"],
+      ["",""],
+      ["var 1..nc: wa;   var 1..nc: nt;  var 1..nc: sa;","b"],
+      ["var 1..nc: q;    var 1..nc: nsw; var 1..nc: v;","b"],
+      ["var 1..nc: t;","b"],
+      ["",""],
+      ["constraint wa != nt;    constraint wa != sa;","v"],
+      ["constraint nt != sa;    constraint nt != q;","v"],
+      ["constraint sa != q;     constraint sa != nsw;","v"],
+      ["constraint sa != v;     constraint q  != nsw;","v"],
+      ["constraint nsw != v;","v"],
+      ["",""],
+      ["solve satisfy;","g"]];
+      L.forEach(function(p,i){ if(p[0]) note(p[0],300,128+i*19,p[1],"start"); });
+      note("参数：颜色数",930,128,"y","start");
+      note("决策变量 + 域",930,166,"b","start");
+      note("约束：相邻不同色",930,242,"v","start");
+      note("求什么：随便给一个解",930,356,"g","start");
+      setCap("这就是全部。<b>没有一行讲「怎么找」</b>。");
+    },"这是完整的模型，对应手册 <b>§2.1.1</b> 的 aust.mzn。逐块看：  <i>第一行</i>是<b>参数</b>：颜色数是 3。这是建模时就知道的数。  <i>中间三行</i>声明七个<b>决策变量</b>，每个的域都是 1..nc —— 也就是「这个州的颜色是 1、2、3 之一，具体哪个我不知道」。  <i>九条 constraint</i> 把「相邻不同色」逐条写出来。注意它们只是<b>陈述</b>：哪两个不能相等。没有先后，没有 if，没有回退。  最后 <em>solve satisfy</em> 的意思是「随便给我一个满足全部约束的解」。  整个文件里<b>找不到一行搜索代码</b> —— 这正是重点。");
+  /* 主体 */
+  S(148,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(300,150,160,150,"WA","b");
+      boxNode(460,110,130,110,"NT","g");
+      boxNode(460,220,130,130,"SA","y");
+      boxNode(590,110,170,120,"Q","b");
+      boxNode(590,230,170,70,"NSW","g");
+      boxNode(590,300,170,50,"V","b");
+      boxNode(800,300,80,50,"T","b");
+      note("三种颜色够了",940,180,"g","start");
+      note("相邻的任意两块",940,240,"","start");
+      note("颜色都不同",940,264,"","start");
+      setCap("求解器把七个空填上了。要换成 <b>100 个州</b>？<em>模型一个字不动</em>，只换数据。");
+    },"交给求解器，它返回一组赋值，七个州各有颜色，九条约束全部满足。三色够用。  真正该注意的是<b>下一步</b>：如果地图换成一百个州、三百条边界，你要改什么？  改的是<i>数据</i> —— 哪些州、谁和谁相邻。模型的结构<b>一个字都不用动</b>：还是「每个州一个 1..nc 的变量」「相邻的不等」。  这就是第 2 集要讲的事：模型和数据是分开的，而分开它们的只有一个关键字。");
+  /* 反驳 */
+  S(160,function(){
+      clearScene();setEq(null);
+      setBig("写法会差几个数量级","模型写得好不好，比求解器选哪个更要紧");
+      setCap("交出去<s>不等于</s>慢。但也<b>不等于</b>你从此不用动脑 —— 这才是后两门课存在的理由。");
+    },"常见的第一反应是：「把搜索交给通用求解器，那肯定比我手写的专用算法慢。」  实际通常<b>反过来</b>。现代 CP / MIP 求解器里积累的传播、学习、重启、启发式，不是一个人手写回溯能比的。  但请<s>不要</s>把它当魔法。这门课的后两门之所以存在，正是因为：<b>同一个问题，两种数学上等价的模型，求解时间可以差几个数量级</b>。  换句话说，你交出去的是「怎么搜」，<em>没有交出去的是「怎么写」</em>。《高级建模》整门课在讲怎么把模型写好；《求解算法》那门课会把求解器打开，让你看见为什么写法会造成这么大的差别。");
+  SUM(100,1,{h:"把「怎么找」交出去，只写「什么算对」",
+    k:"一个模型只有三样东西：<b>决策变量</b>、每个变量的<b>域</b>、以及<b>约束</b>。写完就交给求解器，模型里<b>没有任何搜索代码</b>。",
+    m:"能这么分工，是因为「解」可以被<i>判定</i>而不必被<i>构造</i>：约束只负责说明哪些赋值算解，怎么找到它是另一件事。于是搜索成了与具体问题无关的通用机器。",
+    w:"<s>误解一</s>：「这不就是换个语法写回溯」—— 不是，模型里没有顺序、没有回退，你写的是问题不是过程。<s>误解二</s>：「通用求解器一定比手写专用算法慢」—— 通常反过来。<s>误解三</s>：「交出去就不用动脑了」—— 交出去的只有「怎么搜」，<b>「怎么写模型」没交出去</b>，而它能造成几个数量级的差别。",
+    e:"面谈里这是第一块基石：你说得清「模型 / 求解器」这条分界线在哪，后面谈传播、谈 nogood、谈为什么某个写法更好，才有共同语言。"});
+  QUIZ(100,1,{t:"同样是解地图着色，手写回溯搜索和写一个 MiniZinc 模型，最本质的区别是什么？",
+    o:["MiniZinc 模型运行更快，因为它被编译成了机器码","手写回溯描述的是搜索过程，模型描述的是「什么算一个解」","MiniZinc 模型不需要指定变量的取值范围","手写回溯只能解小规模问题，模型可以解任意规模"],
+    a:1,
+    w:"区别在<b>写下来的是什么</b>。回溯代码写的是<s>过程</s>：先试谁、冲突怎么退；换个问题要重写。模型写的是<em>判据</em>：变量、域、约束，哪些赋值算解。<br>选项 A 不对：模型通常被展平后交给求解器，不是编译成机器码，快慢也不来自这里。<br>选项 C 恰恰相反 —— <b>域是模型的必需品</b>（<i>var 1..nc</i> 那一截就是域）。<br>选项 D 不对：规模大小两者都会受限，模型并不自动解决规模问题。"});
+});
+
+KP("2 · <b>var</b> 这一个词，就是「已知」与「待定」的分界　<small>手册 §2.1.2</small>",function(){
+  /* 钩子 */
+  S(300,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(230,140,250,90,"queens.mzn","b");
+      note("模型：结构",355,255,"b");
+      boxNode(230,290,250,70,"n = 8","y");
+      boxNode(560,290,250,70,"n = 100","y");
+      boxNode(890,290,250,70,"n = 1000","y");
+      arrow(355,230,355,290,"");
+      arrow(400,230,660,290,"",40);
+      arrow(430,230,990,290,"",70);
+      note("数据：规模",685,380,"y");
+      setCap("一个模型文件，三份数据文件。<b>模型没有改过一个字</b>。");
+    },"n 皇后：在 n×n 棋盘上放 n 个皇后，互相不攻击。  现在看一件在普通编程里不太自然的事：<b>同一个 .mzn 文件</b>，配上 n=8 的数据能解八皇后，配上 n=100 的数据能解一百皇后，模型<i>一个字都没改</i>。  这不是因为 MiniZinc 有什么泛型魔法，而是因为模型里从一开始就把两类东西<b>分开声明</b>了 —— 而分开它们的，只有一个关键字。");
+  /* 错误答案 */
+  S(312,function(){
+      clearScene();setEq(null);
+      setBig("var ≠ 你要赋值的那个变量","它是「我不知道，你来填」");
+      setCap("在 C / Python 里，变量是<s>你负责填</s>的格子。在这里，<b>var 是你交给求解器去填的空</b>。");
+    },"<i>var</i> 这个词在别的语言里见得太多，所以几乎所有人第一次都读错。  在 C 或 Python 里，变量是<s>你负责往里写值</s>的格子：<b>x = 5</b>，是你决定的。  在 MiniZinc 里，<em>var</em> 的含义正好相反：它声明的是<b>一个你不知道、要由求解器填的空</b>。你能提供的只有一件事 —— 告诉它这个空<i>允许</i>取哪些值。  所以读这段代码时，正确的读法不是「声明变量 wa」，而是「<b>有一个待定的量叫 wa，它必须落在 1..nc 里</b>」。");
+  /* 铺陈 */
+  S(324,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,140,380,70,"参数 par　已知","y");
+      boxNode(700,140,380,70,"决策变量 var　待定","b");
+      note("int: n = 8;",390,245,"y");
+      note("array[1..n] of int: w;",390,273,"y");
+      note("建模时就有值",390,315,"");
+      note("展平前就能算掉",390,343,"");
+      note("var 1..n: q;",890,245,"b");
+      note("array[1..n] of var 1..n: q;",890,273,"b");
+      note("求解器来定",890,315,"");
+      note("每一个都进搜索空间",890,343,"");
+      setCap("<b>只有带 var 的才是未知数。</b>其余全是建模时就定死的常量。");
+    },"一个 MiniZinc 模型里的每一个名字，只可能是两类之一。  <i>参数</i>（par，通常省略不写）：<b>建模时就知道值</b>。棋盘大小 n、物品重量数组、相邻关系表，都是参数。它们在模型被送进求解器之前就会被代入算掉。  <i>决策变量</i>（var）：<b>求解器要填的空</b>。声明它的时候必须同时给出<em>域</em> —— <b>var 1..n</b> 里的 1..n 就是域，意思是「答案只可能在这里面」。  这条分界线决定了代价：参数是<b>免费</b>的，它在求解开始前就消失了；而每一个 var 都要进入搜索空间，<b>是要付钱的</b>。");
+  /* 主体 */
+  S(336,function(){
+      clearScene();setBig(null);setEq(null);
+      var L=[
+      ["int: n;","y"],
+      ["array[1..n] of var 1..n: q;","b"],
+      ["",""],
+      ["include \"globals.mzn\";",""],
+      ["constraint alldifferent(q);","v"],
+      ["constraint alldifferent([q[i] + i | i in 1..n]);","v"],
+      ["constraint alldifferent([q[i] - i | i in 1..n]);","v"],
+      ["",""],
+      ["solve satisfy;","g"]];
+      L.forEach(function(p,i){ if(p[0]) note(p[0],310,140+i*23,p[1],"start"); });
+      note("参数：没给值 → 由数据文件提供",900,140,"y","start");
+      note("q[i] = 第 i 列的皇后在第几行",900,163,"b","start");
+      note("不同行",900,232,"v","start");
+      note("不同对角线（两个方向）",900,255,"v","start");
+      setCap("<b>int: n;</b> 没有等号 —— 它的值从<em>数据文件</em>来。");
+    },"整个 n 皇后模型就这么长。  <i>第一行</i>：<b>int: n;</b> —— 注意<em>没有等号</em>。这是一个「声明了但还没给值」的参数，它的值由<b>数据文件</b>（.dzn）提供。这一行就是「同一个模型解任意规模」的全部秘密。  <i>第二行</i>：一个长度 n 的数组，<b>每个元素都是 var</b>，域是 1..n。读法是「第 i 列的皇后在第 q[i] 行，具体第几行待定」。  ⚠ 这里已经用了一个建模技巧：<b>「每列恰好一个皇后」这条约束被编码进了表示法本身</b> —— 一列一个数组元素，根本没法在同一列放两个。写不出来的约束，求解器就不用检查。  剩下三条 alldifferent 分别管「不同行」和两个方向的对角线。<em>alldifferent 是什么，第 5 集专门讲</em>。");
+  /* 主体 */
+  S(348,function(){
+      clearScene();setBig(null);setEq(null);
+      note("queens.mzn",330,135,"b");
+      note("int: n;",330,170,"b");
+      note("array[1..n] of var 1..n: q;",330,196,"b");
+      note("constraint ...",330,222,"b");
+      note("结构：问题「长什么样」",330,270,"");
+      note("改它 = 换一个问题",330,298,"r");
+      note("n8.dzn",900,135,"y");
+      note("n = 8;",900,170,"y");
+      note("n100.dzn",900,210,"y");
+      note("n = 100;",900,245,"y");
+      note("数据：这一次「有多大」",900,298,"");
+      link(640,150,640,330);
+      setCap("命令行：<b>minizinc queens.mzn n8.dzn</b> —— 换数据不碰模型。");
+    },"跑的时候把两个文件一起交上去：<b>minizinc queens.mzn n8.dzn</b>。  这条分法不只是文件管理上的整洁，它对应两种完全不同的变更：  <i>改数据</i> —— 换规模、换这一批货物的重量、换今天的排班人数。这是<b>每天都在发生</b>的事，模型不动。  <i>改模型</i> —— 那是换了一个问题，或者换了一种表达同一个问题的方式。这才是需要你动脑的地方。  ⚠ 顺带一提：<em>《高级建模》那门课里「改模型但不改问题」会反复出现</em> —— 同一个问题换一种写法，求解时间差几个数量级。所以这条线的右边是日常，左边是功夫。");
+  /* 反驳 */
+  S(360,function(){
+      clearScene();setEq(null);
+      setBig(null);
+      note("参数 par",380,150,"y");
+      note("求解前就代入算掉",380,185,"");
+      note("不进搜索空间",380,213,"g");
+      note("代价 ≈ 0",380,255,"g");
+      note("决策变量 var",900,150,"b");
+      note("每一个都要被搜索",900,185,"");
+      note("域越大，空间越大",900,213,"r");
+      note("n 个域为 d 的变量 → d 的 n 次方",900,255,"r");
+      link(640,130,640,300);
+      note("能算成参数的，就别写成变量",640,345,"y");
+      setCap("把已知量写成 var，<s>不是更灵活</s>，是白白把搜索空间乘大一轮。");
+    },"既然 var 更「通用」，那干脆什么都写成 var，不是更灵活吗？  <s>不是</s>。这两类东西的代价<b>完全不对称</b>。  参数在模型被展平时就被<i>代入算掉</i>了，求解器根本看不到它 —— 代价接近零。  而每一个决策变量都要<b>进入搜索空间</b>。n 个域大小为 d 的变量，朴素地看就是 d 的 n 次方种组合。多声明一个没必要的 var，等于把这个空间又乘了一轮。  所以入门期就该养成的习惯是：<em>凡是建模时能算出来的，就写成参数</em>。这条在后面会反复以各种面貌出现 —— 比如「这个中间量到底该不该引入一个变量」，《高级建模》里有专门的讨论。");
+  SUM(300,2,{h:"var 划出「待定」，其余都是建模时就定死的",
+    k:"模型里每个名字非此即彼：<b>参数</b>（建模时已知，展平时被代入算掉，代价≈0）或<b>决策变量</b>（求解器来填，声明时必须给<i>域</i>，每一个都进搜索空间）。<b>int: n;</b> 不带等号时，值由数据文件提供 —— 这就是一个模型能解任意规模的全部机制。",
+    m:"参数与变量的差别不是语法糖，是<b>求值时机</b>：参数在求解开始<i>之前</i>就消失了，变量要活到搜索里。所以「能算成参数的别写成变量」不是风格建议，是复杂度建议。",
+    w:"<s>误解一</s>：「var 就是别的语言里的变量」—— 反了，那种变量是<b>你</b>赋值，这里的 var 是<b>求解器</b>赋值，你只能给域。<s>误解二</s>：「都写成 var 更灵活」—— 每多一个 var，搜索空间乘一轮。<s>误解三</s>：「模型和数据分开只是文件整洁」—— 它对应两种性质完全不同的变更：换数据是日常，改模型是换问题或换写法。",
+    e:"顺带记住 n 皇后那个表示法技巧：<b>用「每列一个数组元素」把「每列恰好一个皇后」编码进表示法本身</b>。写不出来的约束，求解器不必检查 —— 这是建模的第一课。"});
+  QUIZ(300,2,{t:"模型里写 <b>int: n;</b>（注意没有等号）而不是 <b>int: n = 8;</b>，带来的直接好处是什么？",
+    o:["n 变成了决策变量，求解器会帮你找出最合适的 n","n 的值改由数据文件提供，同一个模型文件可以解任意规模","模型展平会更快，因为少了一次常量代入","n 的域变成无限，模型因此能表达更多约束"],
+    a:1,
+    w:"<b>不带等号的参数</b>是「声明了但值待提供」，值从 .dzn 数据文件来。于是模型描述<em>结构</em>、数据描述<em>规模</em>，一个 queens.mzn 配不同数据文件就能解 8 皇后和 100 皇后。<br>选项 A 是最常见的混淆：<s>它仍然是参数，不是 var</s> —— 求解器不会去「找」n，n 必须在求解前就有值。<br>选项 C 方向相反，代入常量本来就便宜，这里也没少做。<br>选项 D 不对：域是<b>决策变量</b>的属性，参数没有域这回事。"});
+});
+
+KP("3 · 约束不是赋值，是<b>关系</b>　<small>手册 §2.1.3</small>",function(){
+  /* 钩子 */
+  S(500,function(){
+      clearScene();setBig(null);setEq(null);
+      note("constraint x = y + 1;",640,180,"v");
+      note("读法 A：把 y+1 算出来，存进 x",420,265,"r");
+      note("读法 B：x 和 y 必须满足这个关系",900,265,"g");
+      note("只有一个是对的",640,345,"y");
+      setCap("同一行代码，两种读法。<b>选错的那一种，会让你后面全部想不通。</b>");
+    },"这一集只处理一个误解，但它是入门期最贵的一个。  看这一行：<b>constraint x = y + 1;</b>  读法 A：「把 y 加一，结果存进 x」—— 这是你在所有普通语言里养成的反射。  读法 B：「x 和 y 之间<i>必须满足</i>这个关系」。  这两种读法在这一行上看起来差不多，但往下走会分叉得非常厉害。<b>选错，后面关于传播、关于求解顺序的一切都想不通。</b>");
+  /* 错误答案 */
+  S(512,function(){
+      clearScene();setBig(null);setEq(null);
+      note("constraint x = y + 1;",380,160,"v");
+      note("constraint y = z + 1;",380,195,"v");
+      note("constraint z = 2;",380,230,"v");
+      note("按赋值读 → 必须倒着执行",380,290,"r");
+      note("那把三行顺序打乱呢？",380,325,"r");
+      note("constraint z = 2;",900,160,"v");
+      note("constraint y = z + 1;",900,195,"v");
+      note("constraint x = y + 1;",900,230,"v");
+      note("两段模型完全等价",900,290,"g");
+      note("结果一模一样",900,325,"g");
+      link(640,140,640,345);
+      setCap("<s>如果是赋值</s>，顺序就该有影响。<b>实际上把 constraint 的顺序打乱，模型完全不变。</b>");
+    },"如果 constraint 是赋值，那它就必须有<i>执行顺序</i>：要先知道 z，才能算 y，才能算 x。左边那段顺序是「反的」，照赋值读根本跑不动。  但事实是：<b>把这三行的顺序随便打乱，模型完全等价</b>，求解结果一模一样。  再推一步 —— <em>constraint y = x - 1;</em> 和 <em>constraint x = y + 1;</em> 也是<b>同一条约束</b>。  一个有执行顺序的东西不会有这种性质。所以读法 A 是错的。<i>constraint</i> 不执行任何事，它只是<b>宣布一个必须成立的关系</b>。");
+  /* 铺陈 */
+  S(524,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,140,300,80,"所有可能的赋值","");
+      boxNode(560,140,300,80,"约束：筛子","v");
+      boxNode(950,140,250,80,"解","g");
+      arrow(470,180,560,180,"");
+      arrow(860,180,950,180,"g");
+      note("域的笛卡尔积",320,250,"");
+      note("d 的 n 次方",320,278,"");
+      note("每条约束砍掉一部分",710,250,"v");
+      note("砍的顺序无所谓",710,278,"y");
+      note("全部约束都满足",1075,250,"g");
+      setCap("约束<b>不产生</b>值，它只<em>排除</em>。所以「先后」这个概念根本不适用。");
+    },"正确的图景是这样：  一开始，所有变量的域做笛卡尔积，构成一个巨大的<i>候选赋值集合</i>。  每一条约束是<b>一道筛子</b>：它把不满足自己的赋值挡掉。全部筛子都过了的，就是解。  这个图景解释了前面所有观察：<em>筛子的先后顺序当然无所谓</em>，谁先筛结果都一样；<em>写成 x = y+1 还是 y = x-1 也无所谓</em>，那是同一道筛子的两种写法。  关键的一句：<b>约束不产生值，它只排除</b>。这就是为什么「先后」这个概念在这里不适用。");
+  /* 主体 */
+  S(536,function(){
+      clearScene();setBig(null);setEq(null);
+      note("constraint x = y + 1;",640,140,"v");
+      note("已知",330,205,"");
+      note("x ∈ 1..3",330,240,"b");
+      note("y ∈ 1..10",330,275,"b");
+      arrow(450,245,760,245,"y");
+      note("由约束反推",605,228,"y");
+      note("推出",950,205,"");
+      note("x ∈ 2..3",950,240,"g");
+      note("y ∈ 1..2",950,275,"g");
+      note("没有搜索，没有猜 —— 只是把不可能的值删掉",640,350,"y");
+      setCap("x ≤ 3 推出 <b>y ≤ 2</b>；y ≥ 1 又推回 <b>x ≥ 2</b>。<em>约束双向，所以两个域一起缩。</em>");
+    },"既然约束是关系不是赋值，推理就<b>可以往任何方向走</b>。这一点马上有实际后果。  假设 x 的域是 1..3，y 的域是 1..10，约束是 x = y + 1。  从约束出发：y = x − 1，而 x 最大是 3，所以 <b>y 不可能超过 2</b>，y 的域收缩成 <em>1..2</em>。  ⚠ 别只看一个方向：反过来 x = y + 1 而 y 至少是 1，所以 <b>x 至少是 2</b> —— x 的域同时收缩成 <em>2..3</em>。<b>两个域是一起缩的</b>，这正是「关系」而非「赋值」的直接后果。  ⚠ 注意刚才发生了什么：<b>没有搜索，没有猜测，没有回溯</b> —— 只是根据一条约束，把某些值从域里<i>删掉</i>，因为它们不可能出现在任何解里。  这个动作叫<b>传播（propagation）</b>，它是约束求解器的发动机。第 5 集会看到，不同的约束写法，<em>传播的力度差别很大</em>。");
+  /* 主体 */
+  S(548,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(230,145,330,80,"传播","y");
+      boxNode(720,145,330,80,"搜索","b");
+      arrow(560,170,720,170,"");
+      arrow(720,205,560,205,"",-46);
+      note("删掉不可能的值",395,255,"y");
+      note("不猜，只推",395,283,"");
+      note("卡住了就猜一个",885,255,"b");
+      note("猜完再传播",885,283,"");
+      note("某个域空了 → 这一支无解 → 回退",640,345,"r");
+      setCap("<b>传播推到不动了，才猜一步；猜完再传播。</b>两件事交替，直到全定或矛盾。");
+    },"把这一集和第 1 集接起来，求解器的主循环就出来了，只有两件事交替：  <i>传播</i>：遍历所有约束，能删的值都删掉。只推理，不猜。  <i>搜索</i>：传播推不动了（但还有变量没定），就<b>挑一个变量猜一个值</b>，然后回到传播。  如果传播过程中<b>某个变量的域被删空了</b> —— 说明当前这一支里不存在解，回退，换一个猜法。  这就是你在第 1 集里「交出去」的那套东西。⚠ 而 <em>Stuckey 的 lazy clause generation 正是在这个循环上动刀</em>：冲突发生时不只是回退，而是把<b>这次传播为什么会矛盾</b>解释成一条子句记下来，以后再也不走进同一个坑。那是《求解算法》第二模块的内容。");
+  /* 反驳 */
+  S(560,function(){
+      clearScene();setBig(null);setEq(null);
+      note("约束可以是任何关系",640,135,"y");
+      note("x != y",300,195,"v");
+      note("不等",300,222,"");
+      note("sum(w) <= cap",520,195,"v");
+      note("不等式",520,222,"");
+      note("alldifferent(q)",760,195,"v");
+      note("一整类结构",760,222,"");
+      note("b -> (x = 0)",1000,195,"v");
+      note("蕴含 / 逻辑",1000,222,"");
+      note("而且全都在整数域上 —— 不是连续代数",640,300,"g");
+      note("「解方程」只是其中最窄的一种",640,340,"");
+      setCap("等式只是约束的<s>一个特例</s>。整数域 + 任意关系，才是 CP 的地盘。");
+    },"最后澄清一个过度修正：听完「约束是关系」，有人会跳到「那 MiniZinc 就是个方程组求解器」。  <s>也不对</s>，而且窄太多了。约束可以是<b>任何关系</b>：不等（x ≠ y）、不等式（总重不超过容量）、逻辑蕴含（选了 b 就必须 x = 0）、乃至<em>一整类结构</em>（alldifferent、element、cumulative）。  更关键的是：这些关系定义在<b>有限整数域</b>上，不是连续代数。所以用的方法也不是消元、不是高斯 —— 是<i>在有限域上删值</i>。  「解方程」只是这里面最窄的一个特例。下一集开始，你会看到约束怎么被写得既短又强。");
+  SUM(500,3,{h:"constraint 不执行，它宣布一个必须成立的关系",
+    k:"约束是<b>筛子</b>不是赋值：它不产生值，只把不满足它的候选赋值排除。所以<i>书写顺序无关</i>，<i>x = y+1 与 y = x−1 是同一条约束</i>，而且<b>推理可以双向走</b>。",
+    m:"双向性直接给出<b>传播</b>：由 x ≤ 3 和 x = y+1 可删掉 y 的 3..10，这不是搜索而是推演。求解器的主循环就是<em>传播到不动 → 猜一步 → 再传播</em>；某个域被删空就回退。",
+    w:"<s>误解一</s>：「constraint 是赋值」—— 若是，顺序就该有影响，实际打乱顺序模型完全等价。<s>误解二</s>（过度修正）：「那它就是方程求解器」—— 约束可以是不等、逻辑蕴含、alldifferent 这类整类结构，而且在<b>有限整数域</b>上做删值，不是连续代数消元。",
+    e:"⚠ 这一集是通往面谈的桥：<b>传播 + 搜索</b>这个循环，正是 Stuckey 的 lazy clause generation 动刀的地方 —— 冲突时把「为什么矛盾」解释成子句学下来。你先把这个循环说顺，再谈 nogood 才站得住。"});
+  QUIZ(500,3,{t:"已知 <b>x ∈ 1..3</b>、<b>y ∈ 1..10</b>，并有约束 <b>x = y + 1</b>。求解器在<em>不做任何猜测</em>的情况下，能得到什么？",
+    o:["什么也得不到，必须先猜一个 x 的值才能往下推","y 的域可以收缩到 1..2，因为 y = x − 1 而 x 最大是 3","x 的值可以直接确定为 3，因为那是域里最大的","模型无解，因为 x 的域比 y 的域小"],
+    a:1,
+    w:"这就是<b>传播</b>。约束是双向的关系，所以可以反过来用：y = x − 1，x ≤ 3 ⇒ y ≤ 2；再结合 y 原有的下界得到 <em>y ∈ 1..2</em>。<b>全程没有猜测</b>，只是删掉了不可能出现在任何解里的值。<br>选项 A 正是「约束=赋值」那个误解的后果 —— 以为必须有已知的一端才能算。<br>选项 C 把「收缩域」和「确定值」搞混了：x 仍是 1..3 中的任意一个（对应 y 为 0..2，取交集后 x ∈ 2..3）。<br>选项 D 不对：域大小不同完全正常，x = 2,y = 1 和 x = 3,y = 2 都是解。"});
+});
+
+KP("4 · 数组与推导式：把「对所有」写成一行　<small>手册 §2.1.5–2.1.7</small>",function(){
+  /* 钩子 */
+  S(700,function(){
+      clearScene();setBig(null);setEq(null);
+      note("constraint wa != nt;",330,150,"v","start");
+      note("constraint wa != sa;",330,176,"v","start");
+      note("constraint nt != sa;",330,202,"v","start");
+      note("constraint nt != q;",330,228,"v","start");
+      note("⋮",330,258,"v","start");
+      note("九条 —— 还能手写",330,300,"g","start");
+      note("三百条边界",860,150,"r","start");
+      note("= 三百行 constraint",860,176,"r","start");
+      note("换一张地图全部重写",860,228,"r","start");
+      note("而且数据根本不该进模型",860,254,"r","start");
+      setCap("第 1 集的模型有个<s>硬伤</s>：约束条数跟着<b>数据规模</b>长。");
+    },"回头看第 1 集那个地图着色模型，它有个藏得不深的硬伤：<b>九条 constraint 是手写的</b>。  七个州还行。换成一百个州、三百条边界呢？难道写三百行？  更糟的是：这三百行里装的是<i>数据</i>（谁和谁相邻），而第 2 集刚说过<b>数据不该进模型</b>。一旦地图变了，模型要整个重写 —— 第 2 集建立的那条分界线在这里塌了。  这一集就是补上这个洞。");
+  /* 错误答案 */
+  S(712,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,150,250,80,"Python 脚本","r");
+      boxNode(520,150,250,80,"生成 .mzn","r");
+      boxNode(840,150,250,80,"求解","");
+      arrow(450,190,520,190,"");
+      arrow(770,190,840,190,"");
+      note("数据一变就要重跑",325,265,"r");
+      note("模型不再是人写的",645,265,"r");
+      note("出错时你在调试生成器，不是调试模型",645,320,"r");
+      setCap("能跑。但你维护的东西<s>从模型变成了生成模型的程序</s>。");
+    },"一个很常见的应对：<i>写个脚本，按数据生成那三百行 constraint</i>。  这当然能跑。很多人在别的建模工具里就是这么干的。  代价是你<b>换掉了维护对象</b>：模型不再是一份人读得懂、可以直接改的东西，而是某个脚本的输出。数据一变就要重新生成；模型写错了，你要先去调试<s>生成器</s>。  第 2 集那条「模型 / 数据」的分界线，在这种做法里是靠<b>流程纪律</b>维持的，而不是靠语言本身。  MiniZinc 的做法不一样：它把「对所有」<em>直接做进了模型语言</em>。");
+  /* 铺陈 */
+  S(724,function(){
+      clearScene();setBig(null);setEq(null);
+      note("forall( i in 1..n )( 条件 )",640,150,"y");
+      note("对每个 i 都必须成立",640,182,"");
+      note("[ 表达式 | i in 1..n ]",330,250,"b");
+      note("推导式：造一个数组",330,278,"");
+      note("sum( i in 1..n )( 表达式 )",950,250,"v");
+      note("把一串加起来",950,278,"");
+      note("条数由数据决定，模型长度不变",640,345,"g");
+      setCap("三个工具，一个目的：<b>让模型的长度与数据规模脱钩</b>。");
+    },"三个工具，手册 <b>§2.1.5–2.1.7</b>：  <i>forall</i>：<b>forall(i in 1..n)(条件)</b> 表示「对每个 i，这个条件都必须成立」。它本身就是一条约束。  <i>推导式</i>：<b>[表达式 | i in 1..n]</b> 造出一个数组，和 Python 的列表推导式长得一样。还可以带筛选条件。  <i>sum</i>：把一串表达式加起来，常用来写「总重」「总价值」。  这三个工具的共同作用只有一个：<b>约束的条数由数据决定，而模型的长度不变</b>。第 2 集那条分界线这下是由语言保证的，不是靠纪律。");
+  /* 主体 */
+  S(736,function(){
+      clearScene();setBig(null);setEq(null);
+      var L=[
+      ["int: n;                            % 州数","y"],
+      ["int: ne;                           % 边数","y"],
+      ["array[1..ne,1..2] of int: E;       % 每条边连哪两个","y"],
+      ["int: nc;","y"],
+      ["",""],
+      ["array[1..n] of var 1..nc: colour;","b"],
+      ["",""],
+      ["constraint forall( e in 1..ne )(","v"],
+      ["    colour[ E[e,1] ] != colour[ E[e,2] ]","v"],
+      [");","v"],
+      ["",""],
+      ["solve satisfy;","g"]];
+      L.forEach(function(p,i){ if(p[0]) note(p[0],270,132+i*21,p[1],"start"); });
+      note("相邻关系成了数据",1010,174,"y","start");
+      note("九条 → 一条",1010,300,"g","start");
+      setCap("九条 constraint 变成<b>一条</b>。边数写进 .dzn，<em>模型再也不用改</em>。");
+    },"同一个问题重写一遍，对照第 1 集那版看：  <i>相邻关系</i>从九条 constraint 变成了一个<b>参数数组 E</b> —— 它回到了数据文件里，这正是它该待的地方。  <i>九条约束</i>变成一条 <b>forall</b>：对每条边 e，它两端的颜色不等。  现在换地图只需要换 .dzn。三百条边界、三千条边界，<b>模型一个字不动</b>。  ⚠ 请注意这里发生的事比「少打字」重要得多：模型现在描述的是<em>「地图着色」这一类问题</em>，而不是「澳大利亚这一张地图」。第 1 集那版是后者。");
+  /* 主体 */
+  S(748,function(){
+      clearScene();setBig(null);setEq(null);
+      var L=[
+      ["int: n;   int: cap;","y"],
+      ["array[1..n] of int: w;      % 重量","y"],
+      ["array[1..n] of int: p;      % 价值","y"],
+      ["",""],
+      ["array[1..n] of var 0..1: x; % 选 / 不选","b"],
+      ["",""],
+      ["constraint sum( i in 1..n )( w[i] * x[i] ) <= cap;","v"],
+      ["",""],
+      ["solve maximize sum( i in 1..n )( p[i] * x[i] );","g"]];
+      L.forEach(function(p,i){ if(p[0]) note(p[0],250,140+i*23,p[1],"start"); });
+      note("0/1 变量：选不选",1020,232,"b","start");
+      note("总重不超容量",1020,278,"v","start");
+      note("从 satisfy 换成 maximize",1020,324,"g","start");
+      setCap("模块 1 点名的第二个应用。<b>整个模型五行</b>，而且是「哪一类背包都能解」的五行。");
+    },"背包问题 —— 官方模块说明点名的应用之一。  <i>决策</i>：每个物品选或不选，于是 <b>array[1..n] of var 0..1: x</b>。  <i>约束</i>：被选中物品的总重不超过容量。用 sum 一行写完。  <i>目标</i>：这里第一次出现 <em>solve maximize</em>，而不是 satisfy。注意 maximize 后面跟的就是一个<b>普通表达式</b> —— 目标函数在 MiniZinc 里没有特殊地位，它和约束里的表达式是同一种东西。  整个模型不到十行，而且是「任意规模、任意重量价值的 0/1 背包」都能解的十行。  ⚠ 一个值得记的细节：<b>x 的域是 0..1 而不是布尔</b>，于是可以直接参与乘法求和。这种「让变量落在能直接算的域里」的小选择，《高级建模》里会反复出现。");
+  /* 反驳 */
+  S(760,function(){
+      clearScene();setEq(null);setBig(null);
+      note("forall / 推导式",400,145,"b");
+      note("展平时会被展开",400,180,"");
+      note("这一层确实接近「糖」",400,212,"g");
+      note("但展开成什么",900,145,"y");
+      note("取决于你怎么写",900,180,"");
+      note("同一个条件，两种写法",900,212,"y");
+      note("可能展成数量差很远的子约束",900,244,"r");
+      link(640,130,640,290);
+      note("而下一集那个东西，根本不是糖",640,345,"v");
+      setCap("<b>展平</b>这一层会把它们展开 —— 但<em>展成什么样</em>，是你写法的后果。");
+    },"很自然的反应：「forall 和推导式不就是语法糖，展开后还是那一堆约束？」  <b>这一层上大体成立</b>。第 6 集会讲的 <i>flattening</i> 确实会把它们展开。  但有两件事要留意。  第一，<em>展开成什么</em>不是唯一的。同一个条件，换一种写法，可能展出数量差很远的子约束，求解时间跟着差。《高级建模》第一个模块就叫「调试与改进模型」，讲的正是这件事。  第二，也是更重要的：<b>下一集要讲的东西根本不是糖</b>。它不只是把一堆约束写短，它会让求解器<i>看见一个它本来看不见的结构</i> —— 那是这门课里第一个真正的约束编程思想。");
+  SUM(700,4,{h:"forall / 推导式 / sum：让模型长度与数据规模脱钩",
+    k:"<b>forall(i in S)(条件)</b> 是一条约束；<b>[表达式 | i in S]</b> 造数组；<b>sum(i in S)(表达式)</b> 求和。有了它们，相邻关系、重量、价值这些<i>数据</i>才能真正回到 .dzn 里去。",
+    m:"这不只是少打字。手写九条 constraint 的模型描述的是「澳大利亚<b>这一张</b>地图」；用 forall 之后，模型描述的是「<b>地图着色这一类问题</b>」。模型的抽象层级变了。",
+    w:"<s>误解一</s>：「用脚本生成模型文本也一样」—— 能跑，但维护对象从模型变成了生成器，分界线靠纪律而不是靠语言维持。<s>误解二</s>：「推导式纯属语法糖」—— 展平这一层大体成立，但<b>展开成什么取决于写法</b>，而且下一集的全局约束<em>不是</em>糖。",
+    e:"记住背包那个细节：<b>x 用 0..1 整数而不是布尔</b>，于是能直接进乘法求和。「让变量落在能直接参与运算的域里」是最早的一条建模直觉。"});
+  QUIZ(700,4,{t:"把地图着色的九条 <b>constraint a != b;</b> 改写成一条 <b>forall(e in 1..ne)(colour[E[e,1]] != colour[E[e,2]])</b>，最重要的收获是什么？",
+    o:["求解速度变快了，因为求解器只需要检查一条约束","相邻关系从模型移回了数据，模型从描述「一张地图」变成描述「一类问题」","约束数量真的减少了，搜索空间因此变小","可以省掉数据文件，所有信息都写在模型里"],
+    a:1,
+    w:"收获在<b>抽象层级</b>：相邻关系是数据，现在它回到了 .dzn；模型不再绑定澳大利亚那张图，换任何地图都不用改。<br>选项 A 和 C 都踩在同一个误解上：<s>forall 在展平时会被展开</s>，求解器看到的子约束条数<b>和手写一样多</b>，搜索空间一点没变。少的是<em>模型文本</em>，不是约束。<br>选项 D 正好反了 —— 这么做恰恰是<b>为了</b>把数据赶进数据文件。"});
+});
+
+KP("5 · <b>alldifferent</b> 不是语法糖 —— 它带着一个传播器　<small>手册 §2.2 · §4.2</small>",function(){
+  /* 钩子 */
+  S(900,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["","","S","E","N","D"],
+      ["+","","M","O","R","E"],
+      ["=","M","O","N","E","Y"]];
+      matrix({rows:3,cols:6,cw:80,ch:52,x:400,y:140,
+      cell:function(i,j){return R[i][j];},
+      hl:function(i,j){return R[i][j]&&R[i][j]!=="+"&&R[i][j]!=="="?"hl":"";},
+      label:"每个字母 = 一个 0..9 的数字"});
+      note("八个不同的字母：S E N D M O R Y",640,345,"y");
+      note("不同字母必须取不同数字 · 首位 S、M 不能是 0",640,378,"");
+      setCap("模块 1 点名的第四个应用：<b>Cryptarithm</b>。约束里最要紧的是<em>那一条</em>。");
+    },"字谜：<b>SEND + MORE = MONEY</b>。每个字母代表一个 0 到 9 的数字，不同的字母必须是<i>不同的</i>数字，首位不能是 0。  一共八个不同的字母：S、E、N、D、M、O、R、Y。  算式那条约束好写 —— 按位权展开成一个等式就行。  这一集只盯着另一条：<b>「八个字母两两不同」要怎么写</b>。  你马上会发现有两种写法，它们的<em>解集完全一样</em>，但求解器的表现可以差到天上去。这是这门课里第一个真正的约束编程思想。");
+  /* 错误答案 */
+  S(912,function(){
+      clearScene();setBig(null);setEq(null);
+      note("constraint forall( i,j in 1..8 where i < j )(",330,150,"v","start");
+      note("    L[i] != L[j]",330,176,"v","start");
+      note(");",330,202,"v","start");
+      note("展开后 = 28 条两两不等",330,255,"","start");
+      note("解集：完全正确",330,285,"g","start");
+      note("8 选 2 = 28",960,150,"y","start");
+      note("每条只看两个变量",960,200,"r","start");
+      note("没有任何一条看得见全局",960,226,"r","start");
+      setCap("写法没错，<em>解集一模一样</em>。问题不在对不对，在<b>求解器能看见什么</b>。");
+    },"最直接的写法：用上一集刚学的 forall，把<b>两两不等</b>全写出来。八个字母，C(8,2) = <i>28 条</i>。  这个写法<b>完全正确</b>。它定义的解集和「八个互不相同」一字不差。  但请盯住右边那句：<s>每一条约束只看得见两个变量</s>。  28 条约束，每条都在问「这两个相等了吗」。<b>没有任何一条约束知道「一共有八个变量、它们要挤进十个值里」这件事</b>。  下一镜用一个小到能手算的例子，看看这个「看不见」要付多少钱。");
+  /* 铺陈 */
+  S(924,function(){
+      clearScene();setBig(null);setEq(null);
+      note("3 个变量",480,142,"b");
+      note("只有 2 个可取的值",800,142,"y");
+      var LY=[196,258,320], RY=[227,289];
+      LY.forEach(function(y){ RY.forEach(function(v){ link(500,y,780,v); }); });
+      dots([[480,196],[480,258],[480,320]],"a",20);
+      dots([[800,227],[800,289]],"y",20);
+      note("x",436,202,"b","end");
+      note("y",436,264,"b","end");
+      note("z",436,326,"b","end");
+      note("1",844,233,"y","start");
+      note("2",844,295,"y","start");
+      note("每条「两两不等」只看得见其中两个点 —— 看不见这张图",640,378,"r");
+      setCap("三个变量，两个可选值，<b>显然无解</b>。可是 28 条式子里<s>没有一条看得出来</s>。");
+    },"把问题缩到能手算：三个变量 x、y、z，域都是 <b>{1, 2}</b>，要求三者两两不等。  画成图就一目了然：左边三个变量，右边两个值，连线表示「这个变量可以取这个值」。<i>三个变量要各自占住一个不同的值，右边却只有两个</i> —— 鸽笼原理，<b>无解</b>。  现在站在分解写法的角度看同一件事。求解器手上是三条两两不等，逐条检查：x ≠ y？x=1, y=2 就行，<b>这条能满足</b>。y ≠ z？能满足。x ≠ z？也能满足。  于是传播<b>一个值都删不掉</b>。求解器只能开始猜，用<s>搜索</s>去撞一个本该一眼看穿的矛盾。  ⚠ 差别的根子就在这张图上：<b>每条两两不等只看得见其中两个点，没有一条看得见整张图。</b>约束一分解，整体结构就消失了。");
+  /* 主体 */
+  S(936,function(){
+      clearScene();setBig(null);setEq(null);
+      note('include "globals.mzn";',330,145,"","start");
+      note("constraint alldifferent(L);",330,180,"g","start");
+      note("一条约束，参数是整个数组",330,228,"","start");
+      note("求解器看得见「八个变量 vs 十个值」",330,258,"g","start");
+      note("鸽笼那例：立刻判无解",330,310,"g","start");
+      note("28 条两两不等",990,145,"r","start");
+      note("vs",990,180,"","start");
+      note("1 条 alldifferent",990,215,"g","start");
+      note("解集相同",990,265,"","start");
+      note("传播力度不同",990,295,"y","start");
+      setCap("同样的解集，<b>但它把「这一组变量互不相同」整个交给了求解器</b>。");
+    },"换成<b>全局约束</b>：引入 globals 库，写一行 <em>alldifferent(L)</em>。  它的参数是<i>整个数组</i>，不是一对变量。这一点改变了一切：求解器现在<b>看得见「这一组变量作为一个整体，必须互不相同」</b>。  回到鸽笼那个例子 —— 三个变量、两个值，alldifferent 的传播器<b>立刻判定无解</b>，一次猜测都不用。  ⚠ 请把这句记准：<b>两种写法的解集完全相同，不同的是传播力度</b>。它们在「什么算一个解」上没有分歧，在「不搜索就能推出多少」上分歧极大。  这是<i>约束编程</i>区别于「把问题写成一堆式子」的第一个地方。");
+  /* 主体 */
+  S(948,function(){
+      clearScene();setBig(null);setEq(null);
+      note("alldifferent 的传播器看到的是一个匹配问题",640,140,"y");
+      var LY=[196,258,320], RY=[227,289];
+      LY.forEach(function(y){ RY.forEach(function(v){ link(500,y,780,v); }); });
+      arrow(502,196,778,227,"g");
+      arrow(502,258,778,289,"g");
+      dots([[480,196],[480,258]],"c",20);
+      dots([[480,320]],"b",20);
+      dots([[800,227],[800,289]],"y",20);
+      note("x",436,202,"g","end");
+      note("y",436,264,"g","end");
+      note("z",436,326,"r","end");
+      note("1",844,233,"y","start");
+      note("2",844,295,"y","start");
+      note("最大匹配只有 2 条，覆盖不了 3 个变量 ⇒ 无解",640,370,"g");
+      setCap("把「k 个变量只能取 k 个值」找出来 —— 这就是 <b>Hall 集</b>，分解写法里它不存在。");
+    },"把 alldifferent 的传播器打开看一眼，它在做的事是<b>二分图匹配</b>：左边变量，右边值，给每个变量配一个互不相同的值。  <i>最大匹配只有 2 条边</i>，而变量有 3 个 —— 配不满，<b>立刻判定无解</b>，一次猜测都不用。  一般情况下它更有用的形态是 <em>Hall 定理</em>：找出一组变量，它们合起来只够得着同样多的值（这里是 {x,y,z} 够得着 {1,2}）。这样一组叫 <b>Hall 集</b>。一旦找到，就可以把这些值从<i>其他</i>变量的域里删掉。  ⚠ 所以「全局约束」是两样东西打包：<b>一类反复出现的结构</b>（互不相同、按下标取值、一批任务共用资源、走一条回路），外加<b>一个专门为这个结构写的传播器</b>。拆成两两不等之后，这张图就不存在了，这套算法<s>一点都用不上</s>。  建模时的实用准则：<b>先问「这个结构有没有现成的全局约束」，再考虑自己拆</b>。");
+  /* 反驳 */
+  S(960,function(){
+      clearScene();setEq(null);setBig(null);
+      note("传播越强",400,145,"g");
+      note("删的值越多",400,178,"");
+      note("搜索的节点越少",400,208,"g");
+      note("传播越强",900,145,"r");
+      note("每个节点算得越久",900,178,"");
+      note("匹配算法不便宜",900,208,"r");
+      link(640,130,640,245);
+      note("节点数 × 每节点代价 —— 要的是乘积最小，不是某一项最小",640,290,"y");
+      note("所以 MiniZinc 给了不同一致性级别的版本供你选",640,330,"");
+      setCap("<b>更强的传播不总是划算。</b>这个权衡贯穿整个《求解算法》那门课。");
+    },"听到这里很容易过度修正成：「那就永远用传播最强的版本」。  <s>不对</s>，因为传播本身是要花时间的。  求解总时间大致是<b>搜索节点数 × 每个节点的传播代价</b>。强传播把<i>第一项</i>压下去，却把<i>第二项</i>抬上来。alldifferent 那套匹配算法并不便宜，在某些问题上它省下的搜索还不够付自己的账。  所以 MiniZinc 为同一个全局约束提供了<b>不同一致性级别</b>的版本，求解器也各自有自己的实现选择。  ⚠ 这个「要乘积最小，不是某一项最小」的权衡，是《求解算法》那门课的主线之一。而 <em>lazy clause generation</em> 可以看成在这个权衡上开的另一条路：<b>与其每次都把传播做到最强，不如在冲突真的发生时，把「这次为什么矛盾」解释成一条子句记下来</b>，让求解器自己学会不再踩同一个坑。那正是 Stuckey 的工作。");
+  SUM(900,5,{h:"alldifferent 不是写法更短 —— 它带着一个传播器",
+    k:"「两两不等」的分解写法与一条 <b>alldifferent</b> 定义的<i>解集完全相同</i>，差别在<b>传播力度</b>：三个变量挤进两个值时，28 条两两不等<s>一个值都删不掉</s>，alldifferent 立刻判无解。",
+    m:"分解之后<b>整体结构消失了</b> —— 每条约束只看得见两个变量，没有一条知道「k 个变量只能取 k 个值」。强传播的 alldifferent 把问题看成<i>二分图匹配</i>，用 Hall 集把值从其他变量域里删掉；拆碎之后这套算法无从施展。",
+    w:"<s>误解一</s>：「全局约束是语法糖」—— 解集相同但传播不同，这正是它<b>不是</b>糖的地方。<s>误解二</s>（过度修正）：「那永远用最强传播」—— 总时间 ≈ <b>节点数 × 每节点代价</b>，强传播压前者抬后者，不总划算；MiniZinc 因此提供不同一致性级别。",
+    e:"⚠ 面谈直通车：这一集的最后一段就是 <b>lazy clause generation</b> 的动机 —— 与其把传播一律做到最强，不如在<i>冲突发生时</i>把「为什么矛盾」解释成子句学下来。你的工作里那个「记下失败组合、剪掉所有含它的配置」正是同一个形状，<b>区别在于 LCG 的子句是逻辑蕴含出来的（sound），而统计剪枝不是</b>。"});
+  QUIZ(900,5,{t:"x、y、z 的域都是 {1,2}。写成三条两两不等，与写成一条 <b>alldifferent([x,y,z])</b>，差别在哪？",
+    o:["解集不同：alldifferent 比两两不等更严格","解集相同，但两两不等传播不出矛盾，alldifferent 能立刻判定无解","解集相同且传播相同，alldifferent 只是写起来更短","alldifferent 更慢，因为它要在每个节点上跑匹配算法，所以应当避免"],
+    a:1,
+    w:"两者<b>定义的解集完全一样</b>（这里都是空集）。差别在<em>不搜索能推出多少</em>：三条两两不等每条单独看都可满足，传播<s>一个值都删不掉</s>；alldifferent 的传播器看得见「3 个变量只有 2 个可用值」，<b>直接判无解</b>。<br>选项 A 错在「更严格」—— 严格的是传播，不是解集。<br>选项 C 正是「全局约束=语法糖」那个误解。<br>选项 D 把权衡说成了结论：匹配算法确实有代价，但那是<b>要和省下的搜索相比</b>的，不是「应当避免」。"});
+});
+
+KP("6 · 模型 → FlatZinc → 求解器，中间那一层是<b>有损</b>的　<small>手册 §2.9 · §3.5</small>",function(){
+  /* 钩子 */
+  S(1100,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,150,250,80,"你的 .mzn","b");
+      boxNode(1000,150,220,80,"求解器","g");
+      note("?",640,200,"y");
+      note("中间发生了什么",640,250,"");
+      arrow(430,190,560,190,"");
+      arrow(720,190,1000,190,"");
+      note("forall / 推导式 / alldifferent / var 1..n",640,330,"");
+      note("这些东西，大多数求解器根本不认识",640,360,"r");
+      setCap("求解器不认识 forall，也不一定认识 alldifferent。<b>中间必然有一道翻译。</b>");
+    },"最后一集补上一块你一直在用、却没见过的东西。  你写的是 forall、推导式、alldifferent、<b>var 1..n</b> 这种带域的声明。但底下的求解器 —— 不管是 CP 求解器、整数规划求解器还是 SAT 求解器 —— <b>大多不认识这些</b>。  所以中间必然有一道<i>翻译</i>。这道翻译叫 <em>flattening</em>（展平），产物叫 <b>FlatZinc</b>。  这一集要说的是：这道翻译<b>不是无损的</b>，而这件事解释了后面两门课的大半内容。");
+  /* 错误答案 */
+  S(1112,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(520,130,240,70,"同一份 .mzn","b");
+      boxNode(210,270,230,70,"CP 求解器","g");
+      boxNode(525,270,230,70,"MIP 求解器","y");
+      boxNode(840,270,230,70,"SAT 求解器","v");
+      arrow(590,200,325,270,"");
+      arrow(640,200,640,270,"");
+      arrow(690,200,955,270,"");
+      note("换求解器 = 换一个命令行参数",640,370,"");
+      setCap("MiniZinc 不绑定任何求解器 —— 这是它<b>设计上的全部要点</b>。");
+    },"一个要先拆掉的误解：MiniZinc 不是「某个求解器的输入格式」。  它是<b>求解器无关</b>的建模语言，这正是它存在的理由。同一份模型可以送给约束规划求解器、整数规划求解器、SAT 求解器，<i>换求解器只是换一个命令行参数</i>。  做到这一点靠的是：每种求解器配一套自己的<b>重定义库</b>，告诉 MiniZinc「你的 alldifferent 在我这里该翻译成什么」。  CP 求解器会说「我原生支持，直接给我」；MIP 求解器说「我不认识，请拆成线性不等式」；SAT 求解器说「请全部编码成布尔子句」。  <b>同一条约束，三种求解器收到的东西完全不同。</b>");
+  /* 铺陈 */
+  S(1124,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(150,140,300,70,"① 代入参数","y");
+      note("n、w、E 全部变成常量",300,240,"");
+      boxNode(490,140,300,70,"② 展开推导式","b");
+      note("forall → 一条条具体约束",640,240,"");
+      boxNode(830,140,300,70,"③ 按库重定义","v");
+      note("全局约束翻译成目标求解器认识的形式",980,240,"");
+      note("产物：FlatZinc —— 只剩变量、域、和一串基本约束",640,320,"g");
+      note("第 2 集说「参数是免费的」，免费就免费在这一步",640,358,"y");
+      setCap("展平之后，模型里所有<b>结构</b>都被摊平成一串基本约束。");
+    },"展平这一层做三件事，手册 <b>§2.9</b>：  <i>① 代入参数</i>。第 2 集说「参数是免费的」，免费就免费在这里 —— n、重量数组、相邻关系表，全部在这一步变成常量消失了。求解器从头到尾没见过它们。  <i>② 展开推导式</i>。forall 被展开成一条条具体约束，sum 被展开成具体的加法。第 4 集说推导式「大体是糖」，指的就是这一步。  <i>③ 按目标求解器的库做重定义</i>。这一步决定 alldifferent 的命运。  产物 FlatZinc 里只剩下三样东西：<b>变量、它们的域、一串基本约束</b>。所有你写在模型里的高层结构，到这里都被摊平了。");
+  /* 主体 */
+  S(1136,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["目标求解器","alldifferent 被译成","传播器","鸽笼能否一眼看穿"],
+      ["CP","原样保留","完好","能"],
+      ["MIP","一串线性不等式","没有了","不能"],
+      ["SAT","一串布尔子句","没有了","不能"]];
+      matrix({rows:4,cols:4,cw:215,ch:50,x:210,y:150,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0;},
+      hl:function(i,j){return i===0?"":(i===1?"hl2":"hl3");},
+      label:"constraint alldifferent(L);"});
+      note("第 5 集那套匹配算法，只在最上面那一行活着",640,380,"y");
+      setCap("「有损」就损在这里：<b>你交上去的结构，不一定活得到求解器手里</b>。");
+    },"拿第 5 集辛苦建立的 alldifferent 来看这道翻译：  <i>送给 CP 求解器</i>：原样保留，传播器完好。第 5 集那个鸽笼例子一眼判无解。  <i>送给 MIP 求解器</i>：它只认线性不等式，于是 alldifferent 被<b>拆掉</b>。那套匹配算法随之消失 —— 你又回到了分解的处境。  <i>送给 SAT 求解器</i>：编码成布尔子句，结构同样摊平。  ⚠ 所以「全局约束传播更强」这句话有个前提：<b>得送到认识它的求解器手里</b>。  这也正是 <em>lazy clause generation</em> 聪明的地方：它<s>不是</s>在两条路里选一条，而是让 CP 的传播器照常工作，同时把每一次推理<b>解释成子句</b>交给 SAT 那套冲突分析去学 —— 两边的长处都要。");
+  /* 主体 */
+  S(1148,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,145,290,75,"CP","g");
+      note("强在：复杂组合结构",315,250,"");
+      note("调度 · 排列 · 全局约束",315,278,"g");
+      boxNode(495,145,290,75,"MIP","y");
+      note("强在：线性松弛给得出好界",640,250,"");
+      note("网络流 · 配给 · 成本最优",640,278,"y");
+      boxNode(820,145,290,75,"局部搜索","v");
+      note("强在：巨大实例要个好解",965,250,"");
+      note("不保证最优",965,278,"v");
+      note("同一个模型都能跑 —— 但跑出来的时间可以差几个数量级",640,348,"y");
+      setCap("《求解算法》那门课的四个模块，正好就是这几条路。");
+    },"既然翻译是有损的、而且每种求解器损的地方不同，<b>「选哪个求解器」就成了一个真问题</b>，不是偏好问题。  粗线条地说：<i>CP</i> 在复杂组合结构上强 —— 调度、排列、用得上全局约束的地方。<i>MIP</i> 在线性松弛能给出好界的问题上强 —— 成本最优、网络流这类。<i>局部搜索</i> 在实例巨大、只要一个好解不要最优证明时强。  同一个 .mzn 三条路都能跑，但时间可以差几个数量级。  ⚠ 这正是第三门课《Solving Algorithms for Discrete Optimization》的四个模块：<b>基础 CP、进阶 CP、混合整数规划、局部搜索</b>。它会把求解器打开给你看，而不是只把它当黑盒。");
+  /* 反驳 */
+  S(1160,function(){
+      clearScene();setEq(null);setBig(null);
+      note("理想：模型与求解器无关",640,140,"b");
+      note("现实：写模型时你多少要知道它会被送到哪",640,180,"y");
+      note("给 MIP 写的好模型",380,250,"y");
+      note("线性、界要紧",380,280,"");
+      note("给 CP 写的好模型",900,250,"g");
+      note("结构要留住",900,280,"");
+      note("同一个问题，两套写法 —— 这就是《高级建模》的课题",640,345,"v");
+      setCap("求解器无关是<b>接口</b>上的，<s>不是性能上的</s>。");
+    },"最后一个要拆的过度修正：「既然 CP 保得住结构，那就永远用 CP」。  <s>不行</s>。在线性结构强、需要靠松弛界来剪枝的问题上，MIP 可以把 CP 甩开很远。没有一条路通吃。  还有一句更要紧的话，适合带去面谈：<b>「模型与求解器无关」是接口层面的承诺，不是性能层面的</b>。  你随时可以把同一个 .mzn 换一个求解器跑 —— 这是真的。但<i>一个为 MIP 写得好的模型，和一个为 CP 写得好的模型，常常不是同一个模型</i>。前者要保持线性、要让松弛界紧；后者要把结构留住、让传播器用得上。  这正是《高级建模》整门课的课题：同一个问题，怎么写才让求解器好过。入门到此为止，后面的功夫都在这上面。");
+  SUM(1100,6,{h:"模型 → FlatZinc → 求解器，中间那一层会丢结构",
+    k:"展平做三件事：<b>代入参数</b>（所以参数免费）、<b>展开推导式</b>（所以推导式大体是糖）、<b>按目标求解器的库重定义</b>（所以全局约束的命运在这里分岔）。产物 FlatZinc 里只剩变量、域和一串基本约束。",
+    m:"同一条 alldifferent：送 CP 原样保留、传播器完好；送 MIP 拆成线性不等式；送 SAT 编码成子句 —— 后两条路上第 5 集那个结构<b>没了</b>。所以「全局约束传播更强」有个前提：<i>得送到认识它的求解器手里</i>。",
+    w:"<s>误解一</s>：「MiniZinc 是某个求解器的语言」—— 它是求解器无关的，靠每个求解器一套重定义库。<s>误解二</s>：「那永远用 CP」—— 线性松弛强的问题上 MIP 甩开 CP。<s>误解三</s>（最值钱的一条）：「求解器无关 = 换求解器不影响性能」—— <b>无关是接口上的，不是性能上的</b>；为 MIP 写得好的模型和为 CP 写得好的模型常常不是同一个。",
+    e:"⚠ 这一集给面谈留了一个接口：<b>lazy clause generation 不在「保结构的 CP」和「会学习的 SAT」之间二选一</b> —— 它让 CP 传播器照常跑，同时把每一次推理解释成子句，交给 SAT 的冲突分析去学 nogood。这正是《求解算法》第二模块，也是你要和他谈的那条线。"});
+  QUIZ(1100,6,{t:"同一个含 <b>alldifferent</b> 的模型，分别交给 CP 求解器和 MIP 求解器，为什么表现可能差很多？",
+    o:["因为 MIP 求解器的实现质量普遍不如 CP 求解器","因为展平时 alldifferent 会按目标求解器重定义：CP 原样保留传播器，MIP 把它拆成线性不等式，结构随之丢失","因为 MIP 求解器不支持整数变量，只能解连续松弛","因为 MiniZinc 为 MIP 生成的 FlatZinc 里参数没有被代入"],
+    a:1,
+    w:"差别产生在<b>展平</b>这一层。每种求解器配一套重定义库：CP 认识 alldifferent，<em>原样保留，匹配传播器照常工作</em>；MIP 只认线性不等式，于是它被<s>拆掉</s>，第 5 集那套结构没了。<br>选项 A 不对：这与实现质量无关，MIP 求解器在它的主场（线性松弛给得出好界）会反过来碾压 CP。<br>选项 C 事实错误：MIP 的 I 就是 integer，分支定界正是用来处理整数的。<br>选项 D 事实错误：<b>代入参数对所有求解器都一样做</b>，这正是「参数免费」的含义。"});
+});
+
+KP("完",function(){
+  S(1300,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("模块 1 讲完了","你现在站在哪里",
+      "会写模型 → 下一步是「写得对」和「写得快」是两回事");
+    },"回看这六集，入门这一关其实只翻过一道墙：<b>把搜索交出去</b>。  剩下五集都是这道墙的推论 —— <i>var</i> 划出哪些是待定的（2）；约束是关系所以推理可以双向走（3）；推导式让「对所有」写得下（4）；全局约束把一整类结构连同<b>传播器</b>一起交给求解器（5）；而 flattening 这一层会把你写法里的结构<b>丢掉一部分</b>（6）。  ⚠ 第 6 集那句「有损」是整门课后面的全部动机：同一个问题，两种写法在数学上等价，求解时间可以差几个数量级。<b>《高级建模》整门课都在处理这件事</b>（调试与改进模型、谓词、调度、装箱、对称与支配），而<b>《求解算法》那门课</b>会把求解器打开给你看 —— 传播器怎么推、冲突了怎么学 nogood、为什么 CP、MIP、局部搜索各有各的地盘。  下一部：基础篇 ②《用集合建模》。");
+});
+window.__startProjector(CFG);
+})();
+</script>

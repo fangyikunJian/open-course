@@ -132,7 +132,15 @@ def local_helpers(lec):
 
 
 def scan():
-    prims = engine_prims()
+    # ⚠ 2026-11-11：这里原来只有 engine_prims()，也就是**只认 build_common 里
+    #   E.xxx= 导出的那一套（RL 图元包）**，而第 99 行的 drawing_fns() 是
+    #   `engine_prims() | ENGINE_DRAW`。两处口径不一致，后果是：
+    #   凡是用 eng.txt 核心图元（boxNode / matrix / dots / link / curve）画的片子，
+    #   在这条指标眼里**一镜都不算有图**，必然被判「画法太少」。
+    #   实测：minizinc L01 原判 10 镜 2 画法（0.20，失败），补上之后是
+    #   23 镜 8 画法（0.35，通过）—— 真实多样度一直是后者。
+    #   四门课全量跑过，补上 ENGINE_DRAW **没有新增任何失败**。
+    prims = engine_prims() | ENGINE_DRAW
     figs = collections.defaultdict(collections.Counter)
     sigs = collections.defaultdict(collections.Counter)
     shots = collections.Counter()

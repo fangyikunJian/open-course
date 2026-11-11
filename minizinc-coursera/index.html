@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>离散优化建模与求解（MiniZinc 三部曲）</title>
+<style>
+:root{
+  --bg:#0a0e14; --panel:#111823; --line:#1e2938; --ink:#e6edf6; --dim:#8494a8;
+  --txt:#7f8fa4;
+  --cjk:"PingFang SC","Microsoft YaHei","微软雅黑",system-ui,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--cjk);
+  font-size:15px;line-height:1.65;padding:0 18px 70px}
+.wrap{max-width:1120px;margin:0 auto}
+
+header{padding:44px 0 22px}
+h1{margin:0 0 10px;font-size:clamp(23px,3vw,34px);font-weight:670;letter-spacing:.3px}
+.lede{color:var(--dim);font-size:14.5px;max-width:64ch;margin:0 0 18px}
+
+/* 几种读法的图例 */
+.legend{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:6px}
+.lg{display:flex;align-items:center;gap:7px;border:1px solid var(--line);
+  border-radius:9px;padding:7px 12px;background:var(--panel);font-size:13px}
+.lg i{width:9px;height:9px;border-radius:3px;font-style:normal;flex:0 0 auto}
+.lg b{font-weight:600}
+.lg span{color:var(--dim)}
+
+/* 一讲一行 */
+.rows{margin-top:24px;border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;background:var(--panel)}
+details{border-bottom:1px solid var(--line)}
+details:last-child{border-bottom:0}
+summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:14px;
+  padding:13px 16px;transition:background .13s}
+summary::-webkit-details-marker{display:none}
+summary:hover{background:rgba(255,255,255,.028)}
+.num{font:700 12px/1 var(--mono);letter-spacing:1px;flex:0 0 34px}
+.nm{flex:1;font-size:15.5px;font-weight:600;min-width:0}
+.nm em{font-style:normal;color:var(--dim);font-weight:400;font-size:13px;
+  display:block;margin-top:2px}
+.acts{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.a{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+  border-radius:8px;padding:6px 11px;text-decoration:none;font-size:13px;
+  background:#0b1017;white-space:nowrap;transition:border-color .13s,color .13s}
+.a i{width:8px;height:8px;border-radius:2.5px;font-style:normal;flex:0 0 auto}
+.a.txt{color:var(--txt)} .a.txt:hover{border-color:var(--txt)}
+.a.off{color:#3b4657;border-style:dashed;pointer-events:none}
+.kps{padding:2px 16px 16px 64px;margin:0;color:var(--dim);font-size:13.5px;
+  line-height:1.72}
+.kps li{margin-bottom:3px}
+.more{display:flex;gap:7px;flex-wrap:wrap;padding:0 16px 14px 64px}
+.none{padding:2px 16px 16px 64px;color:var(--dim);font-size:13.5px}
+
+footer{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);
+  color:var(--dim);font-size:13px;line-height:1.85}
+footer b{color:var(--ink)}
+@media (max-width:760px){
+  summary{flex-wrap:wrap} .acts{width:100%;justify-content:flex-start;padding-left:48px}
+  .kps,.more,.none{padding-left:20px}
+}
+.a.v0{color:#7fd1c1} .a.v0:hover{border-color:#7fd1c1}</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>离散优化建模与求解 <span>MiniZinc 三部曲</span> · 中文学习站</h1>
+  <p class="lede">Coursera 上 <b>Peter J. Stuckey &amp; Jimmy Ho Man Lee</b> 的三门课，合计 13 个模块：《Basic Modeling》4 个、《Advanced Modeling》5 个、《Solving Algorithms》4 个。⚠ <b>本站不是课程视频的搬运</b> —— 课程视频在 Coursera 登录墙后，这里的中文讲解是另写的，技术内容对齐<b>公开的 MiniZinc 手册</b>，每一集标的是<b>手册章节号</b>而不是视频时间码。缘由见 <a href="来源.md">来源.md</a>。</p>
+  <div class="legend">
+    <span class="lg"><i style="background:#7fd1c1"></i><b>放映厅</b><span>动画讲解，空格推进；每一集标着对应的 MiniZinc 手册章节</span></span>
+  </div>
+</header>
+
+<div class="rows">
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L01</span>
+      <span class="nm">MiniZinc 入门：不写「怎么找」，只写「什么算对」<em>6 个知识点</em></span>
+      <span class="acts"><a class="a v0" href="theater/影片/L01-MiniZinc入门.html"><i style="background:#7fd1c1"></i>放映厅</a></span>
+    </summary>
+    <ol class="kps"><li>不写「怎么找」，只写&lt;b&gt;什么算对&lt;/b&gt;</li><li>&lt;b&gt;var&lt;/b&gt; 划出「已知」与「待定」的分界</li><li>约束不是赋值，是&lt;b&gt;关系&lt;/b&gt;</li><li>数组与推导式：把「对所有」写成一行</li><li>&lt;b&gt;alldifferent&lt;/b&gt; 不是语法糖 —— 它带着一个传播器</li><li>模型 → FlatZinc → 求解器，中间那一层是&lt;b&gt;有损&lt;/b&gt;的</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L02</span>
+      <span class="nm">用集合建模：集合选择与基数约束<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>集合变量的几种表示法：无基数限制 / 固定基数 / 有界基数</li><li>每个合法决策恰好对应一个模型决策</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L03</span>
+      <span class="nm">用函数建模：指派、划分与全局基数约束<em>3 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>指派与划分问题其实都是「伪装过的函数」</li><li>公共子表达式消除与中间变量</li><li>首次出现的 &lt;b&gt;global cardinality&lt;/b&gt; 约束与值对称的消除</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L04</span>
+      <span class="nm">多视角建模：同一个问题的几种看法与互相搭桥<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>同一问题可以从多个视角建模，写法完全不同</li><li>各视角各有长短，并且可以&lt;b&gt;合并互补&lt;/b&gt;</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L05</span>
+      <span class="nm">调试与改进模型<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>模型写错了怎么定位</li><li>等价的写法为什么会差几个数量级</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L06</span>
+      <span class="nm">谓词：把模型的一部分封装起来<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>用谓词把重复结构抽出来</li><li>可复用的建模组件</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L07</span>
+      <span class="nm">调度<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>任务、工期与资源</li><li>&lt;b&gt;cumulative&lt;/b&gt; 等调度专用全局约束</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L08</span>
+      <span class="nm">装箱<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>一维与二维装箱的建模</li><li>&lt;b&gt;diffn&lt;/b&gt; 与几何不重叠</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L09</span>
+      <span class="nm">对称与支配<em>3 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>离散优化问题里会出现的几类对称</li><li>&lt;b&gt;对称破缺&lt;/b&gt;约束怎么写</li><li>&lt;b&gt;支配&lt;/b&gt;：比对称更强的剪枝来源</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L10</span>
+      <span class="nm">基础约束规划：传播与搜索<em>3 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>传播器怎么删值</li><li>搜索怎么分支与回溯</li><li>一致性级别</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L11</span>
+      <span class="nm">进阶约束规划：解释、nogood 与 lazy clause generation<em>3 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>把每次推理&lt;b&gt;解释&lt;/b&gt;成子句</li><li>冲突分析与学 &lt;b&gt;nogood&lt;/b&gt;、回跳</li><li>&lt;b&gt;lazy clause generation&lt;/b&gt;：CP 的传播 + SAT 的学习</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L12</span>
+      <span class="nm">混合整数规划：线性松弛与分支定界<em>3 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>线性规划与单纯形</li><li>分支定界怎么用松弛界剪枝</li><li>什么样的问题该交给 MIP</li></ol>
+    <div class="more"></div>
+  </details>
+  <details>
+    <summary>
+      <span class="num" style="color:#f2bd63">L13</span>
+      <span class="nm">局部搜索<em>2 个知识点</em></span>
+      <span class="acts"><span class="a off">放映厅</span></span>
+    </summary>
+    <ol class="kps"><li>邻域与移动</li><li>不保证最优，但能啃下巨大实例</li></ol>
+    <div class="more"></div>
+  </details>
+</div>
+
+<footer>
+  <b>13 讲</b>：放映厅 <b>1</b>。灰掉的按钮表示还没做，不是坏链接。<br>
+  全部是本地文件，<b>双击本页即可</b>，不需要起服务。
+  精读页的自测成绩存在<b>这台机器的浏览器里</b>，换浏览器或清了站点数据就归零。<br>
+  课程版权归 The Chinese University of Hong Kong / The University of Melbourne 与两位讲者；MiniZinc 手册的授权是 CC BY-ND 4.0（禁止演绎），故本站<b>不翻译、不改写手册正文</b>，只引用章节号作坐标，讲解独立撰写。
+</footer>
+
+</div></body></html>

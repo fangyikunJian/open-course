@@ -76,6 +76,13 @@ COURSES = [
                 "（每一镜都能对回原视频），讲义页码作参照 —— 与其余几门的做法不同。",
     },
     {
+        "dir": "minizinc-coursera", "code": "MiniZinc", "name": "离散优化建模与求解",
+        "meta": "Coursera · Stuckey &amp; Jimmy Lee · 三门课 13 模块", "unit": "模块",
+        "note": "Coursera 三部曲：<b>基础建模 4</b> · <b>高级建模 5</b> · <b>求解算法 4</b>。"
+                "⚠ 课程视频在登录墙后，<b>本站不是搬运</b> —— 中文讲解另写，"
+                "技术内容对齐公开的 MiniZinc 手册，每一集标<b>手册章节号</b>。",
+    },
+    {
         "dir": "reinforcement learning/corpus/sutton-barto",
         "code": "S&amp;B", "name": "Sutton &amp; Barto 第二版",
         "meta": "经典教材 · 2020 年印次 · 作者免费提供全文", "unit": "章",
