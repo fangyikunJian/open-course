@@ -1,0 +1,26 @@
+{
+ "file": "L11-LCG与nogood.html",
+ "html_title": "离散优化建模 L11 · 解释、nogood 与 LCG · 放映厅",
+ "title": "算法篇 ② · 冲突之后：把「为什么矛盾」学下来",
+ "subtitle": "%d 个知识点 · 对应 Solving Algorithms 模块 2 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "",
+ "prelude_js": "// ══ 本片的内容权威与边界 ══\n//\n// 对应课程：Coursera《Solving Algorithms for Discrete Optimization》模块 2\n//   「Advanced Constraint Programming」（Stuckey & Jimmy Ho Man Lee）。\n//\n// ⚠⚠ 本片没有照搬课程视频，也没有用课程字幕（在 Coursera 登录墙后，属版权材料）。\n//   中文讲解是另写的。这一讲的技术内容对齐的是**公开发表的论文与求解器文档**：\n//\n//   · Ohrimenko, Stuckey & Codish，\"Propagation = Lazy Clause Generation\"，CP 2007。\n//   · Ohrimenko, Stuckey & Codish，\"Propagation via lazy clause generation\"，\n//     Constraints 14:357–391 (2009)，doi:10.1007/s10601-008-9064-x。\n//   · Ohrimenko, Stuckey & Codish，\"Lazy clause generation in retrospect\"，\n//     Constraints（回顾篇）。⚠ 出版年份未逐条核实，引用时按 DOI 查准。\n//   · Dekker, Ignatiev, Stuckey & Zhong，\"Towards Modern and Modular SAT for LCG\"，\n//     CP 2025，LIPIcs vol. 340, art. 42, pp. 42:1–42:12，求解器 huub。\n//   · Chuffed 求解器说明（MiniZinc Challenge description_chuffed.txt / 仓库 DESCRIPTION）。\n//\n// ⚠ 片中的具体数值例子（x ≥ 3 ∧ y ≥ 2 → z ≥ 5 这类）取自上述文档的示例形态，\n//   用来讲机制，不代表任何实际模型。\n//\n// ⚠ 本片**不涉及任何未发表工作**。第 6 集讲的是「学到的子句为什么 sound」这个\n//   一般性问题，对照的是启发式／统计剪枝这一类通称做法，不指向任何具体方法。\n",
+ "kp_names": {
+  "1": "1 · 纯 CP 的病：同一个错误要犯很多次　<small>模块 2</small>",
+  "2": "2 · 「那全编码成 SAT」为什么不行　<small>CP 2007</small>",
+  "3": "3 · 地基：把整数的<b>域</b>翻译成布尔文字　<small>Constraints 2009</small>",
+  "4": "4 · <b>解释</b>：传播器得说出「我凭什么删这个值」　<small>Constraints 2009</small>",
+  "5": "5 · 冲突分析：从矛盾倒推出一条 <b>nogood</b>　<small>模块 2</small>",
+  "6": "6 · 学到的 nogood 为什么是 <b>sound</b> 的 —— 什么样的剪枝不是　<small>收束</small>"
+ },
+ "kp_base": {"1": 100, "2": 300, "3": 500, "4": 700, "5": 900, "6": 1100},
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"Solving Algorithms · 模块 2\",\"解释、nogood 与 LCG\",\n  \"CP 的传播 + SAT 的学习 —— Stuckey 他们那条路\");",
+  "narration": "L01 第 3 集给过求解器的主循环：<b>传播到推不动 → 猜一步 → 再传播</b>，某个域被删空就回退。\n\n这一讲处理那个「<i>回退</i>」。因为朴素的回退有个结构性的毛病：<b>它什么也没学到</b>。同一个原因造成的矛盾，可以在搜索树的不同地方被撞上很多次，每次都要重新把整段路走一遍。\n\n六集的路线是：先把病摆出来（1）；再拆掉那个显而易见但行不通的修法「干脆全编码成 SAT」（2）；然后是 <em>lazy clause generation</em> 的三块地基 —— <b>把整数的域翻译成布尔文字</b>（3）、<b>让每个传播器解释自己</b>（4）、<b>从冲突倒推出一条 nogood 并跳回去</b>（5）；最后一集收到一个更一般的问题上：<b>学到的子句凭什么是可靠的，而什么样的「剪枝」不是</b>（6）。\n\n⚠ 这一讲的技术内容对齐的是公开论文与求解器文档，不是课程视频；引文列在片源注释里。"
+ },
+ "closing": {
+  "t": 1300,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"模块 2 讲完了\",\"两边的长处都要\",\n  \"传播器照常跑 · 每次推理留下解释 · 冲突时学一条 sound 的子句\");",
+  "narration": "把六集串起来，<b>lazy clause generation</b> 的整句话是：\n\n<i>让 CP 的传播器照常工作</i>（所以 L01 第 5 集那套全局约束的结构<b>一个都没丢</b>），<i>但要求每一次推理都能把自己解释成一条子句</i>，<i>于是冲突发生时可以做 SAT 那套冲突分析</i> —— 倒推出一条 nogood、学下来、非时序地跳回去。\n\n两个 <em>lazy</em> 都是工程上的要害：布尔文字<b>按需才建</b>（域大的变量不预先铺满），解释子句<b>需要时才算</b>。全铺开就退化成「预先编码成 SAT」，第 2 集说过那条路的代价。\n\n⚠ 最后一集那句话值得单独记住：<b>学到的 nogood 是从约束逻辑蕴含出来的，所以它 sound —— 被它剪掉的区域里，一个解都没有</b>。靠采样、估计或者启发式得到的「这条路看起来不行」没有这个保证，它们是<i>搜索策略</i>，不是<i>逻辑后承</i>。把一个不 sound 的剪枝叫作 nogood，是在借用一个它没有的承诺。\n\n下一部建议：高级篇 ⑤《对称与支配》—— 那是另一条「合法地砍掉搜索空间」的路，而且它和这一讲的区别正好是「结构性的」与「学来的」。"
+ }
+}

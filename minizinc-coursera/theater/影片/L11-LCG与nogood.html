@@ -1,0 +1,1509 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>离散优化建模 L11 · 解释、nogood 与 LCG · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"算法篇 ② · 冲突之后：把「为什么矛盾」学下来",
+  subtitle:"6 个知识点 · 对应 Solving Algorithms 模块 2 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:""
+};
+
+
+// ══ 本片的内容权威与边界 ══
+//
+// 对应课程：Coursera《Solving Algorithms for Discrete Optimization》模块 2
+//   「Advanced Constraint Programming」（Stuckey & Jimmy Ho Man Lee）。
+//
+// ⚠⚠ 本片没有照搬课程视频，也没有用课程字幕（在 Coursera 登录墙后，属版权材料）。
+//   中文讲解是另写的。这一讲的技术内容对齐的是**公开发表的论文与求解器文档**：
+//
+//   · Ohrimenko, Stuckey & Codish，"Propagation = Lazy Clause Generation"，CP 2007。
+//   · Ohrimenko, Stuckey & Codish，"Propagation via lazy clause generation"，
+//     Constraints 14:357–391 (2009)，doi:10.1007/s10601-008-9064-x。
+//   · Ohrimenko, Stuckey & Codish，"Lazy clause generation in retrospect"，
+//     Constraints（回顾篇）。⚠ 出版年份未逐条核实，引用时按 DOI 查准。
+//   · Dekker, Ignatiev, Stuckey & Zhong，"Towards Modern and Modular SAT for LCG"，
+//     CP 2025，LIPIcs vol. 340, art. 42, pp. 42:1–42:12，求解器 huub。
+//   · Chuffed 求解器说明（MiniZinc Challenge description_chuffed.txt / 仓库 DESCRIPTION）。
+//
+// ⚠ 片中的具体数值例子（x ≥ 3 ∧ y ≥ 2 → z ≥ 5 这类）取自上述文档的示例形态，
+//   用来讲机制，不代表任何实际模型。
+//
+// ⚠ 本片**不涉及任何未发表工作**。第 6 集讲的是「学到的子句为什么 sound」这个
+//   一般性问题，对照的是启发式／统计剪枝这一类通称做法，不指向任何具体方法。
+
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("Solving Algorithms · 模块 2","解释、nogood 与 LCG",
+      "CP 的传播 + SAT 的学习 —— Stuckey 他们那条路");
+    },"L01 第 3 集给过求解器的主循环：<b>传播到推不动 → 猜一步 → 再传播</b>，某个域被删空就回退。  这一讲处理那个「<i>回退</i>」。因为朴素的回退有个结构性的毛病：<b>它什么也没学到</b>。同一个原因造成的矛盾，可以在搜索树的不同地方被撞上很多次，每次都要重新把整段路走一遍。  六集的路线是：先把病摆出来（1）；再拆掉那个显而易见但行不通的修法「干脆全编码成 SAT」（2）；然后是 <em>lazy clause generation</em> 的三块地基 —— <b>把整数的域翻译成布尔文字</b>（3）、<b>让每个传播器解释自己</b>（4）、<b>从冲突倒推出一条 nogood 并跳回去</b>（5）；最后一集收到一个更一般的问题上：<b>学到的子句凭什么是可靠的，而什么样的「剪枝」不是</b>（6）。  ⚠ 这一讲的技术内容对齐的是公开论文与求解器文档，不是课程视频；引文列在片源注释里。");
+});
+
+KP("1 · 纯 CP 的病：同一个错误要犯很多次　<small>模块 2</small>",function(){
+  /* 钩子 */
+  S(100,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:23,nodes:[
+      {id:0,parent:null,x:640,y:150,label:"a"},
+      {id:1,parent:0,x:500,y:235,label:"b"},
+      {id:2,parent:0,x:780,y:235,label:"b"},
+      {id:3,parent:1,x:420,y:320,label:"⊥"},
+      {id:4,parent:1,x:580,y:320,label:"⊥"},
+      {id:5,parent:2,x:700,y:320,label:"⊥"},
+      {id:6,parent:2,x:860,y:320,label:"⊥"}
+      ]});
+      note("四次失败，原因都是同一条约束把 x 和 y 卡死了",640,378,"r");
+      note("而 a、b 跟这个矛盾毫无关系",1030,200,"","start");
+      setCap("同一个原因，<b>撞了四次</b>。再多两个无关变量，就是十六次。");
+    },"L01 第 3 集给过求解器的主循环：传播到推不动，就猜一步，然后再传播；某个变量的域被删空，就回退。  现在看这棵树。搜索先在 <i>a</i> 上分支，再在 <i>b</i> 上分支，四条路走到底全部失败。  而失败的原因<b>是同一个</b>：某条约束让 x 和 y 没法同时成立。<em>a 和 b 跟这个矛盾毫无关系</em>。  四个无关变量就是十六次，十个就是一千多次。这个现象有个名字叫 <b>thrashing</b>（颠簸）。  病根不在传播器不够强，而在<s>回退的时候什么也没留下</s>。");
+  /* 错误答案 */
+  S(112,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,150,290,80,"加强传播","y");
+      note("让矛盾更早被发现",325,262,"");
+      note("有用，但不解决重复",325,292,"r");
+      boxNode(520,150,290,80,"换变量序","y");
+      note("先分支 x、y",665,262,"");
+      note("要事先知道哪里会冲突",665,292,"r");
+      boxNode(860,150,290,80,"随机重启","y");
+      note("换一棵树再试",1005,262,"");
+      note("换完还是什么都没学到",1005,292,"r");
+      setCap("三条都是真办法，也都确实有用。<s>但没有一条让求解器「记住」刚才为什么失败</s>。");
+    },"面对颠簸，经典 CP 有三件武器，而且都是真有用的武器。  <i>加强传播</i>：让矛盾更早暴露，每棵子树砍得更早。有用，但该撞的还是要撞那么多次。  <i>换变量序</i>：先分支 x 和 y，矛盾立刻出现，a、b 根本不用展开。问题是 —— <b>你得事先知道哪里会冲突</b>。知道了还要你搜索干什么。  <i>随机重启</i>：换一棵树重来，碰运气撞上好的变量序。但重启之后，上一棵树里的经验<s>一点也没带过来</s>。  三条都在调整「<b>怎么搜</b>」，没有一条在回答另一个问题：<em>失败之后，能不能把原因记下来</em>。");
+  /* 铺陈 */
+  S(124,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(190,150,340,80,"时序回溯","r");
+      note("撤销最近的那一步猜测",360,262,"");
+      note("再试下一个值",360,292,"");
+      note("记录：无",360,336,"r");
+      boxNode(760,150,340,80,"该有的样子","g");
+      note("失败时问：哪几个赋值导致的",930,262,"");
+      note("把这组赋值记下来",930,292,"");
+      note("记录：一条约束",930,336,"g");
+      arrow(530,190,760,190,"y");
+      setCap("回退只问「<b>上一步是什么</b>」，不问「<em>哪几步害的</em>」。");
+    },"把病根说准：<b>时序回溯（chronological backtracking）只认时间顺序</b>。  失败了，它撤销<i>最近的</i>那一次猜测，换个值再试。至于这次失败到底是被<em>哪几个</em>赋值害的 —— 它不问，也就不知道。  于是「a=1, b=1 导致失败」和「x、y 那条约束导致失败」在它眼里没有区别，都只是「刚才那条路不行」。  该有的样子是另一个问法：<b>失败的时候，找出真正造成矛盾的那一小组赋值，把它记成一条约束</b>。以后任何一条路上，只要这组赋值又凑齐了，立刻就知道不用往下走。  这条记下来的约束就叫 <em>nogood</em>：一组<b>不可能同时成立</b>的赋值。");
+  /* 主体 */
+  S(136,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:23,nodes:[
+      {id:0,parent:null,x:640,y:150,label:"a"},
+      {id:1,parent:0,x:500,y:235,label:"b"},
+      {id:2,parent:0,x:780,y:235,label:"b",cls:"g"},
+      {id:3,parent:1,x:420,y:320,label:"⊥"},
+      {id:4,parent:1,x:580,y:320,label:"⊥"}
+      ]});
+      note("第一次失败：分析出 nogood",420,370,"r");
+      note("学到：x 与 y 那组赋值不可成立",1000,230,"g","start");
+      note("此后每条路一进来就被挡住",1000,262,"g","start");
+      note("整片子树不用展开",1000,294,"g","start");
+      setCap("第一次撞上就分析清楚，<b>后面那些重复的子树根本不会被生成</b>。");
+    },"同一棵树，加上学习之后是什么样：  第一次撞上矛盾时，<b>把原因分析出来</b>，学成一条 nogood。  从此以后，不管搜索走到树的哪个角落，只要这组赋值又要凑齐，<em>这条 nogood 立刻就把它挡回去</em> —— 那些本来要重复展开的子树，<b>根本不会被生成</b>。  ⚠ 更要紧的是第二件事：既然知道了矛盾是由<i>哪几步</i>造成的，就没必要只退一步。可以<b>直接跳回到那几步里最近的那一步</b>，中间那些无关的分支全部跳过。这叫<em>非时序回跳（backjumping）</em>。  而这一整套 —— 冲突分析、学子句、回跳 —— <b>SAT 求解器已经做了二十多年了</b>，名字叫 CDCL。");
+  /* 主体 */
+  S(148,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["","CP","SAT（CDCL）"],
+      ["全局约束与强传播器","有","没有"],
+      ["模型结构","完整保留","全摊平成子句"],
+      ["冲突后学东西","不学","学子句 · 回跳"],
+      ["变量启发式","静态居多","活跃度 · 自适应"]];
+      matrix({rows:5,cols:3,cw:300,ch:46,x:190,y:150,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0||j===0;},
+      hl:function(i,j){ if(i===0||j===0) return "";
+      var good = (j===1 ? (i<=2) : (i>=3));
+      return good ? "hl2" : "hl3"; },
+      label:"两边的缺点，恰好是对方的优点"});
+      note("各有一半的答案 —— 这个提示太明显了",640,382,"y");
+      setCap("两边的缺点，恰好是对方的优点。<b>这是个太明显的提示。</b>");
+    },"把两边摆一起看，格局很清楚。  <i>CP</i> 手里有 L01 第 5 集那套东西：全局约束、专门写的传播器、模型里的结构完整保留。但它在冲突之后<s>什么也不学</s>。  <i>SAT 求解器</i>（现代的都是 CDCL 架构）正相反：冲突分析、学子句、非时序回跳、按活跃度挑变量、周期性重启 —— 一整套学习机制。但它<s>只认布尔子句</s>，你的 alldifferent、cumulative 到它那里全是一堆摊平的子句。  <b>两边的缺点恰好是对方的优点。</b>  这个提示太明显了，所以下一集要先拆掉那个最直接、也最容易想到的做法。");
+  /* 反驳 */
+  S(160,function(){
+      clearScene();setEq(null);
+      setBig("先别急着说「那就用 SAT」","这条路是真的，但它要付的账在下一集");
+      setCap("SAT 既然什么都有，<s>把问题整个编码成 CNF 不就行了</s>？—— 这正是第 2 集的题目。");
+    },"既然 SAT 那套学习机制这么好，最直接的想法是：<b>把整个问题编码成 CNF，交给 SAT 求解器算了</b>。  这不是个糊涂想法。它是一条<i>真实存在、而且在很多问题上确实好用</i>的路线 —— 排课、规划、硬件验证里都有大量成功例子。所以不能一句「不行」打发掉。  但它要付三笔账，而且这三笔账正好解释了 <em>lazy clause generation</em> 里那个 <b>lazy</b> 是什么意思。  下一集就算这三笔账。");
+  SUM(100,1,{h:"时序回溯什么也不学，所以同一个错误要犯很多次",
+    k:"搜索在无关变量上分支，而矛盾来自另一小组赋值 ⇒ <b>同一个原因被撞上指数多次</b>（thrashing）。病根不是传播器不够强，是<b>回退时没有记录「为什么失败」</b>。",
+    m:"时序回溯只问「上一步是什么」，不问「哪几步害的」。要学会，就得在失败时找出<i>真正造成矛盾的那一小组赋值</i>，记成一条 <b>nogood</b>（不可能同时成立的赋值组）；有了它还能<b>非时序回跳</b>，跳过中间所有无关分支。",
+    w:"<s>误解</s>：「加强传播 / 换变量序 / 随机重启就能解决」—— 三条都是真办法也确实有用，但它们都在调「<b>怎么搜</b>」，没有一条回答「<b>失败之后记下什么</b>」。换变量序尤其循环论证：你得先知道哪里会冲突。",
+    e:"格局记住：<b>CP 有传播器没有学习，SAT（CDCL）有学习没有结构</b>。缺点恰好互补 —— 这是 LCG 的出发点，也是下一集要先拆掉「干脆全编码成 SAT」的原因。"});
+  QUIZ(100,1,{t:"搜索在与冲突无关的变量 a、b、c 上分支，结果同一个 x–y 矛盾被撞上 8 次。最准确的诊断是什么？",
+    o:["传播器太弱，没能提前发现 x 与 y 的矛盾","变量选择启发式选错了顺序，应该先分支 x 和 y","时序回溯只撤销最近一步，没有记录失败是由哪几个赋值造成的","搜索树太深，应该加上深度限制"],
+    a:2,
+    w:"病根是<b>没有记录</b>。回退只问「上一步是什么」，于是「a=1,b=1 那条路不行」和「x、y 那条约束不行」在它眼里没区别，换个无关分支还会再撞一次。<br>选项 A 不对：<em>传播器再强也只是让每次撞得更早</em>，撞的次数不会少。<br>选项 B 是循环论证：要先分支 x、y，<s>你得先知道冲突在那里</s> —— 知道了就不用搜索了。<br>选项 D 不相关：问题不是树深，是同一棵子树的结构被重复生成。"});
+});
+
+KP("2 · 「那全编码成 SAT」为什么不行　<small>CP 2007</small>",function(){
+  /* 钩子 */
+  S(300,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,150,250,80,"你的模型","b");
+      boxNode(520,150,250,80,"编码成 CNF","y");
+      boxNode(860,150,250,80,"SAT 求解器","v");
+      arrow(430,190,520,190,"");
+      arrow(770,190,860,190,"");
+      note("一次性、全部",645,252,"y");
+      note("自带学习与回跳",985,252,"g");
+      note("这条路是真的 —— 排课、规划、硬件验证里大量成功案例",640,340,"");
+      note("但账要算清楚",640,372,"r");
+      setCap("<b>eager（预先）编码</b>：把模型一次性全部翻译成布尔子句。");
+    },"这条路叫 <b>eager 编码</b>（预先编码）：把整个模型一次性翻译成布尔子句，然后全权交给 SAT 求解器。  必须先说清楚 —— <i>这是一条真路</i>。排课、规划、硬件验证、很多组合问题上，SAT 编码的表现非常好，有大量成功案例。把它当成「外行的想法」是不对的。  但它要付三笔账。而这三笔账，正好逐一解释了 <em>lazy clause generation</em> 里的 <b>lazy</b> 分别指什么。");
+  /* 错误答案 */
+  S(312,function(){
+      clearScene();setBig(null);setEq(null);
+      note("alldifferent(x1..xn)，每个域 1..n",640,145,"v");
+      note("分解成两两不等",400,215,"");
+      note("C(n,2) × n 条子句",400,248,"r");
+      note("n = 100 → 约 50 万条",400,281,"r");
+      note("而且这还只是一条约束",400,320,"r");
+      note("L01 第 5 集的结论还在",960,215,"y");
+      note("拆碎之后",960,248,"");
+      note("匹配 / Hall 集那套算法",960,281,"g");
+      note("一点都用不上",960,314,"r");
+      link(700,170,700,340);
+      setCap("子句数量爆炸是一笔账，<b>结构丢失是另一笔</b> —— 后者更贵。");
+    },"<i>第一笔账：编码爆炸，以及更贵的结构丢失。</i>  把一条 alldifferent 编码成子句，最朴素的做法是两两不等，每一对再按值展开。n = 100、域也是 1..100 的话，量级已经是几十万条子句，而这<b>只是模型里的一条约束</b>。  但数量还不是最痛的。L01 第 5 集那个结论在这里原封不动地回来了：<b>拆成两两不等之后，alldifferent 的那套二分图匹配、Hall 集的算法就用不上了</b>。  换句话说，你用几十万条子句，买到的是一个<s>比原来弱</s>的东西。  ⚠ 有更聪明的编码能保住一部分传播强度，但那是逐个约束去设计的工程，不是免费的。");
+  /* 铺陈 */
+  S(324,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(230,150,820,70,"预先生成的全部子句","");
+      boxNode(230,250,180,60,"真正用到的","g");
+      note("一次搜索实际触发的推理，只是全部可能推理的一小块",640,345,"y");
+      note("其余的从建出来到结束，只是占内存",640,378,"");
+      setCap("预先编码必须覆盖<b>所有可能用到</b>的推理；一次搜索只会用到<em>其中一小块</em>。");
+    },"<i>第二笔账：绝大多数子句根本不会被用到。</i>  预先编码的逻辑是「把所有<b>可能</b>需要的推理都先写下来」。可是一次具体的搜索，只会走进搜索空间的一小部分，真正触发的推理也只是其中一小块。  剩下那些子句，从被建出来到求解结束，<s>唯一的作用是占内存、拖慢每一次单元传播</s>。  ⚠ 这就是 <b>lazy</b> 这个词的来历：既然用不上，<em>那就等到真的需要的时候再生成</em>。  LCG 把这件事做了两层，第 3 集和第 4 集各讲一层。");
+  /* 主体 */
+  S(336,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["约束","CP 里","编码成 CNF"],
+      ["alldifferent","匹配 / Hall 集传播器","子句多且更弱"],
+      ["cumulative","资源剖面推理","展开后极大"],
+      ["大域上的线性约束","界传播，域不用铺开","必须逐值铺开"]];
+      matrix({rows:4,cols:3,cw:300,ch:52,x:190,y:150,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0;},
+      hl:function(i,j){return i===0?"":(j===1?"hl2":"hl3");},
+      label:"同一条约束，两种待遇"});
+      note("域越大，预先编码越吃亏 —— 而 CP 的界传播根本不看每个值",640,378,"y");
+      setCap("预先编码对<b>大域</b>和<b>复杂全局约束</b>尤其不友好。");
+    },"<i>第三笔账：不是每条约束都适合被编码。</i>  三个典型：  <b>alldifferent</b> —— 刚算过，子句多而且更弱。  <b>cumulative</b>（一批任务共用有限资源，高级篇③的主角）—— CP 里有基于资源剖面的专门推理，展开成子句的规模非常大。  <b>大域上的线性约束</b> —— CP 做<i>界传播</i>，只看上下界，中间有多少个值根本不关心；预先编码却必须把域<s>逐个值铺开</s>。域是 1..1000 和 1..10，对 CP 几乎没差别，对编码差一百倍。  ⚠ 注意第三条的形态：<b>CP 的强项正好是「不必把域铺开也能推理」</b>。而预先编码的第一步就是铺开。");
+  /* 主体 */
+  S(348,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,150,300,75,"传播器照常跑","b");
+      boxNode(810,150,300,75,"冲突时学子句","v");
+      note("结构不丢",320,262,"g");
+      note("全局约束原样保留",320,292,"g");
+      note("学习 · 回跳 · 活跃度",960,262,"g");
+      note("不重复犯错",960,292,"g");
+      arrow(470,175,810,175,"y");
+      arrow(810,205,470,205,"y",-40);
+      note("要让这两件事发生在同一次搜索里，还缺一样东西",640,350,"y");
+      note("传播器得能说出「我凭什么」",640,382,"v");
+      setCap("LCG 的回答不是二选一，是 <b>都要</b>。");
+    },"三笔账算完，结论不是「SAT 不行」，而是：<b>把结构交出去的代价太大</b>。  于是问题变成 —— 能不能<i>既保住 CP 的传播器，又拿到 SAT 的学习</i>？  要让这两件事发生在<b>同一次搜索</b>里，必须把中间这道缝补上。SAT 的冲突分析需要的是<em>子句</em>：它要能从冲突往回走，一步一步问「这个结论是哪条子句推出来的」。  而 CP 的传播器只会说「我把这个值删了」，<s>不说为什么</s>。  所以还缺一样东西：<b>让每一个传播器都能把自己的推理，说成一条子句</b>。  这就是第 4 集的「解释」。不过在那之前，第 3 集要先解决一个更基础的问题：<em>SAT 只认布尔变量，CP 的整数变量怎么办</em>。");
+  /* 反驳 */
+  S(360,function(){
+      clearScene();setEq(null);setBig(null);
+      note("不是：两个求解器轮流上",400,160,"r");
+      note("先 CP 跑一跑",400,200,"");
+      note("再把结果丢给 SAT",400,230,"");
+      note("是：一次搜索，两套机制同时在场",930,160,"g");
+      note("传播器在删值",930,200,"");
+      note("同时每步都留下子句",930,230,"");
+      note("冲突时就地做分析",930,260,"");
+      link(660,140,660,290);
+      note("整数变量的域本身，就是用布尔文字表示的 —— 两边共用同一套状态",640,350,"y");
+      setCap("没有「两个求解器」。<b>只有一个搜索，一套状态</b>。");
+    },"最后拆一个很常见的误读：「LCG 不就是 CP 跑一段、再把结果丢给 SAT？」  <s>不是</s>，而且这个误读会让后面全都想歪。  没有两个轮流上场的求解器。<b>只有一次搜索</b>。在这次搜索里，CP 的传播器照常删值，同时每一次删值都留下一条子句；冲突发生时，就地用这些子句做分析、学 nogood、回跳。  能做到「同一套状态」，靠的是第 3 集那个地基：<em>整数变量的域本身，就是用布尔文字表示的</em>。传播器改域，等于给布尔文字定值；SAT 那边看到的也正是这些文字。  两边不是在交接数据，<b>它们看的是同一块内存</b>。");
+  SUM(300,2,{h:"预先编码成 SAT 要付三笔账，最贵的一笔是结构",
+    k:"eager 编码是一条<b>真实可行</b>的路（排课、规划、硬件验证里大量成功案例），但它付出：① <b>子句爆炸且传播更弱</b>（alldifferent 拆碎后匹配算法用不上）；② <b>绝大多数子句一次搜索根本用不到</b>；③ <b>大域与复杂全局约束尤其不友好</b> —— CP 的界传播不必铺开域，编码的第一步却是铺开。",
+    m:"第 ② 笔账就是 <b>lazy</b> 这个词的来历：用不上的东西，等真需要时再生成。LCG 把它做了两层 —— <i>布尔文字按需才建</i>（第 3 集）、<i>解释子句需要时才算</i>（第 4 集）。",
+    w:"<s>误解一</s>：「SAT 编码是外行做法」—— 不是，它在很多领域就是最优解，代价是结构。<s>误解二</s>（最要命的一条）：「LCG 就是 CP 跑一段再把结果交给 SAT」—— <b>没有两个轮流上场的求解器，只有一次搜索、一套状态</b>；整数域本身就用布尔文字表示，两边看的是同一块内存。",
+    e:"承上启下的那句话：要让「传播器照常跑」和「冲突时学子句」发生在同一次搜索里，还缺一样东西 —— <b>传播器必须能把自己的推理说成一条子句</b>。那是第 4 集。"});
+  QUIZ(300,2,{t:"把一条大域上的线性约束预先编码成 CNF，相比在 CP 里直接用界传播，最本质的劣势是什么？",
+    o:["编码后的子句在逻辑上比原约束弱，会丢掉解","CP 的界传播只看上下界、不必把域逐值铺开，而编码的第一步就是铺开","SAT 求解器不支持整数算术，所以结果不精确","编码过程本身的时间复杂度是指数的"],
+    a:1,
+    w:"要害在<b>域要不要铺开</b>。界传播只动上下界，域是 1..10 还是 1..1000 对它几乎没差别；预先编码却必须为每个值造文字和子句，规模差一百倍。<br>选项 A 错在「丢掉解」：<em>正确的编码是等价的，不会丢解</em> —— 变弱的是<b>传播强度</b>，不是解集。这个区分和 L01 第 5 集 alldifferent 那里完全一样。<br>选项 C 事实错误：编码之后整数算术由子句表达，结果是精确的。<br>选项 D 不对：编码通常是多项式的，问题是<b>多项式太大</b>，不是指数。"});
+});
+
+KP("3 · 地基：把整数的<b>域</b>翻译成布尔文字　<small>Constraints 2009</small>",function(){
+  /* 钩子 */
+  S(500,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,150,280,80,"CP：x ∈ 1..10","b");
+      boxNode(800,150,280,80,"SAT：只有真 / 假","v");
+      arrow(480,190,800,190,"y");
+      note("?",640,170,"y");
+      note("要让两边共用同一套状态",640,290,"");
+      note("就得找到一种表示法：域的每一次变化，都是某些布尔文字被定值",640,330,"y");
+      setCap("这是 LCG 的<b>地基</b>。地基不对，后面两集都立不住。");
+    },"第 2 集最后说，LCG 里没有两个轮流上场的求解器，<b>两边看的是同一块内存</b>。  这句话要兑现，就得先解决一个很具体的问题：CP 的变量是整数，有域；SAT 只认布尔变量，只有真和假。  需要的是一种表示法，满足一个苛刻的条件：<b>整数变量的域发生的任何一次变化，都恰好对应「某些布尔文字被定了值」</b>。  做到了，传播器删值和 SAT 赋值就是同一件事的两种说法，冲突分析才有东西可以往回走。");
+  /* 错误答案 */
+  S(512,function(){
+      clearScene();setBig(null);setEq(null);
+      note("只用等式文字 [[x = v]]，要表达「上界降到 5」",640,142,"v");
+      var XS=[];for(var i=0;i<10;i++)XS.push([340+i*68,215]);
+      link(340,215,952,215);
+      dots(XS.slice(0,5),"c",13);
+      dots(XS.slice(5),"b",13);
+      for(var k=0;k<10;k++) note(String(k+1),340+k*68,253,"","middle");
+      note("留下",408,180,"g");
+      note("要逐个置假：五个文字",782,180,"r");
+      note("域是 1..1000 的话，一次界推理要动几百个文字",640,312,"r");
+      note("而「x ≤ 5」这个事实本身，在这套表示里没有名字 —— 子句没法引用它",640,352,"y");
+      setCap("能表达，<s>但把最常用的那种推理变成了最贵的操作</s>。");
+    },"第一个想法：域里每个值配一个布尔变量 <b>[[x = v]]</b>，为真就表示 x 取这个值。  这当然能表达一个域 —— 哪些值还在，就是哪些 [[x = v]] 还没被否掉。  问题在<i>代价结构</i>。CP 里最常见的推理是**界**的推理：「x 的上界从 10 降到 5」。用等式文字表达这件事，要把 [[x=6]] 到 [[x=10]] <b>五个文字逐一置假</b>。域大一点就是成百上千个。  <s>最常见的操作，成了最贵的操作。</s>  还有更难受的：下次上界再降到 3，又要动一批；而「x ≤ 5」这个<b>事实本身</b>在表示里没有名字，没法被一条子句直接引用。");
+  /* 铺陈 */
+  S(524,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,150,420,75,"序文字  [[x ≤ v]]","g");
+      note("为真 = x 不超过 v",380,258,"");
+      note("一个文字就说清一次界的变化",380,290,"g");
+      boxNode(690,150,420,75,"等式文字  [[x = v]]","y");
+      note("为真 = x 恰好取 v",900,258,"");
+      note("管域中间被挖掉的洞",900,290,"y");
+      note("再加一批一致性子句把两套绑在一起：[[x ≤ v]] → [[x ≤ v+1]]",640,348,"v");
+      note("于是「域」就是这些文字的一个赋值",640,380,"");
+      setCap("<b>序文字</b>让「上界降了」变成<em>一个</em>文字被定值 —— 这正是最常见的那种推理。");
+    },"LCG 的做法是两套文字一起用（Ohrimenko–Stuckey–Codish，Constraints 2009）：  <b>序文字 [[x ≤ v]]</b>：为真表示 x 不超过 v。它正好对上「界的推理」—— 上界从 10 降到 5，就是 <em>[[x ≤ 5]] 被置真</em>，<b>一个文字</b>，不是一批。  <b>等式文字 [[x = v]]</b>：为真表示 x 恰好等于 v。它负责域中间被挖掉的洞 —— 「x 不能是 7」这种，光靠界说不出来。  两套之间要加一批<i>一致性子句</i>把它们绑住，最基本的一条是单调性：<b>[[x ≤ v]] → [[x ≤ v+1]]</b>（不超过 5 当然就不超过 6）。还有把等式和序连起来的子句。  做完之后，<b>「x 的域」这件事，就是这些布尔文字的一组赋值</b>。");
+  /* 主体 */
+  S(536,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["v","1","2","3","4","5","6","7","8","9","10"],
+      ["x ≤ v","F","F","?","?","T","T","T","T","T","T"],
+      ["x = v","F","F","?","?","?","F","F","F","F","F"]];
+      matrix({rows:3,cols:11,cw:62,ch:50,x:300,y:160,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0||j===0;},
+      hl:function(i,j){return (i>0&&j>0&&R[i][j]==="?")?"hl":"";},
+      label:"当前域 x ∈ 3..5"});
+      note("T = 已定真 · F = 已定假 · ? = 还没定",640,348,"");
+      note("黄格就是域里还活着的部分 —— 域和文字赋值是同一件事",640,380,"y");
+      setCap("域收缩 = 更多格子从 <b>?</b> 变成 <b>T</b> 或 <b>F</b>。<em>反过来也成立。</em>");
+    },"具体看一眼。设 x 原本是 1..10，经过传播后域变成 <b>3..5</b>。文字层是这样：  <i>序文字那一行</i>：[[x ≤ 1]]、[[x ≤ 2]] 已经为<b>假</b>（x 至少是 3）；[[x ≤ 5]] 及以后全为<b>真</b>（x 最多是 5）；中间 [[x ≤ 3]]、[[x ≤ 4]] 还<em>没定</em> —— x 可能是 3、4、5，这两件事都还没确定。  <i>等式文字那一行</i>：只有 v = 3、4、5 还没定，其余全为假。  ⚠ 请把这句话读两遍：<b>「域」和「这些文字的赋值」是同一件事</b>。传播器把域收窄，就是把更多格子从 ? 变成 T 或 F；SAT 那边给文字定值，也就是把域收窄。  这就是第 2 集说的「看同一块内存」。");
+  /* 主体 */
+  S(548,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(190,150,400,75,"域小（Chuffed：|D| ≤ 1000）","g");
+      note("文字预先建好",390,258,"");
+      note("访问快，代价可接受",390,290,"g");
+      boxNode(700,150,400,75,"域大（|D| > 1000）","y");
+      note("用到哪个才建哪个",900,258,"");
+      note("没人问到的区间不占位置",900,290,"y");
+      note("域 1..1000000 的变量，一次搜索可能只碰到几十个文字",640,348,"v");
+      note("这是 lazy clause generation 里 lazy 的第一层",640,380,"y");
+      setCap("全铺开就退化成第 2 集那条<s>预先编码</s>的路 —— 所以<b>按需</b>。");
+    },"这里马上会遇到一个实际问题：域是 1..1000000 的变量，难道要建两百万个布尔文字？  <s>不</s>。真这么做，就退回到第 2 集那条预先编码的路了，三笔账一笔不少。  所以工程上的做法是分档。以 <b>Chuffed</b>（Stuckey 他们那个 LCG 求解器）为例，它的说明里写得很直接：域不大的变量（文档里的界是 <i>|D| ≤ 1000</i>）把 [[x = v]] 与序文字预先建好；<b>域更大的，文字按需懒建</b> —— 推理真的碰到了 [[x ≤ 4713]] 这个事实，才把它造出来。  一次搜索通常只会碰到其中很少的一部分。  ⚠ <b>这是 lazy clause generation 里 lazy 的第一层</b>：文字按需。第二层在下一集：<em>解释子句也按需</em>。");
+  /* 反驳 */
+  S(560,function(){
+      clearScene();setBig(null);setEq(null);
+      note("被编码成布尔文字的",400,155,"g");
+      note("只有「变量的域」",400,195,"g");
+      note("外加域自身的一致性子句",400,228,"");
+      note("规模：跟域有关",400,268,"");
+      note("没有被编码的",930,155,"r");
+      note("约束本身",930,195,"r");
+      note("alldifferent 仍是 alldifferent",930,228,"");
+      note("传播器原封不动地跑",930,268,"g");
+      link(660,140,660,300);
+      note("第 2 集那三笔账，是「编码约束」的账 —— 这里一笔都没付",640,352,"y");
+      setCap("域进了 SAT，<b>约束没有</b>。L01 第 5 集那套结构，<em>一个都没丢</em>。");
+    },"最后澄清一个很容易混的地方：「既然都变成布尔文字了，那不还是编码成 SAT 了吗？第 2 集白讲了？」  关键在<b>编码的是什么</b>。  <i>进了布尔层的</i>：变量的<b>域</b>，以及域自身的一致性子句（[[x≤v]] → [[x≤v+1]] 这类）。规模只跟域有关。  <i>没有进去的</i>：<b>约束本身</b>。alldifferent 仍然是 alldifferent，它的匹配传播器原封不动地跑；cumulative 的资源剖面推理也照旧。  所以第 2 集那三笔账 —— 子句爆炸、结构丢失、大域吃亏 —— 这里<b>一笔都没付</b>。L01 第 5 集辛苦建立的那套结构，<em>一个都没丢</em>。  剩下的问题只有一个：传播器删了一个值，SAT 那边看到对应文字变了，但<b>它不知道为什么变</b>。没有「为什么」，冲突分析就无从往回走。  那正是下一集。");
+  SUM(500,3,{h:"整数的域用两套布尔文字表示：序文字 + 等式文字",
+    k:"<b>[[x ≤ v]]</b>（序文字）让「界变了」只需定<i>一个</i>文字，正对上 CP 最常见的界传播；<b>[[x = v]]</b>（等式文字）管域中间被挖掉的洞；再加一致性子句（如 <b>[[x ≤ v]] → [[x ≤ v+1]]</b>）把两套绑住。于是<b>「域」与「这些文字的一组赋值」是同一件事</b>。",
+    m:"这正是第 2 集那句「两边看同一块内存」的兑现：传播器收窄域 = 给文字定值；SAT 给文字定值 = 收窄域。没有数据交接，所以冲突分析才能从 SAT 这一侧一路往回走到 CP 的推理上。",
+    w:"<s>误解一</s>：「只用 [[x = v]] 就够」—— 能表达域，但让<b>最常见的界推理变成最贵的操作</b>（一次界变化要动一批文字），而且「x ≤ 5」这个事实在表示里没有名字，没法被子句引用。<s>误解二</s>：「那不还是编码成 SAT」—— <b>进布尔层的只有域，约束没有</b>；alldifferent 仍是 alldifferent，第 2 集那三笔账一笔都没付。",
+    e:"<b>lazy 的第一层</b>：文字按需才建。Chuffed 的分档是 |D| ≤ 1000 预先建、更大的懒建 —— 全铺开就退化成预先编码。第二层（解释子句按需）在下一集。"});
+  QUIZ(500,3,{t:"LCG 为什么要引入序文字 <b>[[x ≤ v]]</b>，而不是只用等式文字 <b>[[x = v]]</b>？",
+    o:["因为等式文字无法表达一个整数变量的域","因为界的变化是 CP 最常见的推理，用序文字只需定一个文字，用等式文字要动一批","因为序文字的数量比等式文字少，能节省内存","因为 SAT 求解器无法处理等式文字"],
+    a:1,
+    w:"理由是<b>代价结构</b>，不是表达能力。界传播（「上界降到 5」）在 CP 里最常发生；序文字把它变成<em>一个</em>文字被定真，等式文字则要把 [[x=6]]…[[x=10]] 逐一置假。顺带一个常被忽略的好处：<b>「x ≤ 5」这个事实有了名字，才能被解释子句直接引用</b>。<br>选项 A 不对：<s>只用等式文字完全能表达域</s>，这正是它看起来够用的原因。<br>选项 C 不对：两套文字数量同阶（都约等于域大小），引入序文字是<b>增加</b>而非减少。<br>选项 D 事实错误：对 SAT 来说两者都只是普通布尔变量。"});
+});
+
+KP("4 · <b>解释</b>：传播器得说出「我凭什么删这个值」　<small>Constraints 2009</small>",function(){
+  /* 钩子 */
+  S(700,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(180,150,300,80,"传播器","b");
+      boxNode(800,150,300,80,"冲突分析","v");
+      arrow(480,190,800,190,"y");
+      note("[[z ≥ 5]] 被置真",640,172,"y");
+      note("「我把这个值删了」",330,262,"");
+      note("至于凭什么 —— 没说",330,294,"r");
+      note("要往回走，就得问",950,262,"");
+      note("「这条结论是谁推出来的」",950,294,"g");
+      note("没有「为什么」，倒推就在这里断掉",640,370,"r");
+      setCap("地基铺好了，但还缺一句话：<b>传播器凭什么删这个值</b>。");
+    },"第 3 集把地基铺好了：域就是布尔文字的赋值，两边共用同一套状态。  现在传播器干活了 —— 它把 <b>[[z ≥ 5]]</b> 置为真。SAT 这一侧确实看见了这个变化。  但冲突分析要做的事是<i>往回走</i>：从矛盾出发，一步步问「这个结论是哪条子句推出来的」，再问「那条子句的前提又是谁推出来的」。  走到 [[z ≥ 5]] 这里，它卡住了 —— <s>这个结论没有「谁推出来的」</s>。传播器只报了结果，没报理由。  链条在这里断掉。所以 LCG 对每一个传播器提了一个额外要求。");
+  /* 错误答案 */
+  S(712,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["候选解释（都 sound）","子句长度","什么时候能触发"],
+      ["当前所有已定文字","几十个文字","只有完全相同那条路"],
+      ["[[x ≥ 3]] ∧ [[y ≥ 2]]","两个文字","任何 x≥3 且 y≥2 之处"],
+      ["[[x = 3]] ∧ [[y = 2]]","两个文字","只有恰好相等时"]];
+      matrix({rows:4,cols:3,cw:310,ch:50,x:175,y:155,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0;},
+      hl:function(i,j){return i===0?"":(i===2?"hl2":"hl3");},
+      label:"三条都正确 —— 差别在覆盖面"});
+      note("理由越短越一般，学到的 nogood 就能挡住越多条路",640,382,"y");
+      setCap("理由<b>越短越一般</b>，学到的 nogood 就能挡住越多条路。");
+    },"最省事的回答是：「<i>当前所有已经成立的文字</i>，合起来推出了 [[z ≥ 5]]」。  这在逻辑上<b>完全正确</b>，而且任何传播器都能这么答。  但它几乎没用。前提里塞进了几十个和这次推理毫不相干的文字，于是学出来的 nogood 又长又具体 —— <s>只有在完全相同的那条路上才会被触发</s>。而搜索正是要走很多条不同的路。  真正有价值的理由只挑<b>这次推理真正用到的那几个前提</b>：  <em>[[x ≥ 3]] ∧ [[y ≥ 2]] → [[z ≥ 5]]</em>  ⚠ 这条规律值得单独记：<b>解释越短、越一般，学到的 nogood 越有用</b>。写传播器的解释不是机械活，是设计。");
+  /* 铺陈 */
+  S(724,function(){
+      clearScene();setBig(null);setEq(null);
+      note("[[x ≥ 3]]  ∧  [[y ≥ 2]]   →   [[z ≥ 5]]",640,165,"g");
+      note("前提：已经成立的文字",400,235,"b");
+      note("结论：这次新定的文字",900,235,"v");
+      note("写成子句：¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]] ∨ [[z ≥ 5]]",640,300,"y");
+      note("对 SAT 来说，它和任何一条普通子句没有区别",640,345,"");
+      note("传播器的内部算法是什么，冲突分析完全不需要知道",640,378,"v");
+      setCap("蕴含写成子句，<b>接口就通了</b>：CP 的推理从此可以被 SAT 倒着走。");
+    },"要求很简单：<b>每个传播器，对自己做的每一次推理，都要能给出一条解释</b>。  解释的形式是一条蕴含：<i>已经成立的那几个文字</i> → <i>这次新定的文字</i>。  而蕴含就是子句。把 <b>A ∧ B → C</b> 写成 <b>¬A ∨ ¬B ∨ C</b>，对 SAT 求解器来说，它和模型里任何一条普通子句<em>没有任何区别</em>。  ⚠ 这一步是整套机制的要害，值得说透：接口通了之后，<b>传播器内部用的是什么算法，冲突分析完全不需要知道</b>。alldifferent 用二分图匹配也好，cumulative 用资源剖面也好 —— 只要它肯把结论解释成子句，冲突分析就能倒着走过去。  <b>CP 的结构保住了，SAT 的机制也能用上</b>，靠的就是这一条接口。");
+  /* 主体 */
+  S(736,function(){
+      clearScene();setBig(null);setEq(null);
+      note("约束：z ≥ x + y",640,145,"");
+      boxNode(230,190,220,52,"[[x ≥ 3]]","b");
+      boxNode(230,268,220,52,"[[y ≥ 2]]","b");
+      boxNode(800,229,240,52,"[[z ≥ 5]]","g");
+      arrow(450,216,800,245,"y");
+      arrow(450,294,800,265,"y");
+      note("传播器算出来的",625,205,"y");
+      note("解释：¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]] ∨ [[z ≥ 5]]",640,350,"g");
+      note("注意前提用的是「≥ 3」而不是「x 的当前下界恰好是 3」—— 更一般，能挡更多路",640,382,"v");
+      setCap("这个形态直接取自 Chuffed 的说明文档：<b>前提只列真正用到的界</b>。");
+    },"拿一个最常见的形态看。约束是 <b>z ≥ x + y</b>，一个界传播器。  当前已知 x 至少是 3、y 至少是 2，于是传播器推出 <b>z 至少是 5</b>，把 [[z ≥ 5]] 置真。  它给出的解释就是：<em>¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]] ∨ [[z ≥ 5]]</em>。（这个形态直接取自 Chuffed 求解器的说明文档。）  ⚠ 请注意一个很容易被忽略的设计细节：前提写的是「<b>x ≥ 3</b>」，而不是「x 的当前下界<i>恰好</i>是 3」，更不是「x 的域现在是 3..7」。  为什么？因为<b>任何</b> x 下界不小于 3 的情形，这条推理都成立。写成更一般的形式，这条子句在搜索树的更多地方能被触发。  这就是上一镜那句「越一般越有用」的具体样子。");
+  /* 主体 */
+  S(748,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,150,420,75,"传播的时候","b");
+      note("只记下「谁推出了谁」",380,258,"");
+      note("不真的去构造子句",380,290,"g");
+      boxNode(700,150,420,75,"冲突分析的时候","v");
+      note("沿着倒推路径",900,258,"");
+      note("用到哪条才算哪条",900,290,"g");
+      arrow(590,187,700,187,"y");
+      note("一次搜索里绝大多数推理从不参与任何冲突 —— 它们的解释永远不必存在",640,348,"y");
+      note("这是 lazy 的第二层（CP 2025 那篇把这一点说得很明确）",640,380,"v");
+      setCap("传播有几百万次，冲突只有几万次。<b>只给后者付钱。</b>");
+    },"还有一笔账要省。一次求解里，传播可能发生几百万次 —— 要是每次都老老实实构造一条解释子句存起来，内存和时间都受不了。  关键观察是：<b>绝大多数推理从头到尾不会参与任何一次冲突分析</b>。它们的解释，<em>永远不必存在</em>。  所以实现上，传播的时候只留下最少的痕迹（谁推出了谁、用的是哪条约束），<b>真正把解释算成子句，是在冲突分析沿着倒推路径走到它的时候</b>。  ⚠ Dekker、Ignatiev、Stuckey 与 Zhong 在 CP 2025 那篇（<i>Towards Modern and Modular SAT for LCG</i>）里把这一点说得很明确：<b>解释子句是在冲突分析时计算的，不是在传播时</b>。  <b>这是 lazy 的第二层。</b>加上第 3 集的文字按需，<em>lazy clause generation</em> 这个名字的两层含义就齐了。");
+  /* 反驳 */
+  S(760,function(){
+      clearScene();setBig(null);setEq(null);
+      note("解释不是免费的",400,155,"r");
+      note("传播器要多写一份代码",400,195,"");
+      note("倒推路径要维护",400,225,"");
+      note("有些传播器不好解释",400,255,"r");
+      note("⇒ 有的求解器干脆把这类约束编码掉",400,292,"");
+      note("解释不是越具体越好",930,155,"r");
+      note("具体 = 前提多 = 子句长",930,195,"");
+      note("只在一条路上触发",930,225,"");
+      note("一般 = 前提少 = 到处能挡",930,262,"g");
+      link(660,140,660,310);
+      note("所以 LCG 不是对所有问题都更快 —— 它在「会反复撞同一个墙」的问题上赢得最多",640,372,"y");
+      setCap("写解释是<b>设计</b>，不是机械翻译。写得不好，这套机制就白搭。");
+    },"两个要同时拆掉的误解。  <i>其一：解释是免费的。</i><s>不是。</s>每个传播器都要额外写一份解释代码，倒推路径要维护，学下来的子句要存、要参与单元传播。而且<b>不是每个约束都好解释</b> —— Chuffed 的说明里就提到，它对一部分约束（如 element、table）干脆不写传播器，直接编码成子句，这也是一种务实的取舍。  <i>其二：解释越具体越好。</i>直觉上「说得越准越好」，<s>这里正相反</s>。前提越多，子句越长，越只能在一条特定的路上被触发。<b>要的是在不丢正确性的前提下，前提尽量少</b>。  ⚠ 合起来是一句很实际的话：<b>LCG 不是对所有问题都更快</b>。它在「同一个矛盾会被反复撞上」的问题上赢得最多；在传播一次就到底、本来也不颠簸的问题上，这些额外开销是净成本。");
+  SUM(700,4,{h:"每个传播器都要把自己的推理解释成一条子句",
+    k:"解释的形式是蕴含 <b>前提文字 ∧ … → 新定的文字</b>，写成子句（<i>¬A ∨ ¬B ∨ C</i>）后，对 SAT 来说和普通子句毫无区别。典型形态：<b>¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]] ∨ [[z ≥ 5]]</b>（取自 Chuffed 文档）。",
+    m:"这条接口是整套机制的要害：<b>传播器内部用什么算法，冲突分析完全不需要知道</b>。于是 alldifferent 的匹配、cumulative 的资源剖面都能原样保留，同时又能被 SAT 的冲突分析倒着走过去。",
+    w:"<s>误解一</s>：「理由写『当前所有已定文字』就行」—— 逻辑上对，但学出的 nogood 又长又专，只在同一条路上管用。<s>误解二</s>：「解释越具体越好」—— <b>反了</b>，前提越少越一般，能挡住的路越多（所以写「x ≥ 3」而不是「x 的下界恰好是 3」）。<s>误解三</s>：「解释是免费的」—— 要多写代码、要维护倒推路径，而且有些约束不好解释。",
+    e:"<b>lazy 的第二层</b>：解释子句在<i>冲突分析时</i>才计算，不是传播时（CP 2025，<i>Towards Modern and Modular SAT for LCG</i>）。传播几百万次、冲突才几万次，只给后者付钱。⚠ 由此也能说清 <b>LCG 不是对所有问题都更快</b> —— 它赢在「会反复撞同一个墙」的问题上。"});
+  QUIZ(700,4,{t:"传播器推出 [[z ≥ 5]] 时，下面哪一条解释<b>最有价值</b>？（四条在逻辑上都成立）",
+    o:["当前所有已经成立的文字 → [[z ≥ 5]]","[[x ≥ 3]] ∧ [[y ≥ 2]] → [[z ≥ 5]]","[[x = 3]] ∧ [[y = 2]] → [[z ≥ 5]]","[[x ≥ 3]] ∧ [[y ≥ 2]] ∧ [[z ≤ 9]] → [[z ≥ 5]]"],
+    a:1,
+    w:"四条都 sound，差别在<b>有多一般</b>。B 只列真正用到的两个界，子句最短，<em>任何</em> x 下界不小于 3、y 下界不小于 2 的地方都能触发。<br>A 把几十个无关文字塞进前提，学出的 nogood 只在完全相同的那条路上管用。<br>C 用等式把条件<s>收窄</s>成「恰好是 3 和 2」，而推理对 x ≥ 3 的所有情形都成立 —— 白白放弃了覆盖面。<br>D 多带了一个没用到的前提 [[z ≤ 9]]，同样是无谓地变专。<br>⚠ 规律：<b>不丢正确性的前提下，前提越少越好</b>。"});
+});
+
+KP("5 · 冲突分析：从矛盾倒推出一条 <b>nogood</b>　<small>模块 2</small>",function(){
+  /* 钩子 */
+  S(900,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(230,190,220,52,"[[x ≥ 3]]","b");
+      boxNode(230,268,220,52,"[[y ≥ 2]]","b");
+      boxNode(540,229,200,52,"[[z ≥ 5]]","v");
+      boxNode(830,180,200,52,"[[w ≤ 4]]","v");
+      boxNode(830,278,200,52,"[[w ≥ 6]]","v");
+      boxNode(1090,229,90,52,"⊥","r");
+      arrow(450,216,540,245,"");
+      arrow(450,294,540,265,"");
+      arrow(740,245,830,206,"");
+      arrow(740,265,830,304,"");
+      arrow(1030,206,1090,245,"r");
+      arrow(1030,304,1090,265,"r");
+      note("决策",330,165,"b");
+      note("传播推出来的",790,150,"v");
+      note("w 既要 ≤ 4 又要 ≥ 6 —— 域空了",640,370,"r");
+      setCap("每一条箭头，都是上一集那种<b>解释子句</b>。整张图叫<em>蕴含图</em>。");
+    },"把上一集的成果用起来。冲突发生时，手上有的东西是这张图。  左边两个是<b>决策</b>：搜索自己猜的，没有理由。  其余每一个文字都是<i>传播推出来的</i>，而且 —— 多亏上一集 —— <b>每一条箭头都对应一条解释子句</b>，说清了它是从哪几个前提来的。  最右边是冲突：w 被同时要求 ≤ 4 和 ≥ 6，域空了。  这张图叫 <em>蕴含图（implication graph）</em>。它完整地记录了「从决策到矛盾」的全部推理链条。  现在的问题是：<b>从这张图里，该学一条什么样的子句</b>。");
+  /* 错误答案 */
+  S(912,function(){
+      clearScene();setBig(null);setEq(null);
+      note("最省事的 nogood：把决策全取反",640,150,"r");
+      note("¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]]",640,205,"y");
+      note("逻辑上正确",380,275,"g");
+      note("确实排除了这条路",380,308,"");
+      note("但决策有几十个时",960,275,"r");
+      note("子句就有几十个文字",960,308,"r");
+      note("长子句很难被触发 —— 要几十个条件同时凑齐才管用",640,372,"r");
+      setCap("这就是「<s>刚才那条路不行</s>」的正式写法。<b>几乎等于没学</b>。");
+    },"最省事的做法：把当前所有决策取反，拼成一条子句。这里就是 <b>¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]]</b>。  它<b>逻辑上完全正确</b>，而且确实排除了刚才那条路。  但请看它的形状。搜索深处有几十个决策时，这条子句就有几十个文字 —— 而<i>子句要发挥作用，得等到里面的文字几乎全被否掉</i>。几十个条件同时凑齐，很少发生。  这其实就是第 1 集那个「刚才那条路不行」的正式写法，只不过现在写成了子句。<s>学了，但几乎等于没学。</s>  要学到有用的东西，得切在别的地方。");
+  /* 铺陈 */
+  S(924,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(230,190,220,52,"[[x ≥ 3]]","b");
+      boxNode(230,268,220,52,"[[y ≥ 2]]","b");
+      boxNode(540,229,200,52,"[[z ≥ 5]]","g");
+      boxNode(830,180,200,52,"[[w ≤ 4]]","v");
+      boxNode(830,278,200,52,"[[w ≥ 6]]","v");
+      boxNode(1090,229,90,52,"⊥","r");
+      arrow(450,216,540,245,"");
+      arrow(450,294,540,265,"");
+      arrow(740,245,830,206,"");
+      arrow(740,265,830,304,"");
+      arrow(1030,206,1090,245,"r");
+      arrow(1030,304,1090,265,"r");
+      note("切在这里",490,150,"y");
+      note("切在这里",790,150,"g");
+      note("⇒ ¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]]",420,355,"y");
+      note("⇒ ¬[[z ≥ 5]]",870,355,"g");
+      setCap("同一张图，<b>切的位置不同，学到的 nogood 不同</b> —— 两条都是真的。");
+    },"把蕴含图从左到右看成一条河，<b>在任意一处横切一刀</b>：切口左边的那些文字，合起来足以导致矛盾。把它们取反拼成子句，就是一条 nogood。  切在<i>最左边</i>（决策那一侧），得到 <b>¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]]</b> —— 上一镜那条。  切在<i>靠近冲突</i>的地方，得到 <b>¬[[z ≥ 5]]</b> —— 短得多。  <b>两条都是真的 nogood</b>，都不会丢掉解。但它们的实用价值差很远：后者只有一个文字，以后<em>任何时候</em> z 的下界要升到 5，立刻就被挡住，不管 x、y 当时是什么。  所以问题变成：该切在哪儿？CDCL 的标准答案有个名字。");
+  /* 主体 */
+  S(936,function(){
+      clearScene();setBig(null);setEq(null);
+      note("从冲突出发，沿解释子句逐步归结（resolution）",640,145,"");
+      note("每归结一步，就把一个文字换成它的那几个前提",640,180,"");
+      note("停在：当前决策层只剩一个文字",640,232,"g");
+      note("那个文字叫 1UIP（第一唯一蕴含点）",640,266,"g");
+      note("学到：¬[[z ≥ 5]]",640,312,"y");
+      note("短 · 一般 · 而且保证是「可断言的」—— 回跳之后立刻能推出新结论",640,360,"v");
+      setCap("<b>1UIP</b> 是 CDCL 用了二十多年的标准切法，LCG 原样继承。");
+    },"标准做法叫 <b>1UIP</b>（first Unique Implication Point，第一唯一蕴含点）。  过程是<i>归结（resolution）</i>：从导致冲突的那条子句出发，每一步挑出一个由传播得来的文字，用<b>它的解释子句</b>把它替换成它的那几个前提。这正是上一集那条接口在起作用 —— 没有解释，这一步根本走不了。  一直归结到：<b>当前决策层里只剩下一个文字</b>。那个点就是 1UIP，这里是 [[z ≥ 5]]。  学到的子句是 <em>¬[[z ≥ 5]]</em>。  ⚠ 1UIP 不是随便选的。它同时拿到三样东西：子句<b>短</b>、条件<b>一般</b>、而且<b>保证是可断言的（asserting）</b> —— 回跳之后这条子句立刻会变成单元子句，马上推出一个新结论，搜索不会原地打转。");
+  /* 主体 */
+  S(948,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:21,nodes:[
+      {id:0,parent:null,x:420,y:150,label:"d1"},
+      {id:1,parent:0,x:420,y:220,label:"d2",cls:"g"},
+      {id:2,parent:1,x:420,y:290,label:"d3"},
+      {id:3,parent:2,x:420,y:355,label:"⊥"}
+      ]});
+      note("时序回溯：退一层，重试 d3",700,240,"r","start");
+      note("非时序回跳：直接回到 d2",700,285,"g","start");
+      note("中间那些层整片跳过",700,318,"g","start");
+      note("回跳的落点由学到的子句决定，不由树的形状决定",640,392,"y");
+      setCap("学到 nogood 之后，<b>回退多远是算出来的</b>，不再是「退一层」。");
+    },"学到子句之后，还有一半收益在后面。  时序回溯只会<i>退一层</i>，重试最近那个决策。但现在我们知道矛盾的真正来源了 —— 于是可以<b>直接跳回到学到的那条子句开始起作用的那一层</b>，中间所有无关的决策层<em>整片跳过</em>。  这叫<b>非时序回跳（backjumping）</b>。注意落点是<i>算</i>出来的：由子句里各文字所属的决策层决定，和搜索树长什么样没关系。  ⚠ 再加上两件 CDCL 的配套：学到的子句会参与<b>活跃度</b>统计，影响以后先分支哪个变量 —— 等于让求解器<i>自己发现</i>「x、y 才是要害」，这正好补上了第 1 集那个「换变量序要先知道冲突在哪」的循环论证；以及周期性<b>重启</b>，换一棵树重来，但<b>学到的子句全部带着走</b>。  第 1 集列的三件老武器，到这里全部被重新激活了。");
+  /* 反驳 */
+  S(960,function(){
+      clearScene();setBig(null);setEq(null);
+      note("几万次冲突 = 几万条子句，每一条都要参与此后每一次单元传播",640,138,"r");
+      lamps({x:240,y:205,r:34,gap:200,items:[
+      {label:"c1",sub:"高活跃",state:"on"},
+      {label:"c2",sub:"高活跃",state:"on"},
+      {label:"c3",sub:"低分",state:"off"},
+      {label:"c4",sub:"低分",state:"dead"},
+      {label:"c5",sub:"低分",state:"dead"}],
+      caption:"按活跃度 / LBD 打分，低分的删掉 —— 不影响正确性"});
+      setCap("学习是有成本的。<b>但删子句很安全</b>，理由见下一集。");
+    },"最后一个要拆的直觉：「既然学到的子句有用，那当然越多越好」。  <s>不行。</s>几万次冲突就是几万条子句，每一条都要参与此后每一次单元传播。学得太多，传播会被自己拖垮。  所以所有 CDCL 求解器都会<b>定期清理子句库</b>：按活跃度、或者按 LBD 这类指标打分，把低分的删掉。  ⚠ 这里有一个性质值得停一下：<b>删掉学到的子句，不会影响正确性</b>。  为什么可以随便删？因为这些 nogood 是<i>推论</i>，不是<i>前提</i> —— 它们是从原模型逻辑地推出来的，删掉只是<b>忘掉了一条捷径</b>，并没有改变问题本身。  这个「它们只是推论」的性质，正是下一集整集要讲的东西。");
+  SUM(900,5,{h:"蕴含图上切一刀，切在 1UIP",
+    k:"冲突时手上是一张<b>蕴含图</b>：决策在左、传播推出的文字在中间、⊥ 在右，<b>每条边都是一条解释子句</b>。在图上横切一刀，把切口左侧的文字取反拼成子句，就是一条 nogood —— <i>切的位置不同，学到的东西不同</i>。",
+    m:"标准切法是 <b>1UIP</b>：从冲突出发沿解释子句<b>归结</b>，每步把一个传播得来的文字换成它的前提，停在「当前决策层只剩一个文字」。它同时保证子句<b>短</b>、条件<b>一般</b>、且<b>可断言</b>（回跳后立刻变单元子句）。学完<b>非时序回跳</b>，落点由子句算出来，不由树形决定。",
+    w:"<s>误解一</s>：「把所有决策取反就行」—— 逻辑正确，但子句有几十个文字，要几十个条件同时凑齐才触发，<b>几乎等于没学</b>。<s>误解二</s>：「学得越多越好」—— 子句都要参与单元传播，学太多会把传播拖垮，所以要按活跃度 / LBD 定期清理。",
+    e:"⚠ 回看第 1 集那三件「老武器」，这里全部被激活了：学到的子句进入<b>活跃度</b>统计 ⇒ 求解器<i>自己发现</i>哪些变量是要害（破掉了「换变量序要先知道冲突在哪」的循环论证）；<b>重启</b>换一棵树，但<b>学到的子句带着走</b>。"});
+  QUIZ(900,5,{t:"蕴含图上既可以切出 <b>¬[[x ≥ 3]] ∨ ¬[[y ≥ 2]]</b>（决策层），也可以切出 <b>¬[[z ≥ 5]]</b>（1UIP）。两者的关系是？",
+    o:["前者正确，后者可能剪掉解，所以只能用前者","两条都是 sound 的 nogood，但后者更短更一般，以后更容易被触发","两条等价，选哪条只影响实现复杂度","后者正确，前者因为含有决策文字所以不 sound"],
+    a:1,
+    w:"<b>任何一刀切出来的都是 sound 的</b> —— 切口左侧的文字确实足以导致矛盾，取反必然成立。差别在<em>实用价值</em>：<b>¬[[z ≥ 5]]</b> 只有一个文字，以后不论 x、y 取什么，只要 z 的下界要升到 5 就立刻被挡；而那条决策子句要等两个条件同时凑齐。<br>选项 A 和 D 都把「sound」和「有用」混为一谈 —— 两条都 sound。<br>选项 C 错在「等价」：它们<s>排除的区域不一样大</s>，¬[[z ≥ 5]] 严格更强。"});
+});
+
+KP("6 · 学到的 nogood 为什么是 <b>sound</b> 的 —— 什么样的剪枝不是　<small>收束</small>",function(){
+  /* 钩子 */
+  S(1100,function(){
+      clearScene();setBig(null);setEq(null);
+      gridworld({rows:4,cols:9,cs:54,x:397,y:150,
+      cls:function(i,j){ return (i>=1 && i<=2 && j>=2 && j<=5) ? "r" : ""; }});
+      note("搜索空间",640,132,"");
+      note("被一条 nogood 永久排除",640,388,"r");
+      note("求解器从没走进去看过",1010,120,"y","start");
+      setCap("学到的子句把一大片区域<b>永久</b>排除。这是个很强的承诺 —— 凭什么？");
+    },"最后一集退一步，问一个比机制更根本的问题。  一条学到的 nogood，会把搜索空间里<b>一大片区域永久地排除掉</b> —— 不只是当前这条路，是此后整个搜索过程中，任何时候只要条件凑齐就挡回去。  而求解器<s>从来没有走进那片区域看过</s>。  这是个很强的承诺。凭什么？  这一集要把这个「凭什么」说清楚 —— 因为它正好划出一条界线，区分两种看起来很像、实际完全不同的「剪枝」。");
+  /* 错误答案 */
+  S(1112,function(){
+      clearScene();setBig(null);setEq(null);
+      note("如果靠「试过都失败」",400,155,"r");
+      note("那要试遍整片区域",400,195,"");
+      note("等于没有剪枝",400,228,"r");
+      note("实际发生的",930,155,"g");
+      note("只撞了一次具体的矛盾",930,195,"");
+      note("然后把原因「推」了出来",930,228,"g");
+      link(660,140,660,255);
+      note("剪掉的是推理的结论，不是枚举的结果",640,310,"y");
+      note("归纳只能说「我没见过反例」；演绎能说「不可能有反例」",640,352,"v");
+      setCap("nogood 的力量来自<b>演绎</b>，不是来自样本。");
+    },"一个很自然但完全错误的解释：「因为那片区域都试过了，全失败。」  <s>恰恰相反</s>。如果要靠「试过」，那就得把整片区域枚举一遍 —— 那还叫什么剪枝。  实际发生的是：求解器只撞上了<b>一次</b>具体的矛盾，然后沿着解释子句<b>把原因推了出来</b>。  这个区别就是<i>归纳</i>和<i>演绎</i>的区别。  归纳能说的最多是「我取的这些样本里没有反例」。演绎说的是「<b>不可能有反例</b>」—— 不是因为看过，是因为推出来了。  nogood 的全部力量来自后者。");
+  /* 铺陈 */
+  S(1124,function(){
+      clearScene();setBig(null);setEq(null);
+      note("原模型的约束",640,145,"b");
+      boxNode(230,185,230,52,"解释子句","g");
+      boxNode(525,185,230,52,"解释子句","g");
+      boxNode(820,185,230,52,"归结","g");
+      arrow(460,211,525,211,"");
+      arrow(755,211,820,211,"");
+      note("每一条都是「约束蕴含的",640,268,"");
+      note("真命题」",640,298,"");
+      note("真命题归结出来的，还是真命题",640,345,"y");
+      note("⇒ 学到的 nogood 是原模型的逻辑后承",640,382,"g");
+      setCap("链条上没有一步是「估计」「采样」或者「大概」。");
+    },"把链条整个走一遍，看每一环的性质。  <i>解释子句</i>：传播器说「这几个前提成立，所以这个结论成立」。这句话是<b>约束本身蕴含的真命题</b> —— 传播器不是在猜，它是在执行约束的语义。  <i>归结</i>：两条真子句归结出来的，<b>还是真子句</b>。这是逻辑的基本性质。  于是从冲突一路倒推、归结到 1UIP，得到的那条 nogood，<b>是原模型的逻辑后承</b>：只要原模型的约束成立，它就成立。  ⚠ 关键在于，这条链上<s>没有任何一步</s>是「估计」「采样」「大概」或者「经验上」。全是演绎。  所以它剪掉的区域里，<b>一个解都没有</b>——这不是一个有信心的判断，是一个定理。这个性质叫 <em>sound</em>。");
+  /* 主体 */
+  S(1136,function(){
+      clearScene();setBig(null);setEq(null);
+      var R=[["","sound 的剪枝","不 sound 的剪枝"],
+      ["依据","约束的逻辑后承","采样 / 估计 / 启发式"],
+      ["承诺","剪掉的区域里没有解","看起来不太可能有解"],
+      ["代价","可能慢，但答案不变","可能更快，答案可能错"],
+      ["最优性","仍是最优解","可能丢掉最优解"]];
+      matrix({rows:5,cols:3,cw:300,ch:46,x:190,y:150,
+      cell:function(i,j){return R[i][j];},
+      dim:function(i,j){return i===0||j===0;},
+      hl:function(i,j){return (i===0||j===0)?"":(j===1?"hl2":"hl3");},
+      label:"两者都能大幅加速 —— 差别不在快慢"});
+      setCap("<b>差别不在效果，在你能承诺什么。</b>");
+    },"现在可以把界线画出来了。实践中有大量「剪枝」<b>不是</b> sound 的，而且它们往往很有用。  典型做法：用采样或者统计估计判断「这个方向希望不大」；用学出来的模型给分支打分，低分的直接不展开；设一个界限把搜索截断。机器学习指导搜索的方法大多属于这一类。  看这张表 —— <b>两者都能大幅加速，差别不在快慢</b>。  差别在<i>你能承诺什么</i>。sound 的剪枝保证<b>答案不变</b>：剪完还是最优解，无解还是无解。不 sound 的剪枝<b>可能把解剪掉</b>，于是你得到的是「在我没剪掉的那部分里最好的」。  ⚠ 这两件事都正当，但<b>必须说清是哪一件</b>。");
+  /* 主体 */
+  S(1148,function(){
+      clearScene();setBig(null);setEq(null);
+      note("把一个剪枝交给别人看时，先回答三个问题",640,142,"y");
+      note("① 依据是什么",330,195,"g","start");
+      note("逻辑后承，还是估计出来的",360,226,"","start");
+      note("② 失败模式是什么",330,272,"g","start");
+      note("最坏情况下会丢掉什么",360,303,"","start");
+      note("③ 剩下的是什么",330,349,"g","start");
+      note("最优解，还是某个子集里的最优",360,380,"","start");
+      setCap("不 sound <s>不等于</s>不好。但把它说成 sound，是借用一个自己没有的承诺。");
+    },"所以一个实用的习惯：<b>任何剪枝交给别人看之前，先回答三个问题</b>。  <i>① 依据是什么</i> —— 是从约束逻辑地推出来的，还是从样本、估计、训练出来的模型得到的？  <i>② 失败模式是什么</i> —— 最坏情况下会丢掉什么？是「只是慢一点」，还是「可能把最优解扔了」？  <i>③ 剩下的是什么</i> —— 算完之后，手上这个东西是最优解，还是「在我没剪掉的那部分里最好的那个」？  ⚠ 这三问不是用来否定不 sound 的方法的。在很多实际问题上，一个不 sound 但快一百倍的剪枝就是正确的工程选择。  要紧的是<b>别把它叫成 nogood</b>。nogood 这个词在这个领域里是有确切承诺的 —— 用它，就是在声称「这里面一个解都没有」。");
+  /* 反驳 */
+  S(1160,function(){
+      clearScene();setEq(null);setBig(null);
+      note("sound 不等于更快",400,155,"r");
+      note("解释要写、子句要存",400,195,"");
+      note("传播器不好解释的约束",400,228,"");
+      note("反而可能更慢",400,261,"r");
+      note("也不等于更强",930,155,"r");
+      note("学到的东西受限于",930,195,"");
+      note("「能被约束推出来」",930,228,"");
+      note("推不出来的规律它学不到",930,261,"r");
+      link(660,140,660,290);
+      note("两条路都在走，而且正在互相靠拢",640,340,"y");
+      note("LCG 的贡献是：把 CP 的结构和 SAT 的学习放进了同一次搜索",640,378,"g");
+      setCap("整讲的那句话：<b>两边的长处都要</b> —— 而前提是说得清各自承诺了什么。");
+    },"最后一个过度修正要拆掉：「既然 sound 这么好，那不 sound 的方法就该淘汰。」  <s>不对</s>，两个方向都不成立。  <i>sound 不等于更快</i>：第 4 集算过，解释要写、子句要存、倒推路径要维护；有些约束本来就不好解释。在不颠簸的问题上，这些都是净成本。  <i>sound 也不等于更强</i>：LCG 能学到的东西，<b>受限于「能被约束逻辑地推出来」</b>。某个方向在实践中就是没希望 —— 但这件事推不出来 —— 它学不到。而一个统计方法可能一眼就看出来。  ⚠ 所以这两条路都在走，而且正在互相靠拢（用学习来指导 CP 搜索，是现在很活跃的方向）。  而 <b>LCG 的贡献是一句很具体的话</b>：它<i>不是</i>在「保结构的 CP」和「会学习的 SAT」之间二选一，而是把两者放进了<b>同一次搜索</b> —— 传播器照常跑、每步留下解释、冲突时学一条 sound 的子句。");
+  SUM(1100,6,{h:"nogood 剪掉的区域里一个解都没有 —— 这是定理，不是信心",
+    k:"链条上每一步都是演绎：<b>解释子句</b>是约束蕴含的真命题，<b>归结</b>保真，所以学到的 nogood 是<b>原模型的逻辑后承</b>。它剪掉的区域里没有解，因此 <i>sound</i>：答案不变、最优仍是最优。顺带解释了上一集那个性质 —— <b>学到的子句可以随便删</b>，因为它们是推论不是前提。",
+    m:"力量来自<b>演绎而非归纳</b>：求解器只撞了一次具体矛盾，然后把原因推出来；它<s>从没走进</s>被剪掉的那片区域。归纳只能说「没见过反例」，演绎能说「不可能有反例」。",
+    w:"<s>误解一</s>：「因为那片都试过了」—— 一次都没试。<s>误解二</s>：「sound 一定更快／更强」—— <b>都不是</b>。解释与子句库有成本；而且 LCG 能学的东西受限于「能被约束推出来」，推不出来的规律它学不到，统计方法反而可能看得见。",
+    e:"⚠ 实用习惯：任何剪枝交出去之前先答三问 —— <b>① 依据是逻辑后承还是估计 ② 最坏情况会丢掉什么 ③ 算完手上是最优解还是某个子集里的最优</b>。不 sound <b>不等于不好</b>，在很多问题上它是对的工程选择；但别把它叫成 nogood —— 这个词承诺的是「这里面一个解都没有」。"});
+  QUIZ(1100,6,{t:"为什么可以说「被 nogood 剪掉的区域里一定没有解」，而求解器其实<b>从未</b>搜索过那片区域？",
+    o:["因为求解器在后台对该区域做了抽样检验，没有发现可行解","因为 nogood 是由解释子句归结出来的，而每一步都保真，所以它是原模型的逻辑后承","因为那片区域的规模太小，可以忽略不计","因为 nogood 只在当前这条搜索路径上生效，离开这条路径就失效了"],
+    a:1,
+    w:"理由是<b>演绎</b>：解释子句是约束本身蕴含的真命题，归结保真，所以 nogood 是原模型的逻辑后承 —— 只要约束成立它就成立，于是被它排除的赋值<em>不可能</em>是解。<br>选项 A 正是本集要拆的那个误解：<s>一次都没试过</s>，靠试就不叫剪枝了。<br>选项 C 与规模无关 —— 被剪掉的常常是指数大的区域。<br>选项 D 事实错误：<b>nogood 是全局有效的</b>，此后任何路径上条件凑齐都会被挡住，这正是它比「退一层」值钱的地方。"});
+});
+
+KP("完",function(){
+  S(1300,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("模块 2 讲完了","两边的长处都要",
+      "传播器照常跑 · 每次推理留下解释 · 冲突时学一条 sound 的子句");
+    },"把六集串起来，<b>lazy clause generation</b> 的整句话是：  <i>让 CP 的传播器照常工作</i>（所以 L01 第 5 集那套全局约束的结构<b>一个都没丢</b>），<i>但要求每一次推理都能把自己解释成一条子句</i>，<i>于是冲突发生时可以做 SAT 那套冲突分析</i> —— 倒推出一条 nogood、学下来、非时序地跳回去。  两个 <em>lazy</em> 都是工程上的要害：布尔文字<b>按需才建</b>（域大的变量不预先铺满），解释子句<b>需要时才算</b>。全铺开就退化成「预先编码成 SAT」，第 2 集说过那条路的代价。  ⚠ 最后一集那句话值得单独记住：<b>学到的 nogood 是从约束逻辑蕴含出来的，所以它 sound —— 被它剪掉的区域里，一个解都没有</b>。靠采样、估计或者启发式得到的「这条路看起来不行」没有这个保证，它们是<i>搜索策略</i>，不是<i>逻辑后承</i>。把一个不 sound 的剪枝叫作 nogood，是在借用一个它没有的承诺。  下一部建议：高级篇 ⑤《对称与支配》—— 那是另一条「合法地砍掉搜索空间」的路，而且它和这一讲的区别正好是「结构性的」与「学来的」。");
+});
+window.__startProjector(CFG);
+})();
+</script>
