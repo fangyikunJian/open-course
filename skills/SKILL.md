@@ -357,7 +357,7 @@ dead). No amount of effort gets around this; fall back.
   state. This engine's `go()` sets `FAST=true` while replaying the preceding
   shots, but enters the **current shot** with `FAST=false`, so without a patch
   you are measuring the opening frame. See the four patches in
-  `theater/src/shot_probe.js`.
+  `_kit/theater/shot_probe.js`.
 
 **Disclosure obligation (when L0 is out of reach, write this verbatim; do not
 omit it):**
@@ -717,9 +717,9 @@ Four items removed from the rubric:
 |---|---|
 | `evidence.md` | You need the basis for a rule, you are arguing a design choice with the user, or you are writing up the method. Holds the conclusions, the numbers, and the sources. |
 | `explainer-arc.md` | The deliverable is a video about one knowledge point, or one episode of a series. **Read it before you storyboard.** |
-| `theater/src/lint_film.py` | Step 5, level L1, every time. 8 mechanical checks; every comment on them is the incident record of a real failure. |
-| `theater/src/audit_layout.py` | Step 5, the coarse L2 screen, every time. Every threshold comes from measurement at 1440×900. **It is a coarse screen, not a criterion.** |
-| `theater/src/shot_probe.js` | Step 5, levels L2/L3, every time. Exports DOM geometry shot by shot as JSON; it produces diffable numbers, not screenshots. |
+| `_kit/theater/lint_film.py` | Step 5, level L1, every time. 8 mechanical checks; every comment on them is the incident record of a real failure. |
+| `_kit/theater/audit_layout.py` | Step 5, the coarse L2 screen, every time. Every threshold comes from measurement at 1440×900. **It is a coarse screen, not a criterion.** |
+| `_kit/theater/shot_probe.js` | Step 5, levels L2/L3, every time. Exports DOM geometry shot by shot as JSON; it produces diffable numbers, not screenshots. |
 
 **Meta-clause: at the start of Step 5, verify every path in this table one by one with `ls` / `os.path.exists`; if any single one is missing, Step 5 fails immediately, names the missing file, and does not continue.** This covers **every skill document**, not just this table — grep the prose for every reference prefixed `references/`, `assets/`, or `scripts/` and reconcile it against this table at the same time. This is the cheapest mechanical check available (one command), and the current failure rate on it is 100%.
 

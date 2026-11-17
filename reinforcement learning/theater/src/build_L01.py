@@ -15,6 +15,13 @@
 
 Mars rover 数值为精确求解，设定写在片中（教学用设定，非讲座逐字复刻）。
 """
+# ⚠ 2026-11-18：放映厅引擎已统一到 `_kit/theater/`，本目录不再保留副本
+#   （原来那份停在 2026-09-30，和 _kit 已分叉 5 个文件 —— 在这里直接
+#    `python assemble.py` 会静默用到旧引擎，这是删掉它的理由）。
+#   这两行把 _kit/theater 接进来，脚本其余部分一个字没动。
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                  "..", "..", "..", "_kit", "theater"))
 import build_common as bc
 
 C = []

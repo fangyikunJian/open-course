@@ -93,7 +93,7 @@ lamps 占比 L01 6% → L16 64%，曲线和这件事完全吻合。
 ```bash
 # 哪些讲真的对着课件做了（只看内容文件；工具的注释里也会出现 slides 字样）
 grep -rl "slides" theater/src/episodes-*.json theater/src/build_L*.py
-python theater/src/prim_mix.py --check                   # 套版式会被抓出来
+python _kit/theater/prim_mix.py --check                   # 套版式会被抓出来
 ```
 
 详见「做任何一门课的放映厅之前，先读这一节」。
@@ -111,7 +111,7 @@ python theater/src/prim_mix.py --check                   # 套版式会被抓出
 参照物就在同一台机器上：`Machine Learning/复习放映厅/`，它的 `lamps` 出现次数是 **0**。
 
 ```bash
-python theater/src/prim_mix.py --check
+python _kit/theater/prim_mix.py --check
 # 两条闸门：单个整图级图元 ≤25% 有图镜；不同画法 / 有图镜 ≥ 0.30
 ```
 
@@ -140,7 +140,7 @@ python theater/src/prim_mix.py --check
 探针查「同一镜里画布标签只许一种字号」：
 
 ```bash
-node theater/src/shot_probe.js <片子> --out /dev/null
+node _kit/theater/shot_probe.js <片子> --out /dev/null
 ```
 
 ---
@@ -157,7 +157,7 @@ node theater/src/shot_probe.js <片子> --out /dev/null
 所以：先问「这里该画什么」，问不出来再考虑放大。
 
 ```bash
-python theater/src/prim_mix.py     # 纯文字镜不计入「有图镜」，会压低多样度
+python _kit/theater/prim_mix.py     # 纯文字镜不计入「有图镜」，会压低多样度
 ```
 
 ---
@@ -175,7 +175,7 @@ python theater/src/prim_mix.py     # 纯文字镜不计入「有图镜」，会�
 **九个通道**，用户第二轮直接截图指出来了。
 
 ```bash
-grep -n "font-family:var(--mono)" theater/src/eng.txt
+grep -n "font-family:var(--mono)" _kit/theater/eng.txt
 # 只允许纯拉丁的通道留在 mono（#titleL .act、#tc）
 ```
 
@@ -257,7 +257,7 @@ L15 改画时装配器当场拦下了 6 镜这样的假承诺。
 > 「目前的文字在一张图里太密集了，大脑不适应接受如此多密集的信息都在一张 slide 上」
 
 ```bash
-python theater/src/density_report.py --check
+python _kit/theater/density_report.py --check
 # ≤3 个视觉对象 · 单行 ≤20 字 · 画布总计 ≤80 字
 ```
 
@@ -406,7 +406,7 @@ note 220 · setEq 210 · boxNode 78 · dots 43 · curve 40 · link 26 · axes 25
 
 ### 可执行的闸门
 
-`theater/src/prim_mix.py`：统计每部片的图元分布，单个图元超过 25% 就报。
+`_kit/theater/prim_mix.py`：统计每部片的图元分布，单个图元超过 25% 就报。
 
 ```bash
 python prim_mix.py            # 看分布

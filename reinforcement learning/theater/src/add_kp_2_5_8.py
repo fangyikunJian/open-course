@@ -2,7 +2,7 @@
 """补写 KP2 / KP5 / KP8 三集，合并进 episodes-L01.json。
 
 其余六集由 agent 起草；这三集因反复撞 usage limit 由我直接写，格式与 schema 完全一致。
-遵守 skills/PROJECT-SKILL-放映厅.md：
+遵守 ../../../skills/PROJECT-SKILL-放映厅.md（2026-11-18 由课程目录移到顶层）：
   · 六拍：hook / wrong / setup / body×N / refute
   · 每集只有一个动画镜，且必须能填满「驱动量 A→B，看读出量，因此某命题成立」
   · flip() 不跑 MathJax —— 只能用 <sub>/<sup> 与 unicode；setEq() 才吃 LaTeX
