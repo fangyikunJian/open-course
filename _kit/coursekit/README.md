@@ -20,7 +20,7 @@ python coursekit/new_course.py "G:/open course/cs231n" --name "CS231n 计算机�
 # 2. 打开 course.json，把 title / credit 改对
 #    （讲题是从 PDF 首页猜的，基本都要手改）
 
-# 3. 照样例写内容：中文精读/data/L01.json
+# 3. 照样例写内容：精读/data/L01.json
 
 # 4. 生成 + 实测
 python coursekit/build_reader.py "G:/open course/cs231n/course.json"
@@ -50,8 +50,8 @@ python coursekit/build_hub.py   "G:/open course/cs231n/course.json"
 
   "dirs": {
     "slides": "slides",           // 课件在哪
-    "reader": "中文精读",          // 精读页生成到哪
-    "data":   "中文精读/data"      // 内容文件在哪
+    "reader": "精读",              // 精读页生成到哪
+    "data":   "精读/data"          // 内容文件在哪
   },
 
   // 总入口上每讲一行，一行里有几个按钮。路径模板里可以用

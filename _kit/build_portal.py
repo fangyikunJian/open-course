@@ -52,7 +52,7 @@ ARTI_REL = "../Adelaide COMSC/2026S2/Machine Learning"
 #   note   : 逐讲小节的说明文字，可带 HTML
 COURSES = [
     {
-        "dir": "reinforcement learning", "code": "CS234", "name": "强化学习",
+        "dir": "cs234-2019", "code": "CS234", "name": "强化学习",
         "meta": "斯坦福 Winter 2019 · Emma Brunskill", "unit": "讲",
         "note": "四种读法：放映厅看讲解、速览一屏滚到底、精读左课件右讲解带自测、"
                 "课件是原件。",
@@ -70,7 +70,7 @@ COURSES = [
                 "⚠ 讲义是手写稿，推导全在墨迹里。",
     },
     {
-        "dir": "CME295", "code": "CME 295", "name": "Transformers 与大语言模型",
+        "dir": "cme295-2025", "code": "CME 295", "name": "Transformers 与大语言模型",
         "meta": "斯坦福 Autumn 2025 · Afshine &amp; Shervine Amidi", "unit": "讲",
         "note": "<b>九讲九部放映厅</b>。⚠ 这门课的中文内容以<b>讲稿时间码</b>为准"
                 "（每一镜都能对回原视频），讲义页码作参照 —— 与其余几门的做法不同。",
@@ -83,7 +83,7 @@ COURSES = [
                 "技术内容对齐公开的 MiniZinc 手册，每一集标<b>手册章节号</b>。",
     },
     {
-        "dir": "reinforcement learning/corpus/sutton-barto",
+        "dir": "sutton-barto",
         "code": "S&amp;B", "name": "Sutton &amp; Barto 第二版",
         "meta": "经典教材 · 2020 年印次 · 作者免费提供全文", "unit": "章",
         "note": "<b>只读 CS234 没系统讲过的那几章</b>，按节写不逐页。"

@@ -30,9 +30,9 @@
 
 | 来源 | 位置 | 喂给了哪条规则 |
 |---|---|---|
-| **3Blue1Brown 字幕语料** | `corpus/3b1b/`（21 份 `.vtt`），抓取脚本 `tools/fetch_3b1b.sh` | §6「硬性禁令（来自 3b1b 蒸馏）」、§5「从 manim 该学的是手法不是画风」 |
+| **3Blue1Brown 字幕语料** | `skills/corpus/3b1b/`（21 份 `.vtt`），抓取脚本 `skills/tools/fetch_3b1b.sh` | §6「硬性禁令（来自 3b1b 蒸馏）」、§5「从 manim 该学的是手法不是画风」 |
 | **教学研究文献** | `evidence.md`（效应量、CI、出处逐条列出） | §1「最重要的一条」（反驳拍 d≈0.79–0.83 vs 动画 d≈0.37）、§7 认知负荷、§8 具体先于抽象 |
-| **CS234 课件本体** | `corpus/cs234-2019/{slides,notes,transcripts,subtitles}`（18 份 slides PDF、13 份 notes、15 份讲稿） | §4「先把课件读完」—— 每一镜的图都必须能指回某一页 |
+| **CS234 课件本体** | `cs234-2019/corpus/{slides,notes,transcripts,subtitles}`（18 份 slides PDF、13 份 notes、15 份讲稿） | §4「先把课件读完」—— 每一镜的图都必须能指回某一页 |
 
 **三者的权重不一样**，搞混过一次：
 
@@ -784,7 +784,7 @@ python coursekit/new_course.py <目录>       # 换一门课时搭架子
 
 - 讲次元数据全在根目录的 **`course.json`**：tag / 讲题 / 课件文件名 / 页数 /
   讲座链接 / 放映厅片名 / 知识点清单。**只写这一处**，内容文件里不要再存一份。
-- 内容文件在 `corpus/cs234-2019/中文精读/data/LNN.json`，只有 `notes` 和 `quiz` 两个键。
+- 内容文件在 `cs234-2019/精读/data/LNN.json`，只有 `notes` 和 `quiz` 两个键。
 - 总入口的四种读法（放映厅 / 速览 / 精读 / 课件）是 `course.json` 里的 `views`，
   文件不在就自动灰掉 —— **加一部片子不用改代码，重跑 build_hub 即可**。
 - 数据文件开头用注释列一份「**要守住的数字**」清单（转移矩阵、样本回报、消融表……）。
@@ -793,7 +793,7 @@ python coursekit/new_course.py <目录>       # 换一门课时搭架子
 ### 做新的一讲，顺序
 
 1. `pymupdf` 抽课件逐页文本，**读完再动手**（§4）。
-2. 读 `corpus/cs234-2019/transcripts/LNN.txt`，挑出**讲稿里说了而课件上没有**的话，
+2. 读 `cs234-2019/corpus/transcripts/LNN.txt`，挑出**讲稿里说了而课件上没有**的话，
    进 `say` 字段。老师当场拆自己台、当场被问住的地方最值钱。
 3. 按页写 `notes`；题**对着那一页出**，不要泛泛问概念。
 4. build → check → build_hub。

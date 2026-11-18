@@ -99,7 +99,7 @@ def run():
     # 必须不报：齐全的 link 不该被拦；没有 link 的条目也不该被拦
     ok += (len(br.check_link([{"r": [1, 1], "link": {
         "t": "CS234 L08 策略梯度",
-        "href": "../../reinforcement learning/theater/影片/L08-策略梯度.html"}}])) == 0)
+        "href": "../../cs234-2019/theater/影片/L08-策略梯度.html"}}])) == 0)
     ok += (len(br.check_link([{"r": [1, 1], "one": "没有 link"}])) == 0)
 
     # ── 防泄题：两侧自证。两层泄题都要拦 ──

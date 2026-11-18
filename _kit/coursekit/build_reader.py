@@ -402,9 +402,11 @@ def render(co, L, d, th=None):
         ("{{READERDIR}}", os.path.basename(co.dirs["reader"].rstrip("/"))),
         # 「打不开？」那段提示里要告诉读者在哪起 http.server。原来写死成
         # cs234-2019，换课就是一句错的指令。要服务的是**同时装得下课件与精读页**
-        # 的那一层，即两者的公共祖先 —— 不是 co.root：CS234 的课件在
-        # corpus/cs234-2019/slides、精读在 corpus/cs234-2019/中文精读，
-        # 公共祖先是 corpus/cs234-2019，而 co.root 是课程目录本身，高了两层。
+        # 的那一层，即两者的公共祖先。
+        # ⚠ 2026-11-18 起每门课都是 corpus/slides + 精读/，公共祖先就是课程目录
+        #   本身。这里仍然按 commonpath 算、而不是直接取 co.root，是因为曾经不是
+        #   这样：CS234 的课件与精读一度深埋在 corpus/cs234-2019/ 下，co.root 比
+        #   公共祖先高两层。哪天又出现这种结构，这段不用改。
         ("{{COURSEDIR}}", os.path.basename(os.path.commonpath([
             co.abspath(co.dirs["slides"]), co.abspath(co.dirs["reader"])]))),
         ("{{READERFILE}}", os.path.basename(co.reader_file(L))),

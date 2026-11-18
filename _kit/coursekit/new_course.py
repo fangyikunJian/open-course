@@ -5,7 +5,7 @@
 
     可选参数：
       --slides <子目录>   课件在哪（默认 slides）
-      --reader <子目录>   精读页放哪（默认 中文精读）
+      --reader <子目录>   精读页放哪（默认 精读）
       --id <标识>         存档键前缀，默认取目录名
       --force             已有 course.json 也覆盖
 
@@ -54,7 +54,7 @@ def main():
     if not args or args[0].startswith("-"):
         raise SystemExit(__doc__)
     root = os.path.abspath(args.pop(0))
-    opt = {"slides": "slides", "reader": "中文精读", "name": None,
+    opt = {"slides": "slides", "reader": "精读", "name": None,
            "prefix": None, "id": None, "force": False}
     while args:
         a = args.pop(0)
