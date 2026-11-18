@@ -400,6 +400,11 @@ def render(co, L, d, th=None):
         # 早期版本用的是不带课程前缀的键；模板里有一段一次性迁移会去找它
         ("{{OLDKEY}}", L["tag"].lower()),
         ("{{READERDIR}}", os.path.basename(co.dirs["reader"].rstrip("/"))),
+        # 顶栏的「← 课程门户」。dirs.reader 是可配的，所以真算一次 relpath，
+        # 不写死成 "../"。
+        ("{{HUBREL}}", os.path.relpath(
+            os.path.join(co.root, co.c.get("hub", "index.html")),
+            os.path.dirname(co.reader_file(L))).replace(os.sep, "/")),
         # 「打不开？」那段提示里要告诉读者在哪起 http.server。原来写死成
         # cs234-2019，换课就是一句错的指令。要服务的是**同时装得下课件与精读页**
         # 的那一层，即两者的公共祖先。

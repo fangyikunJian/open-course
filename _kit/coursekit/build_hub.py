@@ -49,6 +49,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--cjk);
 .wrap{max-width:1120px;margin:0 auto}
 
 header{padding:44px 0 22px}
+.bc{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 14px;font-size:13px}
+.bc a{color:var(--dim);text-decoration:none;border-bottom:1px solid transparent}
+.bc a:hover{color:var(--ink);border-bottom-color:var(--txt)}
 h1{margin:0 0 10px;font-size:clamp(23px,3vw,34px);font-weight:670;letter-spacing:.3px}
 .lede{color:var(--dim);font-size:14.5px;max-width:64ch;margin:0 0 18px}
 
@@ -157,6 +160,17 @@ def main():
         for v in views)
     tally = " · ".join("%s <b>%d</b>" % (esc(v["label"]), have[v["key"]]) for v in views)
 
+    # 导航：回总入口永远有；放映厅总览只在真的生成过的时候才给。
+    # ★总入口.html 的地址用百分号编码 —— 根 index.html 的注释里记着原因：
+    # 阿里云那台 Apache 上踩过「中文 URL 不编码就静默回首页」。
+    nav = ['<a href="../%E2%98%85%E6%80%BB%E5%85%A5%E5%8F%A3.html">'
+           '← 学习总入口</a>']
+    film_index = "theater/影片/index.html"
+    if os.path.exists(co.abspath(film_index)):
+        nav.append('<a href="%s">放映厅总览 →</a>'
+                   % film_index.replace(" ", "%20"))
+    nav = "".join(nav)
+
     html = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -168,6 +182,7 @@ def main():
 <body><div class="wrap">
 
 <header>
+  <nav class="bc">%s</nav>
   <h1>%s</h1>
   <p class="lede">%s</p>
   <div class="legend">
@@ -187,7 +202,7 @@ def main():
 </footer>
 
 </div></body></html>
-""" % (esc(co.c["name"]), CSS, vcss,
+""" % (esc(co.c["name"]), CSS, vcss, nav,
        co.c.get("heading") or esc(co.c["name"]),
        co.c.get("lede", ""), legend, "\n".join(rows),
        len(co.c["lectures"]), tally, co.c.get("credit", ""))

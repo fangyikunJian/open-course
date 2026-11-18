@@ -56,6 +56,34 @@ def split_title(t):
     return "", t
 
 
+def course_json():
+    """从产出目录往上找这门课的 course.json。
+
+    ⚠ 2026-11-18：这一页的标题、lede、画面数原来**全写死成 CS234**。
+    实测后果：cs224r / cme295 / minizinc 三门课生成出来的索引页，
+    标题都是「CS234 放映厅 · 斯坦福强化学习」，画面数都是 725。
+    之所以一直没人发现 —— **全站没有任何页面链到这些索引页**，
+    它们只能手敲地址进，所以这个错误从来没被人看见过。
+    现在一律从 course.json 读，并且从课程门户接上入口。
+    """
+    d = _paths.out_dir()
+    for _ in range(4):                      # 影片 -> theater -> 课程目录
+        d = os.path.dirname(d)
+        f = os.path.join(d, "course.json")
+        if os.path.exists(f):
+            return json.load(io.open(f, encoding="utf-8"))
+    raise SystemExit("找不到 course.json（从 %s 往上找了 4 层）" % _paths.out_dir())
+
+
+def n_shots():
+    """真实镜头数：数 episodes-*.json 里的 shots，不写死。"""
+    n = 0
+    for f in glob.glob(os.path.join(_paths.src_dir(), "episodes-L*.json")):
+        for kp in json.load(io.open(f, encoding="utf-8")):
+            n += len(kp.get("shots") or [])
+    return n
+
+
 CSS = """
 :root{
   --bg:#080b11; --panel:#0e131c; --line:#1d2635; --ink:#dfe7f2; --dim:#8494ab;
@@ -68,6 +96,9 @@ body{background:var(--bg);color:var(--ink);
   padding:0 16px 80px}
 .wrap{max-width:1180px;margin:0 auto}
 header{padding:56px 0 30px;border-bottom:1px solid var(--line);margin-bottom:34px}
+.bc{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 16px;font-size:13px}
+.bc a{color:var(--dim);text-decoration:none;border-bottom:1px solid transparent}
+.bc a:hover{color:var(--acc);border-bottom-color:var(--acc)}
 h1{margin:0 0 12px;font-size:clamp(25px,3.6vw,40px);letter-spacing:.3px;font-weight:650}
 h1 span{color:var(--acc)}
 .lede{color:var(--dim);max-width:70ch;margin:0 0 16px;font-size:15px}
@@ -113,9 +144,21 @@ kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
 """
 
 
+# ★总入口.html 的地址一律用百分号编码。根 index.html 的注释里记着原因：
+# 阿里云那台 Apache 上踩过「中文 URL 不编码就静默回首页」。
+PORTAL = "%E2%98%85%E6%80%BB%E5%85%A5%E5%8F%A3.html"
+
+
 def main():
     films = load()
     nkp = sum(len(f["kps"]) for f in films)
+    co = course_json()
+    cname = co.get("name") or "放映厅"
+    prefix = co.get("prefix") or cname
+    lede = ("%s 的中文动画讲解。每个知识点走同一条六拍："
+            "钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 —— "
+            "先把一个似是而非的说法摆出来，再当场把它杀掉。"
+            "片中所有数值都由独立脚本重算核对过，不是配合结论编的。" % esc(cname))
     cards = []
     for f in films:
         lec, name = split_title(f["title"])
@@ -147,17 +190,18 @@ def main():
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CS234 放映厅 · 斯坦福强化学习</title>
+<title>%s · 放映厅</title>
 <style>%s</style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>CS234 <span>放映厅</span></h1>
-  <p class="lede">斯坦福 CS234《强化学习》Winter 2019 的中文动画讲解。
-  每部一讲、九个知识点，每个知识点走同一条六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验
-  —— 先把一个似是而非的说法摆出来，再当场把它杀掉。
-  片中所有数值都由独立脚本重算核对过，不是配合结论编的。</p>
+  <nav class="bc">
+    <a href="../../index.html">← %s 课程门户</a>
+    <a href="../../../%s">← 学习总入口</a>
+  </nav>
+  <h1>%s <span>放映厅</span></h1>
+  <p class="lede">%s</p>
   <div class="stats">
     <span class="stat"><b>%d</b> 部</span>
     <span class="stat"><b>%d</b> 个知识点</span>
@@ -175,7 +219,8 @@ def main():
 </div>
 </body>
 </html>
-""" % (CSS, len(films), nkp, 725, "\n".join(cards))
+""" % (esc(cname), CSS, esc(prefix), PORTAL, esc(prefix), lede,
+       len(films), nkp, n_shots(), "\n".join(cards))
 
     out = os.path.join(_paths.out_dir(), "index.html")
     io.open(out, "w", encoding="utf-8").write(html)
