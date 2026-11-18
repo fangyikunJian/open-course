@@ -26,7 +26,19 @@ def check(path):
     return bad
 
 if __name__ == "__main__":
+    # ⚠ 2026-11-18：不给参数时这里原来是「循环 0 次 → return 0」——
+    #   一条**假绿灯**：报告什么都没打印，退出码却是 0，看起来像通过了。
+    #   手册 §14 写明「文件数为 0 必须非零退出」，但这一份没落实。实测复现：
+    #   `python check_html.py` 静默退出 0。现在要么给路径，要么报错。
+    paths = sys.argv[1:]
+    if not paths:
+        sys.exit("用法：python check_html.py <片子.html> [更多.html]\n"
+                 "  不给路径就什么都没查 —— 不许静默返回 0。")
+    missing = [p for p in paths if not os.path.exists(p)]
+    if missing:
+        sys.exit("这些文件不存在，查不了：%s" % "，".join(missing))
     n = 0
-    for p in sys.argv[1:]:
+    for p in paths:
         n += check(p)
+    print("共查 %d 个文件，语法有问题的 %d 个。" % (len(paths), n))
     sys.exit(1 if n else 0)

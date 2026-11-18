@@ -1,0 +1,33 @@
+{
+ "file": "L09-对称与支配.html",
+ "html_title": "离散优化建模 L09 · 对称与支配 · 放映厅",
+ "title": "高级篇 ⑤ · 合法地砍掉搜索空间：对称与支配",
+ "subtitle": "%d 个知识点 · 对应 Advanced Modeling 模块 5 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "",
+ "prelude_js": "// ══ 本片的内容权威与边界 ══\n//\n// 对应课程：Coursera《Advanced Modeling for Discrete Optimization》\n//   模块 5「Symmetry and Dominance」（Stuckey & Jimmy Ho Man Lee）。\n//\n// ⚠⚠ 本片没有照搬课程视频，也没有用课程字幕（在 Coursera 登录墙后，属版权材料）。\n//   中文讲解是另写的。技术内容对齐的是**公开的 MiniZinc 手册与公开发表的论文**：\n//\n//   · MiniZinc 手册 2.7.6 Symmetry（2.7.6.1 Static Symmetry Breaking、\n//     2.7.6.2 Other Examples of Symmetry）—— 手册这一节正是拿 n 皇后讲的。\n//   · MiniZinc 手册 4.2.2.2 Lexicographic constraints —— lex_lesseq / lex_less /\n//     lex2 / lex_chain_* / seq_precede_chain / value_precede / value_precede_chain\n//     都在这一节（2026-11-18 逐个抓页核实，手册版本 2.11.0）。\n//   · Flener, Frisch, Hnich, Kiziltan, Miguel, Pearson & Walsh,\n//     \"Breaking row and column symmetries in matrix models\", CP 2002。\n//     该文摘要自己写明：行 lex 破掉全部行对称、列 lex 破掉全部列对称，\n//     但两者合用**破不掉它们的全部复合**；只有特殊情形才能用线性条数的约束全破。\n//   · Law & Lee, \"Global Constraints for Integer and Set Value Precedence\",\n//     LNCS vol. 3258（即 CP 2004）—— value precedence 的出处。\n//     ⚠ 起止页码未逐条核实（CUHK 的存档站挡住了自动抓取），引用前查准。\n//   · Chu & Stuckey, \"Dominance breaking constraints\", Constraints 卷 20,\n//     第 155–182 页 (2015), doi:10.1007/s10601-014-9173-7（开放获取）。\n//     摘要原话的要点：支配关系是**对称与条件对称的推广**。\n//   · Chu & Stuckey, \"A generic method for identifying and exploiting dominance\n//     relations\", CP 2012, 第 6–22 页, LNCS 7514，**CP 2012 最佳论文**。\n//\n// ⚠ 片中每一个数字都是枚举跑出来的，不是配合结论编的（脚本记在 来源.md）：\n//   8 皇后 92 解 / 12 个本质解，轨道分布 11×8 + 1×4 = 92；\n//   3×3 的 0/1 矩阵：512 个，行列置换下 36 个轨道，双 lex 之后还剩 45 个。\n//\n// ⚠ 本片**不涉及任何未发表工作**。第 6 集讲的是「对称破缺与支配破缺各自承诺了什么」\n//   这个一般性问题，不指向任何具体方法。\n",
+ "kp_names": {
+  "1": "1 · 重复的代价不在输出里，在<b>失败的子树</b>里　<small>模块 5</small>",
+  "2": "2 · 对称是<b>模型</b>的性质，不是某个解的　<small>手册 2.7.6</small>",
+  "3": "3 · 静态破缺：不是砍解，是<b>挑代表</b>　<small>手册 2.7.6.1</small>",
+  "4": "4 · 双 lex：<b>sound 但不完全</b> —— 这是定理不是工程妥协　<small>CP 2002</small>",
+  "5": "5 · 值对称：lex 治不了它，要 <b>value precedence</b>　<small>手册 4.2.2.2</small>",
+  "6": "6 · <b>支配</b>：更宽的一把刀，但承诺更弱　<small>Constraints 2015</small>"
+ },
+ "kp_base": {
+  "1": 100,
+  "2": 300,
+  "3": 500,
+  "4": 700,
+  "5": 900,
+  "6": 1100
+ },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"Advanced Modeling · 模块 5\",\"对称与支配\",\n  \"搜索还没开始，就已经能读出来的那一半剪枝\");",
+  "narration": "L11 讲的是搜索<b>当中</b>学东西：撞上矛盾，把原因倒推成一条 nogood 记下来。\n\n这一讲是另一半：有些剪枝根本<b>不用等搜索开始</b> —— 它们就写在模型的结构里，只是求解器看不见，得你把它们<em>说出来</em>。\n\n六集的路线：先把代价量出来（1）；把「对称」这个词定准（2）；然后是三件具体工具 —— <b>用 lex 挑代表</b>（3）、<b>双 lex 为什么破不干净</b>（4）、<b>值对称要换一把刀</b>（5）；最后一集走到比对称更宽的 <b>支配</b>，并把它和 L11 的 nogood 摆在一起看（6）。\n\n⚠ 本片的技术内容对齐公开的 MiniZinc 手册与公开论文，不是课程视频；片中每一个数字都是枚举跑出来的，引文与脚本列在片源注释里。"
+ },
+ "closing": {
+  "t": 1300,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"模块 5 讲完了\",\"两种剪枝，两种承诺\",\n  \"对称：每类留一个 · 支配：至少留一个最优\");",
+  "narration": "六集串起来。\n\n<b>对称</b>是模型上的一个双射：它把解映成解，也把<em>失败映成失败</em> —— 后半句才是花钱的地方。破缺的做法不是「把重复的砍掉」，而是<b>在每个等价类里按一个全序挑代表</b>：变量对称用 <b>lex_lesseq</b>，值对称用 <b>value_precede_chain</b>。工具选错不是效率问题，是<s>根本没破到</s>。\n\n双 lex 那一集请记住：它 <b>sound 但不完全</b>。3×3 的 0/1 矩阵只有 36 个本质不同的，双 lex 之后还剩 <b>45</b> 个 —— 多出来的那几个不是实现的 bug，是这条路的<em>上限</em>。\n\n<b>支配</b>比对称宽：对称说「这两个一样」，支配说「这个不比那个好」。前者是等价关系，后者是<b>偏序</b>。所以支配能砍掉更多，代价是承诺变弱：它只保证<em>至少有一个最优解活下来</em>，所以它绑着目标函数，而且要枚举全部解的时候<s>不能用</s>。\n\n最后把这一讲和 L11 摆在一起：两边都在合法地砍搜索空间，但<b>凭据不同</b> —— 这一讲的凭据是<em>模型的结构</em>，搜索开始前就读得出来；L11 的凭据是<em>约束的逻辑蕴涵</em>，要撞上矛盾才学得到。一个先验，一个后验，而且两者<b>可以叠着用</b>。\n\n下一部建议：算法篇 ①《基础约束规划：传播与搜索》—— 把一致性级别与分支策略补齐，它是 L11 在课程顺序上的前置。"
+ }
+}
