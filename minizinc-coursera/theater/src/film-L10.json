@@ -1,0 +1,33 @@
+{
+ "file": "L10-传播与搜索.html",
+ "html_title": "离散优化建模 L10 · 传播与搜索 · 放映厅",
+ "title": "算法篇 ① · 推不动了才猜：传播与搜索",
+ "subtitle": "%d 个知识点 · 对应 Solving Algorithms 模块 1 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+ "video": "",
+ "prelude_js": "// ══ 本片的内容权威与边界 ══\n//\n// 对应课程：Coursera《Solving Algorithms for Discrete Optimization》\n//   模块 1「Basic Constraint Programming」（Stuckey & Jimmy Ho Man Lee）。\n//\n// ⚠⚠ 本片没有照搬课程视频，也没有用课程字幕（在 Coursera 登录墙后，属版权材料）。\n//   中文讲解是另写的。技术内容对齐的是**公开的 MiniZinc 手册与公开发表的论文**：\n//\n//   · MiniZinc 手册 **2.6 Search**（2.6.1 Finite Domain Search · 2.6.2 Search\n//     Annotations · 2.6.3 Annotations · 2.6.4 Restart · 2.6.5 Warm Starts）。\n//     2026-11-18 抓页核实（手册 2.11.0），本片引到的标注全部出自这一节：\n//       input_order「choose in order from the array」\n//       first_fail 「choose the variable with the smallest domain size」\n//       smallest   「choose the variable with the smallest value in its domain」\n//       dom_w_deg  「smallest domain size divided by weighted degree」\n//       indomain_split「bisect the variables domain excluding the upper half」\n//       restart_luby(<scale>)，Luby 序列 1 1 2 1 1 2 4 1 1 2 1 1 2 4 …\n//     ⚠ indomain_max / max_regret / most_constrained 在这一节词频为 0，没引。\n//\n//   · Haralick & Elliott, \"Increasing Tree Search Efficiency for Constraint\n//     Satisfaction Problems\", Artificial Intelligence 14(3):263–313 (1980),\n//     doi:10.1016/0004-3702(80)90051-x —— fail-first 原则的出处。\n//     ⚠ 卷期页码取自多处书目记录（含 DBLP），未读原刊页。\n//\n//   · Régin, \"A Filtering Algorithm for Constraints of Difference in CSPs\",\n//     AAAI 1994, 第 362–367 页。摘要原文：达到 **generalized arc-consistency**，\n//     基于匹配理论，**空间 O(pd)、时间 O(p²d²)**（p 个变量、域大小至多 d）。\n//\n//   · Gomes, Selman, Crato & Kautz, \"Heavy-Tailed Phenomena in Satisfiability\n//     and Constraint Satisfaction Problems\", Journal of Automated Reasoning\n//     24(1–2):67–100 (2000) —— 随机重启治长尾。\n//     ⚠ 卷期页码取自多处书目记录，未读原刊页。\n//\n// ⚠ 片中每一个数字都是**自己写脚本跑出来的**，不是配合结论编的（脚本见 来源.md）：\n//   · x<y<z 域 1..4：传播 3 轮到不动点，64 → 8 个候选，真解 4 个，无一变量被定死。\n//   · n 皇后穷举整棵树：完全不剪枝 vs 每步传播 —— n=8 时 2396745 vs 747（3208 倍）。\n//   · n 皇后找第一个解：input_order vs first_fail = 13/13 · 12/9 · 29/13 · 84/18 · 180/21\n//     （n = 8 · 12 · 16 · 20 · 24）。\n//   · 鸽笼（n+1 只鸽子进 n 个洞，必然无解）穷举证明无解：三种值序节点数\n//     17 / 86 / 517 / 3620 **完全相同**；换变量序也**完全相同**。\n//   · 背包（容量 12，六件物品）分支定界：incumbent 21 → 22，最优 22，99 个节点。\n",
+ "kp_names": {
+  "1": "1 · 传播到<b>不动点</b>：没开始猜之前就做完的那半件事　<small>模块 1</small>",
+  "2": "2 · 一致性级别：同一条约束可以推得<b>多</b>，也可以推得<b>少</b>　<small>Régin 1994</small>",
+  "3": "3 · 推不动了就<b>分支</b> —— 但分支必须<b>穷尽</b>　<small>手册 2.6</small>",
+  "4": "4 · <b>first-fail</b>：为了成功，先去失败　<small>Haralick &amp; Elliott 1980</small>",
+  "5": "5 · 值选择<b>改变不了树的大小</b>　<small>手册 2.6.4</small>",
+  "6": "6 · 优化 = 满足性 + 一条<b>越收越紧</b>的约束　<small>收束</small>"
+ },
+ "kp_base": {
+  "1": 100,
+  "2": 300,
+  "3": 500,
+  "4": 700,
+  "5": 900,
+  "6": 1100
+ },
+ "opening": {
+  "draw_js": "clearScene();setEq(null);setBig(null);setCap(null);\nsetTitle(\"Solving Algorithms · 模块 1\",\"传播与搜索\",\n  \"能推就推，推不动了才猜 —— 然后接着推\");",
+  "narration": "L01 第 3 集给过求解器的主循环一句话：<b>传播到推不动 → 猜一步 → 再传播</b>。这一讲把那一句话拆开，六集讲完。\n\n⚠ 它在课程顺序上是 <b>L11 的前置</b>。L11 讲的是「冲突之后学什么」，而这一讲讲的是<em>冲突之前</em>的全部家当：域怎么收、推得多推得少怎么选、推不动了怎么拆、先拆哪个变量、先试哪个值、以及优化是怎么用同一套东西做出来的。\n\n路线：<b>传播到不动点</b>（1）→ <b>一致性级别</b>（2）→ <b>分支</b>（3）→ <b>变量选择</b>（4）→ <b>值选择与重启</b>（5）→ <b>优化</b>（6）。\n\n⚠ 这一讲里每一个数字都是<b>自己写脚本跑出来的</b> —— 传播省了多少、换个变量序差几倍、换个值序差几倍。<em>有几个结果和直觉是反的</em>，到时候会专门停下来说。"
+ },
+ "closing": {
+  "t": 1300,
+  "draw_js": "clearScene();setBig(null);setCap(null);setEq(null);\nsetTitle(\"模块 1 讲完了\",\"三种砍法，三种凭据\",\n  \"结构（L09） · 启发式（L10） · 学习（L11）\");",
+  "narration": "六集串起来，就是「<b>能推就推，推不动了才猜，然后接着推</b>」这句话的全部内容。\n\n<b>传播</b>只做一件事：删掉<em>可以证明进不了任何解</em>的值，然后一直删到不动点。它永远不猜，所以它永远解不完 —— 这就是为什么必须有搜索。而推得多推得少是有<b>级别</b>的：域一致性比边界一致性删得多，代价也更高（Régin 的匹配算法是 O(p²d²)），<b>「越强越好」是把代价忘了</b>。\n\n<b>分支</b>把一个推不动的问题拆成几个，唯一的硬要求是<b>穷尽</b>。拆完传播重新发力 —— 实测 8 皇后穷举整棵树，不剪枝 <b>2396745</b> 个节点，每步传播只要 <b>747</b> 个，差 <b>3208 倍</b>。\n\n<b>启发式</b>这一半要记住两条实测结论，而且两条都反直觉：\n<b>变量序能差很多</b>（24 皇后 180 → 21 个节点），而且是<em>先挑最可能失败的</em>；<b>值序在穷举和证明无解时一点用都没有</b>（鸽笼三种值序节点数完全相同）—— 它只在「只要第一个解」和「优化」的时候有用。\n\n<b>优化</b>没有另一套算法：找到一个解就加一条<em>比它更好</em>的约束，接着搜。所以它是一串满足性问题，而目标变量的边界传播就是它的剪刀。\n\n⚠ 最后那张鸽笼表还有第二条消息：在那里<b>变量序也一点用都没有</b>，因为每个变量长得都一样，<s>启发式救不了没有结构的问题</s>。要在那种地方省，只剩一条路 —— <b>从撞过的墙里学</b>。那就是 L11。\n\n三讲摆在一起：<b>L09 从模型结构读</b>（先验）· <b>L10 靠启发式猜</b>（固定策略）· <b>L11 从冲突学</b>（后验）。砍的是同一个空间，凭据各不相同，而且<b>可以叠着用</b>。\n\n下一部建议：算法篇 ③《混合整数规划：线性松弛与分支定界》—— 同样是分支定界，换成用<em>线性松弛</em>算界，正好和这一讲对照着看。"
+ }
+}
