@@ -1,0 +1,1449 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>离散优化建模 L12 · 线性松弛与分支定界 · 放映厅</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600;800&display=swap">
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+   通用「放映厅」学习模板  ·  v1
+  ═══════════════════════════════════════════════════════════════════════════
+
+  这是一个可复用的框架。所有引擎代码（放映机、字幕层、总结卡、必答测验、
+  SVG 绘图工具箱、字幕防遮挡）都已内置。你只需要改动一个地方：
+
+     ↓↓↓ 最下方 <script> 里 “========= 在这里填内容 =========” 之间的部分 ↓↓↓
+
+  ── 怎么用 ───────────────────────────────────────────────────────────────
+  1. 改 CFG：标题、副标题、视频链接（可留空）。
+  2. 用 KP / S / SUM / QUIZ 四个函数搭出每个知识点，结构固定：
+        KP("知识点名", function(){
+          S(时间秒, 画面函数, "讲解段落（可选，按 N 显示）");   // 讲解镜头，可多个
+          SUM(时间秒, 知识点号, {h:标题, k:核心结论, m:底层机制, w:常见误解, e:与考试});
+          QUIZ(时间秒, 知识点号, {t:题干, o:[选项...], a:正确下标, w:解析});
+        });
+  3. 画面函数里可用的绘图工具（全部已内置）：
+        clearScene()                    清空画布
+        setTitle(小标,大标题,副标题)     标题卡
+        setBig(大字, 小字)               居中大字（数字/结论）
+        setCap(html)                     顶部一句话（支持 <b><i><em><s>）
+        setEq("$$...$$", "top")          MathJax 公式（"top" 顶部对齐）
+        flip("...<span data-id=x>..")    公式项级变形动画（FLIP）
+        T(id, 文本, "hl/res/ded")        flip 用的 token
+        note(文本,x,y,"g/y/b/r/v",锚)    画布上的标注
+        dots([[x,y]...], "a/b/c", 半径)  散点
+        curve(点数组, "fit/fit g/...")    折线/曲线（带描边动画）
+        boxNode(x,y,w,h,标签,"g/y/b/r/v") 方块节点
+        link(x1,y1,x2,y2)                连线
+        matrix({rows,cols,cw,ch,x,y,cell:fn,dim:fn,hl:fn,label,labelCls})  表格/矩阵
+        坐标系是 1280×720（16:9），原点左上。
+  4. 颜色语义（保持一致，学习者会形成条件反射）：
+        蓝 blue = 模型/输入   黄 yellow = 注意力/结论   绿 green = 正确/答案
+        珊瑚 coral = 误差/错误   紫 violet = 强调
+  5. 交互（已内置，无需改）：空格/→ 推进 · ← 回退 · 数字键跳知识点 · N 开关讲解。
+     测验必答才能继续；总结卡与测验不需要讲解。
+
+  ── 这个模板里放了 3 个知识点作为“怎么写”的活样例，可整段替换。 ────────────
+-->
+
+<style>
+:root{
+  --bg:#080B11; --ink:#F0F4FA; --dim:#93A1B5; --dimmer:#3D4658; --edge:#1B2230;
+  --blue:#54A9F7; --yellow:#FFD36E; --green:#5BDDA8; --coral:#FF7C87; --violet:#B48BF5;
+  --sans:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  /* 画布标签：拉丁用等宽（数字对齐），中文必须显式给黑体 ——
+     否则会回退到通用 monospace 的等宽宋体，和旁边的数字两种气质。 */
+  --canvas:"JetBrains Mono",ui-monospace,Consolas,"PingFang SC",
+    "Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;
+  -webkit-font-smoothing:antialiased;user-select:none}
+mjx-container{color:inherit!important}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#frame{position:relative;width:100%;height:100%;max-width:calc(100vh * 16 / 9);max-height:calc(100vw * 9 / 16);margin:auto}
+svg#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.layer{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+
+#eqBox{font-size:clamp(16px,2.5vw,36px);text-align:center;line-height:1.5;max-width:92%;
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.3,1)}
+#eqBox.off{opacity:0;transform:translateY(13px) scale(.97)}
+#eqBox.top{align-self:flex-start;margin-top:4.5vh}
+
+#big{font-family:var(--canvas);font-size:clamp(30px,5.6vw,82px);font-weight:500;letter-spacing:-.03em;
+  color:var(--yellow);text-shadow:0 0 44px rgba(255,211,110,.3);text-align:center;
+  transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.3,1)}
+#big.off{opacity:0;transform:scale(.86)}
+#big small{display:block;font-family:var(--sans);font-size:.22em;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);text-shadow:none;margin-top:.55em;font-weight:400}
+
+/* caption band — pinned into the lower third, clears the strip, scrolls if long */
+#capL{align-items:flex-end;pointer-events:none}
+#capL::before{content:'';position:absolute;left:0;right:0;bottom:0;height:46vh;
+  background:linear-gradient(to top,var(--bg) 30%,rgba(8,11,17,.72) 62%,transparent);pointer-events:none}
+#capWrap{max-width:min(84ch,94%);width:100%;max-height:62vh;overflow-y:auto;margin-bottom:50px;
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;position:relative;z-index:2}
+#cap{text-align:center;font-size:clamp(13.5px,1.42vw,20px);font-weight:400;line-height:1.55;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#cap.off{opacity:0;transform:translateY(12px)}
+#cap b{font-weight:600;color:var(--yellow)}
+#cap i{font-style:normal;color:var(--blue);font-weight:600}
+#cap em{font-style:normal;color:var(--green);font-weight:600}
+#cap s{text-decoration:none;color:var(--coral);font-weight:600}
+#narr{margin:.7em 0 0;max-width:min(90ch,100%);text-align:left;
+  font-size:clamp(12.5px,1.12vw,16px);font-weight:400;line-height:1.72;color:#D9E1ED;
+  background:rgba(8,11,17,.86);border:1px solid rgba(46,58,82,.7);border-radius:12px;
+  padding:12px 17px;box-shadow:0 8px 30px rgba(0,0,0,.5);opacity:1}
+#narr.off{opacity:0}
+#narr[hidden]{display:none}
+#narr b{color:#C6D2E2;font-weight:500}
+#narr i{font-style:normal;color:var(--blue)}
+#narr em{font-style:normal;color:var(--green)}
+#narr s{text-decoration:none;color:var(--coral)}
+
+#sum{max-width:min(1200px,94%);width:100%;max-height:90vh;overflow:auto;
+  background:rgba(17,23,33,.975);border:1px solid #303D52;border-radius:18px;padding:26px 38px 26px;
+  box-shadow:0 28px 74px rgba(0,0,0,.62);
+  transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.3,1)}
+#sum.off{opacity:0;transform:translateY(16px) scale(.985)}
+#sum[hidden]{display:none}
+#sum .sh{font-family:var(--canvas);font-size:11.5px;letter-spacing:.19em;text-transform:uppercase;color:var(--green);margin:0 0 9px}
+#sum h3{font-size:clamp(18px,1.95vw,26px);font-weight:700;margin:0 0 18px;letter-spacing:-.02em;line-height:1.25;color:#F6F9FE}
+#sum .rows{display:flex;flex-direction:column;gap:11px}
+#sum .row{border-left:4px solid #3C4A61;padding:13px 20px;background:rgba(255,255,255,.03);border-radius:0 12px 12px 0}
+#sum .rk{font-family:var(--canvas);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:#9EABBE;margin:0 0 8px}
+#sum .rv{font-size:clamp(14px,1.34vw,19px);font-weight:400;line-height:1.72;color:#E3EAF5;margin:0}
+#sum .rv b{color:#FFFFFF;font-weight:700}
+#sum .rv i{font-style:normal;color:#7CC0FF;font-weight:600}
+#sum .rv em{font-style:normal;color:#6FE3B4;font-weight:600}
+#sum .rv s{text-decoration:none;color:#FF97A0;font-weight:600}
+#sum .row.k{border-left-color:var(--green)}
+#sum .row.w{border-left-color:var(--coral)}
+#sum .row.e{border-left-color:var(--yellow)}
+#sum .row.m{border-left-color:var(--blue)}
+
+#quizL{align-items:center;pointer-events:none}
+#quiz{max-width:min(72ch,91%);pointer-events:auto;background:rgba(13,18,26,.95);
+  border:1px solid #253044;border-radius:14px;padding:23px 27px;
+  transition:opacity .4s ease,transform .4s cubic-bezier(.2,.7,.3,1)}
+#quiz.off{opacity:0;transform:translateY(14px);pointer-events:none}
+#quiz[hidden]{display:none}
+#quiz .qh{font-family:var(--canvas);font-size:11px;letter-spacing:.19em;text-transform:uppercase;color:var(--yellow);margin:0 0 10px}
+#quiz .qq{font-size:clamp(13.5px,1.42vw,20px);font-weight:600;margin:0 0 15px;line-height:1.45}
+#quiz .qo{display:flex;flex-direction:column;gap:7px}
+#quiz button{font-family:var(--sans);font-size:clamp(11.5px,1.2vw,16px);font-weight:300;
+  color:var(--ink);background:rgba(255,255,255,.045);border:1px solid #2A3546;
+  border-radius:8px;padding:10px 15px;cursor:pointer;text-align:left;line-height:1.5;transition:background .2s,border-color .2s}
+#quiz button:hover:not(.lk){border-color:var(--blue);background:rgba(84,169,247,.13)}
+#quiz button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#quiz button.lk{cursor:default}
+#quiz button.ok{border-color:var(--green);background:rgba(91,221,168,.15);color:var(--green)}
+#quiz button.no{border-color:var(--coral);background:rgba(255,124,135,.13);color:var(--coral)}
+#quiz button.off2{opacity:.32}
+#quiz .why{margin:15px 0 0;font-size:clamp(11.5px,1.15vw,15px);font-weight:300;color:#93A1B5;line-height:1.7;border-top:1px solid #1E2634;padding-top:12px}
+#quiz .why[hidden]{display:none}
+#quiz .why b{color:#C6D2E2;font-weight:500}
+#quiz .why em{font-style:normal;color:var(--green)}
+#quiz .why s{text-decoration:none;color:var(--coral)}
+#quiz .why i{font-style:normal;color:var(--blue)}
+
+#titleL{flex-direction:column}
+#titleL h1{font-size:clamp(25px,4.7vw,68px);font-weight:800;letter-spacing:-.045em;margin:0;line-height:1.07;text-align:center;text-shadow:0 0 70px rgba(84,169,247,.25)}
+#titleL p{font-size:clamp(12px,1.32vw,18px);color:var(--dim);font-weight:300;margin:2vh 0 0;letter-spacing:.05em;text-align:center;max-width:62ch}
+#titleL .act{font-family:var(--mono);font-size:clamp(11px,1.18vw,15px);color:var(--blue);letter-spacing:.28em;margin:0 0 2.2vh;text-transform:uppercase}
+#titleL .rule{width:60px;height:2px;background:var(--blue);margin:3.2vh auto 0;box-shadow:0 0 18px rgba(84,169,247,.7)}
+.fade{transition:opacity .6s ease;display:flex;flex-direction:column;align-items:center}
+.fade.off{opacity:0}
+
+.tok{display:inline-block;white-space:nowrap;padding:0 .06em}
+.tok.hl{color:var(--yellow);text-shadow:0 0 24px rgba(255,211,110,.5)}
+.tok.res{color:var(--green);text-shadow:0 0 24px rgba(91,221,168,.45)}
+.tok.ded{color:var(--coral);opacity:.5}
+
+#strip{position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 20px;z-index:6}
+#kps{display:flex;gap:3px;flex:1}
+.kpbar{display:flex;gap:2px;flex:1;position:relative;cursor:pointer}
+.pip{height:2px;flex:1;background:var(--edge);border-radius:2px;transition:background .4s}
+.pip.seen{background:#2E3B50}
+.pip.now{background:var(--blue);box-shadow:0 0 9px rgba(84,169,247,.85)}
+.pip.sum{background:#1D3A30} .pip.sum.seen{background:#2C5C4A}
+.pip.quiz{background:#3A3218} .pip.quiz.seen{background:#5C4E22}
+.kplbl{position:absolute;top:-15px;left:0;font-family:var(--canvas);font-size:8px;color:var(--dimmer);letter-spacing:.06em;white-space:nowrap;transition:color .3s}
+.kpbar.active .kplbl{color:var(--blue)}
+#hint{font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+#tc{position:fixed;top:18px;left:20px;font-family:var(--mono);font-size:10.5px;color:var(--dimmer);letter-spacing:.1em;text-decoration:none;pointer-events:auto}
+#tc:hover{color:var(--blue)}
+#tc[hidden]{display:none}
+#kbd{position:fixed;top:18px;right:20px;font-family:var(--canvas);font-size:10px;color:var(--dimmer);letter-spacing:.1em}
+.navbtn{position:fixed;top:0;bottom:44px;width:14%;background:none;border:0;cursor:pointer;opacity:0;z-index:4}
+#prev{left:0} #next{right:0}
+.navbtn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:-6px}
+
+.axline{stroke:#232C3C;stroke-width:1.4}
+.axlbl{fill:var(--dimmer);font-family:var(--canvas);font-size:13px}
+.pt{fill:var(--ink)}
+.pt.a{fill:var(--blue)} .pt.b{fill:var(--coral)} .pt.c{fill:var(--green)}
+.fit{stroke:var(--blue);stroke-width:3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(84,169,247,.5))}
+.fit.g{stroke:var(--green);filter:drop-shadow(0 0 9px rgba(91,221,168,.5))}
+.fit.r{stroke:var(--coral);filter:drop-shadow(0 0 9px rgba(255,124,135,.5))}
+.fit.y{stroke:var(--yellow);filter:drop-shadow(0 0 9px rgba(255,211,110,.5))}
+.guide{stroke:#2A3546;stroke-width:1.4;stroke-dasharray:4 5}
+.slbl{font-family:var(--canvas);font-size:clamp(12.5px,1.15vw,16.5px);fill:var(--dim)}
+/* 画布上没有图、文字本身就是内容时用这一档 —— 标签的 16.5px 是按
+   「贴在图元旁边」定的，拿来当正文在空画布上又小又散。 */
+.slbl.lg{font-size:clamp(15px,1.6vw,23px)}
+.slbl.g{fill:var(--green)} .slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)}
+.slbl.r{fill:var(--coral)} .slbl.v{fill:var(--violet)}
+.box{fill:#101724;stroke:#243044;stroke-width:1.4}
+.box.g{stroke:var(--green)} .box.y{stroke:var(--yellow)} .box.b{stroke:var(--blue)}
+.box.r{stroke:var(--coral)} .box.v{stroke:var(--violet)}
+.link{stroke:#2A3546;stroke-width:1.6;fill:none}
+.cellbg{fill:#101724;stroke:#1E2836;stroke-width:1}
+.cellbg.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:1.6}
+.cellbg.hl2{fill:#0E2A24;stroke:var(--green);stroke-width:1.6}
+.cellbg.hl3{fill:#3A1A1E;stroke:var(--coral);stroke-width:1.6}
+.celltx{font-family:var(--canvas);font-size:15px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+.celltx.d{fill:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+/* fix: 面板 .off 立即不可见 */
+#big.off,#cap.off,#eqBox.off,#titleBox.off,#sum.off,#quiz.off{visibility:hidden}
+
+/* ══ RL 图元包 ══ */
+
+/* #quiz 缺容器兜底。引擎里 #sum 有 max-height:90vh + overflow:auto，而 #quiz 两者都没有；
+   又因为 #quizL 是 align-items:center，一旦内容超高就**上下对称裁切** ——
+   最先看不见的是最底部的 .why，也就是那一拍的全部教学载荷（解析）。
+   这比 SUM 卡溢出更隐蔽：SUM 至少还能滚，QUIZ 是直接两头切掉。
+   选择器同为 (1,0,0)，本段注入在引擎样式之后，靠顺序取胜。 */
+#quiz{max-height:88vh;overflow:auto}
+.pt.b{fill:var(--coral)} .pt.c{fill:var(--green)} .pt.y{fill:var(--yellow)} .pt.v{fill:var(--violet)}
+.box.y{stroke:var(--yellow)} .box.v{stroke:var(--violet)} .box.b{stroke:var(--blue)}
+/* 层级只用颜色区分，字号一律沿用引擎的 .slbl 14px —— ML 版就是这么做的，
+   混用字号会让画面每次切换都「跳」一下。sm / big 是**兜底色**，不是字号。
+
+   顺序至关重要：sm/big/ink 必须排在语义色**之前**。三者特异度相同（0,2,0），
+   靠先后决胜 —— 上一版把它们写在后面，于是 note(txt,x,y,cls+" sm") 这类调用
+   （bars 第 187 行、errbar 第 303 行等，全片 15 处）的语义色被静默压成 --dim，
+   而深底上的暗灰标签看起来像正常标签，所以没人反馈。
+   「层级只靠颜色」这个正解，被为兼容它而保留的别名从内部取消掉了。
+   现在的顺序下：class="slbl y sm" → 黄（语义色在后，赢）；class="slbl sm" → 暗色。 */
+.slbl.ink{fill:var(--ink)} .slbl.sm{fill:var(--dim)} .slbl.big{fill:var(--ink)}
+/* 五个语义色必须**全部**在别名之后重新声明 —— 包括 g 与 r。
+   它们原本定义在 eng.txt 的基础样式里，而本段整体注入在基础样式之后，
+   所以只在本段内部调顺序是不够的：第一次修完，slbl.y.sm 变对了，
+   而 slbl.g.sm 仍被压成暗灰（实测 rgb(147,161,181)）—— 因为 .slbl.g 来自上游。 */
+.slbl.y{fill:var(--yellow)} .slbl.b{fill:var(--blue)} .slbl.v{fill:var(--violet)}
+.slbl.g{fill:var(--green)} .slbl.r{fill:var(--coral)}
+
+/* ── 动画铁律 ──────────────────────────────────────────────────────────
+   动画必须演示机制。看完一段动画，观众应当明白一件<b>之前不明白的事</b>。
+   不解释任何东西的动画（呼吸、脉冲环、无限循环的小车、行进虚线）一律不要——
+   它们只是视觉噪音，会盖过真正要看的东西。
+
+   因此这里没有 infinite 动画。每个动画都：
+     · 播一次就停在正确的终态；
+     · 终态本身携带完整信息（后台标签页暂停也不丢内容）；
+     · 有明确的「它在演示什么」的答案。
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes rl-slide{to{offset-distance:100%}}
+.tracer{animation:rl-slide var(--walk-dur,2.4s) ease-in-out 1 forwards;offset-rotate:0deg}
+.trail{stroke-dasharray:none}
+
+.arw{stroke:#3A4759;stroke-width:1.8;fill:none;marker-end:url(#ah)}
+.arw.g{stroke:var(--green);marker-end:url(#ah-g)}
+.arw.y{stroke:var(--yellow);marker-end:url(#ah-y)}
+.arw.r{stroke:var(--coral);marker-end:url(#ah-r)}
+.arw.b{stroke:var(--blue);marker-end:url(#ah-b)}
+.arw.v{stroke:var(--violet);marker-end:url(#ah-v)}
+.arw.dash{stroke-dasharray:5 4}
+
+.snode{fill:#101724;stroke:#2B3646;stroke-width:1.8}
+.snode.g{stroke:var(--green)} .snode.y{stroke:var(--yellow)}
+.snode.r{stroke:var(--coral)} .snode.b{stroke:var(--blue)} .snode.v{stroke:var(--violet)}
+.anode{fill:var(--dim);stroke:none}
+.anode.y{fill:var(--yellow)} .anode.g{fill:var(--green)} .anode.r{fill:var(--coral)}
+
+.gcell{fill:#0E1420;stroke:#1E2836;stroke-width:1.2}
+.gcell.wall{fill:#1B2230;stroke:#243044}
+.gcell.hl{fill:#2A2410;stroke:var(--yellow);stroke-width:2}
+.gcell.g{fill:#0E2A24;stroke:var(--green);stroke-width:2}
+.gcell.r{fill:#3A1A1E;stroke:var(--coral);stroke-width:2}
+.gcell.b{fill:#0E1F33;stroke:var(--blue);stroke-width:2}
+
+.vbar{fill:var(--blue);opacity:.85}
+.vbar.g{fill:var(--green)} .vbar.y{fill:var(--yellow)}
+.vbar.r{fill:var(--coral)} .vbar.v{fill:var(--violet)}
+
+.ebar{stroke:var(--dim);stroke-width:1.7;fill:none}
+.ebar.y{stroke:var(--yellow)} .ebar.g{stroke:var(--green)} .ebar.r{stroke:var(--coral)}
+
+.lamp{fill:#141B27;stroke:#28323F;stroke-width:1.6}
+.lamp.on{fill:#2A2410;stroke:var(--yellow);stroke-width:2.2}
+.lamp.off{fill:#141B27;stroke:#28323F;opacity:.45}
+.lamp.dead{fill:#2A1418;stroke:var(--coral);stroke-width:2}
+
+.tnode{fill:#101724;stroke:#2B3646;stroke-width:1.6}
+.tnode.hl{stroke:var(--yellow);stroke-width:2.2}
+.tnode.g{stroke:var(--green);stroke-width:2.2}
+.tedge{stroke:#2A3546;stroke-width:1.5;fill:none}
+.tedge.hl{stroke:var(--yellow);stroke-width:2.2}
+
+</style>
+
+<div id="stage"><div id="frame">
+  <svg id="scene" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="layer" id="titleL"><div class="fade" id="titleBox"></div></div>
+  <div class="layer"><div id="eqBox" class="off"></div></div>
+  <div class="layer"><div id="big" class="off"></div></div>
+  <div class="layer" id="capL"><div id="capWrap">
+    <div id="cap" class="off"></div><p id="narr" class="off"></p>
+  </div></div>
+  <div class="layer"><div id="sum" class="off" hidden></div></div>
+  <div class="layer" id="quizL"><div id="quiz" class="off" hidden></div></div>
+</div></div>
+
+<button class="navbtn" id="prev" aria-label="上一镜"></button>
+<button class="navbtn" id="next" aria-label="下一镜"></button>
+<a id="tc" href="#" target="_blank" rel="noopener">▶ 0:00</a>
+<div id="kbd">空格 推进 · ← 回退 · N 讲解</div>
+<div id="strip"><div id="kps"></div><span id="hint"></span></div>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["$$","$$"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+/* ════════════════ 引擎（无需改动） ════════════════ */
+(function(){
+"use strict";
+var W=1280,H=720,DUR=700,FAST=false;
+var svg=d3.select("#scene"),gS=svg.append("g"),gN=svg.append("g");
+function clearScene(){gS.selectAll("*").remove();gN.selectAll("*").remove();noTitle();}
+function note(t,x,y,c,a){var e=gN.append("text").attr("class","slbl "+(c||""))
+  .attr("x",x).attr("y",y).attr("text-anchor",a||"middle").text(t);
+  if(FAST)e.attr("opacity",1);else e.attr("opacity",0).transition().duration(470).delay(210).attr("opacity",1);}
+function dots(p,cls,r){var s=gS.selectAll(null).data(p).enter().append("circle")
+  .attr("class","pt "+(cls||"")).attr("cx",function(d){return d[0];}).attr("cy",function(d){return d[1];});
+  if(FAST)s.attr("r",r||7);else s.attr("r",0).transition().duration(DUR).delay(function(d,i){return i*35;}).attr("r",r||7);}
+function curve(pts,cls){var p=gS.append("path").attr("class",cls||"fit")
+  .attr("d","M"+pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join("L"));
+  if(!FAST&&p.node().getTotalLength){var L=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+     .transition().duration(900).attr("stroke-dashoffset",0);}}
+function fn(f,a,b,N){var p=[];for(var i=0;i<=N;i++){var t=i/N,x=a+(b-a)*t;p.push([x,f(x)]);}return p;}
+function boxNode(x,y,w,h,label,cls){
+  gS.append("rect").attr("class","box "+(cls||"")).attr("x",x).attr("y",y).attr("width",w).attr("height",h).attr("rx",8);
+  note(label,x+w/2,y+h/2+5,cls||"");}
+function link(x1,y1,x2,y2){gS.append("path").attr("class","link").attr("d","M"+x1+","+y1+"L"+x2+","+y2);}
+function matrix(o){
+  var cw=o.cw||80,ch=o.ch||42,R=o.rows,C=o.cols;
+  var x0=o.x!=null?o.x:(W-C*cw)/2,y0=o.y!=null?o.y:(H-R*ch)/2-30;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var hl=o.hl?o.hl(i,j):"";
+    var rc=gS.append("rect").attr("class","cellbg "+(hl||""))
+      .attr("x",x0+j*cw).attr("y",y0+i*ch).attr("width",cw-3).attr("height",ch-3).attr("rx",3);
+    var tx=gS.append("text").attr("class","celltx"+(o.dim&&o.dim(i,j)?" d":""))
+      .attr("x",x0+j*cw+(cw-3)/2).attr("y",y0+i*ch+(ch-3)/2).text(o.cell(i,j));
+    if(!FAST){var dl=(i*C+j)*18;rc.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);
+      tx.attr("opacity",0).transition().duration(360).delay(dl).attr("opacity",1);}}
+  if(o.label)note(o.label,x0+C*cw/2-1,y0-20,o.labelCls||"y");}
+function rng(s){return function(){s=(s*9301+49297)%233280;return s/233280;};}
+
+var big=document.getElementById("big"),cap=document.getElementById("cap"),
+    narrEl=document.getElementById("narr"),titleBox=document.getElementById("titleBox"),
+    sumEl=document.getElementById("sum"),quizEl=document.getElementById("quiz"),
+    eqBox=document.getElementById("eqBox");
+var narrOn=true,locked=false,eqT=null;
+function setCap(h){if(!h){cap.classList.add("off");cap.innerHTML="";return;}
+  cap.innerHTML=h;cap.classList.remove("off");}
+function setBig(v,s){if(v===null){big.classList.add("off");return;}
+  big.innerHTML=v+(s?"<small>"+s+"</small>":"");big.classList.remove("off");}
+/* 事故实录：setEq 的非 FAST 分支把写入推迟 150ms。连着翻镜时，上一镜那个
+   还没触发的 setTimeout 会在 showSum 的 setEq(null) 之后才落地，把刚清干净的
+   公式带重新填上 —— 总结卡上于是挂着上一镜的残留公式。
+   L01 实测镜 8/45/65/74、L02 实测镜 79，全是这么来的。
+   只有顺序翻才复现：从头 reload 直接跳到镜 8 是干净的，
+   所以之前那次「跳过去看一眼」的单镜抽查给出了假的「已修好」。
+   修法是把 pending 的定时器记下来，任何一次 setEq 先撤销它。 */
+function setEq(h,pos){if(eqT){clearTimeout(eqT);eqT=null;}
+  if(!h){eqBox.classList.add("off");eqBox.innerHTML="";return;}
+  var go=function(){eqT=null;eqBox.innerHTML=h;eqBox.className=pos||"";eqBox.classList.remove("off");
+    if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([eqBox]).catch(function(){});};
+  if(FAST){go();return;}eqBox.classList.add("off");eqT=setTimeout(go,150);}
+function flip(h){
+  if(FAST){eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");return;}
+  var b={};eqBox.querySelectorAll("[data-id]").forEach(function(e){b[e.dataset.id]=e.getBoundingClientRect();});
+  eqBox.innerHTML=h;eqBox.className="";eqBox.classList.remove("off");
+  if(!eqBox.animate)return;
+  eqBox.querySelectorAll("[data-id]").forEach(function(e){
+    var r=b[e.dataset.id];
+    if(r){var a=e.getBoundingClientRect(),dx=r.left-a.left,dy=r.top-a.top;
+      if(Math.abs(dx)>.5||Math.abs(dy)>.5)
+        e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+          {duration:780,easing:"cubic-bezier(.35,0,.15,1)"});}
+    else e.animate([{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],
+      {duration:520,delay:250,easing:"cubic-bezier(.3,.7,.3,1)",fill:"backwards"});});}
+function T(id,t,c){return '<span class="tok '+(c||"")+'" data-id="'+id+'">'+t+'</span>';}
+function setTitle(a,h,p){titleBox.classList.remove("off");
+  titleBox.innerHTML='<p class="act">'+(a||"")+'</p><h1>'+h+'</h1>'+(p?'<p>'+p+'</p>':'')+'<div class="rule"></div>';}
+function noTitle(){titleBox.classList.add("off");}
+function setNarr(t){if(!t||!narrOn){narrEl.hidden=true;return;}
+  narrEl.hidden=false;narrEl.innerHTML=t;narrEl.classList.remove("off");}
+function clearSum(){sumEl.hidden=true;sumEl.classList.add("off");sumEl.innerHTML="";}
+function showSum(kp,s){
+  /* 总结卡是整屏覆盖层，但它盖不住公式带的顶边：实测 eqBox 顶边 y≈46，
+     而 #sum 顶边 y≈94 —— 上一镜的公式会有约 48px 露在卡片上方。
+     showSum 原本完全不碰 eqBox，于是 135 张卡里有 5 张挂着上一镜的残留公式。
+     在这里清掉，比让每一集的最后一镜各自记得 setEq(null) 可靠。 */
+  setEq(null);
+  var ord=[["k","核心结论"],["m","底层机制"],["w","常见误解"],["e","与你的考试"]];
+  sumEl.innerHTML='<p class="sh">知识点 '+kp+' · 总结</p><h3>'+s.h+'</h3><div class="rows">'+
+    ord.filter(function(o){return s[o[0]];}).map(function(o){
+      return '<div class="row '+o[0]+'"><p class="rk">'+o[1]+'</p><p class="rv">'+s[o[0]]+'</p></div>';}).join("")+'</div>';
+  sumEl.hidden=false;void sumEl.offsetWidth;sumEl.classList.remove("off");}
+function clearQuiz(){quizEl.hidden=true;quizEl.classList.add("off");quizEl.innerHTML="";locked=false;}
+function askQ(kp,q){
+  if(FAST){clearQuiz();return;}
+  locked=true;
+  quizEl.innerHTML='<p class="qh">知识点 '+kp+' · 检验</p><p class="qq">'+q.t+'</p><div class="qo">'+
+    q.o.map(function(o,i){return '<button data-i="'+i+'">'+o+'</button>';}).join("")+
+    '</div><p class="why" hidden>'+q.w+'</p>';
+  quizEl.hidden=false;void quizEl.offsetWidth;quizEl.classList.remove("off");
+  var bs=[].slice.call(quizEl.querySelectorAll("button"));
+  bs.forEach(function(b,i){b.addEventListener("click",function(){
+    if(b.classList.contains("lk"))return;
+    bs.forEach(function(x,k){x.classList.add("lk");x.classList.add(k===q.a?"ok":(k===i?"no":"off2"));});
+    quizEl.querySelector(".why").hidden=false;locked=false;
+    document.getElementById("hint").textContent=(cur+1)+" / "+SHOTS.length+"  ·  空格继续";});});}
+
+var SHOTS=[],KPS=[];
+function S(t,fn,narr){SHOTS.push({t:t,enter:fn,n:narr});}
+function KP(name,build){var from=SHOTS.length;build();KPS.push({name:name,from:from,len:SHOTS.length-from});}
+function SUM(t,kp,s){SHOTS.push({t:t,sum:{kp:kp,s:s},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+function QUIZ(t,kp,q){SHOTS.push({t:t,quiz:{kp:kp,q:q},enter:function(){clearScene();setBig(null);setCap(null);setEq(null);noTitle();}});}
+
+/* 把引擎暴露给内容区 */
+function axes(P){gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.r).attr("y1",P.b).attr("y2",P.b);
+  gS.append("line").attr("class","axline").attr("x1",P.l).attr("x2",P.l).attr("y1",P.t).attr("y2",P.b);}
+window.__engine={gS:gS,gN:gN,DUR:DUR,isFast:function(){return FAST;},clearScene:clearScene,note:note,dots:dots,curve:curve,fn:fn,boxNode:boxNode,
+  link:link,matrix:matrix,rng:rng,axes:axes,setCap:setCap,setBig:setBig,setEq:setEq,flip:flip,T:T,
+  setTitle:setTitle,noTitle:noTitle,S:S,KP:KP,SUM:SUM,QUIZ:QUIZ,W:W,H:H};
+
+/* ════════════════ 放映机（无需改动） ════════════════ */
+function startProjector(CFG){
+  var cur=-1,kpsEl=document.getElementById("kps"),pipEls=[];
+  KPS.forEach(function(k){
+    var bar=document.createElement("div");bar.className="kpbar";
+    var lb=document.createElement("span");lb.className="kplbl";lb.textContent=k.name;bar.appendChild(lb);
+    for(var i=0;i<k.len;i++){var p=document.createElement("span"),sh=SHOTS[k.from+i];
+      p.className="pip"+(sh.sum?" sum":(sh.quiz?" quiz":""));bar.appendChild(p);pipEls[k.from+i]=p;}
+    bar.addEventListener("click",function(){go(k.from,true);});
+    kpsEl.appendChild(bar);});
+  function hhmmss(s){s=Math.round(s);var m=Math.floor(s/60);
+    return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+  var tcEl=document.getElementById("tc");
+  if(!CFG.video)tcEl.hidden=true;
+  function go(n,force){
+    n=Math.max(0,Math.min(SHOTS.length-1,n));
+    if(n===cur)return;
+    if(locked&&n>cur&&!force)return;
+    FAST=true;clearScene();
+    for(var i=0;i<n;i++){if(SHOTS[i].enter)SHOTS[i].enter();}
+    FAST=false;
+    cur=n;clearQuiz();clearSum();
+    var sh=SHOTS[n];
+    noTitle();clearScene();setBig(null);setEq(null);setCap(null);
+    if(sh.enter)sh.enter();
+    setNarr(sh.n);
+    if(sh.sum){setNarr(null);showSum(sh.sum.kp,sh.sum.s);}
+    if(sh.quiz){setNarr(null);askQ(sh.quiz.kp,sh.quiz.q);}
+    pipEls.forEach(function(p,i){if(!p)return;
+      var base="pip"+(SHOTS[i].sum?" sum":(SHOTS[i].quiz?" quiz":""));
+      p.className=base+(i===n?" now":(i<n?" seen":""));});
+    var ki=0;KPS.forEach(function(k,j){if(n>=k.from)ki=j;});
+    [].slice.call(kpsEl.children).forEach(function(b,j){b.classList.toggle("active",j===ki);});
+    document.getElementById("hint").textContent=(n+1)+" / "+SHOTS.length+(sh.quiz?"  ·  先回答":"");
+    if(CFG.video){tcEl.textContent="▶ "+hhmmss(sh.t||0);tcEl.href=CFG.video+Math.round(sh.t||0)+"s";}}
+  window.__go=go;window.__n=SHOTS.length;window.__kps=KPS;
+  document.getElementById("next").addEventListener("click",function(){go(cur+1);});
+  document.getElementById("prev").addEventListener("click",function(){go(cur-1,true);});
+  window.addEventListener("keydown",function(e){
+    if(e.key===" "||e.key==="ArrowRight"||e.key==="ArrowDown"||e.key==="Enter"){e.preventDefault();go(cur+1);}
+    else if(e.key==="ArrowLeft"||e.key==="ArrowUp"||e.key==="Backspace"){e.preventDefault();go(cur-1,true);}
+    else if(e.key==="Home"){e.preventDefault();go(0,true);}
+    else if(e.key>="1"&&e.key<="9"){var k=KPS[+e.key-1];if(k){e.preventDefault();go(k.from,true);}}
+    else if(e.key==="n"||e.key==="N"){e.preventDefault();narrOn=!narrOn;
+      var sh=SHOTS[cur];setNarr(sh&&!sh.sum&&!sh.quiz?sh.n:null);
+      document.getElementById("kbd").textContent="空格 推进 · ← 回退 · N "+(narrOn?"讲解":"显示讲解");}});
+  go(0);
+}
+window.__startProjector=startProjector;
+})();
+</script>
+
+
+<script>
+
+/* ══════════════ RL 图元包（在 __engine 之上扩展，不改原引擎） ══════════════ */
+(function(){
+var E=window.__engine, gS=E.gS, gN=E.gN, DUR=E.DUR, W=E.W, H=E.H;
+var note=E.note;
+function fast(){return E.isFast();}
+function fadeIn(sel,delay){
+  if(fast()){sel.attr("opacity",1);return sel;}
+  return sel.attr("opacity",0).transition().duration(420).delay(delay||0).attr("opacity",1);
+}
+
+/* 箭头标记（各色一份），只建一次 */
+(function(){
+  var svg=d3.select("#scene");
+  if(!svg.select("defs#rlmk").empty())return;
+  var defs=svg.append("defs").attr("id","rlmk");
+  var cols={"ah":"#3A4759","ah-g":"#5BDDA8","ah-y":"#FFD36E",
+            "ah-r":"#FF7C87","ah-b":"#54A9F7","ah-v":"#B48BF5"};
+  Object.keys(cols).forEach(function(id){
+    defs.append("marker").attr("id",id).attr("viewBox","0 0 10 10")
+      .attr("refX",9).attr("refY",5).attr("markerWidth",6).attr("markerHeight",6)
+      .attr("orient","auto")
+      .append("path").attr("d","M0,0.6L10,5L0,9.4z").attr("fill",cols[id]);
+  });
+})();
+
+/* ── arrow ── */
+function arrow(x1,y1,x2,y2,cls,bend){
+  var d;
+  if(bend){
+    var mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,L=Math.sqrt(dx*dx+dy*dy)||1;
+    d="M"+x1+","+y1+"Q"+(mx-dy/L*bend)+","+(my+dx/L*bend)+" "+x2+","+y2;
+  } else d="M"+x1+","+y1+"L"+x2+","+y2;
+  var p=gS.append("path").attr("class","arw "+(cls||"")).attr("d",d);
+  if(!fast()&&p.node().getTotalLength){
+    var L2=p.node().getTotalLength();
+    p.attr("stroke-dasharray",L2+" "+L2).attr("stroke-dashoffset",L2)
+     .transition().duration(520).attr("stroke-dashoffset",0);
+  }
+  return p;
+}
+
+/* ── mdpChain ──
+   o={n,x,y,r,gap,w, label:fn(i), lcls:fn(i), cls:fn(i), rew:fn(i),
+      arcs:[[from,to,label,cls,bend]]} */
+function mdpChain(o){
+  var n=o.n, r=o.r||30, gap=o.gap||((o.w||900)/(n-1)),
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||300, pos=[];
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap; pos.push([cx,y]);
+    var c=gS.append("circle").attr("class","snode "+((o.cls&&o.cls(i))||""))
+      .attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*55);
+    if(o.label)note(o.label(i),cx,y+5,(o.lcls&&o.lcls(i))||"ink");
+    if(o.rew&&o.rew(i)!=null)note(o.rew(i),cx,y-r-14,"y");
+  }
+  (o.arcs||[]).forEach(function(a){
+    var A=pos[a[0]],B=pos[a[1]],sgn=B[0]>=A[0]?1:-1,bend=a[4]||0;
+    arrow(A[0]+sgn*r,A[1],B[0]-sgn*r,B[1],a[3]||"",bend);
+    /* 事故实录：这里原来是 Math.abs(bend)，把弧的方向丢掉了。两个后果都实测到过：
+       (1) L02 KP1 的 A⇄B 来回弧，两个「1.0」标签落在同一个像素框 (627,255)-(653,273)；
+       (2) L02 KP2 的 bend=-84 让弧向下弯，标签却仍算在上方，离自己的弧 100px。
+       arrow 的控制点 y = my+(dx/L)*bend，故弧顶 y = A[1]+sgn*bend/2；标签跟着弧顶走。 */
+    if(a[2]){
+      var eff=sgn*bend, ay=A[1]+eff/2;
+      note(a[2],(A[0]+B[0])/2, bend?(eff<0?ay-12:ay+20):A[1]-16, a[3]||"");
+    }
+  });
+  return pos;
+}
+
+/* ── bars ──
+   o={vals:[],x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v)} */
+function bars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62, mx=o.max;
+  if(mx==null){
+    mx=0; for(var q=0;q<n;q++) if(Math.abs(v[q])>mx) mx=Math.abs(v[q]);
+  }
+  if(!mx)mx=1;
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var hh=Math.abs(v[i])/mx*h, cx=x0+i*gap+gap/2;
+    var b=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    if(fast())b.attr("y",y0-hh).attr("height",hh);
+    else b.attr("y",y0).attr("height",0).transition().duration(DUR).delay(i*45)
+          .attr("y",y0-hh).attr("height",hh);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+    note(o.fmt?o.fmt(v[i]):(Math.round(v[i]*100)/100),
+         cx,y0-hh-9,((o.cls&&o.cls(i))||"")+" sm");
+  }
+}
+
+/* ── gridworld ──
+   o={rows,cols,x,y,cs, val:fn(i,j), pol:fn(i,j)->"u|d|l|r",
+      cls:fn(i,j), wall:fn(i,j), tag:fn(i,j)} */
+function gridworld(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    var isW=o.wall&&o.wall(i,j);
+    var cl=isW?"wall":((o.cls&&o.cls(i,j))||"");
+    var rc=gS.append("rect").attr("class","gcell "+cl)
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    fadeIn(rc,(i*C+j)*16);
+    if(isW)continue;
+    var cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2;
+    if(o.val&&o.val(i,j)!=null)note(o.val(i,j),cx,cy+5,((o.cls&&o.cls(i,j))||"ink"));
+    if(o.tag&&o.tag(i,j))note(o.tag(i,j),x0+j*cs+7,y0+i*cs+15,"sm","start");
+    if(o.pol&&o.pol(i,j)){
+      var d=o.pol(i,j),L=cs*0.26,
+          dx=d==="l"?-L:d==="r"?L:0, dy=d==="u"?-L:d==="d"?L:0,
+          off=o.val?16:0;
+      arrow(cx-dx*0.5,cy-dy*0.5+off,cx+dx*0.9,cy+dy*0.9+off,"y");
+    }
+  }
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── backup：Sutton&Barto 回溯图 ──
+   o={x,y,dy,spread,r, levels:["s","a","s"], branch:[1,2], labels:[], hl:[]} */
+function backup(o){
+  var x=o.x!=null?o.x:W/2, y=o.y!=null?o.y:150, dy=o.dy||105, r=o.r||20,
+      lv=o.levels, br=o.branch||[], hl=o.hl||[], lab=o.labels||[], cur=[[x,y]];
+  for(var k=0;k<lv.length;k++){
+    var kind=lv[k], isHL=hl.indexOf(k)>=0, next=[];
+    (function(kind,isHL,k){
+      cur.forEach(function(p,pi){
+        var c;
+        if(kind==="s")
+          c=gS.append("circle").attr("class","snode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r);
+        else
+          c=gS.append("circle").attr("class","anode "+(isHL?"y":""))
+             .attr("cx",p[0]).attr("cy",p[1]).attr("r",r*0.42);
+        fadeIn(c,k*90);
+        if(lab[k]&&pi===0)note(lab[k],p[0]-r-12,p[1]+5,isHL?"y":"","end");
+      });
+    })(kind,isHL,k);
+    if(k<lv.length-1){
+      var b=br[k]||1, spread=(o.spread||150)/Math.pow(1.7,k);
+      cur.forEach(function(p){
+        for(var m=0;m<b;m++){
+          var nx=p[0]+(b===1?0:(m-(b-1)/2)*spread), ny=p[1]+dy;
+          gS.append("path").attr("class","tedge").attr("d","M"+p[0]+","+p[1]+"L"+nx+","+ny);
+          next.push([nx,ny]);
+        }
+      });
+      cur=next;
+    }
+  }
+}
+
+/* ── tree：upto 控制画到第几个节点 ──
+   o={nodes:[{id,parent,x,y,label,sub,cls}], upto, r} */
+function tree(o){
+  var r=o.r||24, N=o.nodes, up=o.upto!=null?o.upto:N.length, pos={};
+  N.forEach(function(nd){ pos[nd.id]=[nd.x,nd.y]; });
+  N.forEach(function(nd,i){
+    if(i>=up)return;
+    if(nd.parent!=null&&pos[nd.parent]){
+      var p=pos[nd.parent];
+      var e=gS.append("path").attr("class","tedge "+(nd.cls==="hl"?"hl":""))
+        .attr("d","M"+p[0]+","+p[1]+"L"+nd.x+","+nd.y);
+      if(!fast()&&e.node().getTotalLength){
+        var L=e.node().getTotalLength();
+        e.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+         .transition().duration(380).delay(i*70).attr("stroke-dashoffset",0);
+      }
+    }
+    var c=gS.append("circle").attr("class","tnode "+(nd.cls||""))
+      .attr("cx",nd.x).attr("cy",nd.y).attr("r",r);
+    fadeIn(c,i*70);
+    if(nd.label)note(nd.label,nd.x,nd.y+5,"ink");
+    if(nd.sub)note(nd.sub,nd.x,nd.y+r+15,"sm");
+  });
+}
+
+/* ── errbar ──
+   o={items:[{label,mean,lo,hi,cls,tag}], x,y,w,h, ymin,ymax} */
+function errbar(o){
+  var it=o.items,n=it.length,
+      x0=o.x!=null?o.x:240, y0=o.y!=null?o.y:180,
+      w=o.w||800, h=o.h||300, gap=w/n, lo=o.ymin, hi=o.ymax;
+  if(lo==null){lo=it[0].lo; it.forEach(function(d){if(d.lo<lo)lo=d.lo;});}
+  if(hi==null){hi=it[0].hi; it.forEach(function(d){if(d.hi>hi)hi=d.hi;});}
+  var span=(hi-lo)||1, Y=function(v){return y0+h-(v-lo)/span*h;};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0+h).attr("y2",y0+h);
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0).attr("y1",y0).attr("y2",y0+h);
+  it.forEach(function(d,i){
+    var cx=x0+i*gap+gap/2, cl=d.cls||"", cap=13;
+    var g=gS.append("g"); fadeIn(g,i*90);
+    g.append("path").attr("class","ebar "+cl).attr("d",
+      "M"+(cx-cap)+","+Y(d.hi)+"H"+(cx+cap)+
+      "M"+cx+","+Y(d.hi)+"V"+Y(d.lo)+
+      "M"+(cx-cap)+","+Y(d.lo)+"H"+(cx+cap));
+    g.append("circle")
+      .attr("class","pt "+(cl==="y"?"y":cl==="g"?"c":cl==="r"?"b":"a"))
+      .attr("cx",cx).attr("cy",Y(d.mean)).attr("r",6);
+    note(d.label,cx,y0+h+22,"sm");
+    if(d.tag)note(d.tag,cx,Y(d.hi)-12,cl+" sm");
+  });
+  return {Y:Y,x0:x0,w:w};
+}
+
+/* ── lamps ──
+   o={items:[{label,sub,state:"on|off|dead"}], x,y,r,gap, caption} */
+function lamps(o){
+  var it=o.items,n=it.length,gap=o.gap||210,
+      x0=o.x!=null?o.x:(W-(n-1)*gap)/2, y=o.y||210, r=o.r||34;
+  it.forEach(function(d,i){
+    var cx=x0+i*gap, st=d.state||"off";
+    var c=gS.append("circle").attr("class","lamp "+st).attr("cx",cx).attr("cy",y).attr("r",r);
+    fadeIn(c,i*80);
+    note(st==="dead"?"✕":(st==="on"?"✓":"—"),cx,y+7,
+         st==="dead"?"r":(st==="on"?"y":""));
+    note(d.label,cx,y+r+22,st==="on"?"y":(st==="dead"?"r":"sm"));
+    if(d.sub)note(d.sub,cx,y+r+40,"sm");
+  });
+  if(o.caption)note(o.caption,W/2,y+r+82,"ink big");
+}
+
+/* ═══════════ 演示机制的动画 ═══════════
+   每个函数下面都写了「它在演示什么」。写不出这一句的动画不要写。
+   全部播一次即停在正确终态，不循环。 */
+
+/* ── trace ──
+   演示什么：智能体<b>沿这条路走了一趟</b>，走过的地方留下痕迹。
+   用于：策略的轨迹、示范轨迹与偏移轨迹的对比。
+   o={pts:[[x,y]..], dur, cls, r, label, trail:true} */
+function trace(o){
+  var pts=o.pts, d="M"+pts[0][0]+","+pts[0][1];
+  for(var i=1;i<pts.length;i++)d+="L"+pts[i][0]+","+pts[i][1];
+  if(o.trail!==false){
+    var tp=gS.append("path").attr("class","arw "+(o.cls||"y")+" trail")
+      .attr("d",d).attr("marker-end",null);
+    if(!fast()&&tp.node().getTotalLength){
+      var L=tp.node().getTotalLength();
+      tp.attr("stroke-dasharray",L+" "+L).attr("stroke-dashoffset",L)
+        .transition().duration((o.dur||2.4)*1000).ease(d3.easeSinInOut)
+        .attr("stroke-dashoffset",0);
+    }
+  }
+  var g=gS.append("g").attr("class","tracer")
+    .style("offset-path",'path("'+d+'")')
+    .style("--walk-dur",(o.dur||2.4)+"s");
+  g.append("circle").attr("class","snode "+(o.cls||"y"))
+    .attr("cx",0).attr("cy",0).attr("r",o.r||13);
+  if(o.label)g.append("text").attr("class","slbl ink")
+    .attr("x",0).attr("y",4).attr("text-anchor","middle").text(o.label);
+  return g;
+}
+
+/* ── morphBars ──
+   演示什么：参数一变，<b>每根柱子怎么随之变化</b>——谁涨谁跌、谁反超谁。
+   用于：γ 从一个值变到另一个值时值函数的重排。柱子从 from 高度<b>过渡到</b> to 高度，
+   数字同步滚动，所以「反超」这件事是看得见的，而不是两张静态图。
+   o={from:[], to:[], x,y,w,h,max, label:fn(i), cls:fn(i), fmt:fn(v), dur} */
+function morphBars(o){
+  var A=o.from, B=o.to, n=B.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, dur=(o.dur||1400);
+  if(mx==null){mx=0;B.forEach(function(v){if(Math.abs(v)>mx)mx=Math.abs(v);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(v){return (Math.round(v*100)/100).toString();};
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    (function(i){
+      var cx=x0+i*gap+gap/2,
+          hA=Math.abs(A[i])/mx*h, hB=Math.abs(B[i])/mx*h;
+      var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx-bw/2).attr("width",bw).attr("rx",3)
+        .attr("y",y0-hA).attr("height",hA);
+      var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(i))||""))
+        .attr("x",cx).attr("text-anchor","middle").attr("y",y0-hA-9).text(fmt(A[i]));
+      if(o.label)note(o.label(i),cx,y0+22,"sm");
+      if(fast()){bar.attr("y",y0-hB).attr("height",hB);txt.attr("y",y0-hB-9).text(fmt(B[i]));return;}
+      bar.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB).attr("height",hB);
+      txt.transition().duration(dur).ease(d3.easeCubicInOut)
+         .attr("y",y0-hB-9)
+         .tween("t",function(){var iv=d3.interpolateNumber(A[i],B[i]),self=this;
+           return function(t){self.textContent=fmt(iv(t));};});
+    })(i);
+  }
+}
+
+/* ── fillBars ──
+   演示什么：动态规划的<b>回代顺序</b>——每个值都要等它右边那个算完才能算。
+   用于：Bellman 一致性方程从终点向起点回代。柱子按 order 依次出现，一次。
+   o={vals:[], order:[下标顺序], x,y,w,h,max, label, cls, fmt, step:每步毫秒} */
+function fillBars(o){
+  var v=o.vals,n=v.length,
+      x0=o.x!=null?o.x:200, y0=o.y!=null?o.y:460,
+      w=o.w||880, h=o.h||210, gap=w/n, bw=gap*0.62,
+      mx=o.max, step=o.step||260;
+  if(mx==null){mx=0;v.forEach(function(q){if(Math.abs(q)>mx)mx=Math.abs(q);});}
+  if(!mx)mx=1;
+  var fmt=o.fmt||function(q){return (Math.round(q*100)/100).toString();};
+  var order=o.order;
+  if(!order){order=[];for(var k=n-1;k>=0;k--)order.push(k);}  // 默认从右往左
+  gS.append("line").attr("class","axline")
+    .attr("x1",x0).attr("x2",x0+w).attr("y1",y0).attr("y2",y0);
+  for(var i=0;i<n;i++){
+    var cx=x0+i*gap+gap/2;
+    gS.append("rect").attr("class","gcell")
+      .attr("x",cx-bw/2).attr("y",y0-h).attr("width",bw).attr("height",h)
+      .attr("rx",3).attr("opacity",.16);
+    if(o.label)note(o.label(i),cx,y0+22,"sm");
+  }
+  order.forEach(function(idx,rank){
+    var cx=x0+idx*gap+gap/2, hh=Math.abs(v[idx])/mx*h,
+        delay=fast()?0:rank*step;
+    var bar=gS.append("rect").attr("class","vbar "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx-bw/2).attr("width",bw).attr("rx",3);
+    var txt=gN.append("text").attr("class","slbl "+((o.cls&&o.cls(idx))||""))
+      .attr("x",cx).attr("y",y0-hh-9).attr("text-anchor","middle").text(fmt(v[idx]));
+    if(fast()){bar.attr("y",y0-hh).attr("height",hh);return;}
+    bar.attr("y",y0).attr("height",0).transition().duration(320).delay(delay)
+       .attr("y",y0-hh).attr("height",hh);
+    txt.attr("opacity",0).transition().duration(320).delay(delay).attr("opacity",1);
+  });
+}
+
+/* ── sweepGrid ──
+   演示什么：值迭代时信息<b>从目标格向外一圈圈扩散</b>的顺序。
+   用于：格子世界的一轮扫描。格子按 order 依次点亮并写入值，一次。
+   o={rows,cols,x,y,cs, val:fn(i,j), order:[[i,j]..], cls:fn(i,j), step} */
+function sweepGrid(o){
+  var R=o.rows,C=o.cols,cs=o.cs||88,
+      x0=o.x!=null?o.x:(W-C*cs)/2, y0=o.y!=null?o.y:150, step=o.step||190;
+  for(var i=0;i<R;i++)for(var j=0;j<C;j++){
+    gS.append("rect").attr("class","gcell")
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+  }
+  (o.order||[]).forEach(function(ij,rank){
+    var i=ij[0], j=ij[1],
+        cx=x0+j*cs+(cs-4)/2, cy=y0+i*cs+(cs-4)/2,
+        delay=fast()?0:rank*step;
+    var rc=gS.append("rect").attr("class","gcell "+((o.cls&&o.cls(i,j))||"hl"))
+      .attr("x",x0+j*cs).attr("y",y0+i*cs)
+      .attr("width",cs-4).attr("height",cs-4).attr("rx",5);
+    var tx=gN.append("text").attr("class","slbl ink")
+      .attr("x",cx).attr("y",cy+5).attr("text-anchor","middle")
+      .text(o.val?o.val(i,j):"");
+    if(fast())return;
+    rc.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+    tx.attr("opacity",0).transition().duration(300).delay(delay).attr("opacity",1);
+  });
+  return {x0:x0,y0:y0,cs:cs,
+          cx:function(j){return x0+j*cs+(cs-4)/2;},
+          cy:function(i){return y0+i*cs+(cs-4)/2;}};
+}
+
+/* ── reveal ──
+   演示什么：一组元素之间的<b>因果或时间顺序</b>（先有这个，才有那个）。
+   用于：信用分配里奖励回传的路径、推导步骤的先后。
+   sel 是 d3 选择集，按数据顺序依次淡入，一次。 */
+function reveal(sel,step){
+  if(fast())return sel.attr("opacity",1);
+  return sel.attr("opacity",0).transition().duration(340)
+            .delay(function(d,i){return i*(step||240);}).attr("opacity",1);
+}
+
+E.arrow=arrow; E.mdpChain=mdpChain; E.bars=bars; E.gridworld=gridworld;
+E.backup=backup; E.tree=tree; E.errbar=errbar; E.lamps=lamps;
+E.trace=trace; E.morphBars=morphBars; E.fillBars=fillBars;
+E.sweepGrid=sweepGrid; E.reveal=reveal;
+})();
+
+</script>
+<script>
+(function(){
+var E=window.__engine;
+var S=E.S,KP=E.KP,SUM=E.SUM,QUIZ=E.QUIZ,W=E.W,H=E.H,rng=E.rng;
+var clearScene=E.clearScene,setTitle=E.setTitle,setBig=E.setBig,setCap=E.setCap,
+    setEq=E.setEq,flip=E.flip,T=E.T,note=E.note,dots=E.dots,curve=E.curve,fn=E.fn,
+    boxNode=E.boxNode,link=E.link,matrix=E.matrix,axes=E.axes,noTitle=E.noTitle;
+var arrow=E.arrow,mdpChain=E.mdpChain,bars=E.bars,gridworld=E.gridworld,
+    backup=E.backup,tree=E.tree,errbar=E.errbar,lamps=E.lamps;
+var trace=E.trace,morphBars=E.morphBars,fillBars=E.fillBars,
+    sweepGrid=E.sweepGrid,reveal=E.reveal;
+var CFG={
+  title:"算法篇 ③ · 先问「最好能有多好」：线性松弛与分支定界",
+  subtitle:"6 个知识点 · 对应 Solving Algorithms 模块 3 · 每集六拍：钩子 → 错误答案 → 铺陈 → 主体 → 反驳 → 检验 · 空格推进 · N 开关讲解",
+  video:""
+};
+
+
+// ══ 本片的内容权威与边界 ══
+//
+// 对应课程：Coursera《Solving Algorithms for Discrete Optimization》
+//   模块 3「Mixed Integer Programming」（Stuckey & Jimmy Ho Man Lee）。
+//
+// ⚠⚠ 本片没有照搬课程视频，也没有用课程字幕（在 Coursera 登录墙后，属版权材料）。
+//   中文讲解是另写的。技术内容对齐**公开的 MiniZinc 手册与公开发表的论文**：
+//
+//   · MiniZinc 手册 **3.5 Solving Technologies and Solver Backends**
+//     （3.5.1 Constraint Programming Solvers：Gecode / Chuffed / OR-Tools；
+//       3.5.2 Mixed-Integer Programming Solvers，下含
+//       3.5.2.1 MIP-Aware Modeling · 3.5.2.2 Useful Flattening Parameters ·
+//       3.5.2.4 Subtour Elimination Constraints · 3.5.2.5 Unified Domains ·
+//       3.5.2.6 Indicator Constraints · 3.5.2.7 MIQCP ·
+//       3.5.2.8 Pools of User Cuts and Lazy Constraints · 3.5.2.9 Warm Starts）。
+//     2026-11-18 抓页核实（手册 2.11.0）。
+//     ⚠ 这一节里 **simplex 一次都没出现**，所以单纯形那一集只讲几何事实，
+//       不往手册上挂章节号。
+//     ⚠ 手册自己在 3.5.2.1 给了 big-M 的警告与改写建议，并且有一行注释
+//       直接写着「…for a stronger LP relaxation」—— 第 4 集用的就是这个点。
+//     ⚠ 3.5.2.6 还点明：指示约束数值更稳，但**对有合理 big-M 界的具体化比较反而更差**。
+//
+//   · Land & Doig，"An automatic method of solving discrete programming problems"，
+//     **Econometrica 28(3):497–520 (1960 年 7 月)** —— 分支定界的出处。
+//     ⚠ 卷期页码取自多处书目记录（含 LSE 为 Ailsa Land 写的纪念文），未读原刊页。
+//
+//   · Gomory，"Outline of an algorithm for integer solutions to linear programs"，
+//     **Bulletin of the AMS 64(5):275–278 (1958)**，doi:10.1090/S0002-9904-1958-10224-4
+//     —— 割平面的出处。⚠ AMS 页面有机器人验证挡住，未亲读；多处书目记录一致。
+//
+//   · Klee & Minty，"How good is the simplex algorithm?"（收于 Inequalities III）——
+//     单纯形最坏情况指数的扰动立方体。⚠ **出版年与页码未核实**（检索给的年份
+//     在 1972 与 1973 之间不一致），片中只说事实、只提作者，不标卷页。
+//
+// ⚠ 片中每一个数字都是自己写脚本算出来的，而且用的是**精确分数**不是浮点：
+//   · 背包（容量 12，六件物品，与 L10 同一个例子）：
+//     LP 松弛 = 160/7 ≈ 22.857，整数最优 22，整数间隙 6/7 ≈ 0.857（相对 3.9%）；
+//     分支定界用 LP 界剪：**99 → 29 个节点**（少走 71%）。
+//   · 固定费用模型（max 5x−20y, x≤10, x≤M·y, y∈{0,1}）：
+//     **四个 M 的整数可行集逐点相同**，而 LP 松弛分别是
+//     M=10 → 30（间隙 0）· M=100 → 48 · M=1000 → 49.8 · M=10^6 → 50（整数最优 30）。
+//   · 一台机器上的互斥任务（析取用 big-M 展开）：10 个任务各 6 分钟，
+//     真正的最短工期 60，而 LP 松弛取 y=1/2 让两条 big-M 同时放松 ⇒ 界只有 6，
+//     **低估 90%**；任务数 2/3/5/10 对应低估 42%/56%/80%/90%。
+//
+// ⚠⚠ 这一讲**改掉过一个我自己写错的例子**，记在这里免得后人重蹈：
+//   初稿拿**鸽笼**当「MIP 的弱项」举例，说「LP 松弛完全可行，界给不出信息」。
+//   **那是错的。** 鸽笼的分配型 LP 一步就判出不可行：
+//   行约束给出「所有 x 之和 = n+1」，列约束给出「所有 x 之和 ≤ n」，
+//   两式相加就是 n+1 ≤ n，假。**鸽笼的 LP 松弛极强，不是极弱。**
+//   （难倒 resolution 的是鸽笼，那是证明系统的事，和这个 LP 松弛是两回事，别混。）
+//   换成了上面那个析取调度的例子 —— 它是真的，而且和第 4 集的 big-M 是同一个病根。
+
+
+KP("开场",function(){
+  S(0,function(){
+      clearScene();setEq(null);setBig(null);setCap(null);
+      setTitle("Solving Algorithms · 模块 3","线性松弛与分支定界",
+      "另一条合法地砍搜索空间的路 —— 这次靠「界」");
+    },"前三讲里砍搜索空间的凭据分别是：<b>模型的结构</b>（L09 对称与支配）、<b>传播</b>（L10）、<b>从冲突学</b>（L11）。  这一讲是第四种，而且它和前三种都不一样：<b>先算出「最好能有多好」，再把好不过这个数的路一口气全剪掉</b>。  ⚠ 注意这里的差别，它是整讲的轴：前三种剪的是「这条路<em>走不通</em>」，这一种剪的是「这条路<em>走得通，但再好也好不过我手上这个</em>」。  路线：<b>松弛与界</b>（1）→ <b>LP 为什么好解</b>（2）→ <b>分支定界</b>（3）→ <b>界的紧度取决于模型怎么写</b>（4）→ <b>割平面</b>（5）→ <b>MIP 还是 CP</b>（6）。  ⚠ 片中的数全是自己写脚本算的，而且用**精确分数**不是浮点 —— 这一讲满屏都是 22.857 这种数，用浮点会在讲「间隙」的时候把人绕晕。");
+});
+
+KP("1 · 松弛：扔掉「整数」，换来一个<b>可以信赖的界</b>　<small>模块 3</small>",function(){
+  /* 钩子 */
+  S(100,function(){
+      clearScene();setBig(null);setEq(null);
+      axes({l:300,r:980,t:200,b:320});
+      dots([[620,320]],"c",15);
+      dots([[860,320]],"b",15);
+      link(620,240,620,320);link(860,240,860,320);
+      note("整数最优 22",620,224,"g");
+      note("松弛最优 22.857",860,224,"b");
+      note("中间这 0.857，就是这一讲的全部内容",640,372,"y");
+      setCap("把「必须是整数」这条扔掉重算，答案从 <b>22</b> 变成 <b>160/7 ≈ 22.857</b>。");
+    },"还用 L10 那个背包：容量 12，六件物品 a(3,7) b(4,5) c(5,9) d(6,4) e(2,3) f(7,12)。L10 跑出来整数最优是 <b>22</b>，选 a、e、f。  现在做一件看起来很荒唐的事：<b>把「每件物品只能整件拿或不拿」这条约束扔掉</b>，允许切一半。再算一次最优。  答案是 <b>160/7，大约 22.857</b>。  这个数<em>显然不是答案</em> —— 它对应的方案要把 f 切成 4/7 件。那算它干什么？  <b>这一讲就在回答这个问题。</b>");
+  /* 错误答案 */
+  S(112,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["松弛解","a + c + 4/7 的 f","值 22.857"],
+      ["向上取整","a + c + 整个 f","重量 15 > 12，装不下"],
+      ["向下取整","a + c","值 16，离 22 差得远"]];
+      matrix({rows:3,cols:3,cw:270,ch:56,x:235,y:180,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return i===1&&j===2?"hl3":(i===2&&j===2?"hl3":"");},
+      label:"把分数解圆成整数，两条路都不通"});
+      setCap("向上<b>装不下</b>，向下<b>差太远</b>。松弛解<s>不能当解用</s>。");
+    },"最自然的想法：既然松弛解是分数的，那<b>四舍五入</b>一下不就行了。  试试看。松弛解是 a 整件、c 整件、f 切 4/7。  <b>向上取整</b>：a + c + 整个 f，重量 3+5+7 = <b>15</b>，容量只有 12 —— <s>装不下</s>。  <b>向下取整</b>：a + c，值 7+9 = <b>16</b>。可行，但离真最优 22 <s>差了一大截</s>。  而且注意真最优是 a、e、f，<b>里面根本没有 c</b> —— 松弛解和整数解<em>连选哪几件都不一样</em>，不是「差一点点」的关系。  所以松弛解不能当解用。那它到底有什么用？");
+  /* 铺陈 */
+  S(124,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[360,340],[360,200],[560,170],[720,250],[620,340],[360,340]],"fit b");
+      dots([[420,310],[480,290],[540,250],[470,230],[560,310],[600,280]],"c",11);
+      note("整数可行点：只有这几个",470,372,"g");
+      note("松弛的可行域：整片区域",760,200,"b","start");
+      note("整数点全在里面 ⇒ 最优只会更高，不会更低",760,236,"y","start");
+      setCap("松弛<b>只放大，不缩小</b>。所以松弛最优 <b>一定不差于</b> 整数最优。");
+    },"把这件事画出来就清楚了。  原问题的可行点是<b>一堆孤立的整数点</b>（绿点）。松弛之后，可行域变成<b>包着它们的一整片连续区域</b>（蓝线围的）。  关键在于这是个<b>只放大、不缩小</b>的操作：<b>每一个整数可行点，在松弛之后仍然可行</b>。  于是有一个免费的结论：在更大的集合上求最大值，<b>结果一定不小于</b>在子集上求的。也就是 ——  <b>松弛最优 ≥ 整数最优。</b>永远成立，不用验算。  这个「≥」就是整讲的地基。它把一个<em>算不出来的数</em>（整数最优），换成了一个<em>算得出来的上界</em>。");
+  /* 主体 */
+  S(136,function(){
+      clearScene();setBig(null);setEq(null);
+      bars({vals:[7,9,12,3,5,4],max:12,x:330,y:330,w:600,h:150,
+      cls:function(i){return i<2?"g":(i===2?"y":"");}});
+      note("a 2.33",370,354,"g");note("c 1.80",470,354,"g");
+      note("f 1.71",570,354,"y");note("e 1.50",670,354,"");
+      note("b 1.25",770,354,"");note("d 0.67",870,354,"");
+      note("按性价比从高到低拿：a 整件 · c 整件 · f 只装得下 4/7",640,386,"y");
+      setCap("7 + 9 + 12×4/7 = <b>160/7 ≈ 22.857</b>。分数背包<b>贪心就是精确最优</b>。");
+    },"松弛之后的背包叫<b>分数背包</b>，而它有个漂亮的性质：<b>贪心就是精确最优</b>。（原来那个整数背包可不是 —— 贪心在那里只是个启发式。）  做法：按<b>性价比</b>（价值÷重量）从高到低拿。 a 是 7/3 ≈ 2.33，c 是 9/5 = 1.80，f 是 12/7 ≈ 1.71，e 是 1.50，b 是 1.25，d 是 2/3 ≈ 0.67。  拿 a（重 3，剩 9），拿 c（重 5，剩 4），轮到 f 时只剩 4 的容量，而 f 重 7 —— <b>切 4/7 件装进去</b>，容量正好用光。  值 = 7 + 9 + 12×4/7 = <b>160/7 ≈ 22.857</b>。  ⚠ 注意这里用的是<b>精确分数</b>。这一讲满屏都是这种数，用浮点会在讲「间隙」的时候把人绕晕。");
+  /* 主体 */
+  S(148,function(){
+      clearScene();setBig(null);setEq(null);
+      axes({l:300,r:980,t:190,b:330});
+      dots([[620,330],[860,330]],"",14);
+      curve([[300,330],[860,330]],"fit g");
+      note("真最优只可能落在这一段里",560,300,"g");
+      note("22",620,356,"g");
+      note("22.857",860,356,"b");
+      note("目标全是整数 ⇒ 上界可以收成 ≤ 22",640,386,"y");
+      setCap("界的用法不是「约等于」，是 <b>保证</b>：再好也好不过这个数。");
+    },"现在说界到底怎么用。它<b>不是一个近似值</b>，是一句<b>保证</b>：  <b>真最优 ≤ 22.857。</b>  这句话的价值在于它<em>排除了一整片</em>：任何声称能拿到 23 的方案都不必去找了。  而且在这个问题上还能免费收紧一次：<b>所有物品的价值都是整数，所以目标值必是整数</b>。一个不超过 22.857 的整数，最大就是 <b>22</b>。于是上界从 22.857 收成 <b>≤ 22</b> —— <em>而 22 恰好能达到，这就同时证完了最优性</em>。  ⚠ 这步取整收紧看着像小聪明，其实是 MIP 求解器的标准动作，叫「整数取整」(integer rounding)。目标函数的系数越规整，它越有用。  现在这个「界」已经是一件武器了。第 3 集讲怎么拿它砍树。");
+  /* 反驳 */
+  S(160,function(){
+      clearScene();setBig(null);setEq(null);
+      lamps({y:208,r:32,gap:300,items:[
+      {label:"当解用",sub:"不可行或差很远",state:"dead"},
+      {label:"取整用",sub:"两边都不通",state:"dead"},
+      {label:"当界用",sub:"永远成立的保证",state:"on"}],
+      caption:"松弛的产品只有第三个"});
+      setCap("回到第 2 拍：<b>它根本不是拿来当答案的</b>。");
+    },"回到第 2 拍那个「四舍五入」。  它错在<b>把松弛当成了一次近似计算</b> —— 以为答案在附近，圆一圆就到了。  可松弛<b>根本不是近似</b>，它是个<em>换问题</em>的操作：换成一个更大的可行域上的问题。新问题的解和老问题的解<b>没有「靠近」这层关系</b>（刚才那个例子里连选哪几件都不同）。  它唯一<b>永远成立</b>的产出，就是那个不等号：<b>松弛最优 ≥ 整数最优</b>。  ⚠ 顺带说一句以后会反复遇到的话：<b>有时候松弛解恰好就是整数的</b>。那种情况下它<em>既是界也是解</em>，一步到位 —— 第 4 集会看到，这不是运气，而是<b>模型写法决定的</b>。");
+  SUM(100,1,{h:"松弛交出来的不是解，是一个永远成立的界",
+    k:"松弛 = 扔掉整数约束 ⇒ 可行域<b>只放大不缩小</b> ⇒ 每个整数可行点仍然可行 ⇒ <b>松弛最优 ≥ 整数最优</b>。这个不等号不用验算，是地基。",
+    m:"实测（与 L10 同一个背包，容量 12）：分数背包<b>贪心就是精确最优</b> —— 按性价比拿 a(2.33)、c(1.80)，再把 f(1.71) 切 4/7 ⇒ <b>160/7 ≈ 22.857</b>；整数最优 <b>22</b>，间隙 6/7（相对 3.9%）。",
+    w:"<s>误解</s>：「分数解四舍五入就行」。向上取整<b>重 15 > 容量 12，装不下</b>；向下取整只有 <b>16</b>，差太远。而且真最优选的是 a、e、f，<b>连选哪几件都和松弛解不一样</b>。",
+    e:"界是<b>保证</b>不是近似：真最优再好也好不过 22.857。又因为目标值必为整数，上界可免费收成 <b>≤ 22</b>（integer rounding）—— 而 22 恰好能达到，<b>最优性当场证完</b>。"});
+  QUIZ(100,1,{t:"为什么「松弛最优 ≥ 整数最优」一定成立，不需要验算？",
+    o:["因为分数解总比整数解更精确","因为松弛只扩大可行域：每个整数可行点在松弛后仍可行，在更大集合上求最大值不会更小","因为贪心算法保证最优","因为目标函数是线性的"],
+    a:1,
+    w:"是<b>集合包含</b>直接给的：松弛只把可行域放大，原来的整数可行点一个不少地还在里面；在更大的集合上求最大值，结果不可能更小。<br>选项 A 把「界」当成了「更准的近似」—— <s>松弛解往往不可行</s>，谈不上精确。<br>选项 C 只对分数背包成立，不是一般道理。<br>选项 D 是 LP 好解的原因，不是这个不等号的原因。"});
+});
+
+KP("2 · LP 为什么好解：最优<b>一定在顶点上</b>　<small>几何事实</small>",function(){
+  /* 钩子 */
+  S(300,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[380,340],[380,210],[560,170],[760,230],[700,340],[380,340]],"fit b");
+      dots([[470,280],[520,300],[600,250],[650,290],[560,230],[430,320]],"",9);
+      note("可行域里有无穷多个点",570,372,"y");
+      note("总不能一个一个试",900,250,"","start");
+      setCap("松弛之后变成连续问题。<b>无穷多个候选</b> —— 这听起来比原来更糟。");
+    },"第 1 集留了个问题：松弛之后可行域是一整片连续区域，里面有<b>无穷多个点</b>。  原来的整数问题至少候选是<i>有限</i>的（虽然多），松弛之后变成无穷 —— <b>这听起来是把问题改难了</b>。  可实际上恰恰相反：<b>松弛之后的问题好解得多</b>，好解到求解器会在搜索树的<em>每一个节点</em>都解一遍。  凭什么？");
+  /* 错误答案 */
+  S(312,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[380,340],[380,200],[580,170],[780,240],[700,340],[380,340]],"fit b");
+      arrow(470,310,540,270,"y");arrow(540,270,610,230,"y");arrow(610,230,660,205,"y");
+      note("一步一步往高处爬",520,372,"");
+      note("可线性目标<b>没有内点极值</b>",900,230,"r","start");
+      note("梯度处处相同，爬到边界就卡住",900,266,"r","start");
+      setCap("对一般的连续优化这是对的。可线性问题<b>有更强的结构</b>没被用上。");
+    },"一个受过训练的直觉：连续优化，那就<b>梯度下降</b>（这里是上升），沿着目标变好的方向一点点挪。  对一般的非线性问题，这确实是正经办法。  但线性问题有个<b>特别的结构</b>被这个办法浪费掉了：目标是线性的，<em>梯度处处相同</em>，所以内部<b>根本没有极值点</b> —— 沿梯度走一定会撞到边界。撞上之后呢？得沿着边界继续，然后在边界上再撞上另一条边…  <b>这个过程最后会停在哪？</b> 把这件事想透，就不用「爬」了。");
+  /* 铺陈 */
+  S(324,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[380,340],[380,200],[580,170],[780,240],[700,340],[380,340]],"fit b");
+      dots([[380,340],[380,200],[580,170],[780,240],[700,340]],"c",13);
+      link(900,200,860,200);
+      note("每条边是一条线性约束",640,372,"");
+      note("顶点 = 若干条约束同时取等号的地方",880,200,"g","start");
+      note("这里只有 5 个",880,236,"g","start");
+      setCap("线性约束围出来的是<b>多面体</b>；它的角点有限，而且<b>数得清</b>。");
+    },"把对象说准。  每条线性约束在平面上是一条直线，它把平面切成两半，可行的是其中一半。一堆这样的「半边」交起来，围出的形状叫 <b>多面体</b>（polyhedron）。它的边界是<b>平的</b>，角是<b>尖的</b>。  那些角点叫<b>顶点</b>（也叫极点）。顶点的刻画很干脆：<b>若干条约束在那里同时取等号</b>。  要紧的是数量：可行域里有无穷多个点，但<b>顶点只有有限个</b> —— 图上这个多面体只有 5 个。n 个约束、d 个变量，顶点数最多是<em>从 n 条里挑 d 条</em>的组合数，虽然可能很大，但<b>是有限的</b>。  无穷 → 有限。这一步就是全部的突破口。");
+  /* 主体 */
+  S(336,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[380,340],[380,200],[580,170],[780,240],[700,340],[380,340]],"fit b");
+      dots([[580,170]],"c",16);
+      link(420,300,840,180);link(400,330,820,210);
+      note("等值线：目标相同的点连成一条直线",640,372,"");
+      note("把等值线往目标变好的方向推",870,210,"y","start");
+      note("最后离开可行域的那一刻，碰到的是顶点",870,246,"g","start");
+      setCap("推到最后<b>一定停在角上</b>。这就是为什么只需要看顶点。");
+    },"这是整集的 aha，而且可以不用公式说清楚。  线性目标的<b>等值线</b>（目标值相同的点）是一组<b>平行直线</b>。求最大值，就是把这组平行线<em>朝着目标变好的方向平移</em>，看它最后还接触可行域的那一刻停在哪。  因为可行域是个<b>有平直边界的凸多面体</b>，那一刻只有两种可能：<b>停在一个角上</b>，或者<b>正好和某条边平行、整条边都是最优</b> —— 而那条边的两端<em>也是顶点</em>。  所以无论哪种情况：<b>最优值一定能在某个顶点取到</b>。  于是算法就有了形状：从一个顶点出发，<b>沿着边走到一个更好的相邻顶点</b>，走不动了就说明到顶了。这就是 <b>单纯形法</b>。它不是在无穷里摸索，是在<b>有限个角上走路</b>。");
+  /* 主体 */
+  S(348,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(165,168,420,96,"最坏情况","r");
+      boxNode(715,168,420,96,"实践中","g");
+      note("Klee 与 Minty 造了个扰动立方体",375,308,"r");
+      note("单纯形会走遍它的每一个顶点",375,340,"r");
+      note("几十年工业使用，极快",925,308,"g");
+      note("而且另有多项式算法（内点法）",925,340,"g");
+      note("MIP 求解器在搜索树的每个节点都要解一次 LP",640,382,"y");
+      setCap("「有限」不等于「快」。<b>这件事必须诚实地说清楚</b>。");
+    },"这里必须说一句诚实的话，不然下一集会被误导。  <b>顶点有限，不等于单纯形快。</b> Klee 与 Minty 造过一个「扰动立方体」—— 在那上面，单纯形会<b>把所有顶点走一遍</b>，次数随维数指数增长。<em>所以单纯形不是多项式算法。</em>  但实践完全是另一回事：几十年的工业使用里，单纯形在真实问题上<b>快得惊人</b>；而且线性规划本身是有多项式算法的（内点法那一支）。现代 LP 求解器两种都带。  ⚠ 为什么这一点要紧：下一集会看到，MIP 求解器在<b>搜索树的每一个节点</b>都要解一个 LP。如果 LP 不是实践上极快，整条路线根本不成立。  ⚠ 顺带：MiniZinc 手册 3.5 讲求解器后端那一节里 <b>simplex 一个字都没出现</b> —— 因为那是求解器内部的事，模型作者碰不到。这一集讲的是几何事实，不是 MiniZinc 的特性。");
+  /* 反驳 */
+  S(360,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[380,340],[380,200],[580,170],[780,240],[700,340],[380,340]],"fit b");
+      dots([[380,340],[380,200],[580,170],[780,240],[700,340]],"c",12);
+      arrow(390,330,386,214,"g");arrow(394,202,570,176,"g");
+      note("从一个顶点走到更好的相邻顶点",640,372,"g");
+      note("走不动了 = 到顶了",880,200,"g","start");
+      setCap("无穷多个点 → <b>有限个顶点</b> → 沿边走路。这就是把问题变简单的那一步。");
+    },"回到第 2 拍那个「梯度下降」。  它不算错，只是<b>浪费</b>。线性结构已经把答案的位置<em>钉死在顶点上</em>了，还在内部一点点挪，就是在找一个<s>肯定不在那儿</s>的东西。  正确的做法是直接在顶点之间走：从一个顶点，沿一条边，走到<b>目标更好的相邻顶点</b>；没有更好的邻居了，就到顶了。⚠ 而且因为可行域是<b>凸</b>的，「没有更好的邻居」就等于<b>全局最优</b> —— 这里<s>没有局部最优陷阱</s>。  ⚠ 记住最后这一句，它在第 6 集还要用：<b>LP 的局部最优就是全局最优，这是凸性给的</b>。整数约束一加回去，凸性就没了 —— <em>那正是整个 MIP 难度的来源</em>。");
+  SUM(300,2,{h:"线性目标在多面体上的最优，一定能在顶点取到",
+    k:"线性约束围出<b>多面体</b>，角点叫<b>顶点</b>（若干条约束同时取等号）。可行点无穷多，但<b>顶点有限</b>。把等值线朝目标变好的方向平移，最后一刻<b>一定停在角上</b>（或某条边上，而边的两端也是顶点）。",
+    m:"于是算法有了形状：<b>单纯形法</b> —— 从一个顶点沿边走到更好的相邻顶点，走不动就到顶。⚠ 因为可行域<b>凸</b>，「没有更好的邻居」就等于全局最优，<s>没有局部最优陷阱</s>。",
+    w:"<s>误解</s>：「连续优化就梯度下降」。不算错，只是<b>浪费</b> —— 线性目标梯度处处相同，内部根本没有极值，答案的位置已经被钉死在顶点上了。",
+    e:"⚠ 必须诚实：<b>顶点有限 ≠ 单纯形快</b>。Klee 与 Minty 的扰动立方体上它会走遍所有顶点，指数级；但实践中极快，且 LP 另有多项式算法（内点法）。这一点要紧，因为 MIP <b>在搜索树每个节点都要解一个 LP</b>。⚠ 整数约束一加回去凸性就没了 —— <b>那正是 MIP 难度的来源</b>。"});
+  QUIZ(300,2,{t:"为什么求解 LP 只需要检查顶点，不必检查内部的点？",
+    o:["因为内部的点不满足约束","因为线性目标的等值线是平行直线，平移到最后一定停在角上（或某条边，其两端也是顶点）","因为顶点的目标值总是整数","因为内部的点有无穷多个，算不完"],
+    a:1,
+    w:"是线性 + 凸多面体的几何结论：等值线是一组平行直线，朝目标变好的方向推到最后一刻，接触处必含顶点。<br>选项 A 错：<s>内部的点完全可行</s>，只是不会更优。<br>选项 C 无关，顶点坐标常常是分数（第 1 集的 4/7 就是）。<br>选项 D 是动机不是理由 —— <em>「算不完」不能推出「不必算」</em>，要有定理才行。"});
+});
+
+KP("3 · 分支定界：用<b>界</b>剪 —— 和 L10 用<b>传播</b>剪不是一回事　<small>Land &amp; Doig 1960</small>",function(){
+  /* 钩子 */
+  S(500,function(){
+      clearScene();setBig(null);setEq(null);
+      bars({vals:[99,29],max:99,x:430,y:348,w:420,h:170,
+      cls:function(i){return i===0?"r":"g";}});
+      note("不用界：99 个节点",535,374,"r");
+      note("用 LP 界剪：29 个",745,374,"g");
+      setCap("同一个背包、同一棵树、同样的最优解 <b>22</b>。只多了一件事：<b>先问界</b>。");
+    },"还是那个背包。L10 里不带任何界地搜，整棵树 <b>99 个节点</b>。  现在加一件事：<b>每进一个节点，先解一下这个节点的 LP 松弛</b>，拿到一个「这条路再好也好不过多少」的数。  节点数变成 <b>29</b> 个 —— <b>少走 71%</b>。  最优解还是 22，一点没变。  省下的那 70 个节点，是<b>看都没看就扔掉的</b>。");
+  /* 错误答案 */
+  S(512,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,170,430,98,"都是分支 + 回溯","y");
+      arrow(660,219,775,219,"r");
+      boxNode(800,170,310,98,"所以是一回事","y");
+      note("都在搜索树上走",415,310,"");
+      note("都是走不通就退回来",415,342,"");
+      note("连名字都叫分支定界",955,310,"");
+      note("可「定界」那两个字是新的",955,342,"r");
+      setCap("形状确实一样。<b>可剪枝的理由完全不同</b> —— 这是整集的轴。");
+    },"看上去确实是同一件事：分支、往下走、走不通退回来。L10 那一讲花了六集讲的就是这个。  所以很容易把分支定界当成「L10 的搜索换了个名字」。  形状是一样的。<b>但剪枝的理由完全不同</b>，而这个差别决定了两种方法各自擅长什么问题 —— 第 6 集整集都在说这件事。  先把分支定界本身说清楚。");
+  /* 铺陈 */
+  S(524,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:22,nodes:[
+      {id:0,parent:null,x:640,y:178,label:"LP"},
+      {id:1,parent:0,x:450,y:276,label:"≤ 手上的"},
+      {id:2,parent:0,x:840,y:276,label:"> 手上的"}]});
+      note("整棵子树砍掉，一个点都不看",450,330,"g");
+      note("还有希望 ⇒ 继续分支",840,330,"y");
+      note("Land 与 Doig 1960 把这一套写成了算法",640,382,"");
+      setCap("<b>界不如手上的解 ⇒ 整棵子树直接扔</b>。这一步叫 bound pruning。");
+    },"分支定界在每个节点做三件事：  <b>一、解这个节点的 LP 松弛</b>，得到一个界 —— 「这条路再好也好不过 B」。  <b>二、和手上已经找到的最好整数解（incumbent）比</b>。如果 <b>B 不比它好</b>，那这条路<em>就算走到底也白走</em> —— <b>整棵子树直接砍掉，一个点都不看</b>。这一步叫 bound pruning。  <b>三、还有希望就继续分支</b>：LP 解里某个本该是整数的变量取了分数，比如 x = 2.6，就拆成 <b>x ≤ 2</b> 和 <b>x ≥ 3</b> 两支。  ⚠ 注意这个拆法<b>满足 L10 说的「穷尽」</b>：x 是整数，所以 x ≤ 2 和 x ≥ 3 合起来<em>一个整数点都不漏</em>，漏掉的只有 2 到 3 之间那段分数 —— <s>那里本来就没有整数解</s>。  这一套的出处是 <b>Land 与 Doig 1960 年发在 Econometrica 的那篇</b>。");
+  /* 主体 */
+  S(536,function(){
+      clearScene();setBig(null);setEq(null);
+      tree({r:19,nodes:[
+      {id:0,parent:null,x:640,y:172,label:"22.86"},
+      {id:1,parent:0,x:430,y:250,label:"22.4"},
+      {id:2,parent:0,x:850,y:250,label:"21.3"},
+      {id:3,parent:1,x:330,y:330,label:"22"},
+      {id:4,parent:1,x:530,y:330,label:"21.8"},
+      {id:5,parent:2,x:760,y:330,label:"✂"},
+      {id:6,parent:2,x:940,y:330,label:"✂"}]});
+      note("找到整数解 22",330,366,"g");
+      note("界 21.3 < 22 ⇒ 这一整边不用看",850,382,"r");
+      setCap("incumbent 一跳到 <b>22</b>，所有界 ≤ 22 的子树<b>当场全部作废</b>。");
+    },"走一遍就看明白了。  根节点的 LP 界是 <b>22.86</b>。往下分支，左边那支界 22.4，右边那支界 <b>21.3</b>。  先走左边，找到一个整数解 <b>22</b>。这是第一个 incumbent。  现在回头看右边：它的界是 <b>21.3</b>，<b>比手上的 22 还差</b>。那条路上就算每一步都走对，<em>最好也只能到 21.3</em> —— <b>整个右半棵树当场作废，一个节点都不展开</b>。  这就是那 70 个省掉的节点的来源。  ⚠ 由此掉出一条实践：<b>早点拿到一个好的 incumbent，后面省得越多</b>。这正好接上 L10 第 6 集说的「值序在优化里有用」—— <em>两边说的是同一件事，只是这边的界更有力</em>。");
+  /* 主体 */
+  S(548,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["","剪掉的是什么路","凭什么敢剪"],
+      ["L10 传播","走不通的路","域被删空 ⇒ 不可行"],
+      ["L12 定界","走得通但不够好的路","界 ≤ 手上的解"]];
+      matrix({rows:3,cols:3,cw:265,ch:54,x:235,y:180,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return i===2?"hl2":"";},
+      label:"同样在砍，砍的根据不同"});
+      setCap("⚠ 定界剪掉的路上<b>有可行解</b> —— 只是都不够好。");
+    },"现在可以把第 2 拍那个问题答干净了。  <b>L10 的传播剪枝</b>：某个变量的域被删空了 ⇒ 这条路上<b>一个解都没有</b> ⇒ 砍。凭据是<b>不可行</b>。  <b>定界剪枝</b>：这条路上<em>可能有一大堆可行解</em> —— 它们全都合法，只是<b>再好也好不过我手上这个</b> ⇒ 砍。凭据是<b>不够好</b>。  ⚠ 这个差别有两个直接后果：  <b>一、定界剪枝只在优化问题里有意义。</b>满足性问题没有「更好」可言，<s>界无处可用</s>。  <b>二、定界剪枝的强弱，完全取决于界有多紧。</b>界要是松得离谱（比如比真最优高一倍），那它<b>什么都剪不掉</b> —— <em>下一集整集就讲这件事</em>。");
+  /* 反驳 */
+  S(560,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,168,420,100,"分支","b");
+      boxNode(700,168,420,100,"定界","v");
+      note("L10 已经讲透了",380,308,"");
+      note("拆成穷尽的几块",380,340,"b");
+      note("这一讲的新东西",910,308,"");
+      note("先算「最好能多好」，再决定要不要走",910,340,"v");
+      note("名字里的两个词，各占一半",640,382,"y");
+      setCap("<b>分支</b>是 L10 的；<b>定界</b>是这一讲的。合起来才是分支定界。");
+    },"回到第 2 拍。「分支定界就是 L10 那个搜索吗」—— <b>一半是</b>。  <b>分支</b>那一半，L10 已经讲透了：拆成穷尽的几块，拆完传播重跑。  <b>定界</b>那一半是新的：在往下走<em>之前</em>，先花代价算一个「这条路最好能有多好」的数，再决定要不要走。  ⚠ 注意这是一笔<b>交易</b>，不是白捡的：每个节点要多解一个 LP。划不划算取决于<b>界能剪掉多少</b> ——剪得多就赚，界松就是白花钱。  这也解释了为什么第 2 集非要说清「LP 实践中极快」：<b>这笔交易成立的前提，就是每个节点那次 LP 足够便宜</b>。  下一集：界的紧度从哪来。答案会出乎意料 —— <b>几乎全在模型怎么写</b>。");
+  SUM(500,3,{h:"分支定界：用界剪 —— 和 L10 用传播剪不是一回事",
+    k:"每个节点三件事：<b>解 LP 拿界 → 和 incumbent 比 → 不够好就把整棵子树扔掉</b>（bound pruning）。还有希望就分支：LP 解里 x=2.6 ⇒ 拆成 x≤2 与 x≥3，⚠ 这满足 L10 的「穷尽」，漏掉的只有 2 到 3 之间那段<b>本来就没有整数解</b>的分数。出处 Land &amp; Doig 1960。",
+    m:"实测（同一个背包）：<b>99 → 29 个节点，少走 71%</b>，最优解仍是 22。省下的节点是<b>看都没看就扔掉的</b>。⇒ 实践推论：<b>早点拿到好的 incumbent，后面省得越多</b>。",
+    w:"<s>误解</s>：「分支定界就是 L10 那个搜索」。<b>分支</b>那一半是；<b>定界</b>那一半是新的。L10 剪的是<b>走不通</b>的路（域删空 ⇒ 不可行），定界剪的是<b>走得通但不够好</b>的路 —— ⚠ 被剪掉的路上<b>有可行解</b>。",
+    e:"两个直接后果：<b>定界剪枝只在优化问题里有意义</b>（满足性问题没有「更好」）；<b>强弱完全取决于界有多紧</b>，界松就什么都剪不掉。⚠ 而且这是笔<b>交易</b>：每个节点多解一个 LP，所以第 2 集那句「LP 实践中极快」是整条路线成立的前提。"});
+  QUIZ(500,3,{t:"分支定界把某个节点的整棵子树砍掉，是因为那条路上……",
+    o:["一个可行解都没有","可能有一大堆可行解，但它们全都好不过手上已有的解","变量的域被传播删空了","存在对称，砍掉也还留着一个代表"],
+    a:1,
+    w:"凭据是「<b>不够好</b>」而不是「不可行」。被定界剪掉的子树里<em>往往有大量合法解</em>，只是没有一个能超过 incumbent。<br>选项 A、C 说的是 <b>L10 的传播剪枝</b>，凭据是不可行。<br>选项 D 是 <b>L09 的对称破缺</b>，凭据是每个等价类留一个代表。<br>⚠ 三种剪枝<b>凭据各不相同</b>，这正是第 6 集要收口的事。"});
+});
+
+KP("4 · 界有多紧，<b>全看模型怎么写</b>　<small>手册 3.5.2.1</small>",function(){
+  /* 钩子 */
+  S(700,function(){
+      clearScene();setBig(null);setEq(null);
+      bars({vals:[30,48,49.8,50],max:50,x:400,y:342,w:480,h:160,
+      cls:function(i){return i===0?"g":"r";}});
+      note("M=10",460,368,"g");note("M=100",580,368,"r");
+      note("M=1000",700,368,"r");note("M=10⁶",820,368,"r");
+      note("整数最优一律是 30 —— 四个模型的整数可行集逐点相同",640,386,"y");
+      setCap("只改了模型里一个<b>没人会多看一眼</b>的常数。界从 <b>30</b> 变成 <b>50</b>。");
+    },"一个开工费模型：开一条生产线要交固定费 <b>20</b>，开了之后每单位赚 <b>5</b>，最多做 10 单位。写成 MIP 是 <b>max 5x − 20y</b>，约束 <b>x ≤ 10</b>、<b>x ≤ M·y</b>，其中 y 是 0/1 的「开不开」。  那个 <b>M</b> 是干嘛的？它只是用来表达「<i>y=0 的时候 x 必须是 0</i>」。只要 M ≥ 10，这句话就说对了 —— 所以 M 取 10、100、1000 还是一百万，<b>整数可行集逐点相同，整数最优一律是 30</b>。  可是 LP 松弛呢：M=10 给 <b>30</b>，M=100 给 <b>48</b>，M=1000 给 <b>49.8</b>，M=一百万给 <b>50</b>。  <b>最松的那个把答案高估了 67%。</b> 而模型「完全正确」。");
+  /* 错误答案 */
+  S(712,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,170,430,98,"约束写对了就行","y");
+      arrow(660,219,775,219,"r");
+      boxNode(800,170,310,98,"剩下交给求解器","y");
+      note("反正可行集一模一样",415,310,"");
+      note("求解器那么强，自己会处理",415,342,"");
+      note("MiniZinc 不就是干这个的吗",955,310,"");
+      note("—— 这句对 CP 基本成立",955,342,"g");
+      setCap("⚠ 这个习惯在 <b>CP 那边基本是对的</b>，换到 MIP 就塌了。");
+    },"这是建模的默认心态，而且<b>在前几讲里基本是成立的</b>：约束写对、语义没错，剩下交给求解器。  CP 那边确实大体如此 —— 传播器看的是<i>域</i>，你把同一条约束换几种等价写法，传播强度常常差不多。  ⚠ 换到 MIP，这个习惯会<b>直接塌掉</b>。  原因很具体：MIP 求解器剪枝靠的是<b>界</b>，而界来自 <b>LP 松弛</b>，LP 松弛看的是<b>你写下的那些不等式本身</b> —— <em>不是它们在整数点上的含义</em>。  两个模型可以「整数含义相同」而「不等式形状完全不同」。下面把这件事画出来。");
+  /* 铺陈 */
+  S(724,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[340,350],[340,190],[620,160],[900,260],[760,350],[340,350]],"fit r");
+      curve([[400,340],[400,230],[560,205],[700,265],[640,340],[400,340]],"fit g");
+      dots([[430,320],[500,300],[560,260],[620,290],[480,245],[660,320]],"c",11);
+      note("整数点：两个模型完全相同",640,382,"y");
+      note("松的描述",900,180,"r","start");
+      note("紧的描述",730,220,"g","start");
+      setCap("LP 松弛看的是<b>这层皮</b>，不是里面的点。<b>皮越紧，界越好</b>。");
+    },"把事情画出来。  <b>整数可行点是固定的</b>（绿点），两个模型一个不差地给出同样这些点。这就是「模型等价」的意思。  但是<b>包住它们的多面体可以很不一样</b>。红线那个松松垮垮，绿线那个紧紧贴着。两者包的整数点<em>完全相同</em>。  而 LP 松弛求的是<b>多面体</b>上的最优，不是整数点上的最优。<b>它看的是这层皮。</b>  皮越松，多面体的角伸得越远，LP 最优就越虚高，界就越没用。  ⚠ 理论上存在一个<b>最紧的皮</b> —— 恰好是所有整数点的凸包。若能写出它，LP 一次就给出整数最优，<s>根本不用分支</s>。问题是它通常要指数多条不等式。<em>所以这是一条光谱，不是有无。</em>");
+  /* 主体 */
+  S(736,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["big-M","LP 松弛最优","间隙","整数最优"],
+      ["10","30","0","30"],
+      ["100","48","18","30"],
+      ["1000","49.8","19.8","30"],
+      ["1000000","50","20","30"]];
+      matrix({rows:5,cols:4,cw:200,ch:40,x:240,y:168,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return i===1?"hl2":(i===4?"hl3":"");},
+      label:"精确分数算出来的，不是浮点"});
+      setCap("M=10 时<b>间隙为 0</b> —— LP 一次就给出整数答案，<b>一个节点都不用分</b>。");
+    },"把四个 M 的 LP 松弛精确算出来。  <b>M = 10</b>（真实上界）：LP 最优 <b>30</b>，<b>间隙 0</b>。松弛解本身就是整数的，<em>一个节点都不用分支</em>。  <b>M = 100</b>：48，间隙 18。<b>M = 1000</b>：49.8，间隙 19.8。<b>M = 一百万</b>：50，间隙 20。  松的那边 LP 在干什么？它发现可以<b>把 y 取成一个极小的分数</b> —— y = 1/100000 就足以让 x ≤ M·y 允许 x = 10。于是它<em>几乎不花固定费就拿到了全部产量</em>。这在整数世界里是不可能的（y 只能是 0 或 1），<b>但 LP 不知道这件事</b>。  ⚠ 诚实的一半：这个玩具只有一个 0/1 变量，所以节点数差别很小（1 个对 3 个）。<b>间隙才是重点</b> —— 真实模型里有成百上千个这样的 y，每一个都这么漏一道，<em>间隙是乘起来的</em>。");
+  /* 主体 */
+  S(748,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(150,166,440,86,"<expr> <= 1000000*y","r");
+      boxNode(700,166,440,86,"y = 0 -> <expr> <= 0","g");
+      note("自己猜一个「够大」的数",370,296,"r");
+      note("猜大了，松弛就废了",370,328,"r");
+      note("写成蕴含，让 MiniZinc 自己算界",920,296,"g");
+      note("它常常能算出更紧的",920,328,"g");
+      note("手册 3.5.2.1 的原话建议，不是我编的",640,382,"y");
+      setCap("MiniZinc 手册 <b>3.5.2.1</b> 专门有一节讲这个，例子就是 big-M。");
+    },"这不是我造的教学例子 —— <b>MiniZinc 手册自己有一节专门警告它</b>，就在 <b>3.5.2.1「MIP-Aware Modeling」</b>。  手册给的建议是：与其写 <b>&lt;expr&gt; ≤ 1000000·y</b>（因为你不知道 expr 的好上界，就随手填个大数），不如写成蕴含式 <b>y = 0 → &lt;expr&gt; ≤ 0</b>，<b>让 MiniZinc 去推一个可能更紧的界</b>。  同一节还提醒：<em>避免过大的系数，也避免目标函数里的大数值</em>，因为那会撞上求解器的数值容差。  ⚠ 而且手册里还有一行注释直接写着「<b>…为了更强的 LP 松弛</b>」，挂在一个把系数乘 2 的改写旁边。  <b>也就是说：「为了松弛更紧而改写模型」是 MIP 建模的日常动作，不是奇技淫巧。</b>");
+  /* 反驳 */
+  S(760,function(){
+      clearScene();setBig(null);setEq(null);
+      lamps({y:208,r:32,gap:300,items:[
+      {label:"约束写对了",sub:"这是底线，不是目标",state:"on"},
+      {label:"整数集相同",sub:"不保证界一样",state:"on"},
+      {label:"松弛够紧",sub:"这才决定快慢",state:"dead"}],
+      caption:"前两样达标 ≠ 模型能用"});
+      setCap("⚠ 没有免费的选项：手册 <b>3.5.2.6</b> 说指示约束数值更稳，"
+      + "但<b>有合理 big-M 时反而更慢</b>。");
+    },"回到第 2 拍那个「写对就行」。  准确的说法是：<b>写对是底线，不是目标</b>。两个模型可以都正确、整数可行集逐点相同，而一个跑得完、一个跑不完。  所以 <b>MIP 的建模功夫，大半花在「让松弛更紧」上</b>：给变量设真实的上下界、别随手填 big-M、能用蕴含式就别自己乘常数、必要时加割（下一集）。  ⚠ 而且<b>没有一个选项是免费的</b>。手册 <b>3.5.2.6</b> 里有个很好的例子：CPLEX、Gurobi、SCIP 都支持<b>指示约束</b>，它比 big-M 分解<em>数值上更稳</em>，还能处理无界变量；<b>可是对那些本来就有合理 big-M 界的情形，它反而更慢</b>。  这就是 MIP 建模的真实质感：<b>每个选择都在换，没有一边倒的好办法</b>。");
+  SUM(700,4,{h:"界有多紧，几乎全看模型怎么写",
+    k:"LP 松弛看的是<b>你写下的那些不等式本身</b>，不是它们在整数点上的含义。同一堆整数点可以被很多种多面体包住，<b>皮越紧，界越好</b>。⚠ 最紧的皮是整数点的凸包，但它通常要指数多条不等式 —— <b>这是一条光谱，不是有无</b>。",
+    m:"实测（max 5x−20y, x≤10, x≤M·y, y∈{0,1}，四个 M 的<b>整数可行集逐点相同</b>）：LP 松弛 <b>30 / 48 / 49.8 / 50</b>，整数最优一律 <b>30</b>。M=10 时<b>间隙为 0，一个节点都不用分</b>；M=10⁶ 时高估 <b>67%</b>。",
+    w:"<s>误解</s>：「约束写对了就行，剩下交给求解器」。⚠ 这个习惯<b>在 CP 那边基本成立</b>（传播器看域，等价写法传播强度差不多），<b>换到 MIP 就塌了</b>。",
+    e:"手册 <b>3.5.2.1</b> 专门警告：别随手填 big-M，写成 <b>y=0 → expr ≤ 0</b> 让 MiniZinc 推更紧的界；还有一行注释直接写着「为了更强的 LP 松弛」。⚠ 没有免费的选项：<b>3.5.2.6</b> 说指示约束数值更稳，但有合理 big-M 时<b>反而更慢</b>。"});
+  QUIZ(700,4,{t:"两个 MIP 模型的整数可行集逐点相同。能推出什么？",
+    o:["它们的 LP 松弛最优值也相同","它们的最优整数解相同，但 LP 界可能差很远，因而求解快慢可能天差地别","它们的求解时间相同","较简洁的那个一定更快"],
+    a:1,
+    w:"整数答案一定相同，<b>界不一定</b>。LP 松弛求的是<b>多面体</b>上的最优，而同一堆整数点可以被松紧完全不同的多面体包住。<br>实测：四个 big-M 的整数可行集逐点相同，LP 松弛却是 <b>30/48/49.8/50</b>，最松的高估 67%。<br>选项 D 正好反着：<em>把 x ≤ 10 这类「冗余」的紧界删掉会让模型更短，却让松弛变松</em>。"});
+});
+
+KP("5 · 割平面：削掉松弛的角，<b>一个整数点都不许砍</b>　<small>Gomory 1958</small>",function(){
+  /* 钩子 */
+  S(900,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[340,350],[340,200],[600,165],[880,255],[740,350],[340,350]],"fit b");
+      dots([[430,320],[500,300],[560,260],[620,290],[480,245],[660,320]],"c",11);
+      dots([[600,165]],"b",16);
+      note("LP 最优停在这个角上",600,146,"b");
+      note("可它不是整数点",880,200,"r","start");
+      note("而且附近也没有整数点",880,236,"r","start");
+      setCap("第 4 集给了一条路：把皮改紧。这一集给另一条：<b>当场削掉这个角</b>。");
+    },"第 4 集说界松是因为「皮」松，办法是<b>一开始就把模型写紧</b>。  可还有一种情况：模型已经写得不错了，LP 解出来还是停在一个<b>分数的角</b>上。那个角上<em>没有整数点，附近也没有</em>。  这个角完全是<b>多余的</b> —— 它不含任何整数可行解，却把界顶得老高。  既然如此，<b>能不能当场把它削掉</b>？");
+  /* 错误答案 */
+  S(912,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[480,340],[480,200],[720,168],[1000,255],[860,340],[480,340]],"fit b");
+      dots([[720,168]],"b",15);
+      dots([[700,186],[744,182],[688,206],[760,208]],"",7);
+      boxNode(130,180,300,86,"禁掉这个分数点","r");
+      note("LP 写不出「不等于」",280,300,"r");
+      note("旁边还有无穷多个",280,332,"r");
+      note("禁掉一个，LP 下一轮就停到隔壁",740,382,"y");
+      setCap("逐点去禁，在连续世界里<b>连写都写不出来</b>。");
+    },"最直接的念头：既然这个点不是我们要的，<b>加一条约束把它禁掉</b>。  两个问题，都是硬的。  <b>一、LP 里写不出「不等于」。</b> 线性规划的约束只有 ≤、≥、=。「x ≠ 2.6」<s>不是线性约束</s>，加不进去。  <b>二、就算能，也没意义。</b> 它旁边还有 2.59、2.61…<b>无穷多个分数点</b>。禁掉一个，LP 下一轮停在隔壁，<em>永远禁不完</em>。  ⚠ 这和 L10 第 3 集那个「把重复的摆法逐条禁掉」是<b>同一类错误</b>：<b>在一个连续（或指数大）的集合里逐点点名，必然失败</b>。要的是一条<em>整片整片</em>起作用的规则。");
+  /* 铺陈 */
+  S(924,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[340,350],[340,200],[600,165],[880,255],[740,350],[340,350]],"fit b");
+      dots([[430,320],[500,300],[560,260],[620,290],[480,245],[660,320]],"c",11);
+      link(430,200,860,290);
+      note("一条线性不等式",640,382,"");
+      note("要求：所有整数点都在保留侧",880,206,"g","start");
+      note("而当前这个分数角被切出去",880,242,"y","start");
+      setCap("<b>valid（有效）</b>的定义就这一句：<b>一个整数可行点都不许切掉</b>。");
+    },"正确的东西叫 <b>割平面</b>（cutting plane），就是一条新的<b>线性不等式</b>。加进模型之后，它把多面体切掉一块。  对它只有一个硬要求，而这个要求必须记死：  <b>所有整数可行点都必须留在保留的那一侧。</b> 满足这条的割叫 <b>valid</b>（有效）。  而我们<em>想要</em>它顺便做到的是：把<b>当前这个分数最优点切出去</b>。这样 LP 重解一次就只能停到别处，界就下来了。  ⚠ 两件事要分清：<b>valid 是正确性，必须满足</b>；<b>切掉当前分数解是有效性，没做到只是白加一条约束</b>。<s>把这两件事搞混，就会加出一刀砍掉真解的「割」</s>。");
+  /* 主体 */
+  S(936,function(){
+      clearScene();setBig(null);setEq(null);
+      curve([[340,350],[340,200],[460,178],[760,282],[740,350],[340,350]],"fit g");
+      dots([[430,320],[500,300],[560,260],[620,290],[480,245],[660,320]],"c",11);
+      dots([[460,178]],"c",14);
+      note("新的多面体：角被削掉了",640,382,"g");
+      note("整数点一个没少",880,206,"g","start");
+      note("LP 最优只能停到更低的地方 ⇒ 界变紧",880,242,"y","start");
+      setCap("<b>同样的整数点，更紧的皮。</b>这就是第 4 集那条光谱上的一次移动。");
+    },"切完之后是这样：多面体少了一个角，而<b>绿点一个都没少</b>。  于是 LP 重解一次，最优只能停到更低的地方 —— <b>界变紧了</b>。界一紧，第 3 集那套 bound pruning 就能剪掉更多。  怎么找这种割？<b>Gomory 1958</b> 给了第一个通用答案：从单纯形算完的表里<b>机械地读出</b>一条有效割，而且可以一轮一轮读下去。那篇只有四页，登在 Bulletin of the AMS 上。  现代求解器的做法叫 <b>branch-and-cut</b>：<b>一边分支，一边在节点上加割</b>。不是先把割加完再搜 —— <em>割太多本身也会把 LP 拖慢</em>，所以是按需加、而且会把不起作用的割扔掉。  MiniZinc 这边也看得见这件事：手册 <b>3.5.2.8</b> 是「用户割与惰性约束的池」，<b>3.5.2.4</b> 是<b>子回路消除约束</b>（TSP 那类问题的经典割，可以用 `nSECcuts` 开关控制）。");
+  /* 主体 */
+  S(948,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["","砍掉的里面有整数解吗","保证的是什么"],
+      ["L09 对称破缺","<b>有</b>（砍掉的是等价的解）","每个等价类留一个代表"],
+      ["L12 割平面","<b>没有</b>（只砍分数区域）","整数可行集一点不变"]];
+      matrix({rows:3,cols:3,cw:265,ch:56,x:235,y:180,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return j===1&&i>0?"hl":"";},
+      label:"两种「合法地砍」，承诺完全不同"});
+      setCap("都叫「加一条约束砍掉一片」，<b>但一个砍解、一个不砍解</b>。");
+    },"这里有个对照值得专门停一下，因为两件事长得太像了。  <b>L09 的对称破缺</b>：加一条 lex_lesseq，砍掉一大片。被砍掉的那片里<b>有货真价实的整数解</b> —— 它们完全合法。敢砍，是因为<em>每个等价类里还留着一个代表</em>。  <b>这一讲的割平面</b>：加一条不等式，也砍掉一片。但被砍掉的那片里<b>一个整数可行点都没有</b>，砍的全是分数区域。整数可行集<em>逐点不变</em>。  ⚠ 所以两者的「安全」不是一回事： <b>割平面安全，是因为它根本没碰整数解；</b> <b>对称破缺安全，是因为它碰了但留了代表。</b>  把这两种承诺搞混，就会在该用哪一种的时候用错 —— <em>比如要枚举全部解时，割平面照用不误，对称破缺就不行了</em>。");
+  /* 反驳 */
+  S(960,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(170,168,420,100,"逐点去禁","r");
+      boxNode(700,168,420,100,"划一条线","g");
+      note("连续集合里点是无穷的",380,308,"r");
+      note("而且 LP 写不出「≠」",380,340,"r");
+      note("一条不等式整片起作用",910,308,"g");
+      note("只要它对所有整数点成立",910,340,"g");
+      note("和 L10「逐条禁摆法」是同一类错误",640,382,"y");
+      setCap("在连续或指数大的集合里，<b>永远是划线，不是点名</b>。");
+    },"回到第 2 拍。  「禁掉这个分数点」的毛病，不在于想法不对，在于<b>粒度不对</b>：在一个连续集合里<em>按点操作</em>，无论多勤快都追不上。  割平面换了粒度：<b>一条不等式，整片整片地起作用</b>。它不需要知道有哪些分数点，只需要满足一件事 —— <b>对所有整数可行点都成立</b>。  ⚠ 这个「从点名换成划线」的套路，这门课里已经出现过三次了： L09 不去逐条禁重复摆法，而是<b>定一个全序取代表</b>； L11 不去记住走过的每条死路，而是<b>学一条 nogood 子句</b>； 这一讲不去禁分数点，而是<b>加一条有效不等式</b>。  <b>三次都是同一个动作：把「逐个排除」换成「一条规则」。</b>");
+  SUM(900,5,{h:"割平面：削掉松弛的角，一个整数点都不许砍",
+    k:"割平面 = 一条新的线性不等式。硬要求只有一条：<b>所有整数可行点都留在保留侧</b>（这叫 <b>valid</b>）。想要它顺便做到的是<b>把当前分数最优点切出去</b>，于是 LP 重解一次，界就下来了。",
+    m:"⚠ <b>valid 是正确性，必须满足；切掉当前分数解是有效性，没做到只是白加</b>。出处 <b>Gomory 1958</b>（Bull. AMS，四页），从单纯形表里机械地读出有效割。现代做法是 <b>branch-and-cut</b>：边分支边按需加割，不起作用的还会扔掉。MiniZinc：手册 <b>3.5.2.8</b> 用户割与惰性约束池、<b>3.5.2.4</b> 子回路消除约束。",
+    w:"<s>误解</s>：「加一条约束把这个分数点禁掉」。<b>LP 写不出「≠」</b>，而且旁边还有无穷多个分数点，永远禁不完。⚠ 和 L10「把重复摆法逐条禁掉」是<b>同一类错误</b>：在连续或指数大的集合里逐点点名，必然失败。",
+    e:"⚠ 和 L09 对照着记：<b>对称破缺会砍掉整数解</b>（靠「每类留一个代表」保安全），<b>割平面一个整数解都不砍</b>（整数可行集逐点不变）。所以要<b>枚举全部解</b>时割平面照用，对称破缺就不行。"});
+  QUIZ(900,5,{t:"一条割平面必须满足的硬要求是什么？",
+    o:["必须把当前的 LP 分数最优点切掉","必须对所有整数可行点都成立（一个都不切掉）","必须让 LP 最优值严格下降","必须是从单纯形表里生成的"],
+    a:1,
+    w:"硬要求是 <b>valid</b>：整数可行点一个都不许切。<br>选项 A、C 说的是<b>有效性</b> —— 没做到只是<em>白加一条约束</em>，不会出错；而违反 valid 会<b>直接砍掉真解</b>。两者分量完全不同。<br>选项 D 只是 Gomory 的一种生成办法，实践中还有子回路消除等按问题结构设计的割（手册 3.5.2.4）。"});
+});
+
+KP("6 · MIP 还是 CP：<b>看你的问题给不给得出好界</b>　<small>收束</small>",function(){
+  /* 钩子 */
+  S(1100,function(){
+      clearScene();setBig(null);setEq(null);
+      gridworld({rows:2,cols:10,cs:50,x:390,y:176,
+      cls:function(i,j){return i===0?(j===0?"r":""):"g";},
+      val:function(i,j){return i===0?(j===0?"×10":null):""+(j+1);}});
+      note("LP 以为的",370,207,"r","end");
+      note("真实情况",370,257,"g","end");
+      note("LP 界 6 分钟　·　真正的最短工期 60 分钟",640,328,"y");
+      note("10 个任务，每个 6 分钟，同一台机器",640,364,"");
+      setCap("界<b>低估了 90%</b>。这种界，<b>一个节点都剪不掉</b>。");
+    },"一个调度问题：<b>10 个任务，每个要 6 分钟，只有一台机器</b>。答案显而易见 —— 必须排队，总工期 <b>60</b>。  写成 MIP：每个任务一个开始时间 s，工期 C ≥ s + 6；「同一台机器不能同时做两件」写成<b>析取</b> —— 要么 i 排在 j 前，要么反过来。而析取在 MIP 里只能用 <b>big-M</b> 表达，配一个 0/1 变量 y：<em>y=1 时第一条生效，y=0 时第二条生效</em>。  现在松弛。y 可以取 <b>1/2</b> —— 于是两条 big-M 约束<b>同时被放松</b>，<em>谁也不要求排在谁前面</em>。LP 发现所有任务可以<b>同时从 0 点开始</b>。  LP 界 = <b>6</b>。真值 60。<b>低估 90%</b>。  而且更糟的是：任务越多，界越没用 —— 界永远只是<b>最长那一个</b>，真值却是<b>总和</b>。2 个任务时低估 42%，3 个 56%，5 个 80%，10 个 90%。");
+  /* 错误答案 */
+  S(1112,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(200,170,430,98,"MIP 求解器几十年工业打磨","y");
+      arrow(660,219,775,219,"r");
+      boxNode(800,170,310,98,"所以一律用 MIP","y");
+      note("Gurobi / CPLEX / SCIP / CBC",415,310,"");
+      note("论文、基准、工程投入都碾压",415,342,"");
+      note("这些全是事实",955,310,"g");
+      note("可它们没回答「你的问题给不给得出界」",955,342,"r");
+      setCap("前提全是真的。<b>结论不成立</b> —— 因为强弱不是一个维度。");
+    },"一个很有分量的说法：<b>MIP 求解器是工业界几十年打磨出来的</b>。Gurobi、CPLEX、SCIP、CBC，论文数量、基准测试、工程投入都极其可观。既然如此，一律用 MIP 不就行了。  <b>前提全是事实。</b> 可结论不成立，因为它把「强弱」当成了<b>一个维度</b>。  MIP 求解器的全部威力建立在一件事上：<b>LP 松弛能给出有用的界</b>。这个前提一塌，几十年的打磨<s>一点也使不上劲</s> —— 刚才那个 10 个任务的调度就是最极端的例子：界低估 90%，<em>剪不掉任何东西</em>。  反过来，CP 的威力建立在<b>传播能删掉大量值</b>上。问题要是结构松散、全是线性的加加减减，传播同样使不上劲。  <b>所以要问的不是「哪个强」，是「我的问题喂得饱哪一个」。</b>");
+  /* 铺陈 */
+  S(1124,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(150,166,430,100,"MIP 吃「线性 + 紧松弛」","b");
+      boxNode(700,166,430,100,"CP 吃「组合结构 + 全局约束」","v");
+      link(580,216,700,216);
+      note("目标与约束都是线性的",365,306,"");
+      note("松弛紧 ⇒ 界有力",365,338,"b");
+      note("alldifferent / cumulative / circuit",915,306,"");
+      note("传播器一次删一大片",915,338,"v");
+      setCap("两边都靠<b>把搜索空间砍小</b>吃饭，只是<b>砍的凭据不同</b>。");
+    },"把两边各自的饭碗说清楚。  <b>MIP 吃的是「线性 + 紧松弛」。</b> 目标和约束都得是线性的（手册 3.5.2.7 提到二次的 MIQCP，那是另说）；而且模型要能给出<b>紧的 LP 松弛</b>，界才有力。  <b>CP 吃的是「组合结构 + 全局约束」。</b> 问题里要有 alldifferent、cumulative、circuit 这类有专门传播器的结构，<b>一次能删掉一大片域</b>。  ⚠ 关键在于这两样<b>往往不是同一批问题</b>：<b>析取</b>（「两件事不能同时」）写进 MIP 只能靠 big-M，而 big-M 的松弛可以弱到毫无用处 —— 刚才那个 10 个任务的例子就是；反过来，一个纯线性的生产计划问题在 CP 里<em>几乎没有传播可做</em>，传播器只能看着边界一点点挪。  ⚠ 但别把「组合问题」一律当成 MIP 的弱项，<b>这里有个反直觉的事实</b>：<b>单独一条 alldifferent 的 MIP 松弛其实很强</b> —— 它展开成的那个分配多面体<em>本身就是整的</em>，LP 解自动落在整数点上。<b>弱的是析取型结构的 big-M 展开，不是「组合」这两个字。</b>");
+  /* 主体 */
+  S(1136,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["问题的样子","谁更可能赢","为什么"],
+      ["网络流 / 分配 / 运输","MIP","约束矩阵特殊，松弛常常直接是整数解"],
+      ["生产计划 / 选址（线性成本）","MIP","界紧，分支定界剪得动"],
+      ["调度（互斥资源 / cumulative）","CP","析取只能用 big-M，松弛极弱"],
+      ["约束之间耦合很强的组合问题","CP / LCG","传播一次能删一大片"]];
+      matrix({rows:5,cols:3,cw:270,ch:44,x:235,y:168,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return j===1&&i>0?(i<3?"hl":"hl2"):"";},
+      label:"经验性的分法，不是定理"});
+      setCap("⚠ 这是<b>经验分法</b>，不是定理。真遇到问题，<b>两边都跑一下才算数</b>。");
+    },"一张经验表，<b>注意它是经验不是定理</b>。  <b>MIP 更可能赢</b>：网络流、分配、运输 —— 这类问题的约束矩阵有特殊结构，松弛<em>常常直接就是整数解</em>。还有线性成本的生产计划、设施选址，界紧、剪得动。  <b>CP 更可能赢</b>：调度与互斥资源 —— 析取在 MIP 里只能靠 big-M，松弛弱到刚才那个地步，而 CP 有 disjunctive、cumulative 这类专门传播器；还有约束之间耦合很强的组合问题 —— 传播一次能删一大片。  ⚠ 但<b>千万别把这张表当定理用</b>。真实问题常常是混的：一个带调度的生产计划，既有线性成本又有资源互斥。这时候<b>唯一靠谱的办法是两边都跑一下</b>。  ⚠ 还有第三条路，L11 讲过：<b>lazy clause generation</b>（Chuffed）把 CP 的传播和 SAT 的学习合在一起，在很多组合问题上比两边都强。<em>「MIP 还是 CP」本来就不是只有两个选项。</em>");
+  /* 主体 */
+  S(1148,function(){
+      clearScene();setBig(null);setEq(null);
+      boxNode(410,160,460,80,"同一个 .mzn 模型","g");
+      link(540,250,420,296);link(640,250,640,296);link(740,250,860,296);
+      note("--solver gecode",420,316,"v");
+      note("--solver chuffed",640,316,"v");
+      note("--solver cbc / gurobi",860,316,"b");
+      note("模型一个字都不用改",640,382,"y");
+      setCap("手册 <b>3.5</b> 列的就是这些后端：CP 一组（Gecode/Chuffed/OR-Tools）、MIP 一组。");
+    },"说到这儿，<b>MiniZinc 为什么存在</b>这个问题就有答案了。  它是一门<b>求解器无关</b>的建模语言。你写一遍模型，然后 <b>换一个 `--solver` 就能把同一个模型交给另一套机器</b> —— 模型<b>一个字都不用改</b>。  手册 <b>3.5「Solving Technologies and Solver Backends」</b> 列的正是这些：<b>3.5.1</b> 是 CP 这一组（Gecode、Chuffed、OR-Tools），<b>3.5.2</b> 是 MIP 这一组，<b>3.5.3</b> 还有非线性求解器。  ⚠ 诚实的一半：<b>「不用改」说的是能跑，不是跑得好</b>。第 4 集整集都在说，为 MIP 写的模型和为 CP 写的模型<em>在调优上是两回事</em>（big-M、变量界、要不要用全局约束）。手册 3.5.2.1 那一节的标题就老实写着「<b>MIP-Aware Modeling</b>」。  <b>但能一键换着跑，已经把「两边都试一下」从一周变成了一分钟。</b>");
+  /* 反驳 */
+  S(1160,function(){
+      clearScene();setBig(null);setEq(null);
+      var G=[["","凭据","剪掉的是","什么时候拿到"],
+      ["L09 对称与支配","模型的结构","等价的 / 不更好的解","搜索之前"],
+      ["L10 传播","约束删值","不可行的路","搜索当中"],
+      ["L11 nogood","冲突的逻辑蕴涵","重复踩的死路","撞墙之后"],
+      ["L12 松弛界","LP 的上界","可行但不够好的路","每个节点"]];
+      matrix({rows:5,cols:4,cw:230,ch:44,x:180,y:168,
+      cell:function(i,j){return G[i][j];},
+      hl:function(i,j){return i===4?"hl2":"";},
+      label:"四种剪枝，凭据各不相同"});
+      setCap("⚠ 四条<b>不是二选一，是叠着用的</b> —— 现代求解器同时跑好几条。");
+    },"回到第 2 拍，也给这四讲收个口。  「一律用 MIP」错在哪：<b>它把一种凭据当成了全部凭据</b>。  四讲下来，砍搜索空间的凭据一共四种：  <b>L09 结构</b> —— 对称是模型的自同构，支配是目标上的偏序。搜索开始前就读得出来。 <b>L10 传播</b> —— 约束把域删空，这条路不可行。搜索当中随时在做。 <b>L11 学习</b> —— 撞上矛盾，把原因归结成一条 nogood。撞墙之后才有。 <b>L12 界</b> —— LP 松弛给出「最好能多好」，不够好就整棵子树扔掉。每个节点都做一次。  ⚠ 它们<b>不是二选一</b>。现代求解器同时跑好几条：MIP 求解器里有预处理（做的就是结构性的化简）、割平面、还有冲突分析；Chuffed 把传播和学习合在一起；对称破缺两边都能加。  ⚠ 而最后这张表的真正用法，不是背下来，是<b>当你的问题跑不动时拿来问自己</b>：<em>我这个模型，这四种凭据各能给我多少？哪一种我还没喂饱？</em>");
+  SUM(1100,6,{h:"MIP 还是 CP：看你的问题给不给得出好界",
+    k:"<b>MIP 吃「线性 + 紧松弛」</b>，威力全建立在「LP 松弛能给出有用的界」上；<b>CP 吃「组合结构 + 全局约束」</b>，威力建立在「传播能删掉大量值」上。⚠ 这两样<b>往往不是同一批问题，而且常常互相排斥</b>。",
+    m:"实测（10 个任务各 6 分钟，同一台机器）：真正的最短工期 <b>60</b>，而 big-M 析取的 LP 松弛允许 y=1/2 ⇒ <b>两条 big-M 同时放松，所有任务同时从 0 开始</b> ⇒ 界只有 <b>6</b>，<b>低估 90%</b>。任务越多越糟：界永远只是<b>最长那一个</b>，真值是<b>总和</b>（2 个任务低估 42%，5 个 80%，10 个 90%）。",
+    w:"<s>误解</s>：「MIP 求解器工业打磨几十年，一律用它」。前提全是事实，<b>结论不成立</b> —— 它把强弱当成一个维度。前提一塌（松弛给不出界），几十年打磨<b>一点也使不上劲</b>。",
+    e:"⚠ <b>反直觉的一条</b>：别把「组合问题」一律当 MIP 的弱项 —— <b>单独一条 alldifferent 的 MIP 松弛其实很强</b>（分配多面体本身是整的）。<b>弱的是析取型结构的 big-M 展开</b>。⚠ 经验分法不是定理，真实问题常常是混的，<b>两边都跑一下才算数</b> —— 这正是 MiniZinc 的价值：<b>换一个 --solver，模型一个字不用改</b>（手册 3.5）。还有第三条路：Chuffed 的 lazy clause generation（L11）。"});
+  QUIZ(1100,6,{t:"「一台机器上的互斥任务」为什么对 MIP 特别难？",
+    o:["变量太多，模型规模超出求解器能力","析取只能用 big-M 表达，而松弛里 y 可取 1/2 让两条约束同时放松 ⇒ 界只剩「最长那一个」","目标函数是非线性的","因为它是组合问题，而组合问题的 MIP 松弛一律很弱"],
+    a:1,
+    w:"难在<b>析取的 big-M 展开松弛极弱</b>：y=1/2 时两条 big-M 同时被放松，LP 认为所有任务能同时开始，界只剩最长那一个，而真值是总和。<br>选项 A 不对：10 个任务就已经低估 90%，<s>与规模无关</s>。<br>选项 C 不对：全是线性的。<br>选项 D 是个常见的过度推广：<em>单独一条 alldifferent 的 MIP 松弛其实很强</em>（分配多面体是整的）—— <b>弱的是析取，不是「组合」这两个字</b>。"});
+});
+
+KP("完",function(){
+  S(1300,function(){
+      clearScene();setBig(null);setCap(null);setEq(null);
+      setTitle("模块 3 讲完了","四种凭据，四种剪法",
+      "结构 · 传播 · 学习 · 界");
+    },"六集串起来。  <b>松弛</b>就是把「整数」这条约束扔掉。它交出来的<em>不是解</em>（取整往往不可行，也往往不是最优），而是一个 <b>界</b>：真最优再好也好不过它。实测那个背包，LP 给 <b>160/7 ≈ 22.857</b>，整数最优 <b>22</b>。  LP 之所以好解，是因为线性目标在多面体上的最优值<b>一定能在顶点取到</b> —— 无穷多个点塌缩成有限多个顶点。⚠ 单纯形最坏情况是指数的（Klee 与 Minty 那个扰动立方体），但实践中极快。  <b>分支定界</b>用这个界剪枝：节点的 LP 界好不过手上的解，<b>整棵子树直接砍掉</b>，一个点都不用看。实测背包 <b>99 → 29 个节点</b>。⚠ 这和 L10 的剪枝<b>理由不同</b>：那边剪的是「不可行」，这边剪的是「可行但不够好」。  而界有多紧，<b>几乎全看模型怎么写</b>。实测那个固定费用模型，四个 big-M 的<em>整数可行集逐点相同</em>，LP 松弛却是 <b>30 / 48 / 49.8 / 50</b> —— 最紧的那个<b>间隙为 0</b>，最松的那个高估 67%。手册 3.5.2.1 专门警告过这件事。<b>MIP 的建模功夫，大半花在「让松弛更紧」上。</b>  <b>割平面</b>是另一把收紧的刀：加一条对<em>所有整数可行点都成立</em>的不等式，只削掉分数的角。⚠ 和 L09 对照着记：对称破缺<b>会砍掉整数解</b>（每类留一个代表），割平面<b>一个整数解都不砍</b>。两种「合法地砍」，承诺完全不同。  最后是选型。调度那个例子把话说死了：10 个任务各 6 分钟挤在一台机器上，真值 <b>60</b>，而 big-M 析取的 LP 松弛<b>只给出 6</b> —— 低估 90%，<em>一个节点都剪不掉</em>；而 CP 那边 disjunctive 的传播一上来就知道要串行。反过来，网络流、分配、生产计划那类问题松弛紧得几乎就是答案，CP 的传播反而使不上劲。  ⚠ 别过度推广：<b>单独一条 alldifferent 的 MIP 松弛其实很强</b>（分配多面体本身是整的）。<b>弱的是析取型结构的 big-M 展开，不是「组合问题」这四个字。</b>  <b>所以不是哪个更强，是你的问题给不给得出好界。</b>而 MiniZinc 的价值正在这儿 —— <b>同一个模型换一个 `--solver` 就能两边都试</b>，不用重写。  四讲收口：<b>L09 结构 · L10 传播 · L11 学习 · L12 界</b>。四种凭据，砍的是同一个搜索空间。  下一部建议：算法篇 ④《局部搜索》—— 前四讲全是<em>完备</em>方法，下一讲换成放弃完备性、换取能啃下巨大实例的那一类。");
+});
+window.__startProjector(CFG);
+})();
+</script>
